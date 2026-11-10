@@ -107,6 +107,7 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
           const cached = slots.get(key);
           if (!cached || cached.read !== read) return;
           Reflect.set(storage, key, raw, storage);
+          runeJson.clearNumberText(storage, field.key);
           cached.raw = raw;
         });
         const canonical = field.max !== null && field.max <= 1 ? slot.$array()[0] : normalized == null ? undefined : slot.$array();
@@ -127,7 +128,10 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
       const field = typeof key === 'string' && Object.hasOwn(fields, key) ? fields[key] : undefined;
       const normalized = field ? runeValueNormalizeField(value, field, undefined, 'validate', construction ? runeObjectConstruction.get(construction) : undefined) : value;
       const written = Reflect.set(storage, key, normalized, receiver);
-      if (written) slots.delete(key);
+      if (written) {
+        slots.delete(key);
+        if (field) runeJson.clearNumberText(storage, field.key);
+      }
       return written;
     }
   });

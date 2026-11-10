@@ -119,8 +119,8 @@ export function runeValueRuntimeSource(exported = false): string {
   const e = exported ? 'export ' : '';
   return `${DEEP_RUNTIME_SOURCE}
 const runeJson = (() => { ${RUNE_JSON_RUNTIME_SOURCE}
-return { decode: decodeRuneJson, encode: encodeRuneJson, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
-${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON' };
+return { decode: decodeRuneJson, encode: encodeRuneJson, parseNumberText: parseJsonNumberText, retainNumberText: retainJsonNumberText, restoreNumberText: restoreJsonNumberText, clearNumberText: clearJsonNumberText, numberTextField, context: withRuneJsonEncoding, normalizeChoiceWrapper: normalizeRuneJsonChoiceWrapper, projectChoice: projectRuneJsonChoice, pattern: serializeRunePattern, assignable: isRuneJsonAssignableType, acceptsChoice: acceptsRuneJsonChoice, selectChoice: selectRuneJsonChoiceCandidates }; })();
+${e}type RuneJsonOptions = { format?: 'JSON' | 'RUNE_JSON'; preserveNumberText?: boolean };
 ${e}type RuneTuple<T, N extends number, A extends T[] = []> = number extends N ? T[] : A['length'] extends N ? A : A['length'] extends 32 ? T[] : RuneTuple<T, N, [...A, T]>;
 type RuneReadonly<T> = T extends readonly unknown[] ? Readonly<T> : T;
 ${e}type RuneBounded<T, Min extends number, Max extends number, A extends T[] = RuneTuple<T, Min>, Result = never, Bare extends boolean = false> = number extends A['length'] ? T | T[] | undefined : A['length'] extends Max ? Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : Bare extends true ? A : RuneList<T, A['length'], A['length']> & A) : A['length'] extends 32 ? T | T[] | undefined : RuneBounded<T, Min, Max, [...A, T], Result | (A['length'] extends 0 ? undefined : A['length'] extends 1 ? T : Bare extends true ? A : RuneList<T, A['length'], A['length']> & A), Bare>;
@@ -483,6 +483,8 @@ ${e}function runeProjectedJSON(input: unknown, type: () => RuneValueType, option
 ${runeCodecRuntimeSource()}
 ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?: RuneJsonOptions | string): unknown => {
   const runeFormat = typeof options === 'object' && options?.format === 'RUNE_JSON';
+  const preserveNumberText = typeof options === 'object' && options?.preserveNumberText;
+  const includeField = (key: string) => preserveNumberText || key !== runeJson.numberTextField;
   const active = new WeakSet<object>();
   const encodedModels = new WeakMap<object, RuneValueType>();
   let codecProjection = false;
@@ -496,13 +498,13 @@ ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?:
     active.add(value);
     try {
       if (Array.isArray(value)) return value.map(item => visit(item, model));
-      const result = Object.fromEntries(Object.entries(value).filter(([key, item]) => typeof item !== 'function' && !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
+      const result = Object.fromEntries(Object.entries(value).filter(([key, item]) => includeField(key) && typeof item !== 'function' && !Object.hasOwn(model?.fields ?? {}, key)).map(([key, item]) => [key, visit(item)]));
       for (const field of Object.values(model?.fields ?? {})) {
         const raw = (value as Record<string, unknown>)[field.key];
         const item = (child: unknown): unknown => {
           if (!field.metadata || child == null) return visit(child, runeValueType(field)?.());
           if (typeof child !== 'object' || Array.isArray(child)) throw new TypeError('Expected a Rune metadata envelope');
-          const envelope = Object.fromEntries(Object.entries(child));
+          const envelope = Object.fromEntries(Object.entries(child).filter(([key]) => includeField(key)));
           if (Object.hasOwn(envelope, 'value')) envelope.value = visit(envelope.value, runeValueType(field)?.());
           return runeJson.context(envelope, 'envelope');
         };
@@ -547,10 +549,14 @@ ${e}const runeValueJSON = (input: unknown, type?: () => RuneValueType, options?:
   };
   const declaredModel = type?.();
   const encoded = encode(input, declaredModel);
-  return runeFormat ? runeJson.encode(visit(encoded, declaredModel)) : visit(encoded);
+  const plain = visit(encoded, runeFormat ? declaredModel : undefined);
+  const restored = preserveNumberText ? runeJson.restoreNumberText(plain) : plain;
+  return runeFormat ? runeJson.encode(restored) : restored;
 };
 ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, options: RuneJsonOptions = {}): unknown => {
-  const parsed: unknown = typeof input === 'string' ? JSON.parse(input) : input;
+  const captureText = typeof input === 'string' && options.preserveNumberText;
+  const parsed: unknown = typeof input === 'string' ? captureText ? runeJson.parseNumberText(input) : JSON.parse(input) : input;
+  const retain = (value: unknown) => captureText ? runeJson.retainNumberText(value) : value;
   const decode = (value: unknown): unknown => {
     if (value == null) return value;
     if (Array.isArray(value)) return value.map(decode);
@@ -562,7 +568,7 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     }
     return codec?.decode(value) ?? value;
   };
-  if (options.format !== 'RUNE_JSON') return decode(parsed);
+  if (options.format !== 'RUNE_JSON') return decode(retain(parsed));
   const visit = (value: unknown, declaredModel?: RuneValueType): unknown => {
     if (Array.isArray(value)) return value.map(item => visit(item, declaredModel));
     if (!value || typeof value !== 'object' || !declaredModel) return value;
@@ -597,7 +603,7 @@ ${e}const runeValueFromJSON = (input: unknown, type: () => RuneValueType, option
     }
     return result;
   };
-  return decode(visit(runeJson.decode(parsed), type()));
+  return decode(visit(retain(runeJson.decode(parsed)), type()));
 };
 ${runeObjectRuntimeSource(exported)}`;
 }

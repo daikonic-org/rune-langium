@@ -7,7 +7,7 @@ import { URI } from 'langium';
 import { generate } from '../../src/export.js';
 import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
 
-type JsonOptions = { format: 'RUNE_JSON' };
+type JsonOptions = { format?: 'RUNE_JSON'; preserveNumberText?: boolean };
 interface ModelView extends Record<'quote' | 'selected' | 'amount', ModelView> {
   field(name: string): ModelView;
   toJSON(options?: JsonOptions): unknown;
@@ -130,6 +130,16 @@ Child.from({ value: 1 });
     const wire = quote.toJSON({ format: 'RUNE_JSON' });
     expect(wire).toEqual({ '@type': 'publicApi.Quote', ...input });
     expect(api.Quote.fromJSON(JSON.stringify(wire), { format: 'RUNE_JSON' }).toJSON()).toMatchObject(input);
+    const exact = api.Quote.fromJSON('{"@type":"publicApi.Quote","amount":5.00,"currency":"USD"}', {
+      format: 'RUNE_JSON',
+      preserveNumberText: true
+    });
+    expect(exact.amount).toBe(5);
+    expect(exact.toJSON()).toMatchObject(input);
+    expect(exact.toJSON()).not.toHaveProperty('@numberText');
+    expect(JSON.stringify(exact.toJSON({ format: 'RUNE_JSON', preserveNumberText: true }))).toContain('"amount":5.00');
+    expect(Reflect.set(exact, 'amount', 5)).toBe(true);
+    expect(JSON.stringify(exact.toJSON({ preserveNumberText: true }))).not.toContain('5.00');
     expect(() => api.Quote.fromJSON({ '@type': 'other.Quote', ...input }, { format: 'RUNE_JSON' })).toThrow(
       /not assignable/
     );
