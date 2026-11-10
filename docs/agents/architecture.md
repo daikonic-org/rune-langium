@@ -1461,9 +1461,14 @@ that shared accessor. Empty lists retain the existing never-value adapter bounda
 Single-file generation uses Core namespace dependencies and the shared Tarjan
 components. It topologically orders the SCC condensation graph, retaining stable
 order within a cycle and placing the entire cycle before downstream consumers.
-The existing type-level cyclic-last policy remains separate. XSD references use
-resolved declaration namespaces for QNames and relative schema imports, including
-foreign enum restrictions and complex-type inheritance.
+The existing type-level cyclic-last policy remains separate. TypeScript also
+checks its emitted namespace dependencies for cycles containing a class
+inheritance edge. It emits each such component together and orders class
+initialization by the linked base types. Namespace entry modules re-export
+their original bindings from that shared file. Single-file output orders the
+same class declarations within the main module.
+XSD references use resolved declaration namespaces for QNames and relative
+schema imports, including foreign enum restrictions and complex-type inheritance.
 XSD attribute escaping uses numeric references for tabs and line endings so XML
 normalization cannot change an external enum code into a different value.
 

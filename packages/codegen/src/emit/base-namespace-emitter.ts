@@ -243,7 +243,7 @@ export function buildReportRulesLines(
 
 /** Build sorted ES import lines for cross-namespace references. */
 export function buildCrossNsImportLines(
-  imports: Map<string, Set<string>>,
+  imports: ReadonlyMap<string, ReadonlySet<string>>,
   fromNs: string,
   registry: NamespaceRegistry,
   suffix: string

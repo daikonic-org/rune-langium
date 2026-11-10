@@ -22,6 +22,8 @@ import { commodityCalculationPeriods as typescriptCommodityPeriods } from './typ
 import { commodityCalculationPeriods as pythonCommodityPeriods } from './python/commodity-periods.js';
 import { loadCodeList as typescriptLoadCodeList } from './typescript/load-code-list.js';
 import { loadCodeList as pythonLoadCodeList } from './python/load-code-list.js';
+import { createBillingSummary as typescriptBillingSummary } from './typescript/billing-summary.js';
+import { createBillingSummary as pythonBillingSummary } from './python/billing-summary.js';
 import type { CdmCodeListCatalog } from './code-list-resources.js';
 import { FunctionImplementationSchema, type FunctionImplementation } from '@rune-langium/core/project-contract';
 
@@ -90,6 +92,12 @@ const strataFrequencySources = [
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  Create_BillingSummary: {
+    inputs: [
+      { name: 'billingRecord', type: 'cdm.event.common.BillingRecord', kind: 'Data', card: [1, '*'], plain: true }
+    ],
+    output: { name: 'billingSummary', type: 'cdm.event.common.BillingSummary', kind: 'Data', card: [1, 1], plain: true }
+  },
   BusinessCenterHolidays: {
     inputs: [businessCenter],
     output: holidayDates
@@ -624,6 +632,25 @@ const utility = (name: keyof typeof typescriptUtilities, namespace = 'cdm.base.d
   }
 });
 export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplementation)[] = [
+  {
+    kind: 'language-specific',
+    id: 'cdm.create-billing-summary',
+    namespace: 'cdm.event.common',
+    name: 'Create_BillingSummary',
+    signature: signatures.Create_BillingSummary!,
+    targets: {
+      typescript: {
+        ...typescriptBillingSummary,
+        path: 'packages/project-runtime/src/curated-implementations/typescript/billing-summary.ts',
+        entrypoint: 'createBillingSummary'
+      },
+      python: {
+        ...pythonBillingSummary,
+        path: 'packages/project-runtime/src/curated-implementations/python/billing-summary.ts',
+        entrypoint: 'createBillingSummary'
+      }
+    }
+  },
   {
     kind: 'rune',
     namespace: 'cdm.base.datetime',

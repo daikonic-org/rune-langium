@@ -134,11 +134,9 @@ describe.skipIf(!CDM_EXISTS)('US12: CDM Corpus Cross-Namespace Codegen (T082)', 
 
   it('CDM output includes cross-namespace type references', async () => {
     const outputs = typescriptOutputs;
-    // CDM uses inheritance across namespaces extensively — at least some outputs
-    // must contain exported class/interface declarations.
-    const outputsWithTypes = outputs.filter(
-      (o) => o.content.includes('export class') || o.content.includes('export interface')
-    );
-    expect(outputsWithTypes.length).toBeGreaterThan(10);
+    // A generated shared module can own the declarations for several public namespaces.
+    const declarations = outputs.flatMap((output) => [...output.content.matchAll(/^export (?:class|interface) /gm)]);
+    expect(declarations.length).toBeGreaterThan(10);
+    expect(outputs.filter((output) => output.namespaces?.length === 1).length).toBeGreaterThan(10);
   }, 60_000);
 });

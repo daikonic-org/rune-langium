@@ -84,7 +84,11 @@ import type {
   GeneratedFunc
 } from '../types.js';
 import { resolveImportPath, type NamespaceRegistry } from './namespace-registry.js';
-import { emitNamespaceWithContract, type NamespaceEmitterOptions } from './namespace-emitter.js';
+import {
+  emitNamespaceDeclarations,
+  emitNamespaceWithContract,
+  type NamespaceEmitterOptions
+} from './namespace-emitter.js';
 import {
   BaseNamespaceEmitter,
   decodeCardinality,
@@ -98,9 +102,8 @@ import {
 } from './base-namespace-emitter.js';
 import { getTargetRelativePath, type NamespaceWalkResult } from './namespace-walker.js';
 import { debug } from '../instrument.js';
-import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js';
 import { ValueApiEmitter, MODEL_NAMESPACE_MEMBERS, type ValueApiEmission } from './value-api.js';
-import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES, RUNE_VALUE_TYPE_NAMES } from '../expr/rune-value-runtime.js';
+import { RUNE_VALUE_NAMES, RUNE_VALUE_TYPE_NAMES } from '../expr/rune-value-runtime.js';
 import {
   attrAccessExpr,
   transpileCondition,
@@ -109,10 +112,11 @@ import {
 } from '../expr/transpiler.js';
 import {
   typescriptProfile,
-  TS_LIBRARY_RUNTIME_SOURCE,
   TS_RUNTIME_SIDECAR_PATH,
+  TS_INPUT_CHECK_PREFIX,
   typescriptHelperModuleName,
-  typescriptCardinalityExports
+  typescriptCardinalityExports,
+  typescriptRuntimePreamble
 } from './typescript-profile.js';
 
 import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
@@ -241,6 +245,12 @@ export function emitNamespace(
   return emitNamespaceWithContract(model, options, registry, TsNamespaceEmitter);
 }
 
+export interface TypeScriptComponentMember {
+  output: GeneratorOutput;
+  classes: ReadonlyMap<Data, string>;
+  exportNames: ReadonlyMap<string, string>;
+}
+
 export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly valueApi = new ValueApiEmitter(
     (node, suffix = '') => {
@@ -294,6 +304,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   private readonly zodSerialization: boolean;
   private readonly projectBindings: NamespaceEmitterOptions['projectBindings'];
   private readonly localCallableAliases = new Map<string, string>();
+  private componentNamespace?: string;
+  private readonly componentClasses = new Map<Data, string>();
+  private readonly componentExports = new Map<string, string>();
+  private crossNamespaceImportBindings?: ReadonlyMap<string, ReadonlySet<string>>;
 
   constructor(
     model: NamespaceWalkResult,
@@ -320,11 +334,27 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private readonly emittedData = new Set<Data>();
 
+  get moduleImports(): ReadonlyMap<string, ReadonlySet<string>> {
+    return (this.crossNamespaceImportBindings ??= this.collectCrossNamespaceImports());
+  }
+
+  emitComponentMember(moduleNamespace: string): TypeScriptComponentMember {
+    this.componentNamespace = moduleNamespace;
+    const output = emitNamespaceDeclarations(this.model, this);
+    return { output, classes: this.componentClasses, exportNames: this.componentExports };
+  }
+
+  private exportName(namespace: string, name: string): string {
+    if (!this.singleFile && !this.componentNamespace && namespace === this.model.namespace) return name;
+    const bundled = this.callableNames.bundled(namespace, name);
+    if (this.componentNamespace && namespace === this.model.namespace) this.componentExports.set(bundled, name);
+    return bundled;
+  }
+
   private callableName = (declaration: CallableDeclaration, forceAlias = false): string => {
     const namespace = getElementNamespace(declaration) ?? this.model.namespace;
     const name = this.callableNames.exported(namespace, callableExportName(declaration));
-    const emitted =
-      this.singleFile || namespace !== this.model.namespace ? this.callableNames.bundled(namespace, name) : name;
+    const emitted = this.exportName(namespace, name);
     if (forceAlias) {
       if (this.callableNames.alias(namespace, name) === emitted) return emitted;
       const alias = this.callableNames.protectedAlias(namespace, name, this.model.namespace);
@@ -338,18 +368,13 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     const namespace = getElementNamespace(declaration) ?? this.model.namespace;
     if (isData(declaration) || isChoice(declaration)) {
       const exported = this.callableNames.declarationExported(namespace, declaration);
-      const root =
-        this.singleFile || namespace !== this.model.namespace
-          ? this.callableNames.bundled(namespace, exported)
-          : exported;
+      const root = this.exportName(namespace, exported);
       if (exportedName === `${declaration.name}Shape`) return `${root}.Shape`;
       if (exportedName === `is${declaration.name}`) return `${root}.is`;
       return root;
     }
     exportedName = this.callableNames.declarationExported(namespace, declaration, exportedName);
-    return this.singleFile || namespace !== this.model.namespace
-      ? this.callableNames.bundled(namespace, exportedName)
-      : exportedName;
+    return this.exportName(namespace, exportedName);
   };
 
   private modelTypeReference(node: Data | Choice, shape = false, inNamespace = false): string {
@@ -374,13 +399,9 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
   }
 
   emitCrossNamespaceImports(): void {
-    const crossNsImports = this.collectCrossNamespaceImports();
-    for (const importLine of crossNsImports) {
-      this.sections.push(importLine);
-    }
-    if (crossNsImports.length > 0) {
-      this.sections.push('');
-    }
+    if (this.componentNamespace) return;
+    const imports = buildCrossNsImportLines(this.moduleImports, this.ctx.namespace, this.ctx.registry, '.js');
+    if (imports.length) this.sections.push(...imports, '');
   }
 
   emitAnnotation(annotation: Annotation): void {
@@ -412,13 +433,16 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     if (isData(parent) && this.ctx.dataByName.get(parent.name) === parent) this.emitData(parent);
     const api = this.valueApi.emit(data);
     if (api.prelude) this.sections.push(api.prelude, '');
-    this.sections.push(this.emitClass(data, api), '');
-    this.sections.push(
+    const sections = [
+      this.emitClass(data, api),
+      '',
       this.emitModelNamespace(data, `${this.emitInterface(data)}\n${api.types}`),
       '',
       `is.${this.guardName(data)} = RuneObject.guard(${this.typeName(data)});`,
       ''
-    );
+    ];
+    if (this.componentNamespace) this.componentClasses.set(data, sections.join('\n'));
+    else this.sections.push(...sections);
   }
 
   /**
@@ -461,10 +485,15 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
 
   private guardDeclarations(): string {
     const models = [...this.ctx.dataByName.values(), ...this.ctx.choiceByName.values()];
-    const helperPath = `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`;
-    const exports = this.singleFile
-      ? ''
-      : `export { Cardinality, RuneObject, RuneList, is };\nexport type { ${typescriptCardinalityExports(this.registry).join(', ')} }${this.suppressBoilerplate ? ` from '${helperPath}'` : ''};`;
+    const helper = typescriptHelperModuleName(this.registry);
+    const helperPath =
+      (this.singleFile
+        ? './' + helper
+        : resolveImportPath(this.componentNamespace ?? this.model.namespace, helper, this.registry)) + '.js';
+    const exports =
+      this.singleFile || this.componentNamespace
+        ? ''
+        : `export { Cardinality, RuneObject, RuneList, is };\nexport type { ${typescriptCardinalityExports(this.registry).join(', ')} }${this.suppressBoilerplate ? ` from '${helperPath}'` : ''};`;
     if (!models.length) return exports;
     const declarations = models.map((node) => {
       const name = this.typeName(node);
@@ -472,7 +501,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     });
     const body = `  namespace is {\n${declarations.join('\n')}\n  }`;
     const augmentation = this.suppressBoilerplate
-      ? `declare module '${this.singleFile ? `./${typescriptHelperModuleName(this.registry)}.js` : `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`}' {\n${body}\n}`
+      ? `declare module '${helperPath}' {\n${body}\n}`
       : `declare namespace is {\n${declarations.map((line) => line.slice(2)).join('\n')}\n}`;
     return `${augmentation}${exports ? `\n${exports}` : ''}`;
   }
@@ -583,8 +612,12 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       });
       this.ctx.sourceMap.push(...sources.map((entry) => ({ ...entry, outputLine: outputLine + entry.outputLine })));
 
-      const inputCheckExportName = this.inputChecks ? `$rune$check$${group[0]!.name}` : undefined;
+      const inputCheckExportName = this.inputChecks ? TS_INPUT_CHECK_PREFIX + group[0]!.name : undefined;
       if (inputCheckExportName) {
+        if (this.componentNamespace) {
+          const name = this.componentExports.get(group[0]!.name) ?? group[0]!.name;
+          this.componentExports.set(inputCheckExportName, TS_INPUT_CHECK_PREFIX + name);
+        }
         this.sections.push(
           renderFuncDispatchGroup(group, {
             renderSignature: (base) =>
@@ -670,7 +703,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Collect cross-namespace import statements needed for the types and aliases
    * defined in this emission context.
    */
-  private collectCrossNamespaceImports(): string[] {
+  private collectCrossNamespaceImports(): Map<string, Set<string>> {
     const imports = new Map<string, Set<string>>(); // namespace -> symbol names
 
     const trackRef = (
@@ -883,7 +916,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
         trackRef(dependency, dependency.name);
       }
     }
-    return buildCrossNsImportLines(imports, this.ctx.namespace, this.ctx.registry, '.js');
+    return imports;
   }
 
   /**
@@ -1506,9 +1539,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * Renamed from emitReportMetadata to avoid collision with the public interface method.
    */
   private buildReportMetadataText(): string {
-    const name = this.singleFile
-      ? this.callableNames.bundled(this.model.namespace, 'runeReportRules')
-      : 'runeReportRules';
+    const name = this.exportName(this.model.namespace, 'runeReportRules');
     const lines = buildReportRulesLines(this.ctx.rulesByName, name);
     return lines.length === 0 ? '' : lines.join('\n');
   }
@@ -1582,7 +1613,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
    * No `import { z } from 'zod'` — zero Zod dependency.
    * T104.
    */
-  private usesMetadata(): boolean {
+  get usesMetadata(): boolean {
     const declarationUsesMetadata = (node: AstNode | undefined): boolean =>
       ((isAttribute(node) || isChoiceOption(node)) && hasFieldMetadata(node)) ||
       (isData(node) && hasTypeMetadata(node)) ||
@@ -1607,39 +1638,31 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
     return `$codec$${namespace.replace(/[^\w]/g, '$')}`;
   }
 
-  private buildFileHeader(): string {
-    const libraryHelpers = [...this.ctx.libraryFuncsByName.keys()].flatMap((name) => {
+  get libraryHelpers(): string[] {
+    return [...this.ctx.libraryFuncsByName.keys()].flatMap((name) => {
       const binding = typescriptProfile.libraryFuncMap[name];
       return binding?.importFrom === TS_RUNTIME_SIDECAR_PATH && binding.expr ? [binding.expr] : [];
     });
+  }
+
+  private buildFileHeader(): string {
     return [
       `// SPDX-License-Identifier: MIT`,
       `// Generated by @rune-langium/codegen — do not edit`,
       `// Source namespace: ${this.model.namespace}`,
       ``,
-      ...(this.suppressBoilerplate
-        ? [
-            "import { Temporal } from '@js-temporal/polyfill';",
-            buildRuntimeHelperImportLine(
-              `${resolveImportPath(this.model.namespace, typescriptHelperModuleName(this.registry), this.registry)}.js`,
-              [
-                ...libraryHelpers,
-                ...RUNE_VALUE_IMPORTS,
-                ...(this.usesMetadata()
-                  ? ['type RuneFieldWithMeta', 'type RuneReferenceWithMeta', 'type RuneMetadata']
-                  : [])
-              ]
-            ),
-            ``
-          ]
-        : [
-            runtimeHelperSource(true, false, this.usesMetadata(), true),
-            ...(libraryHelpers.length ? [TS_LIBRARY_RUNTIME_SOURCE] : []),
-            ''
-          ]),
+      ...(this.componentNamespace
+        ? []
+        : typescriptRuntimePreamble(
+            this.registry,
+            this.model.namespace,
+            this.libraryHelpers,
+            this.usesMetadata,
+            !this.suppressBoilerplate
+          )),
       ...(this.zodSerialization
         ? [
-            `import * as ${this.codecModule(this.model.namespace)} from '${this.singleFile ? `./${this.model.namespace.replaceAll('.', '/')}` : resolveImportPath(this.model.namespace, this.model.namespace, this.registry)}.zod.js';`,
+            `import * as ${this.codecModule(this.model.namespace)} from '${resolveImportPath(this.componentNamespace ?? (this.singleFile ? 'model' : this.model.namespace), this.model.namespace, this.registry)}.zod.js';`,
             ''
           ]
         : []),

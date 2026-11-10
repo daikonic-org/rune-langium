@@ -1,0 +1,19 @@
+[
+  { "id": "exact-decimal-parent-total", "inputs": [{ "amount": 0.1 }, { "amount": 0.2 }], "expectedAmount": 0.3 },
+  { "id": "duplicate-records-count-once-each", "inputs": [{ "amount": 12.5 }, { "amount": 12.5 }], "expectedAmount": 25 },
+  { "id": "zero-record", "inputs": [{ "amount": 0 }], "expectedAmount": 0 },
+  { "id": "combine-at-the-finite-output-boundary", "inputs": [{ "amount": 0.9 }, { "amount": 0.1 }, { "amount": 1 }], "expectedAmount": 2 },
+  { "id": "same-reference-with-embedded-party", "inputs": [{ "amount": 1 }, { "amount": 3, "embeddedReceiver": true }], "expectedAmount": 4 },
+  { "id": "same-embedded-party-identifier", "inputs": [{ "amount": 1, "payer": "embedded" }, { "amount": 2, "payer": "embedded" }], "expectedAmount": 3 },
+  { "id": "unscheduled-total", "inputs": [{ "amount": 3, "kind": "unscheduledTransfer" }, { "amount": 7, "kind": "unscheduledTransfer" }], "expectedAmount": 10 },
+  { "id": "contingent-total", "inputs": [{ "amount": 4, "kind": "contingentTransfer" }, { "amount": 2, "kind": "contingentTransfer" }], "expectedAmount": 6 },
+  { "id": "different-currency", "inputs": [{ "amount": 1 }, { "amount": 2, "currency": "EUR" }], "expectedError": "one settlement group" },
+  { "id": "different-settlement-date", "inputs": [{ "amount": 1 }, { "amount": 2, "date": "2024-02-03" }], "expectedError": "one settlement group" },
+  { "id": "different-transfer-kind", "inputs": [{ "amount": 1 }, { "amount": 2, "kind": "unscheduledTransfer" }], "expectedError": "one settlement group" },
+  { "id": "different-scope-with-same-reference-label", "inputs": [{ "amount": 1 }, { "amount": 2, "payer": "otherScope" }], "expectedError": "same identifiable payer and receiver" },
+  { "id": "different-receiver", "inputs": [{ "amount": 1 }, { "amount": 2, "receiver": "other" }], "expectedError": "same identifiable payer and receiver" },
+  { "id": "empty-parent-reference", "inputs": [{ "amount": 1, "payer": "empty" }], "expectedError": "same identifiable payer and receiver" },
+  { "id": "incomplete-record-transfer", "inputs": [{ "amount": 1, "incomplete": true }], "expectedError": "complete asset" },
+  { "id": "negative-record-amount", "inputs": [{ "amount": -1 }], "expectedError": "finite non-negative" },
+  { "id": "overflow-at-the-output-boundary", "inputs": [{ "amount": 1.7e308 }, { "amount": 1.7e308 }], "expectedError": "finite number profile|too large for a float" }
+]

@@ -45,6 +45,11 @@ The [commodity period fixture](cdm-commodity-periods/README.md) retains the
 handwritten CDM 7.9.0 recurrence and its FpML 3.13.0 input declarations, along
 with JVM comparisons and separate term/admission cases.
 
+## CDM billing summaries
+
+The [billing summary fixture](cdm-billing-summary/README.md) pins the original
+CDM settlement and billing types and tests the standalone curated port.
+
 ## CDM calculation period range
 
 The [range fixture](cdm-period-range/README.md) pins the handwritten constructor

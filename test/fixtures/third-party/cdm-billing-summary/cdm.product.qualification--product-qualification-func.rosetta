@@ -1,0 +1,97 @@
+namespace cdm.product.qualification
+version "${project.version}"
+
+import cdm.base.*
+import cdm.base.datetime.*
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.asset.rates.*
+import cdm.margin.schedule.*
+import cdm.observable.asset.*
+import cdm.product.common.settlement.*
+import cdm.product.template.*
+
+isProduct root EconomicTerms;
+
+func Qualify_AssetClass_Equity:
+    inputs:
+        economicTerms EconomicTerms (1..1)
+    output:
+        is_product boolean (1..1)
+
+    alias optionUnderlier: economicTerms -> payout as OptionPayout only-element -> underlier
+    alias settlementUnderlier:
+        economicTerms -> payout as SettlementPayout only-element -> underlier
+
+    set is_product:
+        (economicTerms -> payout as PerformancePayout exists
+                and economicTerms -> payout as PerformancePayout -> underlier
+                    as Observable
+                    extract [ Qualify_UnderlierObservable_Equity ]
+                all = True)
+            or (OptionPayoutOnlyExists(economicTerms -> payout)
+                and (Qualify_UnderlierObservable_Equity(optionUnderlier as Observable)
+                    or if optionUnderlier as Product exists
+                        then Qualify_AssetClass_Equity(
+                                    optionUnderlier as Product ->> economicTerms
+                                ) = True
+                        else False))
+            or ((SettlementPayoutOnlyExists(economicTerms -> payout)
+                    or (economicTerms -> payout as SettlementPayout exists and economicTerms -> payout as InterestRatePayout exists))
+                and (Qualify_UnderlierObservable_Equity(settlementUnderlier as Observable)
+                    or if settlementUnderlier as Product ->> economicTerms exists
+                        then Qualify_AssetClass_Equity(
+                                    settlementUnderlier as Product ->> economicTerms
+                                ) = True
+                        else False))
+
+func Qualify_UnderlierObservable_Equity: <"Qualifies an Observable as having the Asset Class classification Equity.">
+    inputs:
+        observable Observable (1..1)
+    output:
+        is_product boolean (1..1)
+
+    set is_product:
+        Qualify_SecurityTypeEquity(observable as Security)
+            or observable as Index ->> assetClass = AssetClassEnum -> Equity
+                // Qualifies that the underlier is a basket composed of equity products only
+            or (observable as Basket exists
+                and observable as Basket -> basketConstituent -> observable
+                    extract [ Qualify_UnderlierObservable_Equity ]
+                any = True)
+
+func Qualify_SecurityTypeEquity: <"Qualifies that the security type, for all of the provided securities, is Equity-related.">
+    inputs:
+        security Security (1..1)
+    output:
+        is_equity boolean (1..1)
+
+    alias securityType: security -> securityType
+
+    set is_equity:
+        securityType = Equity
+            or (securityType = Fund and security -> fundType = ExchangeTradedFund)
+            or (securityType = Fund and security -> fundType = MutualFund)
+            or securityType = Warrant
+
+func SettlementPayoutOnlyExists: <"At least one SettlementPayout exists and no other payouts exist.">
+    inputs:
+        payouts Payout (0..*)
+    output:
+        result boolean (1..1)
+
+    set result:
+        payouts
+            extract SettlementPayout exists
+            then all = True
+            then default False
+
+func OptionPayoutOnlyExists: <"At least one OptionPayout exists and no other payouts exist.">
+    inputs:
+        payouts Payout (0..*)
+    output:
+        result boolean (1..1)
+
+    set result:
+        payouts
+            extract OptionPayout exists
+            then all = True default False

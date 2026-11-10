@@ -973,12 +973,20 @@
       "sha256": "1114b34da855617cd09d8f2308452abff54885d526a7713e2a4ff05b5e2894dd"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/billing-summary.ts",
+      "sha256": "20b530383e14e7695c95779098fa4996060ca7c22cd3e542331d32f208d68b10"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "f93b99444dab8e017cae49f85e19324e21b953a46cdfa3a488f4f8d1ff32efdb"
+      "sha256": "b49dcd79d744c14d926060b000896046c86aa330bb7a0f7829e7b588c68ca14e"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
       "sha256": "00c22f09d3cf63ab14015c6c275f55dae7d2a48a6fb2fd18f0f3a2d345165015"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/python/billing-summary.ts",
+      "sha256": "b5ecbfdf05a70a6ed0f2ffdc4d51569f8f213d2bf9359117c885c9239de33378"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/commodity-periods.ts",
@@ -1115,6 +1123,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta",
       "sha256": "5abb2bca9eeea455fbee16b66d90caa7a6964d4d1da2adc8435a618e676ece9e"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/typescript/billing-summary.ts",
+      "sha256": "8c7ff0a2dd2fb3d9b52119f17798efa926422b6f5543dd3a9cb3c5a10ceacc2f"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/typescript/commodity-periods.ts",
@@ -3854,7 +3866,24 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "language-specific",
+        "targets": {
+          "typescript": {
+            "id": "cdm.create-billing-summary",
+            "path": "packages/project-runtime/src/curated-implementations/typescript/billing-summary.ts",
+            "entrypoint": "createBillingSummary",
+            "dependencies": []
+          },
+          "python": {
+            "id": "cdm.create-billing-summary",
+            "path": "packages/project-runtime/src/curated-implementations/python/billing-summary.ts",
+            "entrypoint": "createBillingSummary",
+            "dependencies": [
+              "decimal",
+              "fractions"
+            ]
+          }
+        }
       },
       "referenceJava": {
         "implementations": [],
@@ -3863,10 +3892,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "candidate",
-        "requirements": "Aggregation/construction over supplied billing records; establish authoritative grouping and amount rules.",
+        "route": "primitive-backed",
+        "requirements": "CDM specifies a single ParentTotal sum. The targets preserve scoped references and add canonical decimal amounts exactly before the finite-number output boundary. A Rune body needs equivalent reference identity and decimal sum primitives.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/billing-summary.test.ts",
+        "cases": "test/fixtures/third-party/cdm-billing-summary/cases.json",
+        "casesSha256": "4466fdc3c97146e6cf3d12069a0249ecbbcbdc868ba0737425e40cd46f133bc2",
+        "selectors": [],
+        "caseCount": 17
       }
     },
     {

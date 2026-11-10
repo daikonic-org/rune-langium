@@ -1,0 +1,11 @@
+namespace cdm.base.staticdata.party : <"Basic party concepts: legal entity, natural person, contact details, buyer / payer and all related enums.">
+version "${project.version}"
+
+func FilterPartyRole: <"Filters the list of partyRoles based on the provided partyRoleEnum.">
+    inputs:
+        partyRoles PartyRole (0..*)
+        partyRoleEnum PartyRoleEnum (1..1)
+    output:
+        filteredPartyRoles PartyRole (0..*)
+
+    add filteredPartyRoles: partyRoles filter role = partyRoleEnum

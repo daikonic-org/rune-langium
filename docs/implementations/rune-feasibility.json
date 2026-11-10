@@ -317,8 +317,8 @@
         "name": "Create_BillingSummary"
       },
       "signatureSha256": "8fad3f542138fa9a24c6f73c6d9d40377f623765ed8f69e59d70958944495a6e",
-      "route": "candidate",
-      "requirements": "Aggregation/construction over supplied billing records; establish authoritative grouping and amount rules."
+      "route": "primitive-backed",
+      "requirements": "CDM specifies a single ParentTotal sum. The targets preserve scoped references and add canonical decimal amounts exactly before the finite-number output boundary. A Rune body needs equivalent reference identity and decimal sum primitives."
     },
     {
       "symbol": {

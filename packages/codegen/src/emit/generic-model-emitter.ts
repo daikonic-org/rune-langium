@@ -11,6 +11,8 @@ import type { LanguageProfile } from './language-profile.js';
 import { collectNamespaceDependencies } from '@rune-langium/core';
 import { topoSortComponents } from '../topo-sort.js';
 
+export type ModelLayout = 'per-namespace' | 'barrel' | 'single-file';
+
 /**
  * Parameterized `WholeModelEmitter` that wraps any `NamespaceEmitter`
  * plus a `LanguageProfile` (019 spec §3.2). Collapses the
@@ -66,14 +68,29 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
         }
       ];
     }
-    const layout = rawLayout;
+    return this.emitLayout(walks, registry, options, rawLayout);
+  }
 
+  protected emitLayout(
+    walks: ReadonlyMap<string, NamespaceWalkResult>,
+    registry: NamespaceRegistry,
+    options: GeneratorOptions,
+    layout: ModelLayout
+  ): GeneratorOutput[] {
     // Step 1 — per-namespace emission with boilerplate suppressed.
     const perNs: GeneratorOutput[] = [];
     for (const walk of walks.values()) {
       perNs.push(emitNamespaceWithContract(walk, { ...options, suppressBoilerplate: true }, registry, this.innerCtor));
     }
-    const outputNamespaces = new Map(perNs.map((output, index) => [output.relativePath, [...walks.keys()][index]!]));
+    return this.assembleNamespaces(walks, registry, layout, perNs);
+  }
+
+  protected assembleNamespaces(
+    walks: ReadonlyMap<string, NamespaceWalkResult>,
+    registry: NamespaceRegistry,
+    layout: ModelLayout,
+    perNs: GeneratorOutput[]
+  ): GeneratorOutput[] {
     perNs.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 
     if (layout === 'single-file') {
@@ -83,10 +100,7 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
         edges: new Map([...dependencies].map(([name, deps]) => [name, [...deps]]))
       };
       const order = topoSortComponents(graph);
-      perNs.sort(
-        (a, b) =>
-          order.indexOf(outputNamespaces.get(a.relativePath)!) - order.indexOf(outputNamespaces.get(b.relativePath)!)
-      );
+      perNs.sort((a, b) => order.indexOf(a.namespaces?.[0] ?? '') - order.indexOf(b.namespaces?.[0] ?? ''));
       return this.emitSingleFile(perNs, registry);
     }
 
@@ -106,12 +120,17 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
     return (options as unknown as Record<string, { layout?: string } | undefined>)[this.profile.target];
   }
 
-  private emitSingleFile(perNs: ReadonlyArray<GeneratorOutput>, registry: NamespaceRegistry): GeneratorOutput[] {
+  protected emitSingleFile(
+    perNs: ReadonlyArray<GeneratorOutput>,
+    registry: NamespaceRegistry,
+    combined?: GeneratorOutput
+  ): GeneratorOutput[] {
+    const namespaces = [...new Set(perNs.flatMap((output) => output.namespaces ?? []))];
     const limits = this.profile.singleFileLimits;
 
     // Pre-flight size check before concatenation.
     if (limits) {
-      const overage = this.checkLimits(perNs, limits);
+      const overage = this.checkLimits(perNs, limits, combined ? namespaces.length : perNs.length);
       if (overage) {
         return [
           {
@@ -125,22 +144,23 @@ export class GenericModelEmitter<T extends Target = Target> implements WholeMode
       }
     }
 
-    const main = this.profile.concatenate(perNs, registry);
-    main.namespaces = [...new Set(perNs.flatMap((output) => output.namespaces ?? []))];
+    const main = combined ?? this.profile.concatenate(perNs, registry);
+    main.namespaces = namespaces;
     const sidecars = this.sharedArtifacts(perNs, registry);
     return sidecars.length > 0 ? [main, ...sidecars] : [main];
   }
 
-  private sharedArtifacts(perNs: ReadonlyArray<GeneratorOutput>, registry: NamespaceRegistry): GeneratorOutput[] {
+  protected sharedArtifacts(perNs: ReadonlyArray<GeneratorOutput>, registry: NamespaceRegistry): GeneratorOutput[] {
     return this.profile.makeSharedArtifacts(perNs, registry).map((output) => ({ ...output, artifactRole: 'support' }));
   }
 
   private checkLimits(
     perNs: ReadonlyArray<GeneratorOutput>,
-    limits: NonNullable<LanguageProfile<T>['singleFileLimits']>
+    limits: NonNullable<LanguageProfile<T>['singleFileLimits']>,
+    namespaceCount: number
   ): string | undefined {
-    if (limits.maxNamespaces !== undefined && perNs.length > limits.maxNamespaces) {
-      return `single-file layout exceeded max namespaces (${perNs.length} > ${limits.maxNamespaces}) for target '${this.profile.target}'. Use 'barrel' or 'per-namespace' layout instead.`;
+    if (limits.maxNamespaces !== undefined && namespaceCount > limits.maxNamespaces) {
+      return `single-file layout exceeded max namespaces (${namespaceCount} > ${limits.maxNamespaces}) for target '${this.profile.target}'. Use 'barrel' or 'per-namespace' layout instead.`;
     }
     if (limits.maxBytes !== undefined) {
       // `TextEncoder` is portable across Node, browsers, and CF Workers;

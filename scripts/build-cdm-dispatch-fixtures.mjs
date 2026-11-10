@@ -31,6 +31,11 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-billing-summary',
+    declarations: [{ namespace: 'cdm.event.common', name: 'Create_BillingSummary', kind: 'RosettaFunction' }],
+    references: []
+  },
+  {
     directory: 'cdm-business-calendars',
     declarations: [
       { namespace: 'cdm.base.datetime', name: 'BusinessCenterHolidays', kind: 'RosettaFunction' },
