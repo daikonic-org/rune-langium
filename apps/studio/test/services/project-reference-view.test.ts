@@ -324,10 +324,16 @@ it.each(
     );
     const local = services.shared.workspace.LangiumDocumentFactory.fromString(content, URI.parse(sourceUri));
     services.shared.workspace.LangiumDocuments.addDocument(local);
-    await services.shared.workspace.DocumentBuilder.build([...referenceModels.map((entry) => entry.document), local], {
-      validation: false,
-      eagerLinking: true
-    });
+    const peerContent = `namespace ${namespace}\nimport pinned.*\ntype Peer extends Parent:\n other string (0..1)`;
+    const peer = services.shared.workspace.LangiumDocumentFactory.fromString(
+      peerContent,
+      URI.parse(pathToUri('peer.rosetta'))
+    );
+    services.shared.workspace.LangiumDocuments.addDocument(peer);
+    await services.shared.workspace.DocumentBuilder.build(
+      [...referenceModels.map((entry) => entry.document), local, peer],
+      { validation: false, eagerLinking: true }
+    );
     expect(
       (local.parseResult.value as import('@rune-langium/core').RosettaModel).elements.find(
         (element) => 'name' in element && element.name === 'Child'
@@ -338,37 +344,51 @@ it.each(
     const serializedModelJson = serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, local.parseResult.value);
     const files = new Map(fixture.snapshot.files);
     files.set('child.rosetta', content);
+    files.set('peer.rosetta', peerContent);
     files.set('build-config.yml', JSON.stringify({ ...fixture.snapshot.project.build, sources: ['**/*.rosetta'] }));
     files.set('build-config.lock.json', JSON.stringify(lock));
     const snapshot = await createProjectSnapshot('p', files, () => []);
     const file = { path: 'child.rosetta', name: 'child.rosetta', content, dirty: false };
+    const peerFile = { path: 'peer.rosetta', name: 'peer.rosetta', content: peerContent, dirty: false };
     const state = {
       workspaceId: 'p',
-      fileCount: 1,
-      files: [file],
-      models: [local.parseResult.value as import('@rune-langium/core').RosettaModel],
+      fileCount: 2,
+      files: [file, peerFile],
+      models: [local.parseResult.value, peer.parseResult.value] as import('@rune-langium/core').RosettaModel[],
       parsedModels: [
         {
           filePath: file.path,
           model: local.parseResult.value as import('@rune-langium/core').RosettaModel,
           source: content,
           serializedModelJson
+        },
+        {
+          filePath: peerFile.path,
+          model: peer.parseResult.value as import('@rune-langium/core').RosettaModel,
+          source: peerContent,
+          serializedModelJson: serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, peer.parseResult.value)
         }
       ],
       deferredExports: [],
       parseErrors: new Map()
     };
-    const input = await captureProjectRuntimeInput(snapshot, [file], loaded.documents);
+    const input = await captureProjectRuntimeInput(snapshot, state.files, loaded.documents);
     const install = async (documents: import('../../src/workers/parser-worker.js').HydrateRequest['documents']) => {
       expect(await dispatchWorkerRequest({ type: 'hydrate', id: 'local-roots', documents })).toMatchObject({
         ok: true
       });
     };
-    const link = async (uri: string, snapshot = false) => {
-      const result = await dispatchWorkerRequest({ type: 'linkDocument', id: 'local-closure', uri, snapshot });
+    const link = vi.fn(async (uri: string, snapshot = false, additionalUris: readonly string[] = []) => {
+      const result = await dispatchWorkerRequest({
+        type: 'linkDocument',
+        id: 'local-closure',
+        uri,
+        snapshot,
+        additionalUris
+      });
       if (result.type !== 'linkDocumentResult') throw new Error('Expected link response');
       return result;
-    };
+    });
     for (let round = 0; round < 2; round++) {
       const view = await prepareProjectReferenceView(input, state, install, signal, link);
       const child = view.models
@@ -387,7 +407,12 @@ it.each(
         name: 'Grandparent',
         attributes: [expect.objectContaining({ name: 'code' })]
       });
-      expect(view.models.map((model) => model.name).sort()).toEqual([namespace, 'pinned'].sort());
+      const peerModel = view.parsedModels.find((entry) => entry.filePath === peerFile.path)!.model;
+      expect((peerModel.elements[0] as Data).superType?.ref).toBe(parent);
+      expect(view.models.map((model) => model.name).sort()).toEqual([namespace, namespace, 'pinned'].sort());
+      expect(link).toHaveBeenCalledTimes(round + 1);
+      expect(link).toHaveBeenLastCalledWith(pathToUri(file.path), true, [pathToUri(peerFile.path)]);
+      expect(new Set((await link.mock.results[round]!.value).newModels).size).toBe(view.models.length);
       expect(_testInternals().deferredModelJson.size).toBe(1); // The unrelated support model stays deferred.
     }
     expect(warn.mock.calls.filter(([message]) => String(message).includes('ComputedScopes state'))).toEqual([]);

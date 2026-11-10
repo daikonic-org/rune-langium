@@ -1232,7 +1232,8 @@ export const requestExpressionScope = withInstrumentation(
 export const linkDocument = withInstrumentation(
   async function linkDocument(
     uri: string,
-    snapshot = false
+    snapshot = false,
+    additionalUris: readonly string[] = []
   ): Promise<{ linked: boolean; errors: string[]; newModels: RosettaModel[] }> {
     try {
       const id = String(++requestId);
@@ -1241,7 +1242,8 @@ export const linkDocument = withInstrumentation(
         type: 'linkDocument',
         id,
         uri,
-        snapshot
+        snapshot,
+        ...(additionalUris.length ? { additionalUris } : {})
       });
       if (
         isLinkDocumentResponse(response) &&
@@ -1265,7 +1267,13 @@ export const linkDocument = withInstrumentation(
           return true;
         })();
         if (await recovery.pending) {
-          response = await workerRequest({ type: 'linkDocument', id: String(++requestId), uri, snapshot });
+          response = await workerRequest({
+            type: 'linkDocument',
+            id: String(++requestId),
+            uri,
+            snapshot,
+            ...(additionalUris.length ? { additionalUris } : {})
+          });
         }
       }
       if (isLinkDocumentResponse(response)) {
