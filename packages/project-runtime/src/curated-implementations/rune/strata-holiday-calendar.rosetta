@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace com.opengamma.strata.basics.date
+version "2.12.78"
+
+import impl.cdm.calendar.*
+
+type HolidayCalendar: <"A finite published Strata calendar. Days are signed offsets from 1970-01-01.">
+    firstDay int (1..1)
+    lastDay int (1..1)
+    weekendWeekdays int (1..*)
+    holidays int (0..*)
+    workingDays int (0..*)
+
+func CalendarDay:
+    inputs: value date (1..1)
+    output: dayNumber int (1..1)
+    set dayNumber: value - date { year: 1970, month: 1, day: 1 }
+
+func CalendarDate:
+    inputs: dayNumber int (1..1)
+    output: value date (1..1)
+    // 1970-01-01 is day 719468 in the shared March-based Gregorian calendar.
+    set value: GregorianDateAt(dayNumber + 719468)
+
+func CalendarDatePair:
+    inputs:
+        firstDay int (1..1)
+        word int (1..1)
+    output: days int (1..2)
+
+    // Each word stores the anchor offset and a two-digit gap, zero for a single date.
+    alias offset: GregorianFloorDivide(word, 100)
+    alias gap: word - 100 * offset
+    alias anchor: firstDay + offset
+    set days: [anchor, if gap > 0 then anchor + gap]
+
+func UnpackCalendarDates:
+    inputs:
+        firstDay int (1..1)
+        words int (0..*)
+    output: days int (0..*)
+    set days: words extract [CalendarDatePair(firstDay, item)] then flatten
+
+func CoveredHolidayCalendars:
+    inputs:
+        centers string (0..*)
+        firstDay int (1..1)
+        lastDay int (1..1)
+    output: calendars HolidayCalendar (0..*)
+
+    alias selected: centers distinct then extract code [PinnedHolidayCalendar(code)]
+    condition HolidayCalendarCoverage:
+        if centers is absent then True
+        else (selected extract row [firstDay >= row -> firstDay and lastDay <= row -> lastDay]) all = True
+    set calendars: selected
+
+func CalendarWeekend:
+    inputs:
+        dayNumber int (1..1)
+        calendars HolidayCalendar (0..*)
+    output: closed boolean (1..1)
+
+    // The epoch was a Thursday. ISO weekday numbers run from Monday (1) to Sunday (7).
+    alias weekday: dayNumber + 4 - 7 * GregorianFloorDivide(dayNumber + 3, 7)
+    set closed:
+        if calendars is absent then weekday >= 6
+        else (calendars filter row [
+            (row -> weekendWeekdays contains weekday) and (row -> workingDays contains dayNumber) = False
+        ]) exists
+
+func CalendarHolidays:
+    inputs: calendars HolidayCalendar (0..*)
+    output: holidayDays int (0..*)
+    set holidayDays: calendars extract [item -> holidays] then flatten
+
+func CalendarDayRange:
+    inputs:
+        firstDay int (1..1)
+        lastDay int (1..1)
+    output: days int (0..*)
+
+    // Split the interval so a long observation window has logarithmic stack depth.
+    alias middle: firstDay + GregorianFloorDivide(lastDay - firstDay, 2)
+    set days:
+        if firstDay > lastDay then empty
+        else if firstDay = lastDay then [firstDay]
+        else [CalendarDayRange(firstDay, middle), CalendarDayRange(middle + 1, lastDay)]

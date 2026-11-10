@@ -27,6 +27,10 @@ import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-
 import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
 import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
+import {
+  businessCalendarCaller,
+  createCuratedCalendarProject
+} from '../../../../test/helpers/cdm-business-calendars.js';
 
 async function openPublishedImplementationProject(
   page: Page,
@@ -177,6 +181,35 @@ test('selects a period and lists the schedule using the bundled Strata Rune port
     contentType: 'image/png'
   });
 });
+
+for (const width of [1440, 390])
+  test(`executes the published holiday calendar and reports missing center data at ${width}px`, async ({
+    page
+  }, info) => {
+    await openPublishedImplementationProject(page, await createCuratedCalendarProject(), businessCalendarCaller, width);
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^FindNonBusinessDates.*example.calendars/ }).click();
+    const center = page.getByLabel('Center', { exact: true });
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    const output = page.getByRole('region', { name: 'result output' });
+    await center.fill('GBLO');
+    await page.getByLabel('Start Date', { exact: true }).fill('2024-12-25');
+    await page.getByLabel('End Date', { exact: true }).fill('2024-12-28');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(output).toContainText(/"2024-12-25"[\s\S]*"2024-12-26"[\s\S]*"2024-12-28"/);
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    await info.attach('business-calendars', {
+      body: await page.screenshot({ path: info.outputPath('business-calendars.png') }),
+      contentType: 'image/png'
+    });
+    await center.fill('AEAB');
+    await execute.click();
+    await expect(output).toContainText('SupportedBusinessCenter');
+  });
 
 for (const width of [1440, 390])
   test(`executes decimal vector operations and cumulative growth from a curated bundle at ${width}px`, async ({

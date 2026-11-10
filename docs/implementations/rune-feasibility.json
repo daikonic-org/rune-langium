@@ -22,7 +22,9 @@
   ],
   "files": [
     "packages/project-runtime/src/curated-implementations/rune/add-days.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/business-center-holidays.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/cdm-non-business-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/cdm-schedule-adapter.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/cdm-strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
@@ -31,12 +33,15 @@
     "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-holiday-calendar.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-periodic-schedule.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-rolls.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
@@ -64,8 +69,17 @@
         "name": "BusinessCenterHolidays"
       },
       "signatureSha256": "a7259580d10fe77d23b5e4cf2526472b7389fc65dfa00924789daf469996c3e0",
-      "route": "data-backed",
-      "requirements": "Select holidays from a supplied, versioned business-center calendar; acquisition is a separate port."
+      "route": "rune-source",
+      "requirements": "Editable Rune override returns the exact holiday lists for 25 CDM business centers in the Strata 2.12.78 snapshot. Unsupported center codes fail explicitly. The raw list signature carries no date window; use the checked date-aware function for date decisions.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/business-center-holidays.rosetta",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-business-calendars/java/GlobalHolidayCalendars.java",
+          "sha256": "f2f6dc93f736640b9798f6652ff20461609010700294406d665c4d4c0a718d6b",
+          "entrypoint": "com.opengamma.strata.basics.date.GlobalHolidayCalendars",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/2.12.78/strata-basics-2.12.78-sources.jar"
+        }
+      ]
     },
     {
       "symbol": {
@@ -393,8 +407,17 @@
         "name": "GetNonBusinessDates"
       },
       "signatureSha256": "ef8a8aafcc27f5e307bae98f2677ecc63e483458e6cb363f267511b929c2ef53",
-      "route": "data-backed",
-      "requirements": "Filter/derive dates using supplied calendars; preserve the period-or-dates input condition and output cardinality."
+      "route": "rune-source",
+      "requirements": "Editable Rune override uses the same verified Strata 2.12.78 calendar data. It checks the coverage of every supplied center, supports inclusive adjusted periods and order-preserving date filters, and enforces the non-empty output.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
+      "javaDependencies": [
+        {
+          "path": "test/fixtures/third-party/cdm-business-calendars/java/ImmutableHolidayCalendar.java",
+          "sha256": "f935581d69576a51e143b79ad873c645f5c7ec46e90eb74a7670d3e01762a647",
+          "entrypoint": "com.opengamma.strata.basics.date.ImmutableHolidayCalendar",
+          "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/2.12.78/strata-basics-2.12.78-sources.jar"
+        }
+      ]
     },
     {
       "symbol": {

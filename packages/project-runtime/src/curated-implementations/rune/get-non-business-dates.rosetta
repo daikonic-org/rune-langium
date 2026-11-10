@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.instructioncomposition.reset
+version "1.0.0"
+
+import cdm.base.staticdata.codelist.*
+import cdm.product.common.schedule.*
+import impl.cdm.calendar.*
+
+func GetNonBusinessDates: <"Select non-business dates from one inclusive adjusted period or an explicit list of dates.">
+    inputs:
+        businessCenters BusinessCenter (0..*)
+        period CalculationPeriodBase (0..1)
+        dates date (0..*)
+    output: nonBusinessDates date (1..*)
+
+    alias periodOrDates: if period exists then dates is absent else dates exists
+    alias startDate: period -> adjustedStartDate
+    alias endDate: period -> adjustedEndDate
+    alias orderedPeriod:
+        if period is absent then True
+        else startDate exists and endDate exists and startDate <= endDate
+    alias selection:
+        if periodOrDates and orderedPeriod
+        then if period exists
+            then NonBusinessDatesInPeriod(businessCenters, startDate, endDate)
+            else NonBusinessDatesInList(businessCenters, dates)
+        else empty
+
+    condition PeriodOrDates: periodOrDates
+    condition OrderedCalendarPeriod: orderedPeriod
+    condition NonBusinessDatesRequired: selection exists
+    set nonBusinessDates: selection

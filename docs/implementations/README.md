@@ -159,13 +159,18 @@ compares the paired `CalculationPeriod` and `CalculationPeriods` Rune overrides
 with the handwritten CDM implementations. Both use the same Strata frequency,
 roll, and stub engine and reuse the curated calendar arithmetic.
 
+The [business calendar port](business-calendars.md) provides a shared, versioned
+Rune dataset for `BusinessCenterHolidays` and `GetNonBusinessDates`. The snapshot
+covers 25 CDM business centers, with a checked date range for each.
+
 ## Remaining integrations
 
-**20 catalog entries** remain unimplemented.
+**18 catalog entries** remain unimplemented. Calendar data coverage is tracked
+separately.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
-| Calendars and schedules | `BusinessCenterHolidays`, `GetNonBusinessDates`, and the remaining calendar-dependent execution of `ComputeCalculationPeriod` |
+| Calendars and schedules | Calendar sources for the remaining business centers and covered execution of `ComputeCalculationPeriod` |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

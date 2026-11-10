@@ -31,6 +31,18 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-business-calendars',
+    declarations: [
+      { namespace: 'cdm.base.datetime', name: 'BusinessCenterHolidays', kind: 'RosettaFunction' },
+      { namespace: 'cdm.event.instructioncomposition.reset', name: 'GetNonBusinessDates', kind: 'RosettaFunction' }
+    ],
+    references: [],
+    supportReferences: [
+      'rosetta-source/src/main/java/cdm/base/datetime/functions/BusinessCenterHolidaysEmptyDataProvider.java'
+    ],
+    resources: ['business-center-9-3.json']
+  },
+  {
     directory: 'cdm-calendar',
     declarations: calendarFunctions.map((name) => ({
       namespace: 'cdm.base.datetime',

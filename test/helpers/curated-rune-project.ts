@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createProjectDraftSnapshot } from '../../packages/project-config/src/index.js';
@@ -70,4 +71,21 @@ export async function createCuratedRuneProject(
   if (prepared.diagnostics.length) throw new Error(JSON.stringify(prepared.diagnostics));
   const installed = await createProjectDraftSnapshot(snapshot, prepared.changes, () => []);
   return { fixture, references: loaded.documents, snapshot, installed, changes: prepared.changes };
+}
+
+/** Read the exact upstream resource bytes used when publishing a fixture bundle. */
+export function curatedFixtureResources(directory: string) {
+  const manifest: { references: { name: string; sha256: string; upstream: { path: string } }[] } = JSON.parse(
+    readFileSync(resolve(directory, 'sources.json'), 'utf8')
+  );
+  return new Map(
+    manifest.references
+      .filter(({ name }) => name.startsWith('resources/'))
+      .map(({ name, upstream, sha256 }) => {
+        const content = readFileSync(resolve(directory, name), 'utf8');
+        if (createHash('sha256').update(content).digest('hex') !== sha256)
+          throw new Error('Pinned resource changed: ' + name);
+        return [name, { path: upstream.path, content }];
+      })
+  );
 }

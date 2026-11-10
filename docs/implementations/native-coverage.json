@@ -974,7 +974,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "d0328754438d5e4b1df6f7a9a874aed380ff3a7335eaf6d290c28c638264200b"
+      "sha256": "f93b99444dab8e017cae49f85e19324e21b953a46cdfa3a488f4f8d1ff32efdb"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1017,8 +1017,16 @@
       "sha256": "880ca873e45e8b88de6d7547677584fcf06cf7dd945354ab01fafb30d2b06b06"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/business-center-holidays.rosetta",
+      "sha256": "8c35f11779fa1ca2288d444dca705508052565c07d7240b79dd75be0feb3ff39"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/calculation-schedules.rosetta",
       "sha256": "75b20322d1882e97ab72fbee6930022e29ed17482e63e196a430854db542b36e"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/cdm-non-business-dates.rosetta",
+      "sha256": "04d5ee80f4717e642367b153eb1da6777885e546fa720984558895f45560d05a"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/cdm-schedule-adapter.rosetta",
@@ -1053,6 +1061,10 @@
       "sha256": "927f7559f3c30e7f600b8b28af9b489347818407ba47bdc12f78312f0674e467"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
+      "sha256": "89245349c22302b91b9f75cde5aa368a5dbc0c50227be5f148a688e0a64cc8af"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
       "sha256": "5276c9db35db06f6d3f3faf0194d897414eff78357093d29d26f9749b128cb5c"
     },
@@ -1075,6 +1087,14 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
       "sha256": "71a6dfa22b841d6448b9cdaa868697a00c47486f9c49b9608b7966cbe8057a3c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-holiday-calendar.rosetta",
+      "sha256": "2ae79f0e4a446cc9b86764424524396c27c3d744d5a8522d98bc92c857894e10"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
+      "sha256": "781aa7a27c0d7c92b4f1c1dca838bce2036809eefb981be35379a00db061755f"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/strata-periodic-schedule.rosetta",
@@ -2094,7 +2114,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/business-center-holidays.rosetta",
+        "entrypoint": "cdm.base.datetime.BusinessCenterHolidays",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -2105,13 +2128,28 @@
           }
         ],
         "tests": [],
-        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree.",
+        "dependencies": [
+          {
+            "path": "test/fixtures/third-party/cdm-business-calendars/java/GlobalHolidayCalendars.java",
+            "sha256": "f2f6dc93f736640b9798f6652ff20461609010700294406d665c4d4c0a718d6b",
+            "entrypoint": "com.opengamma.strata.basics.date.GlobalHolidayCalendars",
+            "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/2.12.78/strata-basics-2.12.78-sources.jar"
+          }
+        ]
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Select holidays from a supplied, versioned business-center calendar; acquisition is a separate port.",
+        "route": "rune-source",
+        "requirements": "Editable Rune override returns the exact holiday lists for 25 CDM business centers in the Strata 2.12.78 snapshot. Unsupported center codes fail explicitly. The raw list signature carries no date window; use the checked date-aware function for date decisions.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/business-calendars.test.ts",
+        "cases": "test/fixtures/third-party/cdm-business-calendars/cases.json",
+        "casesSha256": "5b81f2e1109709573cdcde769b4dba539b44e1e17eff9c81361d5069a9aea321",
+        "selectors": [],
+        "caseCount": 26
       }
     },
     {
@@ -4928,19 +4966,37 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
+        "entrypoint": "cdm.event.instructioncomposition.reset.GetNonBusinessDates",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
         "providers": [],
         "tests": [],
-        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
+        "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree.",
+        "dependencies": [
+          {
+            "path": "test/fixtures/third-party/cdm-business-calendars/java/ImmutableHolidayCalendar.java",
+            "sha256": "f935581d69576a51e143b79ad873c645f5c7ec46e90eb74a7670d3e01762a647",
+            "entrypoint": "com.opengamma.strata.basics.date.ImmutableHolidayCalendar",
+            "sourceUrl": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/2.12.78/strata-basics-2.12.78-sources.jar"
+          }
+        ]
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Filter/derive dates using supplied calendars; preserve the period-or-dates input condition and output cardinality.",
+        "route": "rune-source",
+        "requirements": "Editable Rune override uses the same verified Strata 2.12.78 calendar data. It checks the coverage of every supplied center, supports inclusive adjusted periods and order-preserving date filters, and enforces the non-empty output.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/business-calendars.test.ts",
+        "cases": "test/fixtures/third-party/cdm-business-calendars/cases.json",
+        "casesSha256": "5b81f2e1109709573cdcde769b4dba539b44e1e17eff9c81361d5069a9aea321",
+        "selectors": [],
+        "caseCount": 19
       }
     },
     {

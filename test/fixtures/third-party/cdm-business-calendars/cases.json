@@ -1,0 +1,538 @@
+[
+  {
+    "id": "ausy-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "AUSY"
+    },
+    "holidayCount": 1477,
+    "holidayDigest": "9f3f30051f5c27ad45c4a28e37f09e2fcae8a6b574bca55162777be095c5e03e"
+  },
+  {
+    "id": "brbd-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "BRBD"
+    },
+    "holidayCount": 1488,
+    "holidayDigest": "ccb0d6b892055d704a3f7dad104189c5b1f572b0be242b032adb052d1e719eaa"
+  },
+  {
+    "id": "camo-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "CAMO"
+    },
+    "holidayCount": 1257,
+    "holidayDigest": "3258d0b085f4c39a9a6c13ed116950d3de138f22b11e4c0987b729b82b904120"
+  },
+  {
+    "id": "cato-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "CATO"
+    },
+    "holidayCount": 1649,
+    "holidayDigest": "3d84c40e653ace679d1320c6b83fb6a1676666690daf0325157747ac89fa80f8"
+  },
+  {
+    "id": "chzu-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "CHZU"
+    },
+    "holidayCount": 1246,
+    "holidayDigest": "36ef8d17166c660d909ff0e1216066d619bead5ca5022d8b9e10a180898f092f"
+  },
+  {
+    "id": "czpr-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "CZPR"
+    },
+    "holidayCount": 1414,
+    "holidayDigest": "e3854c923a308b010d58a2ee0f72910a742a1f78ab227b6ba810232758b18b24"
+  },
+  {
+    "id": "defr-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "DEFR"
+    },
+    "holidayCount": 1513,
+    "holidayDigest": "1c6ea9c36885751e2762180a8fe9df55cb6d5c323e004441f6824b1e846abf88"
+  },
+  {
+    "id": "dkco-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "DKCO"
+    },
+    "holidayCount": 1691,
+    "holidayDigest": "655a1986b86af28df66293a64d3f03c05b160db21b1fcbc17c7e166a83cadcab"
+  },
+  {
+    "id": "euta-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "EUTA"
+    },
+    "holidayCount": 494,
+    "holidayDigest": "9e4c5b73242fb9fe3e7f905ae55ca5dab4da59d95ba1b9524208f6f6fa364ba3"
+  },
+  {
+    "id": "frpa-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "FRPA"
+    },
+    "holidayCount": 1555,
+    "holidayDigest": "380bcac203a24c9834e0fc835d2a25880eafc9d43ae4841a7e2ac0ac0f991c0e"
+  },
+  {
+    "id": "gblo-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "GBLO"
+    },
+    "holidayCount": 1155,
+    "holidayDigest": "39bcd79cd6adcc6eefd70ec199022caade0cd3531bc5b893baa2cb25eb5460da"
+  },
+  {
+    "id": "hubu-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "HUBU"
+    },
+    "holidayCount": 9110,
+    "holidayDigest": "c7f0b71494552c31b3aec974960419ed4f5c06dec39f272d33bd02d5f7738b39"
+  },
+  {
+    "id": "jpto-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "JPTO"
+    },
+    "holidayCount": 2227,
+    "holidayDigest": "fe56684b2a3faf3c68f7f79b76ebda8274bac6e0d948cfd3b823fa33939352e8"
+  },
+  {
+    "id": "mxmc-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "MXMC"
+    },
+    "holidayCount": 1403,
+    "holidayDigest": "621b41af12812b3cd2218324142edefd5cbdfd1d89fc2ae2a3037d98d5724db2"
+  },
+  {
+    "id": "noos-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "NOOS"
+    },
+    "holidayCount": 1496,
+    "holidayDigest": "84952e1fac5ef24afa494f826856bf034cdfdb4dc19a30e90ab50f1e3eeac203"
+  },
+  {
+    "id": "nyfd-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "NYFD"
+    },
+    "holidayCount": 1448,
+    "holidayDigest": "9658d0384db0f3a8bad6357cbb8b6f81b6e1ea825b30f0347572c9d6473b73e1"
+  },
+  {
+    "id": "nyse-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "NYSE"
+    },
+    "holidayCount": 1435,
+    "holidayDigest": "f7acf553ac4046bbe61deda25c6cd677822384f9a7b8826f835fb2cd25711abc"
+  },
+  {
+    "id": "nzau-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "NZAU"
+    },
+    "holidayCount": 1643,
+    "holidayDigest": "26667494f1b4a1e8fd8536cb66243445dca99de24dd5837d5810a525aba8688c"
+  },
+  {
+    "id": "nzwe-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "NZWE"
+    },
+    "holidayCount": 1643,
+    "holidayDigest": "7216603f2b54955279e46151b6c0fffe47ee94efc82ac38d730f784152daae7d"
+  },
+  {
+    "id": "plwa-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "PLWA"
+    },
+    "holidayCount": 1354,
+    "holidayDigest": "f6d7f268e466f0eb87f13b8d6b7b4e7dd88d27683e7dd371828e99194a7b7d89"
+  },
+  {
+    "id": "sest-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "SEST"
+    },
+    "holidayCount": 1419,
+    "holidayDigest": "52dbb2eed5dc41d570d23410a96ec9a6ed497d993cc653a464fcf7d867c85887"
+  },
+  {
+    "id": "thba-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "THBA"
+    },
+    "holidayCount": 1220,
+    "holidayDigest": "aaf7302023c40ebd1418e18b7aad52f5bfa39841d469848b0cbfd5ba4eb4f6fa"
+  },
+  {
+    "id": "usgs-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "USGS"
+    },
+    "holidayCount": 1643,
+    "holidayDigest": "03fa3305ca0e623af51b276d3fed49096bc3bdd0801503911d4ddddf2a68df19"
+  },
+  {
+    "id": "usny-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "USNY"
+    },
+    "holidayCount": 1448,
+    "holidayDigest": "9658d0384db0f3a8bad6357cbb8b6f81b6e1ea825b30f0347572c9d6473b73e1"
+  },
+  {
+    "id": "zajo-full-holiday-list",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "ZAJO"
+    },
+    "holidayCount": 1572,
+    "holidayDigest": "aa4e4ebed6e95f6122fba96fa3db9c0c40a95ac21ae0c01e8475c24ef51dc9c2"
+  },
+  {
+    "id": "unavailable-business-center",
+    "function": "BusinessCenterHolidays",
+    "inputs": {
+      "businessCenter": "AEAB"
+    },
+    "expectedError": "SupportedBusinessCenter"
+  },
+  {
+    "id": "london-bespoke-holidays-and-duplicate-dates",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "dates": [
+        "2022-09-19",
+        "2022-09-20",
+        "2022-06-03",
+        "2022-09-19",
+        "2022-09-18"
+      ]
+    },
+    "expected": [
+      "2022-09-19",
+      "2022-06-03",
+      "2022-09-19",
+      "2022-09-18"
+    ]
+  },
+  {
+    "id": "new-york-juneteenth",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "USNY"
+      ],
+      "dates": [
+        "2023-06-19",
+        "2023-06-20",
+        "2023-06-18"
+      ]
+    },
+    "expected": [
+      "2023-06-19",
+      "2023-06-18"
+    ]
+  },
+  {
+    "id": "budapest-working-saturday",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "HUBU"
+      ],
+      "dates": [
+        "2024-08-03",
+        "2024-08-04",
+        "2024-08-17"
+      ]
+    },
+    "expected": [
+      "2024-08-03",
+      "2024-08-04",
+      "2024-08-17"
+    ]
+  },
+  {
+    "id": "multiple-centers-union",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO",
+        "USNY",
+        "GBLO"
+      ],
+      "dates": [
+        "2022-09-19",
+        "2023-06-19",
+        "2023-06-20"
+      ]
+    },
+    "expected": [
+      "2022-09-19",
+      "2023-06-19"
+    ]
+  },
+  {
+    "id": "weekend-only-with-no-centers",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [],
+      "dates": [
+        "2023-06-16",
+        "2023-06-17",
+        "2023-06-18"
+      ]
+    },
+    "expected": [
+      "2023-06-17",
+      "2023-06-18"
+    ]
+  },
+  {
+    "id": "bangkok-covered-start",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "THBA"
+      ],
+      "dates": [
+        "2005-01-01",
+        "2005-01-03",
+        "2005-01-04"
+      ]
+    },
+    "expected": [
+      "2005-01-01",
+      "2005-01-03"
+    ]
+  },
+  {
+    "id": "target-covered-start",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "EUTA"
+      ],
+      "dates": [
+        "1997-01-01",
+        "1997-01-02"
+      ]
+    },
+    "expected": [
+      "1997-01-01"
+    ]
+  },
+  {
+    "id": "preceding-uncovered-year",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "EUTA"
+      ],
+      "dates": [
+        "1996-12-31",
+        "1997-01-01"
+      ]
+    },
+    "expectedError": "HolidayCalendarCoverage"
+  },
+  {
+    "id": "following-uncovered-year",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "THBA"
+      ],
+      "dates": [
+        "2079-12-30",
+        "2080-01-01"
+      ]
+    },
+    "expectedError": "HolidayCalendarCoverage"
+  },
+  {
+    "id": "unknown-among-known-centers",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO",
+        "AEAB"
+      ],
+      "dates": [
+        "2024-12-25"
+      ]
+    },
+    "expectedError": "SupportedBusinessCenter"
+  },
+  {
+    "id": "both-date-inputs",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "dates": [
+        "2024-12-25"
+      ],
+      "period": {
+        "adjustedStartDate": "2024-12-24",
+        "adjustedEndDate": "2024-12-25"
+      }
+    },
+    "expectedError": "PeriodOrDates"
+  },
+  {
+    "id": "neither-date-input",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "dates": []
+    },
+    "expectedError": "PeriodOrDates"
+  },
+  {
+    "id": "requires-non-business-date",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "dates": [
+        "2024-12-24"
+      ]
+    },
+    "expectedError": "NonBusinessDatesRequired"
+  },
+  {
+    "id": "london-inclusive-period",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "period": {
+        "adjustedStartDate": "2024-12-25",
+        "adjustedEndDate": "2024-12-28"
+      }
+    },
+    "expected": [
+      "2024-12-25",
+      "2024-12-26",
+      "2024-12-28"
+    ]
+  },
+  {
+    "id": "single-holiday-day",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "period": {
+        "adjustedStartDate": "2024-12-25",
+        "adjustedEndDate": "2024-12-25"
+      }
+    },
+    "expected": [
+      "2024-12-25"
+    ]
+  },
+  {
+    "id": "period-without-center-weekends",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [],
+      "period": {
+        "adjustedStartDate": "2024-12-27",
+        "adjustedEndDate": "2024-12-29"
+      }
+    },
+    "expected": [
+      "2024-12-28",
+      "2024-12-29"
+    ]
+  },
+  {
+    "id": "missing-endpoint",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "period": {
+        "adjustedStartDate": "2024-12-25"
+      }
+    },
+    "expectedError": "OrderedCalendarPeriod"
+  },
+  {
+    "id": "reversed-period",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO"
+      ],
+      "period": {
+        "adjustedStartDate": "2024-12-28",
+        "adjustedEndDate": "2024-12-25"
+      }
+    },
+    "expectedError": "OrderedCalendarPeriod"
+  },
+  {
+    "id": "cross-calendar-bounds",
+    "function": "GetNonBusinessDates",
+    "inputs": {
+      "businessCenters": [
+        "GBLO",
+        "EUTA"
+      ],
+      "period": {
+        "adjustedStartDate": "1996-12-31",
+        "adjustedEndDate": "1997-01-03"
+      }
+    },
+    "expectedError": "HolidayCalendarCoverage"
+  }
+]
