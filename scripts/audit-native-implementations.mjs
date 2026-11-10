@@ -31,6 +31,10 @@ import {
   selectCdmImplementation,
   NATIVE_IMPLEMENTATIONS
 } from '../packages/project-runtime/dist/curated-implementations/cdm.js';
+import {
+  cdmCodeListResource,
+  prepareCdmCodeLists
+} from '../packages/project-runtime/dist/curated-implementations/code-list-resources.js';
 import { openGitHubRepository } from '../packages/project-runtime/dist/repository-source.js';
 const { values } = parseArgs({
   options: {
@@ -43,8 +47,8 @@ const { values } = parseArgs({
   }
 });
 const root = resolve(import.meta.dirname, '..');
-const dispatchSuites = await Promise.all(
-  Object.entries({
+const testSuites = {
+  'packages/codegen/test/implementations': {
     'cdm-dispatch': 'cdm-dispatch',
     'cdm-calculation-period': 'calculation-period',
     'cdm-frequency': 'frequency',
@@ -54,19 +58,28 @@ const dispatchSuites = await Promise.all(
     'cdm-calendar': 'calendar',
     'cdm-commodity-periods': 'commodity-periods',
     'cdm-period-range': 'period-range'
-  }).map(async ([directory, testName]) => {
-    const base = `test/fixtures/third-party/${directory}`;
-    const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
-    const casesPath = `${base}/cases.json`;
-    const casesText = await readFile(resolve(root, casesPath), 'utf8');
-    return {
-      declarations: manifest.declarations,
-      path: `packages/codegen/test/implementations/${testName}.test.ts`,
-      casesPath,
-      casesText,
-      cases: JSON.parse(casesText)
-    };
-  })
+  },
+  'packages/project-runtime/test': {
+    'cdm-code-list-loader': 'code-list-loader',
+    'cdm-strata-schedules': 'strata-schedules'
+  }
+};
+const dispatchSuites = await Promise.all(
+  Object.entries(testSuites).flatMap(([testDirectory, suites]) =>
+    Object.entries(suites).map(async ([directory, testName]) => {
+      const base = `test/fixtures/third-party/${directory}`;
+      const manifest = JSON.parse(await readFile(resolve(root, base, 'sources.json'), 'utf8'));
+      const casesPath = `${base}/cases.json`;
+      const casesText = await readFile(resolve(root, casesPath), 'utf8');
+      return {
+        declarations: manifest.declarations,
+        path: `${testDirectory}/${testName}.test.ts`,
+        casesPath,
+        casesText,
+        cases: JSON.parse(casesText)
+      };
+    })
+  )
 );
 const sources = JSON.parse(
   await readFile(resolve(root, values.sources ?? 'scripts/fixtures/native-implementation-sources.json'), 'utf8')
@@ -83,6 +96,8 @@ const documents = [],
   files = [],
   javaFiles = [],
   referenceFiles = [],
+  resourceFiles = [],
+  cdmCodeListFiles = [],
   notices = [];
 if (
   !Array.isArray(sources) ||
@@ -130,8 +145,13 @@ for (const source of sources) {
       (/^rosetta-source\/src\/(main|test)\/java\/.*\.java$/.test(file.path) ||
         /^(LICEN[CS]E|NOTICE)(\.md|\.txt)?$/.test(file.path))
   );
-  const inputs = [...entries, ...references].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  sourceBytes += entries.reduce((sum, file) => sum + (file.size ?? 0), 0);
+  const resources = repository.files.filter(
+    (file) => source.model === 'cdm' && file.type === 'blob' && cdmCodeListResource(file.path)
+  );
+  const inputs = [...entries, ...references, ...resources].sort((a, b) =>
+    a.path < b.path ? -1 : a.path > b.path ? 1 : 0
+  );
+  sourceBytes += [...entries, ...resources].reduce((sum, file) => sum + (file.size ?? 0), 0);
   if (
     entries.length + files.length > 512 ||
     sourceBytes > 16 * 1024 * 1024 ||
@@ -169,6 +189,11 @@ for (const source of sources) {
   );
   for (const [index, file] of inputs.entries()) {
     const origin = { model: source.model, path: file.path, blob: file.sha };
+    if (resources.includes(file)) {
+      resourceFiles.push({ ...origin, sha256: createHash('sha256').update(texts[index]).digest('hex') });
+      cdmCodeListFiles.push({ path: file.path, content: texts[index] });
+      continue;
+    }
     if (references.includes(file)) {
       const reference = { ...origin, sha256: createHash('sha256').update(texts[index]).digest('hex') };
       if (file.path.endsWith('.java')) {
@@ -190,6 +215,7 @@ for (const source of sources) {
     files.push(origin);
   }
 }
+const cdmCodeLists = prepareCdmCodeLists(cdmCodeListFiles);
 const runeDocuments = [],
   runeSources = new Map(),
   implementationFiles = [];
@@ -271,7 +297,7 @@ for (const document of documents) {
         selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
         hasRuneBody: candidate.operations.length > 0
       }));
-    const selected = selectCdmImplementation(node);
+    const selected = selectCdmImplementation(node, cdmCodeLists);
     const hasRuneBody = node.operations.length > 0 || variants.some((variant) => variant.hasRuneBody);
     const implementation = assessment.implementation
       ? {
@@ -371,6 +397,8 @@ files.sort(compare);
 const ownedPaths = new Set([
   ...implementationFiles.map((file) => file.path),
   'packages/project-runtime/src/curated-implementations/cdm.ts',
+  'packages/project-runtime/src/curated-implementations/code-list-resources.ts',
+  'packages/project-runtime/src/code-lists.ts',
   'packages/project-runtime/src/curated-implementations/rune/LICENSE',
   ...rows.flatMap((row) =>
     row.implementation.kind === 'language-specific'
@@ -396,7 +424,16 @@ for (const path of ownedPaths)
   }
 implementationFiles.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 feasibility.verifyCoverage(rows);
-const inventory = { schemaVersion: 3, sources, files, implementationFiles, referenceFiles, notices, functions: rows };
+const inventory = {
+  schemaVersion: 3,
+  sources,
+  files,
+  implementationFiles,
+  referenceFiles,
+  notices,
+  functions: rows,
+  resourceFiles
+};
 const text = JSON.stringify(inventory, null, 2) + '\n';
 if (values.write) await writeFile(destination, text);
 else if ((await readFile(destination, 'utf8')) !== text)

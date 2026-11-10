@@ -25,14 +25,15 @@ import { vectorDirectory, vectorCaller } from '../../../../test/helpers/cdm-vect
 import { periodRangeDirectory, periodRangeCaller } from '../../../../test/helpers/cdm-period-range.js';
 import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-calendar.js';
 import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
+import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
+import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 
 async function openPublishedImplementationProject(
   page: Page,
-  directory: string,
+  project: Awaited<ReturnType<typeof createCuratedRuneProject>>,
   caller: { uri: string; content: string },
   width: number
 ) {
-  const project = await createCuratedRuneProject(directory, caller);
   await page.route('https://www.daikonic.dev/curated/**', async (route) => {
     const bytes = project.fixture.artifacts.get(route.request().url());
     if (!bytes) return route.fulfill({ status: 404 });
@@ -57,7 +58,12 @@ async function openPublishedImplementationProject(
 
 for (const width of [1440, 390])
   test(`executes calendar implementations delivered with the curated bundle at ${width}px`, async ({ page }, info) => {
-    await openPublishedImplementationProject(page, calendarDirectory, calendarCaller, width);
+    await openPublishedImplementationProject(
+      page,
+      await createCuratedRuneProject(calendarDirectory, calendarCaller),
+      calendarCaller,
+      width
+    );
     await page.getByRole('button', { name: /^Choose a function/ }).click();
     await page.getByRole('option', { name: /^AddDays.*cdm.base.datetime/ }).click();
     await page.getByLabel('Input Date', { exact: true }).fill('2020-02-28');
@@ -103,7 +109,7 @@ for (const width of [1440, 390])
 test('executes a published commodity period implementation through Prototype', async ({ page }, info) => {
   const project = await openPublishedImplementationProject(
     page,
-    commodityPeriodsDirectory,
+    await createCuratedRuneProject(commodityPeriodsDirectory, commodityPeriodsCaller),
     commodityPeriodsCaller,
     1440
   );
@@ -123,6 +129,51 @@ test('executes a published commodity period implementation through Prototype', a
   ).toEqual([]);
   await info.attach('commodity-periods', {
     body: await page.screenshot({ path: info.outputPath('commodity-periods.png') }),
+    contentType: 'image/png'
+  });
+});
+
+test('uses a Rune enum from the pinned list to execute the upstream code-list validator', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedCodeListProject(), codeListCaller, 1440);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: /^CheckOptionType.*example.codelists/ }).click();
+  const option = page.getByRole('combobox', { name: 'Option', exact: true });
+  await option.click();
+  await page.getByRole('option', { name: /^Put/ }).click();
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.getByRole('region', { name: 'valid output' })).toContainText('true');
+});
+
+test('selects a period and lists the schedule using the bundled Strata Rune port', async ({ page }, info) => {
+  await openPublishedImplementationProject(page, await createCuratedScheduleProject(), scheduleCaller, 1440);
+  const choose = page.getByRole('button', { name: /^Choose a function/ });
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  const output = page.getByRole('region', { name: 'result output' });
+  const enterBounds = async () => {
+    await page.getByLabel('Start Date', { exact: true }).fill('2024-01-31');
+    await page.getByLabel('End Date', { exact: true }).fill('2024-04-30');
+  };
+  await choose.click();
+  await page.getByRole('option', { name: /^PickMonthlyPeriod.*example.schedules/ }).click();
+  await enterBounds();
+  await page.getByLabel('Target Date', { exact: true }).fill('2024-02-29');
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(output).toContainText(/"2024-02-29"[\s\S]*"2024-03-31"/);
+  await choose.click();
+  await page.getByRole('option', { name: /^ListMonthlyPeriods.*example.schedules/ }).click();
+  await enterBounds();
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(output).toContainText(/"2024-01-31"[\s\S]*"2024-02-29"[\s\S]*"2024-03-31"[\s\S]*"2024-04-30"/);
+  await dismissLocalTransportNotices(page);
+  expect(
+    (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+  ).toEqual([]);
+  await info.attach('strata-schedules', {
+    body: await page.screenshot({ path: info.outputPath('strata-schedules.png') }),
     contentType: 'image/png'
   });
 });

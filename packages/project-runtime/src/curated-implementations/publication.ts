@@ -7,6 +7,7 @@ import {
   type ImplementationSourcePack
 } from '@rune-langium/core/project-contract';
 import { curatedModelImplementations, RUNE_IMPLEMENTATIONS } from './cdm.js';
+import type { CdmCodeListCatalog } from './code-list-resources.js';
 import { RUNE_IMPLEMENTATION_SOURCES } from './generated/rune-sources.js';
 import { projectFileRevision } from '@rune-langium/project-config';
 
@@ -45,10 +46,11 @@ export function stampCuratedImplementations(
 export async function publishCuratedImplementations(
   model: RosettaModel,
   json: string,
-  origin: { model: string; commit: string }
+  origin: { model: string; commit: string },
+  codeLists?: CdmCodeListCatalog
 ): Promise<string> {
   if (origin.model !== 'cdm') return json;
-  const selected = curatedModelImplementations(model);
+  const selected = curatedModelImplementations(model, codeLists);
   if (!selected.size) return json;
   const paths = [...curatedRuneSourceFiles(selected.values()), 'LICENSE'];
   const files = await Promise.all(

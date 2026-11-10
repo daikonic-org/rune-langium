@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { RepositoryFileSourceSchema, type RepositoryFileSource } from '@rune-langium/core/project-contract';
-import { openGitHubRepository } from './repository-source.js';
 import { z } from 'zod';
 import type { CodeListValue } from '@rune-langium/codegen/export';
 const date = z.iso.date();
@@ -14,29 +12,36 @@ const entry = z.object({
   effectiveDate: date.optional(),
   deprecatedDate: date.optional()
 });
-const cdm = z
-  .object({
-    identification: z
-      .object({
-        shortName: text,
-        version: text,
-        canonicalUri: text.regex(/^[a-zA-Z][a-zA-Z\d+.-]*:/),
-        canonicalVersionUri: text.optional()
-      })
-      .passthrough(),
-    codes: z.array(
-      z
-        .object({
-          value: text,
-          description: text.optional(),
-          source: text.optional(),
-          effectiveDate: date.optional(),
-          deprecatedDate: date.optional()
-        })
-        .passthrough()
-    )
-  })
-  .passthrough();
+const cdmCode = entry.omit({ label: true });
+const cdmIdentity = z.object({
+  shortName: text,
+  version: text,
+  canonicalUri: text.regex(/^[a-zA-Z][a-zA-Z\d+.-]*:/),
+  canonicalVersionUri: text.optional()
+});
+const cdm = z.object({
+  identification: cdmIdentity.passthrough(),
+  codes: z.array(cdmCode.passthrough())
+});
+const curatedCdm = z.object({
+  identification: cdmIdentity
+    .extend({
+      description: text.optional(),
+      publicationDate: text.optional(),
+      codeShortId: text.optional(),
+      locationUri: text.optional()
+    })
+    .partial({ shortName: true, canonicalUri: true, version: true }),
+  codes: z.array(cdmCode).default([])
+});
+
+/** Preserve the published object for function results, including metadata-only lists. */
+export function decodeCuratedCdmCodeList(content: string, filenameVersion: string) {
+  const { identification, codes } = curatedCdm.parse(JSON.parse(content));
+  const { shortName, canonicalUri, version = filenameVersion } = identification;
+  if (!shortName || !canonicalUri) return undefined;
+  return { identification: { ...identification, shortName, canonicalUri, version }, codes };
+}
 export interface CodeListExpectation {
   format: 'json' | 'cdm-json';
   canonicalUri?: string;
@@ -72,26 +77,4 @@ export function decodeProjectCodeList(
   if (new Set(values.map((code) => code.value)).size !== values.length)
     throw new Error('Expected distinct code-list entries with string value and label.');
   return { values, ...(canonicalUri ? { canonicalUri } : {}), ...(version ? { version } : {}) };
-}
-
-/** Stage an explicitly selected upstream code list for ordinary workspace Save; no mutable Nightly pin. */
-export async function readReferenceCodeList(
-  source: RepositoryFileSource,
-  signal: AbortSignal,
-  expected: CodeListExpectation,
-  fetcher: typeof fetch = fetch
-) {
-  const provenance = RepositoryFileSourceSchema.parse(source);
-  const repository = await openGitHubRepository(
-    provenance.repository.slice('https://github.com/'.length),
-    provenance.commit,
-    signal,
-    fetcher
-  );
-  const matches = repository.files.filter((file) => file.path === provenance.path);
-  if (matches.length !== 1 || !provenance.path.endsWith('.json'))
-    throw new Error('Choose one JSON code-list file at the active reference commit.');
-  const content = await repository.read(matches[0]!, 8 * 1024 * 1024);
-  const prepared = decodeProjectCodeList(content, expected);
-  return { content, provenance, codeList: expected, ...prepared };
 }

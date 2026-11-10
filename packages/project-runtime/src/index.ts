@@ -12,4 +12,5 @@ export * from './import/rune-maven-adapters.js';
 export * from './import/project-status.js';
 export * from './project-compatibility.js';
 export * from './code-lists.js';
+export * from './read-reference-code-list.js';
 export * from './curated-implementations/install.js';

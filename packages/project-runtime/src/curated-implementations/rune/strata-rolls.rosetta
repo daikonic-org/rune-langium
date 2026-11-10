@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace com.opengamma.strata.basics.schedule
+version "1.7.0"
+
+import impl.cdm.calendar.*
+
+enum RollKind:
+    NoRoll
+    MonthDay
+    WeekDay
+    EndOfMonth
+    Imm
+    ImmAud
+    ImmNzd
+    Sfe
+
+type Roll:
+    kind RollKind (1..1)
+    day int (0..1) <"Day of month or ISO weekday for the numeric roll rules.">
+
+func MonthLength:
+    inputs:
+        year int (1..1)
+        month int (1..1)
+    output: days int (1..1)
+    alias leap: (year / 4) to-int exists and ((year / 100) to-int is absent or (year / 400) to-int exists)
+    set days:
+        if month = 2 then (if leap then 29 else 28)
+        else if month = 4 or month = 6 or month = 9 or month = 11 then 30
+        else 31
+
+func ShiftMonths: <"Gregorian month arithmetic constrains the day to the destination month.">
+    inputs:
+        value date (1..1)
+        months int (1..1)
+    output: shifted date (1..1)
+    alias index: (value -> year) * 12 + (value -> month) - 1 + months
+    alias year: GregorianFloorDivide(index, 12)
+    alias month: index - year * 12 + 1
+    alias limit: MonthLength(year, month)
+    set shifted: date { year: year, month: month, day: if value -> day > limit then limit else value -> day }
+
+func IsoWeekday:
+    inputs: value date (1..1)
+    output: weekday int (1..1)
+    alias days: value - date { year: 1970, month: 1, day: 5 }
+    set weekday: days - 7 * GregorianFloorDivide(days, 7) + 1
+
+func RollToWeekday:
+    inputs:
+        value date (1..1)
+        weekday int (1..1)
+        direction int (1..1)
+    output: rolled date (1..1)
+    alias offset: direction * (weekday - IsoWeekday(value))
+    set rolled: GregorianShiftDate(value, direction * (offset - 7 * GregorianFloorDivide(offset, 7)))
+
+func MonthWeekday:
+    inputs:
+        value date (1..1)
+        weekday int (1..1)
+        firstDay int (1..1)
+    output: rolled date (1..1)
+    set rolled: RollToWeekday(date { year: value -> year, month: value -> month, day: firstDay }, weekday, 1)
+
+func SydneyBankBillRoll: <"In Strata 1.7.0 the Thursday before the second Friday is always a business day in AUSY. The pinned Sydney rules place no holidays on that Thursday.">
+    inputs: value date (1..1)
+    output: rolled date (1..1)
+    condition SydneyCalendarRange: value -> year >= 0 and value -> year < 10000
+    set rolled: GregorianShiftDate(MonthWeekday(value, 5, 8), -1)
+
+func RollDate: <"The FpML roll conventions available to CDM through Strata 1.7.0.">
+    inputs:
+        value date (1..1)
+        roll Roll (1..1)
+    output: rolled date (1..1)
+    alias kind: roll -> kind
+    alias day: roll -> day default 31
+    alias monthLength: MonthLength(value -> year, value -> month)
+    set rolled:
+        if kind = RollKind -> NoRoll then value
+        else if kind = RollKind -> WeekDay then RollToWeekday(value, day, 1)
+        else if kind = RollKind -> Imm then MonthWeekday(value, 3, 15)
+        else if kind = RollKind -> ImmAud then SydneyBankBillRoll(value)
+        else if kind = RollKind -> ImmNzd then MonthWeekday(value, 3, 9)
+        else if kind = RollKind -> Sfe then MonthWeekday(value, 5, 8)
+        else date { year: value -> year, month: value -> month, day: if day < monthLength then day else monthLength }
+
+func RollStep: <"Advance or retreat by the frequency and apply Strata's roll rule. A month roll that stays at the same boundary advances one calendar month.">
+    inputs:
+        value date (1..1)
+        frequency Frequency (1..1)
+        roll Roll (1..1)
+        direction int (1..1)
+    output: rolled date (1..1)
+    alias months: direction * ((frequency -> period -> years) * 12 + (frequency -> period -> months))
+    alias days: direction * (frequency -> period -> days)
+    alias monthDate: if months = 0 then value else ShiftMonths(value, months)
+    alias nominal: if days = 0 then monthDate else GregorianShiftDate(monthDate, days)
+    alias candidate:
+        if roll -> kind = RollKind -> WeekDay
+        then RollToWeekday(nominal, roll -> day default 1, direction)
+        else RollDate(nominal, roll)
+    set rolled:
+        if direction * (candidate - value) > 0 then candidate
+        else RollDate(ShiftMonths(value, direction), roll)

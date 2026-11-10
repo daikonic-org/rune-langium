@@ -21,9 +21,10 @@ separate from implementation kind. Handwritten Java implementations, tests and
 empty data providers are reference evidence, never target implementations.
 
 Reusable library ports retain their library namespace. The owned Strata frequency
-port lives in `com.opengamma.strata.basics.schedule`; CDM's `PeriodsInYear` is a
-thin adapter over it. Its one Rune catalog path includes the library source and
-Apache license/notice as support files, not alternative target implementations.
+and periodic schedule ports live in `com.opengamma.strata.basics.schedule`.
+CDM's `PeriodsInYear`, `CalculationPeriod`, and `CalculationPeriods` reuse the
+same CDM-to-Strata frequency conversion. Their Rune catalog paths include the
+library sources and Apache license and notice as support files.
 
 ## Publication and loading
 
@@ -56,6 +57,15 @@ runtime helper. Both targets
 retain the existing finite `number`/`float` API, so decimal scale formatting and
 arbitrary BigDecimal precision remain outside their contract. See the
 [pinned rounding corpus](../../test/fixtures/third-party/cdm-rounding/README.md).
+
+The CDM publisher also reads `codelist/json` from the same pinned source archive.
+It prepares a case-insensitive domain catalog before serializing the native
+`LoadCodeList` targets. Each target returns a fresh `CodeList` from those bytes.
+Scheme URIs are identifiers. No target dereferences them or needs access to the
+source archive at execution time. Duplicate domains fail publication. Source
+resource hashes and the original license and notice remain in the inventory and
+archive. See the [pinned code-list fixture](../../test/fixtures/third-party/cdm-code-list-loader/README.md)
+for the Java comparisons and the supported metadata-only case.
 
 ## Workspace installation
 

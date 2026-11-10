@@ -15,7 +15,9 @@ from lib.java_reference_oracle import verified_classpath
 root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--cache-dir", type=Path, required=True)
-parser.add_argument("--suite", choices=("cdm-calendar", "cdm-commodity-periods"), default="cdm-calendar")
+parser.add_argument(
+    "--suite", choices=("cdm-calendar", "cdm-commodity-periods", "cdm-strata-schedules"), default="cdm-calendar"
+)
 args = parser.parse_args()
 directory = root / "test/fixtures/third-party" / args.suite
 manifest = json.loads((directory / "java-oracle.json").read_text())

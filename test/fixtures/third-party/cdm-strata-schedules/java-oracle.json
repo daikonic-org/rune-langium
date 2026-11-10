@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "artifactManifest": "../cdm-rounding/java-oracle.json",
+  "files": [
+    {
+      "name": "java/CalculationPeriodImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/product/common/schedule/functions/CalculationPeriodImpl.java",
+      "sha256": "c663e79c29d4fdc29eb667824d1ce1f2f884fe45f25a65cd99ba4b72bb99c25d"
+    },
+    {
+      "name": "java/CalculationPeriodsImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/product/common/schedule/functions/CalculationPeriodsImpl.java",
+      "sha256": "e224cc115b57e644745ddf77e5d58b1e4a9d2bfa17482f273cd393d95cc39b85"
+    },
+    {
+      "name": "java/CdmToStrataMapper.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/product/common/schedule/functions/CdmToStrataMapper.java",
+      "sha256": "434201e9809ac8c1c9affd61b9fcd15b0503f8a8a900b29fa85a00430c74f876"
+    },
+    {
+      "name": "java/AdjustableDateUtils.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/product/common/schedule/functions/AdjustableDateUtils.java",
+      "sha256": "0577ab85913517ed050b124a114fcb672bf9b58ab8c8d437fc1ae20fc4868e8d"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "joda-convert-2.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-convert/2.0/joda-convert-2.0.jar",
+      "sha256": "98080752aff1f3c56885b71afd475528e6fc52fe2d21d2450bd2573c93ed8e9e",
+      "runtime": true
+    },
+    {
+      "name": "strata-basics-1.7.0-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/1.7.0/strata-basics-1.7.0-sources.jar",
+      "sha256": "82871315153e985b9c2e265c114158e99d984e473fd6d6826707327f1dabc657",
+      "runtime": false
+    }
+  ]
+}

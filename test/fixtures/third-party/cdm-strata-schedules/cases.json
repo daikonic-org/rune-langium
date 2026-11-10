@@ -1,0 +1,2361 @@
+[
+  {
+    "id": "unadjusted-endpoints",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-01-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-01-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2023-05-16"
+    },
+    "expected": {
+      "startDate": "2023-05-16",
+      "endDate": "2023-06-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "shouldFindPeriodRegardlessOfDateFieldType"
+  },
+  {
+    "id": "adjusted-endpoints",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "adjustedDate": {
+              "value": "2023-01-16"
+            }
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "adjustedDate": {
+              "value": "2024-01-16"
+            }
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2023-05-16"
+    },
+    "expected": {
+      "startDate": "2023-05-16",
+      "endDate": "2023-06-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "shouldFindPeriodRegardlessOfDateFieldType"
+  },
+  {
+    "id": "java-period-case-01",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2021-08-16"
+    },
+    "expected": {
+      "startDate": "2021-08-16",
+      "endDate": "2021-09-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=16 1M — first period (effective date is inclusive)"
+  },
+  {
+    "id": "java-period-case-02",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2023-05-20"
+    },
+    "expected": {
+      "startDate": "2023-05-16",
+      "endDate": "2023-06-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=16 1M — mid period"
+  },
+  {
+    "id": "java-period-case-03",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2024-07-20"
+    },
+    "expected": {
+      "startDate": "2024-07-16",
+      "endDate": "2024-08-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 31,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=16 1M — mid period in leap year (daysInLeapYearPeriod is set)"
+  },
+  {
+    "id": "java-period-case-04",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2025-08-01"
+    },
+    "expected": {
+      "startDate": "2025-07-16",
+      "endDate": "2025-08-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "roll=16 1M — last period (day before termination date)"
+  },
+  {
+    "id": "java-period-case-05",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2021-09-15"
+    },
+    "expected": {
+      "startDate": "2021-08-16",
+      "endDate": "2021-09-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=16 1M — day before roll day (still in the same period)"
+  },
+  {
+    "id": "java-period-case-06",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2021-09-16"
+    },
+    "expected": {
+      "startDate": "2021-09-16",
+      "endDate": "2021-10-16",
+      "daysInPeriod": 30,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=16 1M — on roll day (target starts the next period)"
+  },
+  {
+    "id": "java-period-case-07",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-15"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-09-15"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 3,
+          "rollConvention": "_15"
+        }
+      },
+      "date": "2025-11-15"
+    },
+    "expected": {
+      "startDate": "2025-09-15",
+      "endDate": "2025-12-15",
+      "daysInPeriod": 91,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=15 3M — quarterly, first period"
+  },
+  {
+    "id": "java-period-case-08",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 3,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2024-03-01"
+    },
+    "expected": {
+      "startDate": "2024-01-01",
+      "endDate": "2024-04-01",
+      "daysInPeriod": 91,
+      "daysInLeapYearPeriod": 91,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=1 3M — quarterly, mid period spanning the leap day"
+  },
+  {
+    "id": "java-period-case-09",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-03-15"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-03-15"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 6,
+          "rollConvention": "_15"
+        }
+      },
+      "date": "2025-05-20"
+    },
+    "expected": {
+      "startDate": "2025-03-15",
+      "endDate": "2025-09-15",
+      "daysInPeriod": 184,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "roll=15 6M — semi-annual, mid period"
+  },
+  {
+    "id": "java-period-case-10",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-01-18"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-01-17"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "IMM"
+        }
+      },
+      "date": "2023-05-16"
+    },
+    "expected": {
+      "startDate": "2023-04-19",
+      "endDate": "2023-05-17",
+      "daysInPeriod": 28,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "IMM 1M — mid period"
+  },
+  {
+    "id": "java-period-case-11",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-10-18"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-12-06"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "W",
+          "periodMultiplier": 1,
+          "rollConvention": "SAT"
+        }
+      },
+      "date": "2025-11-07"
+    },
+    "expected": {
+      "startDate": "2025-11-01",
+      "endDate": "2025-11-08",
+      "daysInPeriod": 7,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "SAT 1W — mid period"
+  },
+  {
+    "id": "java-period-case-12",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2022-12-31"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-06-30"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "EOM"
+        }
+      },
+      "date": "2023-02-10"
+    },
+    "expected": {
+      "startDate": "2023-01-31",
+      "endDate": "2023-02-28",
+      "daysInPeriod": 28,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "EOM 1M — mid period"
+  },
+  {
+    "id": "java-period-case-13",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2022-11-30"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-28"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 3,
+          "rollConvention": "EOM"
+        }
+      },
+      "date": "2024-02-10"
+    },
+    "expected": {
+      "startDate": "2023-11-30",
+      "endDate": "2024-02-29",
+      "daysInPeriod": 91,
+      "daysInLeapYearPeriod": 59,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "EOM 3M — leap-year boundary"
+  },
+  {
+    "id": "java-period-case-14",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-08-05"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "lastRegularPeriodEndDate": "2024-07-16"
+      },
+      "date": "2024-08-01"
+    },
+    "expected": {
+      "startDate": "2024-07-16",
+      "endDate": "2024-08-05",
+      "daysInPeriod": 20,
+      "daysInLeapYearPeriod": 20,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "SHORT_FINAL (roll=16 1M): stub [Jul 16, Aug 5 2024]"
+  },
+  {
+    "id": "java-period-case-15",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2022-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "firstRegularPeriodStartDate": "2021-09-16"
+      },
+      "date": "2021-08-30"
+    },
+    "expected": {
+      "startDate": "2021-08-25",
+      "endDate": "2021-09-16",
+      "daysInPeriod": 22,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "SHORT_INITIAL (roll=16 1M): stub [Aug 25, Sep 16 2021]"
+  },
+  {
+    "id": "java-period-case-16",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-12-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "lastRegularPeriodEndDate": "2024-06-16"
+      },
+      "date": "2024-08-01"
+    },
+    "expected": {
+      "startDate": "2024-06-16",
+      "endDate": "2024-08-16",
+      "daysInPeriod": 61,
+      "daysInLeapYearPeriod": 61,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "LONG_FINAL (roll=16 1M): stub [Jun 16, Aug 16 2024]"
+  },
+  {
+    "id": "java-period-case-17",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2021-08-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2022-08-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "firstRegularPeriodStartDate": "2021-10-16"
+      },
+      "date": "2021-08-30"
+    },
+    "expected": {
+      "startDate": "2021-08-16",
+      "endDate": "2021-10-16",
+      "daysInPeriod": 61,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "LONG_INITIAL (roll=16 1M): stub [Aug 16, Oct 16 2021]"
+  },
+  {
+    "id": "java-period-case-18",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2022-08-10"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-08-12"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "Y",
+          "periodMultiplier": 1,
+          "rollConvention": "_10"
+        },
+        "lastRegularPeriodEndDate": "2025-08-10"
+      },
+      "date": "2025-11-12"
+    },
+    "expected": {
+      "startDate": "2025-08-10",
+      "endDate": "2026-08-12",
+      "daysInPeriod": 367,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "LONG_FINAL (roll=10 1Y): stub [Aug 10 2025, Aug 12 2026]"
+  },
+  {
+    "id": "java-period-case-19",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-11-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-10-15"
+    },
+    "expected": {
+      "startDate": "2025-10-01",
+      "endDate": "2025-11-01",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "SHORT_FINAL stub type — target in final short stub"
+  },
+  {
+    "id": "java-period-case-20",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-11-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "LongFinal"
+        ]
+      },
+      "date": "2025-10-15"
+    },
+    "expected": {
+      "startDate": "2025-06-01",
+      "endDate": "2025-11-01",
+      "daysInPeriod": 153,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "LONG_FINAL stub type — target in merged final long stub"
+  },
+  {
+    "id": "java-period-case-21",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-11-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortInitial"
+        ]
+      },
+      "date": "2025-01-15"
+    },
+    "expected": {
+      "startDate": "2025-01-01",
+      "endDate": "2025-03-01",
+      "daysInPeriod": 59,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "SHORT_INITIAL stub type — target in initial short stub"
+  },
+  {
+    "id": "java-period-case-22",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-11-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "LongInitial"
+        ]
+      },
+      "date": "2025-01-15"
+    },
+    "expected": {
+      "startDate": "2025-01-01",
+      "endDate": "2025-07-01",
+      "daysInPeriod": 181,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "LONG_INITIAL stub type — target in merged initial long stub"
+  },
+  {
+    "id": "java-period-case-23",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-15"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortFinal"
+        ],
+        "lastRegularPeriodEndDate": "2025-05-01"
+      },
+      "date": "2025-06-01"
+    },
+    "expected": {
+      "startDate": "2025-05-01",
+      "endDate": "2025-08-15",
+      "daysInPeriod": 106,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "SHORT_FINAL stub type combined with lastRegularPeriodEndDate"
+  },
+  {
+    "id": "java-period-case-24",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-11-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-03-15"
+    },
+    "expected": {
+      "startDate": "2025-02-01",
+      "endDate": "2025-06-01",
+      "daysInPeriod": 120,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "SHORT_FINAL stub type — target in a regular (non-stub) period"
+  },
+  {
+    "id": "java-period-case-25",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-10-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortInitial"
+        ],
+        "firstRegularPeriodStartDate": "2025-02-01"
+      },
+      "date": "2025-01-15"
+    },
+    "expected": {
+      "startDate": "2025-01-01",
+      "endDate": "2025-02-01",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "SHORT_INITIAL stub type combined with firstRegularPeriodStartDate"
+  },
+  {
+    "id": "java-period-case-26",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-04-27"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-07-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 2,
+          "rollConvention": "_27"
+        },
+        "stubPeriodType": [
+          "ShortFinal"
+        ]
+      },
+      "date": "2023-07-05"
+    },
+    "expected": {
+      "startDate": "2023-06-27",
+      "endDate": "2023-07-10",
+      "daysInPeriod": 13,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "roll=27 2M — SHORT_FINAL stub type (termination date off roll day)"
+  },
+  {
+    "id": "java-period-case-27",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-10-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortInitial",
+          "ShortFinal"
+        ],
+        "firstRegularPeriodStartDate": "2025-03-01",
+        "lastRegularPeriodEndDate": "2025-07-01"
+      },
+      "date": "2025-02-15"
+    },
+    "expected": {
+      "startDate": "2025-02-01",
+      "endDate": "2025-03-01",
+      "daysInPeriod": 28,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "BOTH stubs with explicit boundary dates — initial stub [Feb 1, Mar 1]"
+  },
+  {
+    "id": "java-period-case-28",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-10-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortInitial",
+          "ShortFinal"
+        ],
+        "firstRegularPeriodStartDate": "2025-03-01",
+        "lastRegularPeriodEndDate": "2025-07-01"
+      },
+      "date": "2025-09-15"
+    },
+    "expected": {
+      "startDate": "2025-07-01",
+      "endDate": "2025-10-01",
+      "daysInPeriod": 92,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "BOTH stubs with explicit boundary dates — final stub [Jul 1, Oct 1]"
+  },
+  {
+    "id": "java-period-case-29",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "stubPeriodType": [
+          "ShortInitial",
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-01-30"
+    },
+    "expected": {
+      "startDate": "2025-01-25",
+      "endDate": "2025-02-16",
+      "daysInPeriod": 22,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "BOTH stubs with auto-derived boundaries — initial stub [Jan 25, Feb 16]"
+  },
+  {
+    "id": "java-period-case-30",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "stubPeriodType": [
+          "ShortInitial",
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-09-01"
+    },
+    "expected": {
+      "startDate": "2025-08-16",
+      "endDate": "2025-09-10",
+      "daysInPeriod": 25,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "BOTH stubs with auto-derived boundaries — final stub [Aug 16, Sep 10]"
+  },
+  {
+    "id": "java-period-case-31",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "stubPeriodType": [
+          "LongInitial",
+          "LongFinal"
+        ]
+      },
+      "date": "2025-02-01"
+    },
+    "expected": {
+      "startDate": "2025-01-25",
+      "endDate": "2025-03-16",
+      "daysInPeriod": 50,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    },
+    "upstreamCase": "BOTH long stubs with auto-derived boundaries — initial stub [Jan 25, Mar 16]"
+  },
+  {
+    "id": "java-period-case-32",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "stubPeriodType": [
+          "LongInitial",
+          "LongFinal"
+        ]
+      },
+      "date": "2025-08-01"
+    },
+    "expected": {
+      "startDate": "2025-07-16",
+      "endDate": "2025-09-10",
+      "daysInPeriod": 56,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    },
+    "upstreamCase": "BOTH long stubs with auto-derived boundaries — final stub [Jul 16, Sep 10]"
+  },
+  {
+    "id": "shorter-than-frequency",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-15"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 3,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-01-20"
+    },
+    "expected": {
+      "startDate": "2025-01-01",
+      "endDate": "2025-02-15",
+      "daysInPeriod": 45,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": true
+    }
+  },
+  {
+    "id": "target-before",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2027-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2024-12-31"
+    },
+    "expected": {}
+  },
+  {
+    "id": "target-after",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2027-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2027-08-16"
+    },
+    "expected": {}
+  },
+  {
+    "id": "target-at-termination",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2027-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2027-01-01"
+    },
+    "expected": {}
+  },
+  {
+    "id": "effective-after-termination",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2027-12-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-08-15"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-12-15"
+    },
+    "expectedError": "OrderedScheduleDates",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-schedule",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": null,
+      "date": "2025-06-01"
+    },
+    "expectedError": "RequiredScheduleInput",
+    "expectedPythonError": "Argument 'calculationPeriodDates' requires a value",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-target",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": null
+    },
+    "expectedError": "RequiredScheduleInput",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-calculationPeriodFrequency",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "RequiredScheduleInput",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-period",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "RequiredScheduleInput",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-periodMultiplier",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "RequiredScheduleInput",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-rollConvention",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "RequiredScheduleInput",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-effectiveDate",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SingleBoundaryDate",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "missing-adjustable-date",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {},
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SingleBoundaryDate",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "neither-date",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {}
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SingleBoundaryDate",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "both-dates",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01",
+            "adjustedDate": {
+              "value": "2025-01-01"
+            }
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SingleBoundaryDate",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "undeclared-initial-stub",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2025-02-01"
+    },
+    "expectedError": "InitialStubRequired",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "undeclared-final-stub",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        }
+      },
+      "date": "2025-08-01"
+    },
+    "expectedError": "FinalStubRequired",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "contradictory-initial-stubs",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-10-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortInitial",
+          "LongInitial"
+        ]
+      },
+      "date": "2025-05-01"
+    },
+    "expectedError": "InitialStubTypes",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "contradictory-final-stubs",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-10-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortFinal",
+          "LongFinal"
+        ]
+      },
+      "date": "2025-05-01"
+    },
+    "expectedError": "FinalStubTypes",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "both-stubs-need-explicit-on-roll-boundary",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-02-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 4,
+          "rollConvention": "_1"
+        },
+        "stubPeriodType": [
+          "ShortInitial",
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-05-01"
+    },
+    "expectedError": "ExplicitStubDates",
+    "referenceError": "ScheduleException"
+  },
+  {
+    "id": "off-roll-explicit-first",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "firstRegularPeriodStartDate": "2025-02-16"
+      },
+      "date": "2025-01-30"
+    },
+    "expected": {
+      "startDate": "2025-01-25",
+      "endDate": "2025-02-16",
+      "daysInPeriod": 22,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "off-roll-explicit-last",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "lastRegularPeriodEndDate": "2025-08-16"
+      },
+      "date": "2025-09-01"
+    },
+    "expected": {
+      "startDate": "2025-08-16",
+      "endDate": "2025-09-10",
+      "daysInPeriod": 25,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": true
+    }
+  },
+  {
+    "id": "off-roll-typed-first",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-25"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-16"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "stubPeriodType": [
+          "ShortInitial"
+        ]
+      },
+      "date": "2025-01-30"
+    },
+    "expected": {
+      "startDate": "2025-01-25",
+      "endDate": "2025-02-16",
+      "daysInPeriod": 22,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": true,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "off-roll-typed-last",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-16"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-09-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_16"
+        },
+        "stubPeriodType": [
+          "ShortFinal"
+        ]
+      },
+      "date": "2025-08-01"
+    },
+    "expected": {
+      "startDate": "2025-07-16",
+      "endDate": "2025-08-16",
+      "daysInPeriod": 31,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "java-quarterly-schedule",
+    "function": "CalculationPeriods",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2018-01-03"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2020-01-03",
+            "dateAdjustments": {
+              "businessDayConvention": "MODFOLLOWING"
+            }
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 3,
+          "rollConvention": "_3"
+        }
+      }
+    },
+    "expected": [
+      {
+        "startDate": "2018-01-03",
+        "endDate": "2018-04-03",
+        "daysInPeriod": 90,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2018-04-03",
+        "endDate": "2018-07-03",
+        "daysInPeriod": 91,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2018-07-03",
+        "endDate": "2018-10-03",
+        "daysInPeriod": 92,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2018-10-03",
+        "endDate": "2019-01-03",
+        "daysInPeriod": 92,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2019-01-03",
+        "endDate": "2019-04-03",
+        "daysInPeriod": 90,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2019-04-03",
+        "endDate": "2019-07-03",
+        "daysInPeriod": 91,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2019-07-03",
+        "endDate": "2019-10-03",
+        "daysInPeriod": 92,
+        "daysInLeapYearPeriod": 0,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      },
+      {
+        "startDate": "2019-10-03",
+        "endDate": "2020-01-03",
+        "daysInPeriod": 92,
+        "daysInLeapYearPeriod": 2,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      }
+    ],
+    "upstreamCase": "shouldReturnStartAndEndDateOfFirstPeriod"
+  },
+  {
+    "id": "roll-IMMAUD",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-03-07"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-06-13"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "IMMAUD"
+        }
+      },
+      "date": "2024-04-22"
+    },
+    "expected": {
+      "startDate": "2024-04-11",
+      "endDate": "2024-05-09",
+      "daysInPeriod": 28,
+      "daysInLeapYearPeriod": 28,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "roll-IMMNZD",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-03-13"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-06-12"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "IMMNZD"
+        }
+      },
+      "date": "2024-04-22"
+    },
+    "expected": {
+      "startDate": "2024-04-10",
+      "endDate": "2024-05-15",
+      "daysInPeriod": 35,
+      "daysInLeapYearPeriod": 35,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "roll-SFE",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-03-08"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-06-14"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "SFE"
+        }
+      },
+      "date": "2024-04-22"
+    },
+    "expected": {
+      "startDate": "2024-04-12",
+      "endDate": "2024-05-10",
+      "daysInPeriod": 28,
+      "daysInLeapYearPeriod": 28,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "roll-_29",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-01-29"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-04-29"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_29"
+        }
+      },
+      "date": "2024-03-01"
+    },
+    "expected": {
+      "startDate": "2024-02-29",
+      "endDate": "2024-03-29",
+      "daysInPeriod": 29,
+      "daysInLeapYearPeriod": 29,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "roll-_30",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-01-30"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2023-04-30"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_30"
+        }
+      },
+      "date": "2023-03-01"
+    },
+    "expected": {
+      "startDate": "2023-02-28",
+      "endDate": "2023-03-30",
+      "daysInPeriod": 30,
+      "daysInLeapYearPeriod": 0,
+      "isFirstPeriod": false,
+      "isLastPeriod": false
+    }
+  },
+  {
+    "id": "unsupported-FRN",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "FRN"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SupportedFpmlRoll",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "unsupported-IMMCAD",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "IMMCAD"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SupportedFpmlRoll",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "unsupported-TBILL",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "TBILL"
+        }
+      },
+      "date": "2025-06-01"
+    },
+    "expectedError": "SupportedFpmlRoll",
+    "referenceError": "IllegalArgumentException"
+  },
+  {
+    "id": "term-0",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-02-28"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-03-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "T",
+          "periodMultiplier": 0,
+          "rollConvention": "NONE"
+        }
+      },
+      "date": "2025-01-01"
+    },
+    "expected": {
+      "startDate": "2024-02-28",
+      "endDate": "2025-03-01",
+      "daysInPeriod": 367,
+      "daysInLeapYearPeriod": 308,
+      "isFirstPeriod": true,
+      "isLastPeriod": true
+    }
+  },
+  {
+    "id": "term-1",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-02-28"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-03-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "T",
+          "periodMultiplier": 1,
+          "rollConvention": "NONE"
+        }
+      },
+      "date": "2025-01-01"
+    },
+    "expected": {
+      "startDate": "2024-02-28",
+      "endDate": "2025-03-01",
+      "daysInPeriod": 367,
+      "daysInLeapYearPeriod": 308,
+      "isFirstPeriod": true,
+      "isLastPeriod": true
+    }
+  },
+  {
+    "id": "equal-dates-empty",
+    "function": "CalculationPeriod",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2025-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      },
+      "date": "2025-01-01"
+    },
+    "expected": {}
+  },
+  {
+    "id": "missing-plural-boundary",
+    "function": "CalculationPeriods",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": null,
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      }
+    },
+    "expected": []
+  },
+  {
+    "id": "unresolved-relative-boundary",
+    "function": "CalculationPeriods",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "relativeDate": {}
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2026-01-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "M",
+          "periodMultiplier": 1,
+          "rollConvention": "_1"
+        }
+      }
+    },
+    "expected": []
+  },
+  {
+    "id": "plural-adjusts-weekend-before-rolling",
+    "function": "CalculationPeriods",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-06-01",
+            "dateAdjustments": {
+              "businessDayConvention": "FOLLOWING"
+            }
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-06-10"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "W",
+          "periodMultiplier": 1,
+          "rollConvention": "MON"
+        }
+      }
+    },
+    "expected": [
+      {
+        "startDate": "2024-06-03",
+        "endDate": "2024-06-10",
+        "daysInPeriod": 7,
+        "daysInLeapYearPeriod": 7,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      }
+    ]
+  },
+  {
+    "id": "plural-term",
+    "function": "CalculationPeriods",
+    "inputs": {
+      "calculationPeriodDates": {
+        "effectiveDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-01-01"
+          }
+        },
+        "terminationDate": {
+          "adjustableDate": {
+            "unadjustedDate": "2024-04-01"
+          }
+        },
+        "calculationPeriodFrequency": {
+          "period": "T",
+          "periodMultiplier": 1,
+          "rollConvention": "NONE"
+        }
+      }
+    },
+    "expected": [
+      {
+        "startDate": "2024-01-01",
+        "endDate": "2024-04-01",
+        "daysInPeriod": 91,
+        "daysInLeapYearPeriod": 91,
+        "isFirstPeriod": false,
+        "isLastPeriod": false
+      }
+    ]
+  }
+]

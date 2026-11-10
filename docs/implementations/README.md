@@ -13,9 +13,9 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **10
-language-specific implementations per target**. Sixteen catalog entries use Rune,
-including twelve owned overrides and four partially implemented upstream dispatch
+There are **49 CDM native declarations**, no FpML native declarations, and **11
+language-specific implementations per target**. Eighteen catalog entries use Rune,
+including fourteen owned overrides and four partially implemented upstream dispatch
 families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
 source files whose Git object hashes are verified. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -149,14 +149,23 @@ checks 19 cases against the handwritten Java implementation. The valid term
 frequency follows the pinned FpML endpoint contract. Both executable targets
 reject invalid multipliers and boundaries outside their shared date range.
 
+The [code-list fixture](../../test/fixtures/third-party/cdm-code-list-loader/README.md)
+checks the bundled `LoadCodeList` implementation and the preserved Rune
+`ValidateFpMLCodingSchemeDomain` caller. Selected code lists still materialize as
+ordinary Rune enums in the project graph.
+
+The [Strata schedule fixture](../../test/fixtures/third-party/cdm-strata-schedules/README.md)
+compares the paired `CalculationPeriod` and `CalculationPeriods` Rune overrides
+with the handwritten CDM implementations. Both use the same Strata frequency,
+roll, and stub engine and reuse the curated calendar arithmetic.
+
 ## Remaining integrations
 
-**23 catalog entries** remain unimplemented.
+**20 catalog entries** remain unimplemented.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
-| Code-list loading | `LoadCodeList`: emit prepared resource documents into standalone targets and use the same resolver as Prototype; the upstream Rune `ValidateFpMLCodingSchemeDomain` body must be preserved |
-| Calendars and schedules | `BusinessCenterHolidays`, `GetNonBusinessDates`, `CalculationPeriod(s)`, `ComputeCalculationPeriod` with explicit holiday data, roll/stub rules and model-version semantics |
+| Calendars and schedules | `BusinessCenterHolidays`, `GetNonBusinessDates`, and the remaining calendar-dependent execution of `ComputeCalculationPeriod` |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |

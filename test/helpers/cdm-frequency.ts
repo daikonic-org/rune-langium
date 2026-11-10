@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { referenceFiles } from '../../packages/codegen/test/helpers/cdm-reference.js';
+import { publishedRuneFiles } from './curated-implementations.js';
 
 export const frequencyDirectory = resolve(import.meta.dirname, '../fixtures/third-party/cdm-frequency');
 export const frequencyIdentity = 'cdm.product.common.schedule.PeriodsInYear';
@@ -28,23 +29,6 @@ export interface StrataFrequencyCase {
 export const strataFrequencyCases: StrataFrequencyCase[] = JSON.parse(
   readFileSync(resolve(frequencyDirectory, 'strata-cases.json'), 'utf8')
 );
-export const frequencyImplementation = {
-  uri: 'file:///model/implementations/cdm/frequency.rosetta',
-  content: readFileSync(
-    resolve(import.meta.dirname, '../../packages/project-runtime/src/curated-implementations/rune/frequency.rosetta'),
-    'utf8'
-  )
-};
-export const strataFrequencyImplementation = {
-  uri: 'file:///model/implementations/cdm/strata-frequency.rosetta',
-  content: readFileSync(
-    resolve(
-      import.meta.dirname,
-      '../../packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta'
-    ),
-    'utf8'
-  )
-};
 export const frequencyCaller = {
   uri: 'file:///model/frequency-caller.rosetta',
   content: `namespace example.frequency
@@ -60,6 +44,6 @@ export function frequencyFiles(withImplementation = true) {
   return [
     ...referenceFiles(frequencyDirectory),
     frequencyCaller,
-    ...(withImplementation ? [strataFrequencyImplementation, frequencyImplementation] : [])
+    ...(withImplementation ? publishedRuneFiles('cdm.product.common.schedule', ['PeriodsInYear']) : [])
   ];
 }

@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.calendar.frequency
+version "1.0.0"
+
+import cdm.base.datetime.*
+import com.opengamma.strata.basics.schedule.*
+
+func ToStrataFrequency: <"The CDM adapter passes its period code and multiplier to Strata Frequency.parse.">
+    inputs:
+        period PeriodExtendedEnum (1..1)
+        multiplier int (1..1)
+    output: frequency com.opengamma.strata.basics.schedule.Frequency (1..1)
+    condition SupportedFrequency:
+        if period = PeriodExtendedEnum -> T then multiplier = 0 or multiplier = 1
+        else [PeriodExtendedEnum -> D, PeriodExtendedEnum -> W, PeriodExtendedEnum -> M, PeriodExtendedEnum -> Y] contains period
+            and multiplier > 0
+    set frequency:
+        if period = PeriodExtendedEnum -> T then Term()
+        else OfPeriod(com.opengamma.strata.basics.schedule.Period {
+            years: if period = PeriodExtendedEnum -> Y then multiplier else 0,
+            months: if period = PeriodExtendedEnum -> M then multiplier else 0,
+            days: if period = PeriodExtendedEnum -> D then multiplier
+                  else if period = PeriodExtendedEnum -> W then multiplier * 7
+                  else 0
+        })

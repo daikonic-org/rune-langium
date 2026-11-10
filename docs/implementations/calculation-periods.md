@@ -112,3 +112,32 @@ generated TypeScript/Python port. This is an explicit adapter choice based on th
 available reference; it does not assert a missing direct CDM binding existed or
 port the full Strata scheduling API. It needs no production calendars or JVM
 dependency at runtime.
+
+## `CalculationPeriod` and `CalculationPeriods`
+
+The handwritten CDM adapters call Strata 1.7.0's `PeriodicSchedule` with
+`BusinessDayAdjustment.NONE`. The Rune port implements the shared unadjusted
+interval calculation in `com.opengamma.strata.basics.schedule`. Its CDM adapters
+live under `impl.cdm.calendar.schedule` and install as two declarations in one
+ordinary override file.
+
+`CalculationPeriod` admits exactly one supplied date for each endpoint. It selects
+the interval containing the target and marks the schedule's first and last
+periods. A target outside the half-open schedule returns an empty period object,
+matching the Java builder result. `CalculationPeriods` resolves endpoint
+adjustments with the existing Saturday/Sunday adapter, builds the no-stub
+schedule, and leaves both flags false. Missing endpoints return an empty list.
+Both reuse `CalculationPeriodRange` for day counts.
+
+The shared engine preserves explicit and inferred stub boundaries, the
+direction of the roll, and the merge of long stubs. For Strata's FpML adapter,
+`NONE` and advisory `EOM` derive a roll from the schedule when appropriate.
+`FRN`, `IMMCAD`, and `TBILL` are outside that version's FpML name mapping and
+fail explicitly. The Sydney rule is equivalent to the Thursday preceding the
+second Friday over the pinned calendar's accepted range. The JVM verifier
+checks all 120,000 months against Strata's published calendar.
+
+The [schedule fixture](../../test/fixtures/third-party/cdm-strata-schedules/README.md)
+checks the pinned Java cases through standalone TypeScript and Python. The
+optimized Prototype journey loads the same Rune sources from a verified bundle
+and exercises both functions.

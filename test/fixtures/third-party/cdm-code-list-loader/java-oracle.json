@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.finos.cdm:cdm-java:7.9.0",
+  "artifactManifest": "../cdm-rounding/java-oracle.json",
+  "files": [
+    {
+      "name": "java/LoadCodeListImpl.java",
+      "artifact": "cdm-java-7.9.0-sources.jar",
+      "entry": "cdm/base/staticdata/codelist/LoadCodeListImpl.java",
+      "sha256": "b72f378ba96991ee22aa52fd9d2781d35d528333313a813bb0d01fe32eb21cad"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "commons-io-2.22.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/commons-io/commons-io/2.22.0/commons-io-2.22.0.jar",
+      "sha256": "2b9a7b1f726fb86216dbd2c8321eabe0221dbd5b1be81c18e1cb53811b104758",
+      "runtime": true
+    },
+    {
+      "name": "jackson-dataformat-csv-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/2.18.12/jackson-dataformat-csv-2.18.12.jar",
+      "sha256": "6012c652d3188283df06d2de7a16986d9900a195f4e8b0fc46be829cefab5b95",
+      "runtime": true
+    },
+    {
+      "name": "jackson-dataformat-xml-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-xml/2.18.12/jackson-dataformat-xml-2.18.12.jar",
+      "sha256": "8347d091857b097a5de780084ca0a1f88fc6e1e1c8a4c0120c17ed10281318fa",
+      "runtime": true
+    },
+    {
+      "name": "jackson-dataformat-yaml-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.18.12/jackson-dataformat-yaml-2.18.12.jar",
+      "sha256": "a9ac98af0e0a3e3f2e9491abb8b55a1b431415397ce4e5e215622755a4506871",
+      "runtime": true
+    },
+    {
+      "name": "jackson-datatype-guava-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-guava/2.18.12/jackson-datatype-guava-2.18.12.jar",
+      "sha256": "53fcfa12b10a0cfa2628c4b956a3455cab81f1e0f46d5d736ab4f09073da7c0b",
+      "runtime": true
+    },
+    {
+      "name": "jackson-datatype-jdk8-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/2.18.12/jackson-datatype-jdk8-2.18.12.jar",
+      "sha256": "e1dbd54f793aaf73bdb9e8f4f44a56f90dc3156977b6cb8974ad70d554b0d4e1",
+      "runtime": true
+    },
+    {
+      "name": "jackson-datatype-joda-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-joda/2.18.12/jackson-datatype-joda-2.18.12.jar",
+      "sha256": "c9317804a30212bbb299f7b24583a1a32465059c1203e412766c4a49b0271583",
+      "runtime": true
+    },
+    {
+      "name": "jackson-datatype-jsr310-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.18.12/jackson-datatype-jsr310-2.18.12.jar",
+      "sha256": "bfea00e5943be62b8d126fa679fb607f3ae2c0e0c6495477c866a715bb54a04e",
+      "runtime": true
+    },
+    {
+      "name": "jackson-module-blackbird-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-blackbird/2.18.12/jackson-module-blackbird-2.18.12.jar",
+      "sha256": "29c29fa55ce8d423a40ed22b643a978dcd9cd59bbf23d05442178f7430656951",
+      "runtime": true
+    },
+    {
+      "name": "jackson-module-parameter-names-2.18.12.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.18.12/jackson-module-parameter-names-2.18.12.jar",
+      "sha256": "0a19c3a10fc1b714c11c5d6ba2d23392259b6798fb418fc5e288ca495d79f10b",
+      "runtime": true
+    },
+    {
+      "name": "joda-time-2.13.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/joda-time/joda-time/2.13.1/joda-time-2.13.1.jar",
+      "sha256": "a9be47b46390f7a6dabacc7c055b4feb6fb8f2225477a7270a8233b296e26677",
+      "runtime": true
+    },
+    {
+      "name": "quickfixj-base-3.0.2.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/quickfixj/quickfixj-base/3.0.2/quickfixj-base-3.0.2.jar",
+      "sha256": "47ac4aa92410877c9660e8a1f3b04dc988ac3ba813ebc802eabb37e923fd6c3d",
+      "runtime": true
+    },
+    {
+      "name": "serialization-12.25.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/finos/rune-common/serialization/12.25.0/serialization-12.25.0.jar",
+      "sha256": "428d7e851e9d11d16e79a6f3b77ee7e633f2aa9a038fefa2fa5d2b255d798557",
+      "runtime": true
+    },
+    {
+      "name": "snakeyaml-2.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/yaml/snakeyaml/2.3/snakeyaml-2.3.jar",
+      "sha256": "63a76fe66b652360bd4c2c107e6f0258daa7d4bb492008ba8c26fcd230ff9146",
+      "runtime": true
+    },
+    {
+      "name": "stax2-api-4.2.2.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/codehaus/woodstox/stax2-api/4.2.2/stax2-api-4.2.2.jar",
+      "sha256": "a61c48d553efad78bc01fffc4ac528bebbae64cbaec170b2a5e39cf61eb51abe",
+      "runtime": true
+    },
+    {
+      "name": "woodstox-core-7.1.0.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/woodstox/woodstox-core/7.1.0/woodstox-core-7.1.0.jar",
+      "sha256": "81266920a1cdc47306a8a2b4726c99ec89b3fbf31c2470e4f5e477d9d857ca9f",
+      "runtime": true
+    }
+  ]
+}

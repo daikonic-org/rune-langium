@@ -1,0 +1,82 @@
+[
+  {
+    "id": "option-type",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "option-type" },
+    "resource": "option-type-1-0.json"
+  },
+  {
+    "id": "case-insensitive-domain",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "OPTION-TYPE" },
+    "resource": "option-type-1-0.json"
+  },
+  {
+    "id": "retain-published-version-spelling",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "credit-event-type" },
+    "resource": "credit-event-type-1-0.json"
+  },
+  {
+    "id": "metadata-only-currency",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "currency" },
+    "resource": "currency-1-0.json",
+    "referenceError": "getCodes()",
+    "referenceDifference": "The handwritten loader calls size on a missing codes array."
+  },
+  {
+    "id": "version-from-pinned-filename",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "loan-legal-action-type" },
+    "resource": "loan-legal-action-type-1-0.json",
+    "expectedVersion": "1-0",
+    "referenceDifference": "The handwritten loader returns a missing version even though Rune requires one."
+  },
+  {
+    "id": "unknown-domain",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "dummy-domain" },
+    "expectedError": "dummy-domain"
+  },
+  {
+    "id": "scheme-directory-is-unavailable",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "set-of-schemes" },
+    "expectedError": "set-of-schemes",
+    "referenceError": "getCodes()",
+    "referenceDifference": "The upstream directory lacks the identity of a CodeList and the handwritten loader fails."
+  },
+  {
+    "id": "uri-is-not-a-domain",
+    "function": "LoadCodeList",
+    "inputs": { "domain": "http://www.fpml.org/coding-scheme/option-type" },
+    "expectedError": "http://www.fpml.org/coding-scheme/option-type"
+  },
+  {
+    "id": "validator-accepts-member",
+    "function": "ValidateFpMLCodingSchemeDomain",
+    "inputs": { "code": "Call", "domain": "option-type" },
+    "expected": true
+  },
+  {
+    "id": "validator-rejects-unknown-code",
+    "function": "ValidateFpMLCodingSchemeDomain",
+    "inputs": { "code": "invalid", "domain": "option-type" },
+    "expected": false
+  },
+  {
+    "id": "validator-is-case-sensitive-for-codes",
+    "function": "ValidateFpMLCodingSchemeDomain",
+    "inputs": { "code": "call", "domain": "OPTION-TYPE" },
+    "expected": false
+  },
+  {
+    "id": "empty-code-list-does-not-validate-iso-currency",
+    "function": "ValidateFpMLCodingSchemeDomain",
+    "inputs": { "code": "USD", "domain": "currency" },
+    "expected": false,
+    "referenceError": "getCodes()",
+    "referenceDifference": "The metadata-only source contains no codes."
+  }
+]
