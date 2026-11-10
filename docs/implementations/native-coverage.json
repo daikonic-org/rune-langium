@@ -998,7 +998,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/fpml-keys.ts",
-      "sha256": "5af15d57f3a46376f0ec90e5cb26be535d99009da4e93b8b33adb404385f7d76"
+      "sha256": "57a48fe5fc8481b8a85d8f33fbe27afbe5b670b2adbccf2f6235ae69d9b5d06a"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/load-code-list.ts",
@@ -5508,7 +5508,7 @@
       "regressionSuite": {
         "path": "packages/project-runtime/test/fpml-keys.test.ts",
         "cases": "test/fixtures/third-party/cdm-fpml-keys/cases.json",
-        "casesSha256": "d28a65d9ac3cca2c5c5610ab1c39966775cd63e1e809902bae356a403597c25e",
+        "casesSha256": "2ea9885fe1fb5a97d729a1125c617549467e78b3120b35aa1c31f172076e2d34",
         "selectors": [],
         "caseCount": 8
       }
@@ -5613,7 +5613,7 @@
       "regressionSuite": {
         "path": "packages/project-runtime/test/fpml-keys.test.ts",
         "cases": "test/fixtures/third-party/cdm-fpml-keys/cases.json",
-        "casesSha256": "d28a65d9ac3cca2c5c5610ab1c39966775cd63e1e809902bae356a403597c25e",
+        "casesSha256": "2ea9885fe1fb5a97d729a1125c617549467e78b3120b35aa1c31f172076e2d34",
         "selectors": [],
         "caseCount": 4
       }
@@ -5708,9 +5708,9 @@
       "regressionSuite": {
         "path": "packages/project-runtime/test/fpml-keys.test.ts",
         "cases": "test/fixtures/third-party/cdm-fpml-keys/cases.json",
-        "casesSha256": "d28a65d9ac3cca2c5c5610ab1c39966775cd63e1e809902bae356a403597c25e",
+        "casesSha256": "2ea9885fe1fb5a97d729a1125c617549467e78b3120b35aa1c31f172076e2d34",
         "selectors": [],
-        "caseCount": 5
+        "caseCount": 8
       }
     },
     {

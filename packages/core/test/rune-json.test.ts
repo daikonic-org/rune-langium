@@ -198,3 +198,16 @@ it('keeps exact number text with its canonical Rune JSON metadata value', () => 
   expect(parsed).toMatchObject({ value: 1, meta: { scheme: 'urn:price' } });
   expect(serializeProjectPayload(parsed, 'RUNE_JSON', options).replaceAll(/\s/g, '')).toBe(input);
 });
+
+it('rejects exact scalar spellings without an owner and preserves exact root arrays', () => {
+  const options = { preserveNumberText: true };
+  expect(parseProjectPayload('42', 'JSON', options)).toBe(42);
+  expect(() => parseProjectPayload('1.00', 'JSON', options)).toThrow('requires a containing object or array');
+  expect(() => parseProjectPayload('9007199254740993', 'RUNE_JSON', options)).toThrow(
+    'requires a containing object or array'
+  );
+  const data = parseProjectPayload('[1.00,9007199254740993]', 'JSON', options);
+  expect(serializeProjectPayload(structuredClone(data), 'JSON', options).replaceAll(/\s/g, '')).toBe(
+    '[1.00,9007199254740993]'
+  );
+});

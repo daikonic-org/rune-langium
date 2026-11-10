@@ -75,6 +75,8 @@ export function retainJsonNumberText(input: unknown): unknown {
     return { value: kind ? withRuneJsonEncoding(result, kind) : result };
   };
   const captured = capture(input);
+  if (typeof captured.text === 'string')
+    throw new TypeError('Exact JSON number text requires a containing object or array.');
   if (Array.isArray(captured.value) && captured.text !== undefined)
     Object.defineProperty(captured.value, numberTextField, { value: captured.text, enumerable: true });
   return captured.value;
