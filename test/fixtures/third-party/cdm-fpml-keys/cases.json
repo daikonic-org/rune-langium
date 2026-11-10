@@ -121,5 +121,28 @@
     "prefix": "observable",
     "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"rate\":1.00,\"currency1\":{\"value\":\"USD\"},\"currency2\":{\"value\":\"EUR\"}}",
     "expected": "observable-$405"
+  },
+  {
+    "id": "ordinary floating point zero",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "points",
+    "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"currency1\":{\"value\":\"USD\"},\"currency2\":{\"value\":\"EUR\"},\"forwardPoints\":0.0}",
+    "preserveNumberText": false,
+    "expected": "points-$105"
+  },
+  {
+    "id": "ordinary negative floating point zero",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "points",
+    "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"currency1\":{\"value\":\"USD\"},\"currency2\":{\"value\":\"EUR\"},\"forwardPoints\":-0.0}",
+    "preserveNumberText": false,
+    "expected": "points-$105"
+  },
+  {
+    "id": "exact zero with scale two",
+    "function": "CreateKeyForQuotedCurrencyPair",
+    "prefix": "points",
+    "json": "{\"@type\":\"fpml.consolidated.fx.CrossRate\",\"currency1\":{\"value\":\"USD\"},\"currency2\":{\"value\":\"EUR\"},\"forwardPoints\":0.00}",
+    "expected": "points-$103"
   }
 ]

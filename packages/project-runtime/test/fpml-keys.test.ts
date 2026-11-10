@@ -37,6 +37,7 @@ interface KeyCase {
   prefix: string;
   keyId?: string;
   json: string;
+  preserveNumberText?: boolean;
   expected: string;
 }
 type KeyExports = Record<KeyCase['function'], (...args: unknown[]) => unknown> & {
@@ -106,7 +107,10 @@ it.each(['single-file', 'barrel'] as const)(
       entry: layout === 'barrel' ? 'index.ts' : 'model.ts'
     });
     for (const test of cases) {
-      const value = parseProjectPayload(test.json, 'JSON', { preserveNumberText: true }) ?? undefined;
+      const value =
+        parseProjectPayload(test.json, 'JSON', {
+          preserveNumberText: test.preserveNumberText ?? true
+        }) ?? undefined;
       const args = test.function === 'CreateKey' ? [test.prefix, test.keyId, value] : [test.prefix, value];
       expect(execute[test.function]!(...args), test.id).toBe(test.expected);
     }
@@ -123,15 +127,16 @@ it.each(['single-file', 'barrel'] as const)(
   GENERATED_MODULE_TEST_TIMEOUT
 );
 
-it('projects the same exact-number cases in standalone Python', () => {
+it('projects the same number cases in standalone Python', () => {
   const module = generatePythonModule(graph.documents);
   expect(module.diagnostics).toEqual([]);
   expect(module.code.match(/def _rune_fpml_key\(/g)).toHaveLength(1);
   const calls = cases.map((test) => {
     const name = module.bindings.get(namespace + '.' + test.function);
     const id = test.function === 'CreateKey' ? "data['keyId'], " : '';
+    const decimal = test.preserveNumberText === false ? '' : ", parse_float=__import__('decimal').Decimal";
     return {
-      expression: `${name}(data['prefix'], ${id}__import__('json').loads(data['json'], parse_float=__import__('decimal').Decimal))`,
+      expression: `${name}(data['prefix'], ${id}__import__('json').loads(data['json']${decimal}))`,
       data: test
     };
   });

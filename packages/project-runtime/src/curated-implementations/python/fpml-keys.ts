@@ -65,7 +65,9 @@ def _rune_fpml_decimal_hash(value, token):
     if not decimal.is_finite():
         raise TypeError('Expected a finite FpML decimal')
     negative, digits, exponent = decimal.as_tuple()
-    if isinstance(value, float) and not use_token:
+    if isinstance(value, float) and not use_token and value == 0:
+        exponent = 0
+    elif isinstance(value, float) and not use_token:
         while len(digits) > 1 and digits[-1] == 0:
             digits = digits[:-1]
             exponent += 1

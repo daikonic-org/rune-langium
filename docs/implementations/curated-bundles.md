@@ -73,6 +73,8 @@ For scale-sensitive keys, load JSON text with `preserveNumberText: true` in
 `parseProjectPayload` or the generated TypeScript `fromJSON` method. Python can
 load numbers as `Decimal` or consume the same normalized number metadata.
 Ordinary target numbers use their canonical spelling.
+Exact text requires a JSON object or array when the scalar's spelling differs
+from its ordinary numeric representation.
 
 The CDM publisher also reads `codelist/json` from the same pinned source archive.
 It prepares a case-insensitive domain catalog before serializing the native
