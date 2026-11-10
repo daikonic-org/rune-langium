@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto';
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { computeNamespaceGraph, nsArtifactSlug } from './lib/namespace-graph.mjs';
-import { resolveCuratedSources } from './lib/curated-sources.mjs';
+import { resolveAuditedCuratedSources, resolveCuratedSources } from './lib/curated-sources.mjs';
 import { isCuratedSourceFile } from '../packages/curated-schema/dist/index.js';
 import { publishCuratedImplementations } from '../packages/project-runtime/dist/curated-implementations/publication.js';
 import {
@@ -35,14 +35,19 @@ const { values: options } = parseArgs({
   options: {
     sources: { type: 'string' },
     release: { type: 'string' },
+    'release-pins': { type: 'string' },
     'out-dir': { type: 'string' },
     'cache-dir': { type: 'string' }
   }
 });
-if (options.sources && options.release) throw new Error('Choose either pinned sources or a verified release build');
-const SOURCES = options.sources
-  ? JSON.parse(await readFile(options.sources, 'utf8'))
-  : await resolveCuratedSources(fetch, { cdmRelease: options.release });
+if ([options.sources, options.release, options['release-pins']].filter((option) => option !== undefined).length > 1)
+  throw new Error('Choose one of --sources, --release or --release-pins');
+const SOURCES =
+  options.sources !== undefined
+    ? JSON.parse(await readFile(options.sources, 'utf8'))
+    : options['release-pins'] !== undefined
+      ? await resolveAuditedCuratedSources(JSON.parse(await readFile(options['release-pins'], 'utf8')))
+      : await resolveCuratedSources(fetch, { cdmRelease: options.release });
 
 const LANGIUM_VERSION = JSON.parse(
   await readFile(new URL('node_modules/langium/package.json', corePkgDir), 'utf8')

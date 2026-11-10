@@ -424,8 +424,13 @@ reproducibility guarantee. Commit and build date describe provenance, not a
 release. An explicit `cdm_release` dispatch verifies that upstream release tag and
 its dependency releases, publishes immutable source/serialized artifacts and
 cohort manifests, then promotes release catalogs in dependency order. It never
-advances Nightly's `latest` pointers. The shared uploader serializes workflow runs
-and preserves the same immutable dependency closure for both publication paths.
+advances Nightly's `latest` pointers. Changes to curated implementations or their
+publisher on `master` rebuild the release selected by
+`scripts/fixtures/native-implementation-sources.json`. The builder's
+`--release-pins` mode verifies every upstream tag and dependency commit against
+those pins before serialization. The same uploader appends the new cohort to the
+release catalog, preserving prior locked cohorts. Publication runs share one queue
+so a Nightly run cannot cancel a pending release refresh.
 Source archives use their own SHA-256 object keys and checksums; release catalog
 promotion requires their upload receipts alongside the serialized artifacts.
 
