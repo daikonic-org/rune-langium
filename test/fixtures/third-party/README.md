@@ -62,6 +62,12 @@ The [FRO fixture](cdm-floating-rate-metadata/README.md) pins the original CDM
 function contracts, validator and floating-rate codelist. It exercises version
 and index selection with an explicit project matrix provider.
 
+## CDM valuation times
+
+The [valuation times fixture](cdm-valuation-times/README.md) pins the original
+CDM contracts and valuation caller. It exercises two Rune overrides with
+project-supplied time data and the published business-center enum.
+
 ## CDM calculation period range
 
 The [range fixture](cdm-period-range/README.md) pins the handwritten constructor

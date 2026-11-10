@@ -99,6 +99,15 @@ returns an empty result if the selected version has no matching definition.
 The pinned floating-rate codelist supplies an importable enum independently of
 the versioned definition data.
 
+The valuation time overrides use `impl.cdm.time.ReadBusinessCenterZones` and
+`impl.cdm.time.ReadAssetValuationTimes`. Bind these declarations to project
+data providers. The first selects the location by center code and optional
+scheme and preserves the requested wall-clock time. The second matches the
+complete asset identifier, time type and determination method, and returns the
+provider's time with its optional location. Both require exactly one match.
+Projects can import `rune.resources.cdm.BusinessCenter` for their inputs and
+use `to-string` at the original CDM signature boundary.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

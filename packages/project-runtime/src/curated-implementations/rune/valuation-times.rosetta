@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.time
+version "1.0.0"
+
+import cdm.base.datetime.*
+import cdm.base.staticdata.asset.common.AssetIdentifier
+import cdm.base.staticdata.codelist.BusinessCenter
+import cdm.observable.common.*
+
+type BusinessCenterZone:
+    businessCenter BusinessCenter (1..1)
+        [metadata scheme]
+    location string (1..1) <"The named time-zone location, such as Europe/London.">
+        [metadata scheme]
+
+type AssetValuationTime:
+    assetIdentifier AssetIdentifier (1..1)
+    timeType TimeTypeEnum (1..1)
+    determinationMethod DeterminationMethodEnum (1..1)
+    valuationTime TimeZone (1..1)
+
+func ReadBusinessCenterZones: <"Supply candidate zone mappings for the business center and its scheme.">
+    [codeImplementation]
+    inputs:
+        time BusinessCenterTime (1..1)
+    output:
+        zones BusinessCenterZone (0..*)
+
+func ReadAssetValuationTimes: <"Supply candidate asset valuation times from the project's schedule data.">
+    [codeImplementation]
+    inputs:
+        assetIdentifier AssetIdentifier (1..1)
+        timeType TimeTypeEnum (1..1)
+        determinationMethod DeterminationMethodEnum (1..1)
+    output:
+        valuationTimes AssetValuationTime (0..*)
+
+func MatchTimeScheme:
+    inputs:
+        firstScheme string (0..1)
+        secondScheme string (0..1)
+    output:
+        matches boolean (1..1)
+    set matches:
+        if firstScheme exists
+        then secondScheme exists and firstScheme = secondScheme
+        else secondScheme is absent

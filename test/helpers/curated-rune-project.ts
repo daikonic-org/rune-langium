@@ -79,15 +79,15 @@ export async function createCuratedRuneProject(
   return { fixture, references: loaded.documents, snapshot, installed, changes: prepared.changes };
 }
 
-/** Bind a provider in both the pre-install and installed view of the fixture. */
+/** Bind providers in both the pre-install and installed view of the fixture. */
 export async function withCuratedFixtureOverride(
   project: Awaited<ReturnType<typeof createCuratedRuneProject>>,
-  override: NonNullable<ProjectSnapshot['project']['build']['overrides']>[number]
+  ...overrides: NonNullable<ProjectSnapshot['project']['build']['overrides']>
 ) {
   const bind = (snapshot: ProjectSnapshot) => {
     const build = {
       ...snapshot.project.build,
-      overrides: [...(snapshot.project.build.overrides ?? []), override]
+      overrides: [...(snapshot.project.build.overrides ?? []), ...overrides]
     };
     return createProjectDraftSnapshot(snapshot, new Map([['build-config.yml', JSON.stringify(build)]]), () => []);
   };

@@ -691,6 +691,22 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   },
   {
     kind: 'rune',
+    namespace: 'cdm.base.datetime',
+    name: 'TimeZoneFromBusinessCenterTime',
+    signatureSha256: '74babede3a9e41e324cb7d6c892a20f114a950e41204e144f1d220be80fe37e8',
+    path: 'time-zone-from-business-center-time.rosetta',
+    files: ['time-zone-from-business-center-time.rosetta', 'valuation-times.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.observable.common',
+    name: 'ResolveTimeZoneFromTimeType',
+    signatureSha256: '71f6425a223c3660f631d5bd9abb62c2ca9b352a193542b92800dbbd4638f76b',
+    path: 'resolve-time-zone-from-time-type.rosetta',
+    files: ['resolve-time-zone-from-time-type.rosetta', 'valuation-times.rosetta']
+  },
+  {
+    kind: 'rune',
     namespace: 'cdm.observable.asset.fro',
     name: 'FloatingRateIndexMetadata',
     signatureSha256: 'baea62c72400b09997b3c981b048e24b3a13149468d5b970514e38f8a46b533c',

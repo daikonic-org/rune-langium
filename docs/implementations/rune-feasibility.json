@@ -45,6 +45,7 @@
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-calendar.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strata-holiday-data.rosetta",
@@ -52,6 +53,8 @@
     "packages/project-runtime/src/curated-implementations/rune/strata-rolls.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/strike-schedule.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/time-zone-from-business-center-time.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/valuation-times.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/weekend-adjustment.rosetta"
   ],
   "functions": [
@@ -194,8 +197,9 @@
         "name": "TimeZoneFromBusinessCenterTime"
       },
       "signatureSha256": "74babede3a9e41e324cb7d6c892a20f114a950e41204e144f1d220be80fe37e8",
-      "route": "data-backed",
-      "requirements": "Business-center/time-zone mapping can be supplied data; named-zone/DST behavior needs a proven boundary."
+      "route": "rune-source",
+      "requirements": "Select exactly one supplied zone by the business-center code and optional scheme. Preserve wall time and zone metadata. This contract has no date or offset conversion.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/time-zone-from-business-center-time.rosetta"
     },
     {
       "symbol": {
@@ -559,8 +563,9 @@
         "name": "ResolveTimeZoneFromTimeType"
       },
       "signatureSha256": "71f6425a223c3660f631d5bd9abb62c2ca9b352a193542b92800dbbd4638f76b",
-      "route": "data-backed",
-      "requirements": "Select supplied asset/time-type mappings; zone/DST resolution stays behind a proven primitive if needed."
+      "route": "rune-source",
+      "requirements": "Select exactly one supplied valuation time by identifier value, type and optional scheme, requested time type and determination method. Preserve the supplied time and optional zone.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/resolve-time-zone-from-time-type.rosetta"
     },
     {
       "symbol": {
