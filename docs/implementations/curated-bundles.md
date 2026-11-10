@@ -46,6 +46,9 @@ Reference loading verifies the existing manifest, artifact checksum and cohort.
 Generation checks the supplied binding's identity, annotation and linked signature
 before emission, and retains authored Rune and explicit project-binding precedence.
 It never searches a model-specific implementation registry or fetches code.
+Curated Rune entries can pin a SHA-256 of the same exact linked signature when an
+enum has many members. Publication checks the hash and still carries the complete
+signature in the selected payload.
 Older bundles without implementation payloads remain readable. When a curated
 implementation change lands on `master`, the publisher verifies the audited release
 pins and builds a new immutable cohort. A fresh resolution can select the new
@@ -85,6 +88,16 @@ TypeScript, Python and Studio. A provider should return one `DatedValue` per
 requested date. The overrides preserve requested order and reject missing or
 duplicate observations. Code-list enums can type provider inputs that are
 backed by a list. Dated market observations still require a project data source.
+
+The two FRO metadata overrides call `impl.cdm.fro.ReadFloatingRateIndexMatrix`.
+Bind it to a project provider that supplies dated matrix versions for the
+requested index, including versions that lack that index. Each interval starts
+on its effective date and ends immediately before its optional end date.
+`ExtractFloatingRateOptionData` uses the trade date and requires a match.
+`FloatingRateIndexMetadata` uses the project's nominated metadata date and
+returns an empty result if the selected version has no matching definition.
+The pinned floating-rate codelist supplies an importable enum independently of
+the versioned definition data.
 
 ## Workspace installation
 

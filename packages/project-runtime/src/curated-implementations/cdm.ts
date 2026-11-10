@@ -10,6 +10,7 @@ import {
   type ImplementationLanguage,
   type ImplementationLocation
 } from '@rune-langium/codegen/export';
+import { sha256Hex } from '@rune-langium/codegen/instances';
 import { utilities as typescriptUtilities } from './typescript/utilities.js';
 import { utilities as pythonUtilities } from './python/utilities.js';
 import * as typescriptRounding from './typescript/rounding.js';
@@ -38,14 +39,13 @@ export interface NativeImplementation {
   readonly signature: NativeFunctionShape;
   readonly targets: Readonly<Partial<Record<ImplementationLanguage, NativeTarget>>>;
 }
-interface RuneImplementation {
+type RuneImplementation = {
   readonly kind: 'rune';
   readonly namespace: string;
   readonly name: string;
-  readonly signature: NativeFunctionShape;
   readonly path: string;
   readonly files: readonly string[];
-}
+} & ({ readonly signature: NativeFunctionShape } | { readonly signatureSha256: string });
 
 const businessCenter = {
   name: 'businessCenter',
@@ -691,6 +691,22 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   },
   {
     kind: 'rune',
+    namespace: 'cdm.observable.asset.fro',
+    name: 'FloatingRateIndexMetadata',
+    signatureSha256: 'baea62c72400b09997b3c981b048e24b3a13149468d5b970514e38f8a46b533c',
+    path: 'floating-rate-index-metadata.rosetta',
+    files: ['floating-rate-index-metadata.rosetta', 'floating-rate-index-matrix.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.instructioncomposition.reset',
+    name: 'ExtractFloatingRateOptionData',
+    signatureSha256: '84e680570f4e3446a280979cb3756c88557f1930e33f2eea4bc0fdc23fa0d241',
+    path: 'extract-floating-rate-option-data.rosetta',
+    files: ['extract-floating-rate-option-data.rosetta', 'floating-rate-index-matrix.rosetta']
+  },
+  {
+    kind: 'rune',
     namespace: 'cdm.observable.asset.calculatedrate',
     name: 'IndexValueObservation',
     signature: signatures.IndexValueObservation!,
@@ -938,23 +954,23 @@ if (new Set(CDM_IMPLEMENTATIONS.map((entry) => `${entry.namespace}.${entry.name}
 export const NATIVE_IMPLEMENTATIONS = CDM_IMPLEMENTATIONS.filter((entry) => entry.kind === 'language-specific');
 export const RUNE_IMPLEMENTATIONS = CDM_IMPLEMENTATIONS.filter((entry) => entry.kind === 'rune');
 /** Pure publication selection, shared with the audit and generator fixtures without storage dependencies. */
-export function curatedModelImplementations(
+export async function curatedModelImplementations(
   model: RosettaModel,
   codeLists?: CdmCodeListCatalog
-): ReadonlyMap<number, FunctionImplementation> {
+): Promise<ReadonlyMap<number, FunctionImplementation>> {
   const result = new Map<number, FunctionImplementation>();
   for (const [index, node] of model.elements.entries()) {
     if (!isRosettaFunction(node)) continue;
-    const selected = selectCdmImplementation(node, codeLists);
+    const selected = await selectCdmImplementation(node, codeLists);
     if (selected) result.set(index, selected);
   }
   return result;
 }
 /** Called by curated publication and its audit, never by a generator. */
-export function selectCdmImplementation(
+export async function selectCdmImplementation(
   func: RosettaFunction,
   codeLists?: CdmCodeListCatalog
-): FunctionImplementation | undefined {
+): Promise<FunctionImplementation | undefined> {
   if (
     func.operations.length ||
     !func.annotations.some(
@@ -966,13 +982,20 @@ export function selectCdmImplementation(
     return undefined;
   const namespace = getElementNamespace(func);
   const entry = CDM_IMPLEMENTATIONS.find((entry) => entry.namespace === namespace && entry.name === func.name);
-  if (!entry || !matchesNativeFunction(func, entry.signature)) return undefined;
+  if (!entry) return undefined;
+  // A hash retains exact admission for large enumerations without copying their members into the catalog.
+  const signature = 'signatureSha256' in entry ? nativeFunctionShape(func) : entry.signature;
+  if (!matchesNativeFunction(func, signature)) return undefined;
+  if ('signatureSha256' in entry) {
+    const digest = await sha256Hex(new TextEncoder().encode(JSON.stringify(signature)));
+    if (digest !== entry.signatureSha256) return undefined;
+  }
   if (entry.kind === 'rune')
     return FunctionImplementationSchema.parse({
       kind: 'rune',
       namespace,
       name: func.name,
-      signature: nativeFunctionShape(func),
+      signature,
       path: entry.path
     });
   const targets = (['typescript', 'python'] as const).flatMap((language) => {
@@ -988,7 +1011,7 @@ export function selectCdmImplementation(
     namespace: entry.namespace,
     name: entry.name,
     id: entry.id,
-    signature: nativeFunctionShape(func),
+    signature,
     targets: Object.fromEntries(targets)
   });
 }

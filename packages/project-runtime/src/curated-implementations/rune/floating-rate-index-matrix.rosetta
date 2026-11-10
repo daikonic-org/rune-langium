@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.fro
+version "1.0.0"
+
+import cdm.base.staticdata.asset.rates.FloatingRateIndexEnum
+import cdm.observable.asset.fro.FloatingRateIndexDefinition
+
+type FloatingRateIndexMatrixVersion:
+    effectiveFrom date (1..1) <"The first date covered by this matrix version.">
+    effectiveUntil date (0..1) <"The first date no longer covered, when known.">
+    definitions FloatingRateIndexDefinition (0..*) <"The index definitions present in this version.">
+
+type FloatingRateIndexMatrix:
+    metadataDate date (1..1) <"The date used for metadata requests without a reference date.">
+    versions FloatingRateIndexMatrixVersion (0..*) <"The version intervals supplied for lookup, including versions that lack the requested index.">
+
+func ReadFloatingRateIndexMatrix: <"Project data provider for a versioned floating rate index matrix.">
+    [codeImplementation]
+    inputs:
+        index FloatingRateIndexEnum (1..1)
+    output:
+        matrix FloatingRateIndexMatrix (1..1)
+
+func SelectFloatingRateIndexDefinition:
+    inputs:
+        versions FloatingRateIndexMatrixVersion (0..*)
+        asOf date (1..1)
+        index FloatingRateIndexEnum (1..1)
+    output:
+        definition FloatingRateIndexDefinition (0..1)
+
+    alias active: versions filter [
+        item -> effectiveFrom <= asOf
+        and (if item -> effectiveUntil exists then asOf < item -> effectiveUntil else True)
+    ]
+    alias selected: active only-element
+    alias definitions: selected -> definitions filter [item -> fro -> floatingRateIndex = index]
+    condition FloatingRateIndexMatrixInvalidInterval:
+        (versions extract [
+            if item -> effectiveUntil exists
+            then item -> effectiveUntil > item -> effectiveFrom
+            else True
+        ]) all = True
+    condition FloatingRateIndexMatrixAmbiguous:
+        active count <= 1
+    condition FloatingRateIndexDefinitionAmbiguous:
+        definitions count <= 1
+    set definition: definitions only-element

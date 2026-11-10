@@ -1,0 +1,93 @@
+[
+  {
+    "id": "project-metadata-date",
+    "function": "FloatingRateIndexMetadata",
+    "index": "EUR_EURIBOR_Act_365",
+    "expected": "fixture-v2"
+  },
+  {
+    "id": "last-day-before-revision",
+    "function": "ExtractFloatingRateOptionData",
+    "index": "EUR_EURIBOR_Act_365",
+    "tradeDate": "2024-06-30",
+    "expected": "fixture-v1"
+  },
+  {
+    "id": "revision-effective-date",
+    "function": "ExtractFloatingRateOptionData",
+    "index": "EUR_EURIBOR_Act_365",
+    "tradeDate": "2024-07-01",
+    "expected": "fixture-v2"
+  },
+  {
+    "id": "before-first-matrix",
+    "function": "ExtractFloatingRateOptionData",
+    "index": "EUR_EURIBOR_Act_365",
+    "tradeDate": "2023-12-31",
+    "error": "FloatingRateIndexDefinitionMissing"
+  },
+  {
+    "id": "removed-index-has-no-current-metadata",
+    "function": "FloatingRateIndexMetadata",
+    "index": "USD_SOFR",
+    "expected": null
+  },
+  {
+    "id": "removed-index-existed-historically",
+    "function": "ExtractFloatingRateOptionData",
+    "index": "USD_SOFR",
+    "tradeDate": "2024-02-03",
+    "expected": "fixture-v1"
+  },
+  {
+    "id": "removed-index-after-version-change",
+    "function": "ExtractFloatingRateOptionData",
+    "index": "USD_SOFR",
+    "tradeDate": "2024-10-03",
+    "error": "FloatingRateIndexDefinitionMissing"
+  },
+  {
+    "id": "overlapping-versions",
+    "function": "FloatingRateIndexMetadata",
+    "index": "GBP_SONIA",
+    "error": "FloatingRateIndexMatrixAmbiguous"
+  },
+  {
+    "id": "invalid-version-interval",
+    "function": "FloatingRateIndexMetadata",
+    "index": "USD_LIBOR_BBA",
+    "error": "FloatingRateIndexMatrixInvalidInterval"
+  },
+  {
+    "id": "duplicate-matching-definitions",
+    "function": "FloatingRateIndexMetadata",
+    "index": "AUD_BBR_BBSW",
+    "error": "FloatingRateIndexDefinitionAmbiguous"
+  },
+  {
+    "id": "upstream-validates-supported-contract",
+    "function": "ValidateFloatingRateIndexName",
+    "index": "EUR_EURIBOR_Act_365",
+    "contractualDefs": "ISDA2021InterestRateDerivatives",
+    "expected": true
+  },
+  {
+    "id": "upstream-rejects-old-contract",
+    "function": "ValidateFloatingRateIndexName",
+    "index": "EUR_EURIBOR_Act_365",
+    "contractualDefs": "ISDA2006",
+    "expected": false
+  },
+  {
+    "id": "upstream-rejects-removed-index",
+    "function": "ValidateFloatingRateIndexName",
+    "index": "USD_SOFR",
+    "expected": false
+  },
+  {
+    "id": "published-code-list-wire-value",
+    "function": "CatalogIndexCode",
+    "index": "EUR-EURIBOR-Act/365",
+    "expected": "EUR-EURIBOR-Act/365"
+  }
+]

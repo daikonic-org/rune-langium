@@ -3,8 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createProjectDraftSnapshot, type ProjectSnapshot } from '../../packages/project-config/src/index.js';
-import { createCuratedRuneProject } from './curated-rune-project.js';
+import { createCuratedRuneProject, withCuratedFixtureOverride } from './curated-rune-project.js';
 
 export const marketDirectory = resolve(import.meta.dirname, '../fixtures/third-party/cdm-market-observations');
 const indexNamespace = 'cdm.observable.asset.calculatedrate';
@@ -116,17 +115,7 @@ const providerBinding = {
   }
 } as const;
 
-function bindProvider(snapshot: ProjectSnapshot) {
-  const build = {
-    ...snapshot.project.build,
-    overrides: [...(snapshot.project.build.overrides ?? []), providerBinding]
-  };
-  return createProjectDraftSnapshot(snapshot, new Map([['build-config.yml', JSON.stringify(build)]]), () => []);
-}
-
 export async function createCuratedMarketProject(withProvider = true) {
   const project = await createCuratedRuneProject(marketDirectory, marketCaller);
-  if (!withProvider) return project;
-  const [snapshot, installed] = await Promise.all([bindProvider(project.snapshot), bindProvider(project.installed)]);
-  return { ...project, snapshot, installed };
+  return withProvider ? withCuratedFixtureOverride(project, providerBinding) : project;
 }

@@ -22,11 +22,11 @@ export function publishedRuneFiles(namespace: string, names: readonly string[]) 
   }));
 }
 /** Simulate publication before a generator test; a bare codeImplementation declaration supplies no executable body. */
-export function installPublishedNativeImplementations(documents: readonly { parseResult: { value: unknown } }[]): void {
+export async function installPublishedNativeImplementations(documents: readonly { parseResult: { value: unknown } }[]) {
   for (const document of documents) {
     const model = document.parseResult.value;
     if (!isRosettaModel(model)) continue;
-    for (const [index, entry] of curatedModelImplementations(model))
+    for (const [index, entry] of await curatedModelImplementations(model))
       if (entry.kind === 'language-specific') Reflect.set(model.elements[index]!, '$implementation', entry);
   }
 }

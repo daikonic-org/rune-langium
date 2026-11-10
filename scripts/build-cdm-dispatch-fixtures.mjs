@@ -31,6 +31,22 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-floating-rate-metadata',
+    declarations: [
+      { namespace: 'cdm.observable.asset.fro', name: 'FloatingRateIndexMetadata', kind: 'RosettaFunction' },
+      {
+        namespace: 'cdm.event.instructioncomposition.reset',
+        name: 'ExtractFloatingRateOptionData',
+        kind: 'RosettaFunction'
+      }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.observable.asset.fro', name: 'ValidateFloatingRateIndexName', kind: 'RosettaFunction' }
+    ],
+    references: [],
+    resources: ['floating-rate-index-3-10.json']
+  },
+  {
     directory: 'cdm-market-observations',
     declarations: [
       { namespace: 'cdm.observable.asset.calculatedrate', name: 'IndexValueObservation', kind: 'RosettaFunction' },

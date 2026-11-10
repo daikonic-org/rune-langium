@@ -64,7 +64,8 @@ const testSuites = {
     'cdm-strata-schedules': 'strata-schedules',
     'cdm-business-calendars': 'business-calendars',
     'cdm-billing-summary': 'billing-summary',
-    'cdm-market-observations': 'market-observations'
+    'cdm-market-observations': 'market-observations',
+    'cdm-floating-rate-metadata': 'floating-rate-metadata'
   }
 };
 const dispatchSuites = await Promise.all(
@@ -300,7 +301,7 @@ for (const document of documents) {
         selector: projectDeclarationIdentity(RuneDsl, candidate)?.dispatch,
         hasRuneBody: candidate.operations.length > 0
       }));
-    const selected = selectCdmImplementation(node, cdmCodeLists);
+    const selected = await selectCdmImplementation(node, cdmCodeLists);
     const hasRuneBody = node.operations.length > 0 || variants.some((variant) => variant.hasRuneBody);
     const implementation = assessment.implementation
       ? {

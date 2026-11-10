@@ -56,6 +56,12 @@ The [market observations fixture](cdm-market-observations/README.md) pins the
 original index types, functions and handwritten Java observation provider and
 tests. It exercises the curated Rune overrides with an explicit project provider.
 
+## CDM floating-rate metadata
+
+The [FRO fixture](cdm-floating-rate-metadata/README.md) pins the original CDM
+function contracts, validator and floating-rate codelist. It exercises version
+and index selection with an explicit project matrix provider.
+
 ## CDM calculation period range
 
 The [range fixture](cdm-period-range/README.md) pins the handwritten constructor

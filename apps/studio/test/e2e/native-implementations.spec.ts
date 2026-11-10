@@ -27,6 +27,7 @@ import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../t
 import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
 import { billingCaller, createCuratedBillingProject } from '../../../../test/helpers/cdm-billing-summary.js';
 import { createCuratedMarketProject, marketCaller } from '../../../../test/helpers/cdm-market-observations.js';
+import { createCuratedFroProject, froCaller } from '../../../../test/helpers/cdm-floating-rate-metadata.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 import {
   businessCalendarCaller,
@@ -198,6 +199,22 @@ test('reports a missing market observation provider in Prototype', async ({ page
   await page.getByLabel('Observation Date', { exact: true }).fill('2021-07-31');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: /ReadMarketObservations.*not_implemented/ })).toBeVisible();
+});
+
+test('selects the supplied FRO matrix version for the trade date in Prototype', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedFroProject(), froCaller, 1440);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: 'DescribeTradeDate — example.fro', exact: true }).click();
+  const tradeDate = page.getByLabel('Trade Date', { exact: true });
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  const output = page.getByRole('region', { name: 'definition output' });
+  await tradeDate.fill('2024-06-30');
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(output).toContainText('"definitionalSource": "fixture-v1"');
+  await tradeDate.fill('2024-07-01');
+  await execute.click();
+  await expect(output).toContainText('"definitionalSource": "fixture-v2"');
 });
 
 test('selects a period and lists the schedule using the bundled Strata Rune port', async ({ page }, info) => {

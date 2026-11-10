@@ -85,7 +85,7 @@ beforeAll(async () => {
   for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
   assertValidDocuments(docs);
-  installPublishedNativeImplementations(docs);
+  await installPublishedNativeImplementations(docs);
   const generated = await generateSelected(
     docs,
     { namespaces: ['cdm.base.datetime', 'cdm.ingest.fpml.confirmation.common'], declarations: [] },

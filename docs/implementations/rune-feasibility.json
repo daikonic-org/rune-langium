@@ -32,6 +32,9 @@
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-matrix.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-metadata.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
@@ -388,8 +391,9 @@
         "name": "ExtractFloatingRateOptionData"
       },
       "signatureSha256": "84e680570f4e3446a280979cb3756c88557f1930e33f2eea4bc0fdc23fa0d241",
-      "route": "data-backed",
-      "requirements": "Select FRO metadata by trade date and index from a supplied versioned matrix."
+      "route": "rune-source",
+      "requirements": "Editable Rune override selects the supplied matrix version on the trade date, then the requested index. A missing definition fails explicitly. The project provides the versioned matrix.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta"
     },
     {
       "symbol": {
@@ -543,8 +547,9 @@
         "name": "FloatingRateIndexMetadata"
       },
       "signatureSha256": "baea62c72400b09997b3c981b048e24b3a13149468d5b970514e38f8a46b533c",
-      "route": "data-backed",
-      "requirements": "Select from supplied, versioned FRO metadata; missing data remains explicit."
+      "route": "rune-source",
+      "requirements": "Editable Rune override uses the nominated metadata date in a project-supplied matrix. Missing index metadata returns empty. Overlapping versions and duplicate definitions fail explicitly.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-metadata.rosetta"
     },
     {
       "symbol": {

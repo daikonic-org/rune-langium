@@ -28,7 +28,7 @@ it('executes the pinned selectors with published Rune date helpers and an explic
   );
   await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { eagerLinking: true });
   assertValidDocuments(documents);
-  installPublishedNativeImplementations(documents);
+  await installPublishedNativeImplementations(documents);
   const files = [
     ...references.map((file, index) => ({
       uri: file.uri,

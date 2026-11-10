@@ -23,7 +23,7 @@ async function vectorDocuments(install = true) {
   for (const doc of docs) RuneDsl.shared.workspace.LangiumDocuments.addDocument(doc);
   await RuneDsl.shared.workspace.DocumentBuilder.build(docs, { eagerLinking: true });
   assertValidDocuments(docs);
-  if (install) installPublishedNativeImplementations(docs);
+  if (install) await installPublishedNativeImplementations(docs);
   return docs;
 }
 let docs: Awaited<ReturnType<typeof vectorDocuments>>;

@@ -1,0 +1,10 @@
+namespace cdm.base.math : <"Basic maths concepts: quantity and unit, rounding, curve / schedule, non-negativity constraint etc.">
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.observable.asset.*
+
+type Rounding: <"Defines rounding rules and precision to be used in the rounding of a number.">
+
+    roundingDirection RoundingDirectionEnum (1..1) <"Specifies the rounding rule as up, down, or nearest.">
+    precision int (0..1) <"Specifies the rounding precision in terms of a number of decimal places when the number is evaluated in decimal form (not percentage), e.g. 0.09876543 rounded to the nearest 5 decimal places is  0.0987654.">
