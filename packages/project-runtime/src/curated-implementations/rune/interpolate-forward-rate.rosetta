@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.position
+version "1.0.0"
+
+import cdm.base.datetime.DateDifference
+import cdm.product.template.SettlementPayout
+import com.opengamma.strata.market.curve.interpolator.InterpolateLinear
+import impl.cdm.market.ReadForwardRateSnapshot
+
+func InterpolateForwardRate:
+    inputs: settlementPayout SettlementPayout (1..1)
+    output: result number (1..1)
+
+    alias snapshot: ReadForwardRateSnapshot(settlementPayout)
+    alias quotes: snapshot -> quotes
+    alias maturity: snapshot -> maturity
+    alias exact: quotes filter [item -> date = maturity]
+    alias lower: (quotes filter [item -> date < maturity]) max [item -> date]
+    alias upper: (quotes filter [item -> date > maturity]) min [item -> date]
+
+    condition DistinctQuoteDates:
+        (quotes -> date distinct) count = quotes count
+    condition BracketingQuotes:
+        exact exists or (lower exists and upper exists)
+
+    set result:
+        if exact exists
+        then exact only-element -> value
+        else InterpolateLinear(
+            0,
+            DateDifference(lower -> date, upper -> date),
+            lower -> value,
+            upper -> value,
+            DateDifference(lower -> date, maturity)
+        )

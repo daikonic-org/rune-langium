@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.market
+version "1.0.0"
+
+import cdm.base.math.DatedValue
+import cdm.product.template.SettlementPayout
+
+type ForwardRateSnapshot:
+    maturity date (1..1) <"The resolved settlement maturity for the payout.">
+    quotes DatedValue (1..*) <"Forward quotes from the same snapshot and in the payout's quote convention.">
+
+func ReadForwardRateSnapshot: <"Supply the resolved maturity and forward curve for this payout.">
+    [codeImplementation]
+    inputs: payout SettlementPayout (1..1)
+    output: snapshot ForwardRateSnapshot (1..1)

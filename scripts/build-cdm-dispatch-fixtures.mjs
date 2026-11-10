@@ -100,6 +100,19 @@ const suites = [
     references: []
   },
   {
+    directory: 'cdm-reset-forward-rates',
+    sharedFixture: 'cdm-billing-summary',
+    declarations: [
+      { namespace: 'cdm.event.common', name: 'ResolveReset', kind: 'RosettaFunction' },
+      { namespace: 'cdm.event.position', name: 'InterpolateForwardRate', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.event.position', name: 'FxMarkToMarket', kind: 'RosettaFunction' },
+      { namespace: 'cdm.base.datetime', name: 'DateDifference', kind: 'RosettaFunction' }
+    ],
+    references: []
+  },
+  {
     directory: 'cdm-business-calendars',
     declarations: [
       { namespace: 'cdm.base.datetime', name: 'BusinessCenterHolidays', kind: 'RosettaFunction' },
@@ -259,6 +272,7 @@ for (const file of inventory.files) {
   origins.set(uri.toString(), { ...file, sha256: createHash('sha256').update(content).digest('hex') });
 }
 await RuneDsl.shared.workspace.DocumentBuilder.build(documents, { validation: false, eagerLinking: true });
+const fixtureHashes = new Map();
 for (const suite of suites) {
   const destination = resolve(root, 'test/fixtures/third-party', suite.directory);
   const declarations = suite.declarations;
@@ -269,19 +283,30 @@ for (const suite of suites) {
   if (selection.unknown.length || selection.unknownNamespaces.length)
     throw new Error('Dispatch fixture roots are unresolved.');
   const files = [];
+  const sharedHashes = fixtureHashes.get(suite.sharedFixture);
+  if (suite.sharedFixture && !sharedHashes) throw new Error('Shared dispatch fixture must precede its consumer.');
   if (values.write) await mkdir(destination, { recursive: true });
   for (const slice of referenceFixtureSlices(documents, selection.documents)) {
     const origin = origins.get(slice.uri);
-    const path = resolve(destination, slice.name);
-    if (values.write) await writeFile(path, slice.content);
+    const sha256 = createHash('sha256').update(slice.content).digest('hex');
+    const sharedFixture = sharedHashes?.get(slice.name) === sha256 ? suite.sharedFixture : undefined;
+    const path = sharedFixture
+      ? resolve(destination, '..', sharedFixture, slice.name)
+      : resolve(destination, slice.name);
+    if (values.write && !sharedFixture) await writeFile(path, slice.content);
     else if ((await readFile(path, 'utf8')) !== slice.content)
       throw new Error('Dispatch fixture changed: ' + slice.name);
     files.push({
       name: slice.name,
       upstream: origin,
-      sha256: createHash('sha256').update(slice.content).digest('hex')
+      sha256,
+      ...(sharedFixture ? { sharedFixture } : {})
     });
   }
+  fixtureHashes.set(
+    suite.directory,
+    new Map(files.filter((file) => !file.sharedFixture).map((file) => [file.name, file.sha256]))
+  );
   const references = [];
   const javaPaths = new Set(
     inventory.functions

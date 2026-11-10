@@ -1,0 +1,811 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.event.common",
+      "name": "ResolveReset",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.event.position",
+      "name": "InterpolateForwardRate",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.base.datetime.daycount--base-datetime-daycount-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-daycount-enum.rosetta",
+        "blob": "f5bdf149ea51813e23d37ec9addd4460f8436963",
+        "sha256": "b24bc70424ac9b8607e9e04d916f57297f236141f4b9e4e43d8b847b2c16ac80"
+      },
+      "sha256": "b24bc70424ac9b8607e9e04d916f57297f236141f4b9e4e43d8b847b2c16ac80",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-enum.rosetta",
+        "blob": "13389135f8232fa5ad70d7a20cfbdcae06887c46",
+        "sha256": "1da44bf7af1690cf4fea2a69c93feb22122b190dec49a77caf2e6d091fd88789"
+      },
+      "sha256": "344f80c0e274af221308bbd6a9c6a84d290db58ceaa980b14f647d7a19f28678",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-func.rosetta",
+        "blob": "91d652e9d15380e929d9ee6c1e3e2e99665355a9",
+        "sha256": "a8f16482be97fa0efe71ec470aef4d321198c71ec84cc1b174e4bd1edcd7ecc7"
+      },
+      "sha256": "c7a64c0c116abd8dd66731c5c53465d19b087dacdff8a8c2120d5f90fd92dc74"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-type.rosetta",
+        "blob": "20739b21a9e6553e0a57a58e2d1e96346b2114a2",
+        "sha256": "2e13d9d22655573418bf13b1768ed362ca8bed89d8101b6f575653ebfaf628d1"
+      },
+      "sha256": "dae869e9ffc2cd7b023fd007d6a441799c6bd37fcb1193c93a6dc8fd70289b2c",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base--base-desc.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-desc.rosetta",
+        "blob": "5df70126994d2c0f27c86c7aa5267eff74689f8b",
+        "sha256": "052fb5fd14bce300baedb2264e7d757b95556eb3cb1cf22985b33c47f7c86163"
+      },
+      "sha256": "cbaa1988f494449de976d40b9d2b21ea65acdfd21634d379a1e0648ef3f99e06",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.math--base-math-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-enum.rosetta",
+        "blob": "82d5a2fea207da725d8cb619cf46a805fb609c59",
+        "sha256": "6860992b0213a5aa8b7616b937cf1915827f37d20cc6b7fbfed27804ac62b302"
+      },
+      "sha256": "0f88c7b8d294b44c061d2a24e109c353d4510104e13dbc61abb1aca88a1ecaf9",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.math--base-math-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-func.rosetta",
+        "blob": "dfdc46acd7563ccb3595fdd4458fca0f62594592",
+        "sha256": "fa216e47e854b0ba4a09e34c2014966b30a3fe6a2d9a56c9046f3d2bafa1f348"
+      },
+      "sha256": "55aebffe2405a523aa1a679d4c4b6d2be2058a73e6b3914fa06b0dd953b4ebb1"
+    },
+    {
+      "name": "cdm.base.math--base-math-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-type.rosetta",
+        "blob": "52f3e7d78c5d44bce7d2286055dc9e9106412460",
+        "sha256": "7f63e590725e3a9c069cf1229fb9369c30ede17389625d8541701ada7e7984d7"
+      },
+      "sha256": "7f63e590725e3a9c069cf1229fb9369c30ede17389625d8541701ada7e7984d7",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.commodity--base-staticdata-asset-commodity-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-commodity-enum.rosetta",
+        "blob": "d4d452349911b83617a2b6fc9a58e091fda75fee",
+        "sha256": "d6b0299ad49bda9d106331ee9605228cd8491bb38f301426b56102ecb85640db"
+      },
+      "sha256": "d6b0299ad49bda9d106331ee9605228cd8491bb38f301426b56102ecb85640db",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-enum.rosetta",
+        "blob": "bbd44addaab019b2b824a02a453a4b052db21727",
+        "sha256": "abee256ee5b1cad6de0e1a391b7597c245062c78af0f1f10875893c166977d71"
+      },
+      "sha256": "079accde1c84a915618e16a7fe3b9993520f6e33d96028f76eb43663a76277f4",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-func.rosetta",
+        "blob": "fdb4492b1d34ca6df52fda89bca8ca4d785f06c0",
+        "sha256": "dbd8a33c5b38413f40bb284c776b4985161efab8d37dbb09c8cbd32d356f1029"
+      },
+      "sha256": "8b36dc4f4d639872c8409c7f3b08c14caa438dfb236d923a1b4cc9f63071c4e3",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-type.rosetta",
+        "blob": "8392a5a6853059d1d8d17b95dc9ff6d769fc5d7e",
+        "sha256": "083dbd053d759318a8fe5861c456304238e2240a8aa210247ae6ae18930860ca"
+      },
+      "sha256": "083dbd053d759318a8fe5861c456304238e2240a8aa210247ae6ae18930860ca",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.credit--base-staticdata-asset-credit-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-credit-enum.rosetta",
+        "blob": "2dbbd08413fbb350b62100ceda167a61a516a104",
+        "sha256": "56d59b245ea9c91250f4ff934f26cfeb3827564a71d3410dfd4ae4597ce476ff"
+      },
+      "sha256": "56d59b245ea9c91250f4ff934f26cfeb3827564a71d3410dfd4ae4597ce476ff",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.credit--base-staticdata-asset-credit-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-credit-type.rosetta",
+        "blob": "8b9a8c310b4c454446e0e96a45764aa32e7353d9",
+        "sha256": "e934621f525828f62269d63d9a19bb010ec613c322eb41576323581926e4c55e"
+      },
+      "sha256": "e934621f525828f62269d63d9a19bb010ec613c322eb41576323581926e4c55e",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.rates--base-staticdata-asset-rates-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-rates-enum.rosetta",
+        "blob": "d0e10da5c54d5e8a69f612fedc0f61249800a661",
+        "sha256": "5b6a25630071f1c9644a298b931b8de9a264a8b13054eb130243fee928119963"
+      },
+      "sha256": "5b6a25630071f1c9644a298b931b8de9a264a8b13054eb130243fee928119963",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.codelist--base-staticdata-codelist-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-codelist-func.rosetta",
+        "blob": "7dfce92b2f9fcbcbe3dabcdb806d778bc6399499",
+        "sha256": "7891959b8c5dd2bceca4ac5871c4617b20e2cdac668550fb6f5a42193d4eba3b"
+      },
+      "sha256": "7891959b8c5dd2bceca4ac5871c4617b20e2cdac668550fb6f5a42193d4eba3b",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.codelist--base-staticdata-codelist-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-codelist-type.rosetta",
+        "blob": "271a545571121c3f7aa5c95f24d79684e0e31284",
+        "sha256": "af0d0edbe8b0975bdb9a93ef21ef19e5e641e1bab777e644d7c970588577551f"
+      },
+      "sha256": "bdbb7c739e9730a887f74071a7c265c0e86079777ab7091e29ebd3f144535497",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.identifier--base-staticdata-identifier-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-identifier-enum.rosetta",
+        "blob": "e21ab49f1619519f5add8a9b2942d4ec89754dbf",
+        "sha256": "6898c8a945e476fe81f600f31b8d2ace998acbcb9b7850454d6ec133c137b3ff"
+      },
+      "sha256": "6898c8a945e476fe81f600f31b8d2ace998acbcb9b7850454d6ec133c137b3ff",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.identifier--base-staticdata-identifier-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-identifier-type.rosetta",
+        "blob": "80351a055b4f5409424a254e6a0c8dc15d092ff3",
+        "sha256": "45e35334685f59a8f493867d90c7d266ea8d9aad8324fca475a134fda8afd8d7"
+      },
+      "sha256": "45e35334685f59a8f493867d90c7d266ea8d9aad8324fca475a134fda8afd8d7",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-enum.rosetta",
+        "blob": "03a5f521cef70b6a6f0549b84d988459fb0734b1",
+        "sha256": "7b3dd0073e70fb1fd2426a02e1a48152f4faa7f9bfd6dee7b045925f11a88294"
+      },
+      "sha256": "7b3dd0073e70fb1fd2426a02e1a48152f4faa7f9bfd6dee7b045925f11a88294",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-func.rosetta",
+        "blob": "e52f777179e089f13765f69c3035887c2cbc3bd1",
+        "sha256": "006dabce13ebaddeb71805daf1d1958e50a0fd81b24fd4cb5ce183144062ac28"
+      },
+      "sha256": "f5b2d6f026dec34e90a3192fbf84d192b50c176f9bf1c76bf561c030c21b5e3b",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-type.rosetta",
+        "blob": "127bc94f10fecf4fa597497eae2ec752d25c0dec",
+        "sha256": "dd5b6377f0130d0fbe810e072006006c660e087fc10035857fa975556ad94ddf"
+      },
+      "sha256": "cdd8968efa934026f90a52964f49ff693003cb439a8efb45a41719792a75ccc6",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.event.common--event-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-common-enum.rosetta",
+        "blob": "dbccb0fbbc2ce3f0524f827ed2abfa74c1cdb78a",
+        "sha256": "02b1447e81c2439b919660a0c015e77df1bdd1c53da59833c29908555c515b5a"
+      },
+      "sha256": "2345908aead9e955eb9e78f0d967d35a0f734fb935c7419b4ca11f9afc7d19b2"
+    },
+    {
+      "name": "cdm.event.common--event-common-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-common-func.rosetta",
+        "blob": "0595733588079885a200e6ec3b80f0cb95fb2694",
+        "sha256": "4becb9a2c5a47881fd29c0d4cc387bd721b2b0cf18b6a604131bfa7d8c9807f9"
+      },
+      "sha256": "3efc2a847c68ee7680d16fa1b0531e884ab680deef992a51d561ba14cd747527"
+    },
+    {
+      "name": "cdm.event.common--event-common-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-common-type.rosetta",
+        "blob": "d20020eac8943325decec3f62cccd5def63af765",
+        "sha256": "c724aa62c397cb80059c6b6b0f3998de949fcf2f0b4a8085eabb98571211850b"
+      },
+      "sha256": "c995407be32be3e29bf5c7c0dd918e8f468dea39a300e05f312663701a529b72"
+    },
+    {
+      "name": "cdm.event.position--event-position-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-position-enum.rosetta",
+        "blob": "ffe93b3ccddff65d643fcc6f2be9ffde28d78910",
+        "sha256": "5866b3dbe183b72f01ed23009c280fe2b4469717da0c48a85d5052a9a46a2f57"
+      },
+      "sha256": "dd2f8ef40e40bb29b8c0f178353f80a1e8fa34d3353397b93f791f51ff12bda7",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.event.position--event-position-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-position-func.rosetta",
+        "blob": "835c6d94fb4a01f116f8c688a75545fa5a256260",
+        "sha256": "f3c892906e419d45324adfe3bc6a3087a55677ed724869e7a5386f8f98ea9cab"
+      },
+      "sha256": "e5f0d0c65067afcf72990b2f2b5d7e4fbc2b7128910ef82c74772bbe6d2433c3"
+    },
+    {
+      "name": "cdm.event.position--event-position-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-position-type.rosetta",
+        "blob": "c9baee332539fc456cb0b866089c023ff531c007",
+        "sha256": "b526c2153b416a161eca7a2b2c0b5f08646fbd4e862af9bd12d493223db3913c"
+      },
+      "sha256": "6973fc0fd082fc646e87f8f4db8f704c305958bcd3ad0407b4decc01977f4347",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.common--legaldocumentation-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-common-enum.rosetta",
+        "blob": "2887e3263a90f90f28fa25196eea53683ef94275",
+        "sha256": "4999109fa210e68cd38fe9646fc3a31cac25dbd4f0302e8d679c22cf43b7e85d"
+      },
+      "sha256": "4999109fa210e68cd38fe9646fc3a31cac25dbd4f0302e8d679c22cf43b7e85d",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.common--legaldocumentation-common-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-common-type.rosetta",
+        "blob": "88921b3c3158d908ceeee3c6c381b85c67c6edb3",
+        "sha256": "6f43a2d8f184e2b0140241c098f1f5e7427b252d2361fad90b5037c12cecf6e7"
+      },
+      "sha256": "69303c4341eec2b599e7c4549088e2deb8b300d817f2398f14bd423b1b0fe5a1",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.csa--legaldocumentation-csa-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-csa-enum.rosetta",
+        "blob": "7335714943434e417fd34cadcc4eef76b4c9ddb7",
+        "sha256": "0243a88f49c86ad29895d65e3fe3d14883ff1d271b3e14cfac78f480135ad571"
+      },
+      "sha256": "d9aeda203f82fa6e6ce5da3d63dafcbbe3cdcfa73eb3e0598abfaa94a661a89a",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.csa--legaldocumentation-csa-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-csa-type.rosetta",
+        "blob": "79cb044556269567f28e0c0f0f9ebb11bc732b7a",
+        "sha256": "585db58057a95514ac1cfc0a8a67b5675de5bff0dc2dc17725b6413c6c094926"
+      },
+      "sha256": "8a100bc79f1ad56d7d90fbfddf689796352cd93640ee6f2e38fc3baa2c0c62ea",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master--legaldocumentation-master-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-enum.rosetta",
+        "blob": "4312b014c0e350db0f8a0c61e406d8f8acb819f0",
+        "sha256": "a6e0e52185e26bafaa296778df7755f06034b69f104ac7b01e3ab332a6cfaa61"
+      },
+      "sha256": "a6e0e52185e26bafaa296778df7755f06034b69f104ac7b01e3ab332a6cfaa61",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master.icma--legaldocumentation-master-icma-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-icma-type.rosetta",
+        "blob": "7b6d67891027da83d5561cb61a674d45e039acb5",
+        "sha256": "48835a259482bfee64aa757a52ffe13f0438b2b0ecbd6047fbfcb307544c8f96"
+      },
+      "sha256": "48835a259482bfee64aa757a52ffe13f0438b2b0ecbd6047fbfcb307544c8f96",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master.isda--legaldocumentation-master-isda-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-isda-enum.rosetta",
+        "blob": "22c465aa24b08c89ccd877b95cedd17959110914",
+        "sha256": "89709e2424dc24817b166057f1754026e5d59c29107e04f50d34b9acaa195f3f"
+      },
+      "sha256": "89709e2424dc24817b166057f1754026e5d59c29107e04f50d34b9acaa195f3f",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master.isda--legaldocumentation-master-isda-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-isda-type.rosetta",
+        "blob": "dfa1ca1a48b73d92e9f3b57f85d8db20db3547d3",
+        "sha256": "a1118db8fc42bb230af14f21ddeb32514e32121125e77a2709331f1c145386c1"
+      },
+      "sha256": "91e0565f03cf88a20844d691ff58a06101960b7115bbeeab1ffe9bac844688c1",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master.isla--legaldocumentation-master-isla-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-isla-enum.rosetta",
+        "blob": "f8d60cec3f7fcee3496898250cf902f624fb4a46",
+        "sha256": "3bb9c263ed3a57a28c5c5cdc97e44479d1a7b004771b5fda615e6dfc43b9301e"
+      },
+      "sha256": "3bb9c263ed3a57a28c5c5cdc97e44479d1a7b004771b5fda615e6dfc43b9301e",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master.isla--legaldocumentation-master-isla-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-isla-type.rosetta",
+        "blob": "4e9c12baac018256d844e4c36efc90c2b9e54332",
+        "sha256": "f9219cbd1b0692bd967539e12b98e299768d13bdeea1d2044c3a10d47a447e35"
+      },
+      "sha256": "f9219cbd1b0692bd967539e12b98e299768d13bdeea1d2044c3a10d47a447e35",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.master--legaldocumentation-master-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-master-type.rosetta",
+        "blob": "116d8ff70321749e8879e03211d6b1228eb18d42",
+        "sha256": "93d5d220de7e405cb3c7b2a470732897cfe312fcdef742dca87a47e9b3e22105"
+      },
+      "sha256": "93d5d220de7e405cb3c7b2a470732897cfe312fcdef742dca87a47e9b3e22105",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.transaction.additionalterms--legaldocumentation-transaction-additionalterms-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-additionalterms-enum.rosetta",
+        "blob": "d608452f45a42a5a560aa75eca0f1c24eb21147b",
+        "sha256": "c4182ca124b9f3d3d7e326de16899216011353b80080a6dbd65b8762dc0e2edd"
+      },
+      "sha256": "c4182ca124b9f3d3d7e326de16899216011353b80080a6dbd65b8762dc0e2edd",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.transaction.additionalterms--legaldocumentation-transaction-additionalterms-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-additionalterms-type.rosetta",
+        "blob": "c4565ed8838564faefbd6da8937255c4aaf8862d",
+        "sha256": "b176116e099834be25e4fb2c87b592cf822c84e708e89c4de1d9a1375347243a"
+      },
+      "sha256": "13636d8b0c1d91b0d901b7df6724580c0b2ff41786363b91265a7ea189195716",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.transaction--legaldocumentation-transaction-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-enum.rosetta",
+        "blob": "977afc498c386f2522cd888e1b67744f3ecc9b73",
+        "sha256": "65a153468fe1be3468b06708acdb52dfb6aa2e84d5b274a6669e4d55191430a7"
+      },
+      "sha256": "65a153468fe1be3468b06708acdb52dfb6aa2e84d5b274a6669e4d55191430a7",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.legaldocumentation.transaction--legaldocumentation-transaction-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/legaldocumentation-transaction-type.rosetta",
+        "blob": "0279b2d6508dd70a8e5796a13e9e57ad18808c58",
+        "sha256": "138961144fab63bc6a8e5da52bc3cf4092da2dced19841859fbb70e8de842a78"
+      },
+      "sha256": "0d0436c813cdd8ed730a7673bea909911193b5963d8d913e57bc794b4817110b",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.asset.calculatedrate--observable-asset-calculatedrate-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-calculatedrate-enum.rosetta",
+        "blob": "b198a7ae4f8b18dfa455b3a50b03cffdded8f16c",
+        "sha256": "1559a42758b19867c33d8103dfdd4758cd9ca9f797d538db847b7b9d289a48c2"
+      },
+      "sha256": "940a82ab0091dd66a662acada059ef92a6a7d4b8c23ea0da06b8256b84c787e6",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.asset.calculatedrate--observable-asset-calculatedrate-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-calculatedrate-type.rosetta",
+        "blob": "f08bbad3709ab9e65cd828385f56a2543f2c172d",
+        "sha256": "6ea9578cad7ce4e259b80fe47c82e94f5b355f264548ae045afca9db7f451dcd"
+      },
+      "sha256": "0e157e5856526930593b9c893565fa6d0a8bcb1c9564287d1f2cfb1e093bded9",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-enum.rosetta",
+        "blob": "c88140d3db6451028864e9f69c972a4cb23a5581",
+        "sha256": "eb0b99200eba69e541720a669d0c46aa839389c70a5d2c190bceefb6cdd67e64"
+      },
+      "sha256": "5b025bb677d77bf72401b88de3e486505dd8e225c82ab599a4ec5585c6df307e",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-func.rosetta",
+        "blob": "193f25a411045f8a58af174b90cd34a2a510a882",
+        "sha256": "5f41f1efd9cca8124259d73be261c9e6461ae822e04bec28779aedb75430c66e"
+      },
+      "sha256": "cd1ca17fa3520eec62f122254092e2aa134a5cafa324c33ceee9750d295af60d",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-type.rosetta",
+        "blob": "5603a1b688ba344edf9238610a621ab2ee5a885b",
+        "sha256": "806777ddb6393579bb0b66f5d15b26bc280ee120e447aa535a49bc4a077ebe64"
+      },
+      "sha256": "f4c23702484cfadb01526e36db01e01e4e7ddf5b3ffbb90f6eb4e45acb2d8a56",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.common--observable-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-common-enum.rosetta",
+        "blob": "a5c9151176a21f559c5063373891d05c8615b4c4",
+        "sha256": "2de25d065d98ec3afe39bed5c2b7ca9fc90c71f0d3e8873fb5a669fb9346d92f"
+      },
+      "sha256": "2de25d065d98ec3afe39bed5c2b7ca9fc90c71f0d3e8873fb5a669fb9346d92f",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.common--observable-common-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-common-func.rosetta",
+        "blob": "42c73bc4c8e62cd3688b55120ae956c150feb5b4",
+        "sha256": "428f4c74bed989cada3e13c00e0d41b90a4bcbf52a449dc54d032e5c536d0e02"
+      },
+      "sha256": "5a291f7913943971aec0e5ebb286f06b3a0189cc3235599f5c0a5afdd1302bf0",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.event--observable-event-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-event-enum.rosetta",
+        "blob": "8618b50fe44eec6d70740f286f12421f76225c00",
+        "sha256": "c5b2869b9273722f1f9bdbc62ed847d4491de26224b69b3fb4007a7f8562b401"
+      },
+      "sha256": "c5b2869b9273722f1f9bdbc62ed847d4491de26224b69b3fb4007a7f8562b401",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.observable.event--observable-event-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-event-type.rosetta",
+        "blob": "26e06278fa6433d54fed41a164e254c41ad99dbf",
+        "sha256": "4cd4da21581c96dd52372a3beed75fd17b990b08ba81ce08f265a501438599bd"
+      },
+      "sha256": "d1071113d256bd9c0b414e53402308d618176fd5d0856206a281c2ce9887bb83",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.asset--product-asset-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-asset-enum.rosetta",
+        "blob": "abf851952d2f148baf349944df0e6a705720d665",
+        "sha256": "473e00c1fadec9feb0b23905488435f9d8e35dfaecdc3cca9f250d1edea08844"
+      },
+      "sha256": "473e00c1fadec9feb0b23905488435f9d8e35dfaecdc3cca9f250d1edea08844",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.asset--product-asset-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-asset-type.rosetta",
+        "blob": "089ea7351c82bc29a40ac5d99d8764c99792ad82",
+        "sha256": "c713c5f1b5cdc7812a217c57f17fd05e7912211c3485481b2cbac2af1fe0a340"
+      },
+      "sha256": "df64658b4df81b69214e92b1e1a60468251813709d90e3190ffca182f0dd789e",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.collateral--product-collateral-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-collateral-enum.rosetta",
+        "blob": "2b0282fe7cf203ce3a054fc2c00f6e983ced6157",
+        "sha256": "6583ba4dc57364e4fa43800f5a24e3c96f0abd53050c1b40b5c78bd667b57a5a"
+      },
+      "sha256": "6583ba4dc57364e4fa43800f5a24e3c96f0abd53050c1b40b5c78bd667b57a5a",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.collateral--product-collateral-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-collateral-func.rosetta",
+        "blob": "e1afccc512575941241d9bcb2c66c7eadbd0bfcd",
+        "sha256": "2b5db96f62e90171bb41f103064c23968722a01a846bac6e22cde6e441ceb2b3"
+      },
+      "sha256": "30c3089d83db6a911f7ca439975d370bfc70f14a533598981aee48218b39bf42",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.collateral--product-collateral-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-collateral-type.rosetta",
+        "blob": "2afa3bfbc37e9d6d0f31ac9ed82e464b7978ff36",
+        "sha256": "97081166b7f7b5fd393521cf5fb6ca5987ca68995952fd30a523845407a7ef01"
+      },
+      "sha256": "cf259cb3789121eb9ca5efb03db0a4759b83af00eab5cc56763ba2fa6e038321",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.common--product-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-common-enum.rosetta",
+        "blob": "7cbc432eac9b46deade03ab28b9ebc44e0d0246c",
+        "sha256": "54959893a8800c53c0c747c9f29446809891d0896845154ff49c9c59a7a8b3c5"
+      },
+      "sha256": "54959893a8800c53c0c747c9f29446809891d0896845154ff49c9c59a7a8b3c5",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.common.schedule--product-common-schedule-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-common-schedule-enum.rosetta",
+        "blob": "ffb19898b46e2b4e3a29d7b1549783fde3852a81",
+        "sha256": "673abdf24f00dfee88cbb8a94f5d9cf80d828996fdaea695f8826264ad48b65c"
+      },
+      "sha256": "673abdf24f00dfee88cbb8a94f5d9cf80d828996fdaea695f8826264ad48b65c",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.common.schedule--product-common-schedule-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-common-schedule-type.rosetta",
+        "blob": "76eb81a6d2681b8312a84c1b9ece5f2c77d59d04",
+        "sha256": "7c2d351f96008eaf80dbf4bbd7982968aa5363dff33700210a41d34169dfecaf"
+      },
+      "sha256": "232d266e4f77d935fd98e6bdbdd69def1ba8b4ae06a50818703b487804cc2f72",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.common.settlement--product-common-settlement-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-common-settlement-enum.rosetta",
+        "blob": "9b991c2903a99a2e613f4ced70b0ffc11251f846",
+        "sha256": "4e1315478918e26ed831820c09581776aa84a158e0bd4c6f77e118ff8322d2ba"
+      },
+      "sha256": "4e1315478918e26ed831820c09581776aa84a158e0bd4c6f77e118ff8322d2ba",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.common.settlement--product-common-settlement-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-common-settlement-type.rosetta",
+        "blob": "e369146a7f75dbd573619999e1ba0f446c607b2f",
+        "sha256": "fd0723d2512095c186eca1dbc911b69f2f8adf24cc44db1639f1455199168a7b"
+      },
+      "sha256": "a3554fca015c3470a19a596aca418fe3c71a8db3e607c3db23e53b72518c9b1c",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.qualification--product-qualification-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-qualification-func.rosetta",
+        "blob": "c13b0fb606c0f2d8eb38f363cbe48476606fabda",
+        "sha256": "4d92aa529309bca95f4db4d3b8afef679ee601526eb47ece7d2c3e9b29511f18"
+      },
+      "sha256": "36635aafb6cf86fcd2be06b288639cbd8679811cdb345b1cefdd78d893c9f70b",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.template--product-template-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-template-enum.rosetta",
+        "blob": "ce4e5d7bd6ebe66b9a0b8401fb67e07218b22fb0",
+        "sha256": "1cb7497a88f41c6db13059e2b85e19a83ea757fc1e29215480a0485cb8f15c95"
+      },
+      "sha256": "1cb7497a88f41c6db13059e2b85e19a83ea757fc1e29215480a0485cb8f15c95",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "cdm.product.template--product-template-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/product-template-type.rosetta",
+        "blob": "2718d0e52eb75a7349d651bab661fe0a391c906e",
+        "sha256": "94cc8eea076040fb1041bf8dc9f22726399cfe6aaeb7d5a22b13c4fcae33190e"
+      },
+      "sha256": "94cc8eea076040fb1041bf8dc9f22726399cfe6aaeb7d5a22b13c4fcae33190e",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "e2d26110ea3f49311672be9e264d10bd7234c7875b8697827932fa5b6c07b05d",
+      "sharedFixture": "cdm-billing-summary"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "32ef537930827d415704a13a5283fd87bdfa892bf04e5bf814f4be0a99466a30",
+      "sharedFixture": "cdm-billing-summary"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}
