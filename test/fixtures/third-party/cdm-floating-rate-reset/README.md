@@ -13,6 +13,11 @@ The selector returns the raw rate and both observations. The event reset
 workflow owns final rounding. Missing market values and the manual RefBanks
 route retain explicit errors.
 
+The pinned CDM tests expect 31 accrual days for January 1 through January 31
+and both adjusted period endpoints for CompoundedIndex. The daily observation
+branch has its own end-date rule.
+[Calculation test](https://github.com/finos/common-domain-model/blob/0f1f99aef829c23910476981bb91256544cb8569/rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_CalculateResetValueInstructionTest.java#L78-L105), [observation-date test](https://github.com/finos/common-domain-model/blob/0f1f99aef829c23910476981bb91256544cb8569/rosetta-source/src/test/java/cdm/event/instructioncomposition/reset/functions/Create_DetermineUnadjustedObservationDatesInstructionTest.java#L73-L86).
+
 The standalone test also calls the original `GenerateDateList` with an empty
 range and an unavailable calendar. Its guard returns an empty list without
 evaluating the recursive alias or consulting the calendar.
