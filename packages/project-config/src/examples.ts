@@ -52,7 +52,8 @@ export function examplePayloadPath(root: string, id: string): string {
 /** Decode only typed descriptors under the configured examples root. Never inspect hidden trees. */
 export function readExamples(
   snapshot: ProjectSnapshot,
-  knownSymbols?: ReadonlySet<string>
+  knownSymbols?: ReadonlySet<string>,
+  options?: Parameters<typeof parseProjectPayload>[2]
 ): {
   examples: ExampleDescriptor[];
   documents: ExampleDocument[];
@@ -109,7 +110,7 @@ export function readExamples(
       continue;
     }
     try {
-      document.payload = parseProjectPayload(raw, descriptor.codec);
+      document.payload = parseProjectPayload(raw, descriptor.codec, options);
     } catch {
       issue(
         'EXAMPLE_PAYLOAD_INVALID',

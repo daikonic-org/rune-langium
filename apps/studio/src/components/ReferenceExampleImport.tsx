@@ -26,6 +26,7 @@ import { usePreviewSession } from '../shell/providers/preview-session-context.js
 import { useProject } from '../shell/providers/project-context.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import { workspaceDeclarationIdentities } from '../workspace/example-identity.js';
+import { serializeProjectPayload } from '@rune-langium/core/serialization';
 import { useInstanceStore } from '../store/instance-store.js';
 import { WorkspaceTypePicker } from './WorkspaceTypePicker.js';
 
@@ -93,7 +94,8 @@ export const ReferenceExampleImport = withInstrumentation(
     const activeVisible = visible.some((entry) => entry.path === active);
     const displayedPreview = activeVisible ? preview : undefined;
     const previewText = useMemo(
-      () => (displayedPreview ? JSON.stringify(displayedPreview.data, null, 2) : ''),
+      () =>
+        displayedPreview ? serializeProjectPayload(displayedPreview.data, 'JSON', { preserveNumberText: true }) : '',
       [displayedPreview]
     );
     const execution = activeVisible ? catalog?.bindings.get(active) : undefined;

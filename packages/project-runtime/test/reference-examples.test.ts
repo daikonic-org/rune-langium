@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, it, vi } from 'vitest';
-import { encodeRuneJson } from '@rune-langium/core/serialization';
+import { serializeProjectPayload } from '@rune-langium/core/serialization';
 import {
   isRepositoryExample,
   openReferenceExamples,
@@ -34,7 +34,15 @@ it('imports real CDM Rune JSON without losing metadata or reference namespaces',
   expect(example.type).toEqual(type);
   expect(example.source).toMatchObject({ ...origin, path, format: 'RUNE_JSON' });
   expect(example.warnings).toEqual([]);
-  expect(encodeRuneJson(example.data)).toEqual(JSON.parse(text));
+  const numberOptions = { preserveNumberText: true };
+  expect(JSON.parse(serializeProjectPayload(example.data, 'RUNE_JSON', numberOptions))).toEqual(JSON.parse(text));
+  const exact = prepareReferenceExample(
+    origin,
+    path,
+    '{"@type":"cdm.event.common.TradeState","amount":{"@data":1.00,"@scheme":"USD"}}',
+    [type]
+  );
+  expect(serializeProjectPayload(exact.data, 'RUNE_JSON', numberOptions)).toContain('"@data": 1.00');
   expect(example.data).toMatchObject({ trade: { tradeDate: { value: '2001-04-29', meta: {} } } });
 });
 it('rejects model/type collisions and requires explicit legacy type selection', () => {

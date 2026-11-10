@@ -5,7 +5,12 @@ import { adaptPreviewData, projectRuneJsonData } from '@rune-langium/codegen/exp
 import type { ProjectSnapshot } from '@rune-langium/project-config';
 import { jsonCodec, runeJsonCodec } from '@rune-langium/codegen/instances';
 
-import { withRuneJsonEncoding, projectDataFormat, serializeProjectPayload } from '@rune-langium/core/serialization';
+import {
+  withRuneJsonEncoding,
+  projectDataFormat,
+  restoreJsonNumberText,
+  serializeProjectPayload
+} from '@rune-langium/core/serialization';
 
 /** Registered project data codec. No implicit substitution for unsupported formats. */
 export function projectDataCodecStatus(snapshot: ProjectSnapshot, requested?: string) {
@@ -42,8 +47,10 @@ export function serializeProjectData(
     requestedCodec ??
     (snapshot.project.rune.model as { defaultSerialisationFormat?: string } | undefined)?.defaultSerialisationFormat ??
     'JSON';
+  // Reattach number tokens before projection moves them into wire metadata and Choice slots.
+  const restored = restoreJsonNumberText(value);
   if (projectDataFormat(format) === 'RUNE_JSON' && context) {
-    const projected = projectRuneJsonData(context.documents, context.typeFqn, value);
+    const projected = projectRuneJsonData(context.documents, context.typeFqn, restored);
     if (!projected || typeof projected !== 'object' || Array.isArray(projected))
       throw new Error('Rune object serialization requires a typed object.');
     return serializeProjectPayload(
@@ -58,7 +65,7 @@ export function serializeProjectData(
       format
     );
   }
-  return serializeProjectPayload(value, format);
+  return serializeProjectPayload(restored, format);
 }
 
 export function importProjectData(
