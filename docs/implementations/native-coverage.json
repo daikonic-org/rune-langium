@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "24ad21a7e819c28c9c85c96b0174259d6b0bf258ef6c6a9553c97f03bed85863"
+      "sha256": "0747936eb176a99a97a14adfd734167ad9de5be54f6f92ec801e4ed6d150cb24"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1045,6 +1045,14 @@
       "sha256": "05b3f6546b3ca723f16aaff0619d285ad18bde737f1d192710fe3942372898ce"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/check-eligibility-for-product.rosetta",
+      "sha256": "37decce218554b1ad62dc3d2379c41431655de0c96c6a2dcf52c41cdc6f72a09"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/collateral-eligibility-inputs.rosetta",
+      "sha256": "f3db296abaa9748d504361525a1d42cf4154e39b488c84bd2b7de6c4be0914ce"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
       "sha256": "31f54c6bf97fd2c6eabc347e8bf1f9592d67145c8d49fc41487ba2f922e415a8"
     },
@@ -1063,6 +1071,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/equity-settlement-inputs.rosetta",
       "sha256": "298aefcb943823e72994496b005a0a2c4c8a3debab28a6eae71397a36bae2f6c"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/evaluate-portfolio-state.rosetta",
+      "sha256": "86625783877ca838f3891381543bbc5d2e3b9143d9d1f0ae4e4c4fe3dc491a43"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
@@ -1131,6 +1143,10 @@
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
       "sha256": "725dd8330dd3297256d717c3497d580a293bb6b789b7e6806e4ec666a5689909"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/portfolio-aggregation-inputs.rosetta",
+      "sha256": "9b0ad7186347f0ce9b231ed7581a033038c692f095b9b0666d4ea3deaa932355"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
@@ -5216,7 +5232,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/evaluate-portfolio-state.rosetta",
+        "entrypoint": "cdm.event.position.EvaluatePortfolioState",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -5225,10 +5244,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "assess",
-        "requirements": "Aggregation is expressible, but confirm required portfolio/state data and the aggregation policy before promising a self-contained body.",
+        "route": "rune-source",
+        "requirements": "A project provider supplies selected event contributions, product and unit grouping, opening balances and CDM lineage. The owned Rune body folds the resolved scalar series, preserves their context and emits non-transferable positions.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/collateral-portfolio.test.ts",
+        "cases": "test/fixtures/third-party/cdm-collateral-portfolio/cases.json",
+        "casesSha256": "40b0c8921edf8eb4e1307bf08a251a1e98087a340a6f84edd3902c5d1f253beb",
+        "selectors": [],
+        "caseCount": 6
       }
     },
     {
@@ -7770,7 +7796,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/check-eligibility-for-product.rosetta",
+        "entrypoint": "cdm.product.collateral.CheckEligibilityForProduct",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -7779,10 +7808,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Eligibility rules can be Rune over supplied asset/issuer facts; confirm required data and authoritative policy.",
+        "route": "rune-source",
+        "requirements": "The project supplies product and issuer facts and selects an offered collateral schedule when needed. The owned Rune body delegates criteria, haircuts and result construction to upstream CheckEligibilityByDetails.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/collateral-portfolio.test.ts",
+        "cases": "test/fixtures/third-party/cdm-collateral-portfolio/cases.json",
+        "casesSha256": "40b0c8921edf8eb4e1307bf08a251a1e98087a340a6f84edd3902c5d1f253beb",
+        "selectors": [],
+        "caseCount": 7
       }
     },
     {

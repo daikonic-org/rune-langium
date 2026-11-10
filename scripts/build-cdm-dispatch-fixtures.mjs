@@ -100,6 +100,18 @@ const suites = [
     references: []
   },
   {
+    directory: 'cdm-collateral-portfolio',
+    sharedFixture: 'cdm-billing-summary',
+    declarations: [
+      { namespace: 'cdm.product.collateral', name: 'CheckEligibilityForProduct', kind: 'RosettaFunction' },
+      { namespace: 'cdm.event.position', name: 'EvaluatePortfolioState', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      { namespace: 'cdm.product.collateral', name: 'CheckEligibilityByDetails', kind: 'RosettaFunction' }
+    ],
+    references: []
+  },
+  {
     directory: 'cdm-equity-settlement',
     sharedFixture: 'cdm-billing-summary',
     declarations: [

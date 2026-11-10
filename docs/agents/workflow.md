@@ -572,6 +572,11 @@ payment-schedule precedence and original CDM callers in generated TypeScript
 and Python. The optimized Prototype suite executes a bundled funding leg with
 a master confirmation's payment date.
 
+Project Runtime's `collateral-portfolio.test.ts` covers the installed eligibility
+and portfolio bodies, provider boundaries, and identical TypeScript/Python
+cases. The optimized Prototype journey exercises eligibility using a mapped
+currency enum and the pinned CDM criteria evaluator.
+
 Vector implementations share that delivery boundary. `vectors.test.ts` in Codegen,
 project-runtime and Studio checks the 73-case pinned vector corpus, three strict
 TypeScript layouts, standalone Python under hostile decimal state, publication

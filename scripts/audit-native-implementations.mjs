@@ -69,7 +69,8 @@ const testSuites = {
     'cdm-valuation-times': 'valuation-times',
     'cdm-observation-resolution': 'observation-resolution',
     'cdm-reset-forward-rates': 'reset-forward-rates',
-    'cdm-equity-settlement': 'equity-settlement'
+    'cdm-equity-settlement': 'equity-settlement',
+    'cdm-collateral-portfolio': 'collateral-portfolio'
   }
 };
 const dispatchSuites = await Promise.all(

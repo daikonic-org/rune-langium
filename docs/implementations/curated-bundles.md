@@ -136,6 +136,18 @@ confirmation supplies its own equity payment schedule. Bind the second to
 the selected payout's calendar-resolved settlement schedule and current period
 end. Rune requires a unique schedule entry for that period.
 
+Bind `impl.cdm.collateral.ReadProductEligibilityInputs` to supply the
+`EligibilityQuery` facts for the product. When more than one schedule is
+offered, supply the applicable one from that list. The adapter reuses CDM's
+`CheckEligibilityByDetails` evaluator.
+
+Bind `impl.cdm.portfolio.ReadPortfolioAggregationInputs` to select and group
+the event quantities using the portfolio's aggregation parameters and supply
+their CDM lineage. Each series has a scalar opening balance and signed changes
+in the same unit, including a zero opening for period-only totals. Rune
+preserves the series' price context and unit, folds the changes into the
+balance, and requires the resulting quantity to be nonnegative.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

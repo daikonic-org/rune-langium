@@ -41,6 +41,10 @@ import {
   observationResolutionCaller
 } from '../../../../test/helpers/cdm-observation-resolution.js';
 import {
+  collateralPortfolioCaller,
+  createCuratedCollateralPortfolioProject
+} from '../../../../test/helpers/cdm-collateral-portfolio.js';
+import {
   createCuratedEquitySettlementProject,
   equitySettlementCaller
 } from '../../../../test/helpers/cdm-equity-settlement.js';
@@ -296,6 +300,31 @@ test('builds the published equity funding leg using the confirmation payment sch
   await expect(output).toContainText('"firstPaymentDate": "2024-06-03"');
   await expect(output).toContainText('"payer": "Party2"');
   await expect(output).toContainText('"value": 1000');
+});
+
+test('checks a published collateral schedule selected through a materialized currency list', async ({ page }) => {
+  await openPublishedImplementationProject(
+    page,
+    await createCuratedCollateralPortfolioProject(),
+    collateralPortfolioCaller,
+    1440
+  );
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: 'PublishedCollateralEligibility — example.collateral', exact: true }).click();
+  const chooseCurrency = async (code: string, label: RegExp) => {
+    await page.getByRole('button', { name: /^Currency:/ }).click();
+    await page.getByRole('combobox', { name: 'Search Currency' }).fill(code);
+    await page.getByRole('option', { name: label }).click();
+  };
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  const output = page.getByRole('region', { name: 'result output' });
+  await chooseCurrency('JPY', /Japanese Yen/i);
+  await execute.click();
+  await expect(output).toContainText('"isEligible": true');
+  await expect(output).toContainText('"haircutPercentage": 0.05');
+  await chooseCurrency('USD', /US Dollar/i);
+  await execute.click();
+  await expect(output).toContainText('"isEligible": false');
 });
 
 test('resolves published CDM valuation times using a Rune business-center enum', async ({ page }) => {

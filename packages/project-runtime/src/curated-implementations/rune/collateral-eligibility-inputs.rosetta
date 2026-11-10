@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.collateral
+version "1.0.0"
+
+import cdm.product.collateral.*
+import cdm.product.template.TransferableProduct
+
+type ProductEligibilityInputs:
+    query EligibilityQuery (1..1) <"Maturity, asset, issuer and rating facts for the offered product.">
+    specification EligibleCollateralSpecification (0..1) <"Select a supplied schedule when the workflow offers more than one.">
+
+func ReadProductEligibilityInputs: <"Supply the facts and applicable collateral schedule for the product.">
+    [codeImplementation]
+    inputs:
+        specifications EligibleCollateralSpecification (1..*)
+        product TransferableProduct (1..1)
+    output: details ProductEligibilityInputs (1..1)
+
+func EvaluateProductEligibility:
+    inputs:
+        specifications EligibleCollateralSpecification (1..*)
+        product TransferableProduct (1..1)
+    output: result CheckEligibilityResult (1..1)
+
+    alias details: ReadProductEligibilityInputs(specifications, product)
+    alias selected:
+        if details -> specification exists then details -> specification
+        else if specifications count = 1 then specifications only-element
+
+    condition ApplicableCollateralSchedule:
+        selected exists
+    condition SuppliedCollateralSchedule:
+        specifications contains selected
+
+    set result: CheckEligibilityByDetails(selected, details -> query)

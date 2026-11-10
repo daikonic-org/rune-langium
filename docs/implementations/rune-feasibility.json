@@ -27,11 +27,14 @@
     "packages/project-runtime/src/curated-implementations/rune/cdm-non-business-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/cdm-schedule-adapter.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/cdm-strata-frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/check-eligibility-for-product.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/collateral-eligibility-inputs.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-difference.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/date-list.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/equity-settlement-inputs.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/evaluate-portfolio-state.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/extract-floating-rate-option-data.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/floating-rate-index-matrix.rosetta",
@@ -49,6 +52,7 @@
     "packages/project-runtime/src/curated-implementations/rune/new-floating-payout.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/observation-averages.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/portfolio-aggregation-inputs.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-cash-settlement-date.rosetta",
@@ -454,8 +458,9 @@
         "name": "EvaluatePortfolioState"
       },
       "signatureSha256": "54fa32fb55fd7737c7f2d2840ce94edd63baea072e78a2ef6bb22c446d8b7e34",
-      "route": "assess",
-      "requirements": "Aggregation is expressible, but confirm required portfolio/state data and the aggregation policy before promising a self-contained body."
+      "route": "rune-source",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/evaluate-portfolio-state.rosetta",
+      "requirements": "A project provider supplies selected event contributions, product and unit grouping, opening balances and CDM lineage. The owned Rune body folds the resolved scalar series, preserves their context and emits non-transferable positions."
     },
     {
       "symbol": {
@@ -626,8 +631,9 @@
         "name": "CheckEligibilityForProduct"
       },
       "signatureSha256": "39929306160b4581e210df12206ba5cb3c42a1117937d63251a4253945917451",
-      "route": "data-backed",
-      "requirements": "Eligibility rules can be Rune over supplied asset/issuer facts; confirm required data and authoritative policy."
+      "route": "rune-source",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/check-eligibility-for-product.rosetta",
+      "requirements": "The project supplies product and issuer facts and selects an offered collateral schedule when needed. The owned Rune body delegates criteria, haircuts and result construction to upstream CheckEligibilityByDetails."
     },
     {
       "symbol": {

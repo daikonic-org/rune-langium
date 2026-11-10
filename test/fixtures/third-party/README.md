@@ -91,3 +91,6 @@ original FX caller against a Rune port of Strata's linear interpolation.
 
 The [equity settlement fixture](cdm-equity-settlement/README.md) reuses pinned
 CDM slices and adds the original equity swap and cash transfer callers.
+
+The [collateral and portfolio fixture](cdm-collateral-portfolio/README.md)
+reuses pinned CDM slices for eligibility and position aggregation.
