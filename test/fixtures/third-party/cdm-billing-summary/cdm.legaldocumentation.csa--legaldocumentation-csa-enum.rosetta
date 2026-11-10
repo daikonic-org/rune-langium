@@ -1,0 +1,252 @@
+namespace cdm.legaldocumentation.csa
+version "${project.version}"
+
+import cdm.base.*
+import cdm.base.datetime.*
+import cdm.observable.asset.*
+
+enum RecalculationOfValueElectionEnum: <"Values to specify the procedure under which the market value of posted collateral will be recalculated.">
+    ConsulationProcedure <"The parties agree to consult.">
+    OtherRegulatoryCSAProcedure <"The procedures specified in an Other Regulatory CSA.">
+    NotApplicable <"Description to be added.">
+    Specified <"Bespoke Recalculation of value terms are specified in the agreement.">
+
+enum SimmExceptionApplicableEnum: <"Values to specify the SIMM normalized exception approaches.">
+    [docReference ISDA CSA_IM_2018 paragraph "13 General Principles"]
+    FallBackToMandatoryMethod <"The ISDA Standard Initial Margin Model exception is applicable as a Fallback to Mandatory Method.">
+    MandatoryMethod <"The ISDA Standard Initial Margin Model exception is applicable as a Mandatory Method.">
+    OtherMethod <"An alternative approach is described in the document.">
+
+enum ExceptionEnum: <"Values to specify the normalized exceptions applicable to an Initial Margin CSA.">
+    [docReference ISDA CSA_IM_2016 paragraph "13 General Principles"]
+    [docReference ISDA CSA_IM_2018 paragraph "13 General Principles"]
+    Applicable <"The election is applicable.">
+    NotApplicable <"The election is not applicable.">
+    Other <"An alternative approach is described in the document as follows.">
+
+enum SensitivitiesEnum: <"Values to specify the methodology according to which sensitivities to (i) equity indices, funds and ETFs, and (ii) commodity indices are computed.">
+    [docReference ISDA CSA_IM_2016 paragraph "13 General Principles" clause "(gg)(2)"]
+    Alternative <"The parties agree that in respect of the relevant sensitivities, the delta is allocated back to individual constituents.">
+    Standard <"The relevant sensitivities are addressed by the standard preferred approach where the entire delta is put into the applicable asset class/category.">
+
+enum RegulatoryRegimeEnum: <"Values to specify the regulatory regimes.">
+    [docReference ISDA CSA_IM_2016 paragraph "13 General Principles" name "Regime"]
+    [docReference ISDA CSA_IM_2018 paragraph "13 General Principles" name "Regime"]
+    AustraliaMarginRules displayName "Australia" <"Australian Prudential Standard CPS 226 Margining and risk mitigation for non-centrally cleared derivatives.">
+    CanadaMarginRules displayName "Canada" <"Guideline E-22, Margin Requirements for Non-Centrally Cleared Derivatives issued by the Canadian Office of the Superintendent of Financial Institutions in February 2016.">
+    CFTC_MarginRules displayName "CFTC" <"Margin requirements adopted by the U.S. Commodity Futures Trading Commission pursuant to CEA  4s(e).">
+    EMIR_MarginRules displayName "EMIR" <"Regulation (EU) No 648/2012 of the European Parliament and of the Council of 4 July 2012 on OTC derivatives, central counterparties and trade repositories (including the EMIR RTS, which means the published regulatory technical standards on risk-mitigation techniques for OTC-derivative contracts not cleared by a CCP under Article 11(15) of EMIR).">
+    HongKongMarginRules displayName "Hong Kong" <"Chapter CR-G-14 'Non-centrally Cleared OTC Derivatives Transactions  Margin and Other Risk Mitigation Standards' in the Banking Supervisory Policy Manual issued by the Hong Kong Monetary Authority.">
+    JapanMarginRules displayName "Japan" <"Margin rules adopted by the Financial Services Agency of Japan pursuant to Article 40, Item 2 of the Financial Instruments and Exchange Act (kinyuu shouhin torihiki hou) (Act No. 25 of 1948) and by the Ministry of Agriculture, Forestry and Fisheries and the Ministry of Economy, Trade and Industry pursuant to the Commodity Derivatives Act (shouhin sakimono torihiki hou) (Act No. 239 of 1950) (including their subordinated regulations and the related supervisory guidelines).">
+    US_PrudentialMarginRules displayName "Prudential" <"Margin requirements adopted by a 'prudential regulator' (as defined in CEA  1a(39)) pursuant to CEA  4s(e) and Exchange Act  15F(e).">
+    SEC_MarginRules displayName "SEC" <"Margin requirements adopted by the U.S. Securities and Exchange Commission pursuant to Exchange Act  15F(e).">
+    SingaporeMarginRules displayName "Singapore" <"Guidelines on Margin Requirements for Non-centrally Cleared OTC Derivatives Contracts issued by the Monetary Authority of Singapore (MAS) pursuant to section 321 of the Securities and Futures Act, Chapter 289 of Singapore.">
+    SwitzerlandMarginRules displayName "Switzerland" <"Margin rules adopted by the Swiss Federal Council pursuant to Article 110-111 of the Financial Market Infrastructure Act as well as Articles 100 to 107 and Annexes 3 to 5 of the Financial Market Infrastructure Ordinance.">
+    BrazilMarginRules displayName "Brazil" <"The Central Bank of Brazil margin requirements adopted pursuant to Resolution no. 4,662, of 25 May 2018, enacted by the National Monetary Council.">
+    UnitedKingdomMarginRules displayName "United Kingdom" <"EMIR (including, for the avoidance of doubt, the EMIR RTS) as it forms part of UK domestic law by virtue of section 3 of the European Union (Withdrawal) Act 2018 (as amended) (the EUWA) (including any amendments made to such legislation when it is brought into UK domestic law pursuant to section 8 of the EUWA or any regulations made thereunder), and which, for the avoidance of doubt, shall be subject to the interpretation provision in Paragraph [11(g)].3.">
+    SouthAfricaMarginRules displayName "South Africa" <"the requirements contained in Joint Standard 2 of 2020 made in terms of the South African Financial Sector Regulation Act, 2017.">
+    SouthKoreaMarginRules displayName "South Korea" <"Margin requirements adopted by the Korean Financial Services Commission and Financial Supervisory Service pursuant to the Guidelines on Margin Requirements for Non-Centrally Cleared OTC Derivatives Transactions, which are expected to be incorporated into the Financial Investment Services and Capital Markets Act.">
+    HongKongSFCMarginRules displayName "Hong Kong SFC" <"Part III of Schedule 10 to Code of Conduct for Persons Licensed by or Registered with the Securities and Futures Commission of Hong Kong.">
+
+enum MarginApproachEnum: <"Values to specify the margin approach specific to Initial Margin agreements.">
+    [docReference ISDA CSA_IM_NewYork_2018 paragraph "13"]
+    Distinct <"Distinct Margin Flow (IM) Approach.">
+    Allocated <"Allocated Margin Flow (IM/IA) Approach.">
+    GreaterOf <"Greater of Margin Flow (IM/IA) Approach.">
+
+enum AmendmentEffectiveDateEnum: <"The enumerated values to specify the effective date of the Amendment to Termination Currency when specified as a specific date (e.g. the annex date).">
+    [docReference ISDA CSA_IM_2016 paragraph "13 General Principles" clause "(t)"]
+    AnnexDate <"The effective date corresponds to the Annex date.">
+    DeedDate <"The effective date corresponds to the Deed date.">
+    AgreementDate <"The effective date corresponds to the Agreement date.">
+    AmendmentEffectiveDate <"The effective date corresponds to the Amendment Effective Date (IM).">
+
+enum AdditionalTypeEnum: <"The enumerated values to specify the Additional Type of transaction that can require the collection or delivery of initial margin under a given regulatory regime for the purposes of Covered Transactions.">
+    [docReference ISDA CSA_IM_2016 paragraph "13 General Principles" clause "(b)(B)"]
+    NotApplicable <"No Additional Type of transaction is applicable to the regulatory regulatory regime.">
+    EquityOptionOrIndexOption <"Single stock equity option or index option transaction as referred to in the transitional provisions (if any) of the EMIR RTS.">
+    Other
+
+enum ElectiveAmountEnum: <"The enumerated values to specify an elective amount.">
+    Zero <"The elective amount is zero.">
+    Unlimited <"The elective amount has no upper limit.">
+
+enum SecurityInterestObligationsEnum: <"The enumerated values applicable for Security Interest for Obligations.">
+    NotApplicable <"Security Interest for Obligations is not applicable to the Party.">
+    AllObligationsOfPartyA displayName "All Obligations of Party A" <"All Obligations of Party A.">
+    AllObligationsOfPartyB displayName "All Obligations of Party B" <"All Obligations of Party B.">
+    Other <"Utilised where the clause data structure is not able to capture a material aspect of the clause.">
+
+enum SecurityInterestObligeeEnum: <"The enumerated values applicable for Security Interest for Obligations Obligee.">
+    PartyA <"Party A.">
+    PartyAOrAffiliate displayName "Party A or any Affiliate of Party A" <"Party A or any Affiliate of Party A.">
+    PartyB <"Party B.">
+    PartyBOrAffiliate displayName "Party B or any Affiliate of Party B" <"Party B or any Affiliate of Party B.">
+    Other <"Utilised where the clause data structure is not able to capture a material aspect of the clause.">
+
+enum RatingTypeEnum: <"The relevant rating type.">
+    LongTerm <"Long Term Ratings are applicable for the stated Rating Agency.">
+    ShortTerm <"Short Term Ratings are applicable for the stated Rating Agency.">
+
+enum NotRatedByEnum: <"The enumerated values applicable to define the what conditions apply to trigger a Not Rated condition.">
+    All <"No rating is available for the Party for any of the stated Rating Agencies.">
+    One <"No rating is available for the Party for any one of the stated Rating Agencies.">
+    Two <"No rating is available for the Party for any two of the stated Rating Agencies.">
+
+enum NumberOfRatingAgenciesEnum: <"The enumerated values to define the number of Rating Agencies that must be considered to meet the rating condition.">
+    All <"Ratings for all defined Rating Agencies will be considered.">
+    AnyOne <"Ratings for Any 1 stated Rating Agency will be applicable.">
+    AnyTwo <"Ratings for Any 2 stated Rating Agencies will be applicable.">
+    Other <"Utilised where the clause data structure is not able to capture a material aspect of the clause.">
+
+enum DeliveryReturnAmountEnum: <"In respect of a Valuation Date, the amount of collateral which a party is entitled to demand to be transferred to it as a Delivery or Return Amount.">
+    Standard <"Standard definition applies.">
+    NonStandardRatings <"Election includes non-standard ratings-based language.">
+    NonStandardOther <"Election includes non-standard bespoke language.">
+
+enum ValuationTimeEnum: <"The type of time specified for the Valuation Time.">
+    CloseOfBusiness <"The valuation time should be at close of business.">
+    SpecificTime <"The valuation time should be at a specific time.">
+    AsSelected <"The valuation time should be as selected.">
+
+enum ValuationTimeDayEnum: <"The day at which the value of the collateral and obligations to transfer or return collateral are to be calculated relative to the Valuation Date.">
+    PreviousLocalBusinessDay displayName "Previous Local Business Day" <"Should be calculated relative to the previous local business day.">
+    PreviousLocalBusinessDayMarket displayName "Previous Local Business Day (Relevant Market)" <"Should be calculated relative to the previous local business day in the Relevant Market).">
+    PreviousLocalBusinessDayCityOfAgent displayName "Previous Local Business Day (City of Valuation Agent)" <"Should be calculated relative to the previous local business day in the city of the Valuation Agent.">
+    ValuationDate displayName "Valuation Date" <"Should be calculated on the Valuation Date.">
+    AsSelected displayName "As Selected" <"Should be calculated relative to the previous local business day as selected.">
+
+enum ValuationDateDateEnum: <"Defines whether the date of a Valuation is defined by a certain day of the week or a particular date in the month.">
+    Each <"Specific Valuation date frequency.">
+    Last <"Specific Valuation date frequency.">
+    Secondlast displayName "2nd Last" <"Specific Valuation date frequency.">
+    Thirdlast displayName "3rd Last" <"Specific Valuation date frequency.">
+    Fourthlast displayName "4th Last" <"Specific Valuation date frequency.">
+    CalendarDay <"A specific day of the calendar, defined.">
+    AsSelected displayName "As Selected" <"As Selected.">
+
+enum ValuationDateDayEnum extends DayOfWeekEnum: <"Defines the conditions for the day for a Valuation Date.">
+    LocalBusinessDay <"The Date must be a day on which commercial banks are open for general business in the local market.">
+    CalendarDay <"The Date can be a given day on the regular calendar.">
+    NewYorkBankingDay displayName "New York Banking Day" <"The Date must be a New York Banking Day, that is a day, other than a Saturday or Sunday, on which banks are open for general commercial business in New York, USA.">
+
+enum ValuationDateFrequencyEnum: <"The regularity of the event for the Valuation Date.">
+    Daily
+    Weekly
+    Fortnightly
+    Monthly
+    AsAgreed
+    AsSelected
+
+enum CalculationValuationAgentPartyEnum: <"Specification of which party is calculating the value of collateral to be delivered or returned.">
+    Party1 displayName "Party 1" <"Party 1 will calculate the value of collateral to be delivered or returned.">
+    Party2 displayName "Party 2" <"Party 2 will calculate the value of collateral to be delivered or returned.">
+    PartyMakingDemand displayName "Party Making the Demand" <"The party making the demand will calculate the value of collateral to be delivered or returned.">
+
+enum ValuationAgentDeterminationEnum: <"Specifies how the Valuation Agent is determined.">
+    SoleValuationAgent <"There is only a Sole Valuation Agent.">
+    SwitchUponDefault <"Switch of Valuation Agent can occur upon Default.">
+    SwitchUponFailureToPerform <"Switch of Valuation Agent can occur upon failure to perform.">
+    FixedPartyForDisputes <"There is a fixed party for disputes.">
+
+enum LegacyVMCustodianEnum: <"Details of how the Custodian is determined.">
+    NotApplicable <"Not Applicable.">
+    NamedEntity <"A named entity is specified as the Custodian.">
+    AsAdvised1to2 displayName "As advised by Party 1 to Party 2" <"The Custodian as advised by Party 1 to Party 2.">
+    AsAdvised2to1 displayName "As advised by Party 2 to Party 1" <"The Custodian as advised by Party 2 to Party 1.">
+    Party1toParty2 displayName "Party 1 will notify Party 2" <"Party 1 will notify Party 2 of the custodian.">
+    Party2toParty1 displayName "Party 2 will notify Party 1" <"Party 2 will notify Party 1 of the custodian.">
+
+enum LegacyConsentEnum: <"Details of the consent requirements (if any) for Substitution.">
+    ConsentRequired <"Consent is required for Substitution.">
+    NoConsent <"No consent is required for Substitution.">
+    ConsentRequiredNoDelay <"Consent is required, with no unreasonable delay, for Substitution.">
+    TimesAdjusted <"Times adjusted.">
+    NoticeConditions <"Notice conditions apply for Substitution.">
+    CostsApportioned <"Costs apportioned for Substitution.">
+
+enum ExposureScopeProductEnum: <"Description of the relevant derivative transactions excluded from the calculation of exposure.">
+    FXTransactions displayName "FX Transactions" <"FX Transactions.">
+    FXSettlementDate displayName "FX Transaction with Settlement Date" <"FX Transactions with Settlement date.">
+    CurrencyOptionTransactions displayName "Currency Option Transactions" <"Currency Option Transactions.">
+
+enum CreditSupportAmountEnum: <"Specifies whether the meaning of credit support amount follows the pre-print definition or deviates from the standard (either based on a rating or some other methodology).">
+    Standard displayName "Standard" <"The standard definition of the credit support amount applies.">
+    IAFloorGIA displayName "Non-Standard - IA Floor (Less GiverIA)"
+    IAFloorGIATIA displayName "Non-Standard - IA Floor (Less GiverIA and TakerIA)"
+    NonStandardRatings displayName "Non-Standard - Ratings"
+    NonStandardOther displayName "Non-Standard - Other"
+
+enum LegacyResolutionAlternativeEnum: <"Details of the alternative dispute resolution procedure (if any).">
+    NoAlternative <"No Alternative dispute resolution procedure is defined.">
+    SplitDifference <"A split the difference resolution procedure applies.">
+    AdditionalConditions <"Additional Conditions are defined.">
+
+enum ValueCashEnum: <"Details of how cash collateral is valued when resolving disputes.">
+    CashAmount displayName "Cash - Amount Thereof" <"Cash - Amount thereof.">
+    CashPercentage displayName "Cash - Amount Thereof multiplied by Valuation Percentage" <"Cash - amount thereof multiplied by Valuation Percentage.">
+    CashPercentageLessHaircut displayName "Cash - Amount Thereof multiplied by (Valuation Percentage - FX Haircut)" <"Cash - Amount Thereof multiplied by (Valuation Percentage - FX Haircut).">
+    Other <"Exception value.">
+
+enum ValueSecuritiesEnum: <"Details of how securities collateral is valued when resolving disputes.">
+    BidPricePercentage displayName "Securities - Bid Price multiplied by Valuation Percentage" <"Securities collateral is valued using the bid price multiplied by the valuation percentage.">
+    BidPricePercentageLessHaircut displayName "Securities - Bid Price multiplied by (Valuation Percentage - FX Haircut)" <"Securities collateral is valued using the bid price multiplied by the valuation percentage less the FX haircut.">
+    MidPricePercentage displayName "Securities - Mid Price multiplied by Valuation Percentage" <"Securities collateral is valued using the mid price multiplied by the valuation percentage.">
+    MidPricePercentageLessHaircut displayName "Securities - Mid Price multiplied by (Valuation Percentage - FX Haircut)" <"Securities collateral is valued using the mid price multiplied by the valuation percentage less the FX haircut.">
+    Other <"Exception value.">
+
+enum CashCTSTimeEnum: <"Details the day on which cash collateral is required to be transferred relative to the Notification Time.">
+    Same <"The cash collateral should be transferred on the same day.">
+    Next <"The cash collateral should be transferred on the next day.">
+    FirstLBD displayName "First Local Business Day" <"The cash collateral should be transferred on the first local business day.">
+    SecondLBD displayName "Second Local Business Day" <"The cash collateral should be transferred on the second local business day.">
+    Other <"Exception value.">
+
+enum SecuritiesCTSTimeEnum: <"Details the day on which securities collateral is required to be transferred relative to the Notification Time.">
+    Same <"The securities collateral should be transferred on the same day.">
+    Next <"The securities collateral should be transferred on the next day.">
+    FirstDay displayName "First Local Business Day" <"The securities collateral should be transferred on the first local business day.">
+    SecondDay displayName "Second Local Business Day" <"The securities collateral should be transferred on the second local business day.">
+    ThirdDay displayName "Third Local Business Day" <"The securities collateral should be transferred on the third local business day.">
+    Other <"Exception value.">
+
+enum CSASpecifiedOrAccessConditionEnum: <"Specifies the types of events in the related Master Agreement that, when triggered, could temporarily or permanently suspend rights to rehypothecate, transfer or substitute collateral.">
+    Illegality <"Specifies an event where a party is unable to comply with its obligations under the Master Agreement because to do so would be unlawful.">
+    TaxEvent <"Specifies an event where a party experiences changes in tax laws incurring further tax liability.">
+    TaxEventUponMerger <"Specifies an event where a party incurs tax liability due to a merger.">
+    CreditEventUponMerger <"Specifies an event where a party merges and the new entity becomes materially less creditworthy than the original.">
+    AdditionalTerminationEvents <"Specifies events which could trigger rights to early termination.">
+    ForceMajeureEvent <"Specifies an event beyond the control of one or both of the parties which prevents or renders it impossible to fulfill their obligations to the other party.">
+    PotentialTerminationEvents <"Specifies a potential event that could trigger rights to early termination.">
+
+enum AdditionalTerminationEventEnum: <"Specifies the types of events found in the related Master Agreement that may lead to the early termination of the Master Agreement, including suspension of the affected party's rights to rehypothecate, transfer, or substitute collateral.">
+    FailureToNotifyNAV <"Specifies an event where a party fails to notify the other of a decline in Net Asset Value by a specified amount over a specified period of time.">
+    InvestmentAdvisor <"Specifies an event where the investment advisor of a party ceases to act for the party.">
+    KeyPersons <"Specifies an event where a person deemed important to a party has departed.">
+    NAVDeclineTrigger <"Specifies an event in which a partys Net Asset Value (NAV) has declined beyond a specified percentage or amount within a defined time period.">
+    NAVFloor <"Specifies an event in which a partys Net Asset Value (NAV) falls below a predetermined absolute value, regardless of the timeframe over which the decline occurs. This value sets a minimum acceptable NAV threshold expressed as either a percentage or amount.">
+    OperativeDocs <"Specifies an event where a party delivers operative documents that are invalid, untrue or unenforceable.">
+    RatingsDowngradeOrWithdrawalParty1 <"Specifies an event where Party 1 experiences a downgrade beyond a predetermined level, or has their credit rating withdrawn or suspended.">
+    RatingsDowngradeOrWithdrawalParty2 <"Specifies an event where Party 2 experiences a downgrade beyond a predetermined level, or has their credit rating withdrawn or suspended.">
+    AsApplicable <"Represents the Additional Termination Event(s) in the related Master Agreement.">
+    AsSpecified <"Represents any bespoke Additional Termination Event(s) that are set out in the related Specified Condition clause.">
+
+enum IndependentAmountCompareEnum extends CreditNotationMismatchResolutionEnum: <"Specifies how multiple credit ratings are compared when determining the applicable Independent Amount, and whether that measure is highest, lowest, or a comparison of the ratings.">
+    Compare <"Represents that the credit ratings across multiple credit rating agencies will be compared against one another.">
+
+enum RatedPartyEnum: <"The enumerated values applicable where a Rated Party is defined within the relevant clause.">
+    Party <"Party.">
+    CreditSupportProvider <"Credit Support Provider.">
+    NamedEntity <"A Named Entity.">
+    PartyOrCreditSupportProvider <"The Party or Credit Support Provider.">
+    NamedAffiliate <"A Named Affiliate of the Party.">
+    AllAffiliates displayName "All Affiliates to the Party" <"All Affiliates to the Party.">
+    Custodian <"Custodian to the relevant party.">
+
+enum ZeroEventEnum: <"The enumerated values for defining the relevant trigger(s) for the Minimum Transfer Amount (MTA) to fall to zero.">
+    EventOfDefault <"An Event of Default.">
+    TerminationEvent <"A Termination Event.">
+    TerminationEventAllAffectedTransactions displayName "A Termination Event in respect of which all Transactions are Affected Transactions" <"A Termination Event in respect of which all Transactions are Affected Transactions.">
+    PotentialEventOfDefault <"A Potential Event of Default.">
+    AdditionalTerminationEvent <"An Additional Termination Event (ATE).">
+    Other <"Utilised where the clause data structure is not able to capture a material aspect of the clause.">

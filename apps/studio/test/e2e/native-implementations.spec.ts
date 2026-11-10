@@ -25,6 +25,7 @@ import { periodRangeDirectory, periodRangeCaller } from '../../../../test/helper
 import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-calendar.js';
 import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
 import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
+import { billingCaller, createCuratedBillingProject } from '../../../../test/helpers/cdm-billing-summary.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 import {
   businessCalendarCaller,
@@ -134,6 +135,31 @@ test('executes a published commodity period implementation through Prototype', a
     body: await page.screenshot({ path: info.outputPath('commodity-periods.png') }),
     contentType: 'image/png'
   });
+});
+
+test('sums published CDM billing records through Prototype', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedBillingProject(), billingCaller, 1440);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: /^SummarizeBilling.*example.billing/ }).click();
+  await page.getByLabel('First Amount', { exact: true }).fill('0.1');
+  await page.getByLabel('Second Amount', { exact: true }).fill('0.2');
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  const output = page.getByRole('region', { name: 'summary output' });
+  await expect(output).toContainText('"summaryAmountType": "ParentTotal"', { timeout: 15000 });
+  const summary = JSON.parse(await output.locator('pre').innerText());
+  expect(summary.summaryTransfer.scheduledTransfer).toMatchObject({
+    quantity: { value: 0.3 },
+    payerReceiver: {
+      payerPartyReference: { externalReference: 'payer' },
+      receiverPartyReference: { externalReference: 'receiver' }
+    }
+  });
+  expect(Object.keys(summary.summaryTransfer.scheduledTransfer.payerReceiver)).toEqual([
+    'payerPartyReference',
+    'receiverPartyReference'
+  ]);
 });
 
 test('uses a Rune enum from the pinned list to execute the upstream code-list validator', async ({ page }) => {

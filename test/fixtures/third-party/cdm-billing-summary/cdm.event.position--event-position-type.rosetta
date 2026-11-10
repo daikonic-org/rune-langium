@@ -1,0 +1,23 @@
+namespace cdm.event.position : <"Position concepts: portfolio and portfolio aggregation.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.identifier.*
+import cdm.base.staticdata.party.*
+import cdm.event.common.*
+import cdm.event.workflow.*
+import cdm.observable.asset.*
+import cdm.product.collateral.*
+import cdm.product.template.*
+
+type PositionBase: <"Base class to describe a Position, which could be a group of products (e.g. trade portfolio) or a group of assets (e.g. collateral portfolio).">
+    priceQuantity PriceQuantity (1..*) <"Position with many price quantities.">
+    product Product (0..1) <"The product underlying the position.">
+    asset Asset (0..1) <"The asset that underlies the position.">
+    cashBalance Money (0..1) <"The aggregate cost of proceeds.">
+    tradeReference TradeState (0..1) <"Reference to the Contract, in case product is contractual and the contract has been formed.">
+        [metadata reference]
+
+    condition ProductOrAsset: <"A Position must either refer to a grouping by product or a grouping by asset.">
+        required choice product, asset

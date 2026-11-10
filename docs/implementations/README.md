@@ -13,11 +13,11 @@ FpML **3.13.0** (`ffda7dffda7cec97f9648123a1ba3cb8aad4e568`) and Rune 10.15.3
 that CDM commit's POM. This test inventory is not a workspace Nightly pin. It makes
 no claim about a later moving upstream commit or every historical release.
 
-There are **49 CDM native declarations**, no FpML native declarations, and **11
-language-specific implementations per target**. Eighteen catalog entries use Rune,
-including fourteen owned overrides and four partially implemented upstream dispatch
-families. Implementation kind does not imply complete selector coverage. The audit parses and links 189 original
-source files whose Git object hashes are verified. It rejects parse failures,
+There are **49 CDM native declarations**, no FpML native declarations, and **12
+language-specific implementations per target**. Twenty catalog entries use Rune,
+including sixteen owned overrides and four partially implemented upstream dispatch
+families. Selector coverage is measured separately. The audit parses and links
+189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
 
 [`rune-feasibility.json`](rune-feasibility.json) separately records each function's
@@ -38,6 +38,8 @@ execute. Missing/obsolete assessments and changed signatures fail verification.
 | VectorOperation | Pairwise exact decimal operations, zero-padding, 10-place half-even division and zero-divisor pair omission |
 | VectorGrowthOperation | Initial base followed by exact cumulative products, converted only at public output boundaries |
 | CalculateCommodityCalculationPeriods | Recurring day, week, month and year boundaries with the original clamping and final overshoot. Term follows the pinned FpML endpoint rule. |
+| LoadCodeList | Return the full records from the pinned CDM code-list catalog, including scheme and date metadata |
+| Create_BillingSummary | Sum one compatible settlement group of complete billing records into a ParentTotal, with finite decimal arithmetic and preserved parent-party references |
 
 Implementation publication sources live under
 `packages/project-runtime/src/curated-implementations/`. They are selected during
@@ -163,9 +165,14 @@ The [business calendar port](business-calendars.md) provides a shared, versioned
 Rune dataset for `BusinessCenterHolidays` and `GetNonBusinessDates`. The snapshot
 covers 25 CDM business centers, with a checked date range for each.
 
+The [billing summary fixture](../../test/fixtures/third-party/cdm-billing-summary/README.md)
+exercises the published TypeScript and Python implementation with original CDM
+declarations. It covers all three transfer arms and checks settlement-group and
+parent-party identity before summing a single total.
+
 ## Remaining integrations
 
-**18 catalog entries** remain unimplemented. Calendar data coverage is tracked
+**17 catalog entries** remain unimplemented. Calendar data coverage is tracked
 separately.
 
 | Integration family | Representative remaining functions / requirements |
@@ -174,7 +181,7 @@ separately.
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |
-| Domain construction and execution | Portfolio, reset processing, payout, billing, key creation and commodity schedule functions; authoritative algorithms, explicit external dependencies and fixture workflows |
+| Domain construction and execution | Portfolio aggregation, reset processing, payouts, key creation and collateral eligibility; authoritative algorithms, explicit external dependencies and fixture workflows |
 
 Several functions require integrations that cannot be inferred from their input
 shapes. Before marking a family available, provide target implementations,

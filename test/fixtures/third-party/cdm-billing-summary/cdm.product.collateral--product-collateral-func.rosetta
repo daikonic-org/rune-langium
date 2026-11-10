@@ -1,0 +1,33 @@
+namespace cdm.product.collateral
+version "${project.version}"
+
+import cdm.base.staticdata.asset.common.*
+import cdm.base.staticdata.party.*
+import cdm.product.template.*
+
+// New functions added to ease the creation of Collateral Criteria
+func CriteriaMatchesSecurityType:
+    inputs:
+        inputCriteria CollateralCriteria (0..1)
+        securityType SecurityTypeEnum (0..1)
+    output:
+        matches boolean (1..1)
+
+    set matches: False
+
+    set matches:
+        inputCriteria switch
+            AssetType then item -> securityType = securityType,
+            AllCriteria then
+                allCriteria
+                    extract CriteriaMatchesSecurityType(item, securityType)
+                    then all = True,
+            AnyCriteria then
+                anyCriteria
+                    extract CriteriaMatchesSecurityType(item, securityType)
+                    then any = True,
+            NegativeCriteria then CriteriaMatchesSecurityType(
+                        negativeCriteria,
+                        securityType
+                    ) = False,
+            default False

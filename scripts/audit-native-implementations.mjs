@@ -62,7 +62,8 @@ const testSuites = {
   'packages/project-runtime/test': {
     'cdm-code-list-loader': 'code-list-loader',
     'cdm-strata-schedules': 'strata-schedules',
-    'cdm-business-calendars': 'business-calendars'
+    'cdm-business-calendars': 'business-calendars',
+    'cdm-billing-summary': 'billing-summary'
   }
 };
 const dispatchSuites = await Promise.all(
@@ -398,6 +399,7 @@ files.sort(compare);
 const ownedPaths = new Set([
   ...implementationFiles.map((file) => file.path),
   'packages/project-runtime/src/curated-implementations/cdm.ts',
+  'packages/project-runtime/src/curated-implementations/billing-summary.ts',
   'packages/project-runtime/src/curated-implementations/code-list-resources.ts',
   'packages/project-runtime/src/code-lists.ts',
   'packages/project-runtime/src/curated-implementations/rune/LICENSE',
