@@ -74,7 +74,8 @@ it(
       else expect(JSON.parse(JSON.stringify(run())), test.id).toEqual(expectedSummary(test));
     }
   },
-  GENERATED_MODULE_TEST_TIMEOUT
+  // Strict compilation of the complete CDM dependency closure can exceed 30 seconds under root coverage.
+  60_000
 );
 
 it(
