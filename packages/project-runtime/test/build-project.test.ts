@@ -261,6 +261,7 @@ func CheckLeapYear:
     const result = await buildProject(snapshot, { targets: ['ts'] }, adapter);
     expect(result.diagnostics).toEqual([]);
     expect(result.status).toBe('success');
+    await symlink(join(import.meta.dirname, '../node_modules'), join(root, 'node_modules'), 'dir');
     const source = (await readFile(join(root, 'generated/ts/model.ts'), 'utf8')).replaceAll(
       "'@js-temporal/polyfill'",
       JSON.stringify(import.meta.resolve('@js-temporal/polyfill'))
