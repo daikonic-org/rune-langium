@@ -26,6 +26,7 @@ import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-
 import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
 import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
 import { billingCaller, createCuratedBillingProject } from '../../../../test/helpers/cdm-billing-summary.js';
+import { createCuratedMarketProject, marketCaller } from '../../../../test/helpers/cdm-market-observations.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
 import {
   businessCalendarCaller,
@@ -173,6 +174,30 @@ test('uses a Rune enum from the pinned list to execute the upstream code-list va
   await expect(execute).toBeEnabled();
   await execute.click();
   await expect(page.getByRole('region', { name: 'valid output' })).toContainText('true');
+});
+
+test('selects an exact rate from a project-supplied market observation in Prototype', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedMarketProject(), marketCaller, 1440);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: 'ObserveFixtureDate — example.market', exact: true }).click();
+  const observationDate = page.getByLabel('Observation Date', { exact: true });
+  const execute = page.getByRole('button', { name: 'Execute', exact: true });
+  await observationDate.fill('2021-07-31');
+  await expect(execute).toBeEnabled();
+  await execute.click();
+  await expect(page.getByRole('region', { name: 'rate output' })).toContainText('0.033');
+  await observationDate.fill('2021-07-02');
+  await execute.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'MarketObservationMissing' })).toBeVisible();
+});
+
+test('reports a missing market observation provider in Prototype', async ({ page }) => {
+  await openPublishedImplementationProject(page, await createCuratedMarketProject(false), marketCaller, 1440);
+  await page.getByRole('button', { name: /^Choose a function/ }).click();
+  await page.getByRole('option', { name: 'ObserveFixtureDate — example.market', exact: true }).click();
+  await page.getByLabel('Observation Date', { exact: true }).fill('2021-07-31');
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: /ReadMarketObservations.*not_implemented/ })).toBeVisible();
 });
 
 test('selects a period and lists the schedule using the bundled Strata Rune port', async ({ page }, info) => {

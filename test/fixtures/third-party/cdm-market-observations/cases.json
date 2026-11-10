@@ -1,0 +1,101 @@
+[
+  {
+    "id": "jvm-july-31",
+    "function": "IndexValueObservation",
+    "dates": ["2021-07-31"],
+    "expected": [0.033]
+  },
+  {
+    "id": "jvm-july-30",
+    "function": "IndexValueObservation",
+    "dates": ["2021-07-30"],
+    "expected": [0.0329]
+  },
+  {
+    "id": "jvm-august-01",
+    "function": "IndexValueObservation",
+    "dates": ["2021-08-01"],
+    "expected": [0.01]
+  },
+  {
+    "id": "jvm-january-01",
+    "function": "IndexValueObservation",
+    "dates": ["2021-01-01"],
+    "expected": [0.01]
+  },
+  {
+    "id": "jvm-june-01",
+    "function": "IndexValueObservation",
+    "dates": ["2021-06-01"],
+    "expected": [0.02]
+  },
+  {
+    "id": "jvm-july-01",
+    "function": "IndexValueObservation",
+    "dates": ["2021-07-01"],
+    "expected": [0.03]
+  },
+  {
+    "id": "original-multiple-selector",
+    "function": "IndexValueObservationMultiple",
+    "dates": ["2021-07-31", "2021-07-30", "2021-08-01", "2021-01-01", "2021-06-01", "2021-07-01"],
+    "expected": [0.033, 0.0329, 0.01, 0.01, 0.02, 0.03]
+  },
+  {
+    "id": "one-date-still-returns-list",
+    "function": "GetMarketRates",
+    "dates": ["2021-07-30"],
+    "expected": [0.0329]
+  },
+  {
+    "id": "preserves-request-order-and-duplicates",
+    "function": "GetMarketRates",
+    "dates": ["2021-07-31", "2021-06-01", "2021-07-31", "2021-07-30"],
+    "expected": [0.033, 0.02, 0.033, 0.0329]
+  },
+  {
+    "id": "other-tenor-negative-fixing",
+    "function": "GetMarketRates",
+    "dates": ["2021-07-30"],
+    "tenor": 6,
+    "expected": [-0.007]
+  },
+  {
+    "id": "inflation-index-choice",
+    "function": "IndexValueObservation",
+    "dates": ["2021-07-30"],
+    "index": "inflation",
+    "expected": [0]
+  },
+  {
+    "id": "absent-date",
+    "function": "IndexValueObservation",
+    "dates": ["2021-07-02"],
+    "error": "MarketObservationMissing"
+  },
+  {
+    "id": "one-date-in-list-is-absent",
+    "function": "GetMarketRates",
+    "dates": ["2021-07-01", "2021-07-02"],
+    "error": "MarketObservationMissing"
+  },
+  {
+    "id": "unknown-index",
+    "function": "GetMarketRates",
+    "dates": ["2021-07-30"],
+    "index": "sofr",
+    "error": "MarketObservationMissing"
+  },
+  {
+    "id": "conflicting-date",
+    "function": "IndexValueObservation",
+    "dates": ["2021-07-03"],
+    "error": "MarketObservationAmbiguous"
+  },
+  {
+    "id": "one-date-in-list-is-ambiguous",
+    "function": "GetMarketRates",
+    "dates": ["2021-07-03", "2021-07-31"],
+    "error": "MarketObservationAmbiguous"
+  }
+]

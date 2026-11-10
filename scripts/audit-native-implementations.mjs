@@ -63,7 +63,8 @@ const testSuites = {
     'cdm-code-list-loader': 'code-list-loader',
     'cdm-strata-schedules': 'strata-schedules',
     'cdm-business-calendars': 'business-calendars',
-    'cdm-billing-summary': 'billing-summary'
+    'cdm-billing-summary': 'billing-summary',
+    'cdm-market-observations': 'market-observations'
   }
 };
 const dispatchSuites = await Promise.all(

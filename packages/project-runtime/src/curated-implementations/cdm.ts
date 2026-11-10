@@ -92,6 +92,44 @@ const strataFrequencySources = [
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  IndexValueObservation: {
+    inputs: [
+      { name: 'observationDate', type: 'com.rosetta.model.date', kind: 'RosettaRecordType', card: [1, 1], plain: true },
+      {
+        name: 'interestRateIndex',
+        type: 'cdm.observable.asset.InterestRateIndex',
+        kind: 'Choice',
+        card: [1, 1],
+        plain: true
+      }
+    ],
+    output: {
+      name: 'observedValue',
+      type: 'com.rosetta.model.number',
+      kind: 'RosettaBasicType',
+      card: [1, 1],
+      plain: true
+    }
+  },
+  GetMarketRates: {
+    inputs: [
+      {
+        name: 'floatingRateIndex',
+        type: 'cdm.observable.asset.FloatingRateIndex',
+        kind: 'Data',
+        card: [1, 1],
+        plain: true
+      },
+      {
+        name: 'observationDates',
+        type: 'com.rosetta.model.date',
+        kind: 'RosettaRecordType',
+        card: [1, '*'],
+        plain: true
+      }
+    ],
+    output: { name: 'observedRateDates', type: 'cdm.base.math.DatedValue', kind: 'Data', card: [1, '*'], plain: true }
+  },
   Create_BillingSummary: {
     inputs: [
       { name: 'billingRecord', type: 'cdm.event.common.BillingRecord', kind: 'Data', card: [1, '*'], plain: true }
@@ -650,6 +688,22 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
         entrypoint: 'createBillingSummary'
       }
     }
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.observable.asset.calculatedrate',
+    name: 'IndexValueObservation',
+    signature: signatures.IndexValueObservation!,
+    path: 'index-value-observation.rosetta',
+    files: ['index-value-observation.rosetta', 'market-observations.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.instructioncomposition.reset',
+    name: 'GetMarketRates',
+    signature: signatures.GetMarketRates!,
+    path: 'get-market-rates.rosetta',
+    files: ['get-market-rates.rosetta', 'market-observations.rosetta']
   },
   {
     kind: 'rune',

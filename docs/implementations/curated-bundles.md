@@ -77,6 +77,15 @@ workspace and namespace artifacts. Core links their wire-value synonyms to the
 shared `rune.resources.CodeList` source. Projects can import those enum types
 directly, and existing local resource mappings can use the same synonym source.
 
+The installed `IndexValueObservation` and `GetMarketRates` Rune overrides call
+`impl.cdm.market.ReadMarketObservations` with the full CDM interest-rate index
+and requested dates. Bind this function to a project declaration with the same
+signature using a declaration override. A Rune provider is portable across
+TypeScript, Python and Studio. A provider should return one `DatedValue` per
+requested date. The overrides preserve requested order and reject missing or
+duplicate observations. Code-list enums can type provider inputs that are
+backed by a list. Dated market observations still require a project data source.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

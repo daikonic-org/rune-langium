@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
-      "sha256": "b49dcd79d744c14d926060b000896046c86aa330bb7a0f7829e7b588c68ca14e"
+      "sha256": "dfc9a7b0772c85bbe8385283a18364b312c97404d35ecfab5ac69c6493827cc9"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
@@ -1069,6 +1069,10 @@
       "sha256": "927f7559f3c30e7f600b8b28af9b489347818407ba47bdc12f78312f0674e467"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta",
+      "sha256": "0f6a0132269de0e45ff73c37c89c458b97b569ec6cdea263033f52044a89b6e1"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
       "sha256": "89245349c22302b91b9f75cde5aa368a5dbc0c50227be5f148a688e0a64cc8af"
     },
@@ -1077,8 +1081,16 @@
       "sha256": "86efcea829cabcbd9aa759e5ed9717da26a3f848e17635a7bd9b6cf0c84f5e92"
     },
     {
+      "path": "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
+      "sha256": "7084dd44e9242104156196c742920127ed41f8dee6fea144e33ae9360d3d675c"
+    },
+    {
       "path": "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
       "sha256": "558d8009f0219c77f2af93f28581706f56d5b67bac6e40b8a0d3ce850cc76073"
+    },
+    {
+      "path": "packages/project-runtime/src/curated-implementations/rune/market-observations.rosetta",
+      "sha256": "aef94920a4705c7626a2fd8007e46a560593ff8fe53cb700bb3c8973f253c903"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
@@ -4930,7 +4942,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta",
+        "entrypoint": "cdm.event.instructioncomposition.reset.GetMarketRates",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -4939,10 +4954,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Select supplied observations by index/date; network/storage acquisition remains a separate adapter.",
+        "route": "rune-source",
+        "requirements": "Editable Rune override selects a single supplied observation for each date in caller order, including repeats. The project must provide ReadMarketObservations for the full interest-rate index and requested dates.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/market-observations.test.ts",
+        "cases": "test/fixtures/third-party/cdm-market-observations/cases.json",
+        "casesSha256": "f69207e56278d307d0e5d0c33946c7bdc97ac6d27774f30ab7d17176977a03f4",
+        "selectors": [],
+        "caseCount": 6
       }
     },
     {
@@ -5777,7 +5799,10 @@
         }
       },
       "implementation": {
-        "kind": "unimplemented"
+        "kind": "rune",
+        "path": "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
+        "entrypoint": "cdm.observable.asset.calculatedrate.IndexValueObservation",
+        "origin": "workspace"
       },
       "referenceJava": {
         "implementations": [],
@@ -5816,10 +5841,17 @@
         "absence": "No handwritten production implementation found in the pinned rosetta-source Java tree."
       },
       "rune": {
-        "route": "data-backed",
-        "requirements": "Read supplied index observations for the requested date; define absent/multiple-observation behavior.",
+        "route": "rune-source",
+        "requirements": "Editable Rune override selects one dated value for the original CDM interest-rate index. The project must bind ReadMarketObservations. Missing or duplicate observations fail explicitly.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/project-runtime/test/market-observations.test.ts",
+        "cases": "test/fixtures/third-party/cdm-market-observations/cases.json",
+        "casesSha256": "f69207e56278d307d0e5d0c33946c7bdc97ac6d27774f30ab7d17176977a03f4",
+        "selectors": [],
+        "caseCount": 9
       }
     },
     {

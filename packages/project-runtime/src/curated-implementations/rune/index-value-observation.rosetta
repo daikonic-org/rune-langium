@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.observable.asset.calculatedrate
+version "1.0.0"
+
+import cdm.observable.asset.InterestRateIndex
+import impl.cdm.market.*
+
+func IndexValueObservation:
+    inputs:
+        observationDate date (1..1)
+        interestRateIndex InterestRateIndex (1..1)
+    output:
+        observedValue number (1..1)
+
+    alias observations: ReadMarketObservations(interestRateIndex, [observationDate])
+    set observedValue: MarketObservationOnDate(observations, observationDate) -> value

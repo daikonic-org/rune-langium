@@ -33,9 +33,12 @@
     "packages/project-runtime/src/curated-implementations/rune/day-of-week.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/event-common.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/market-observations.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/period-range.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-date.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/resolve-adjustable-dates.rosetta",
@@ -396,8 +399,9 @@
         "name": "GetMarketRates"
       },
       "signatureSha256": "047f971b21fc120be6037e9383e9942da857db2626298933cfd3fbd69223a2bb",
-      "route": "data-backed",
-      "requirements": "Select supplied observations by index/date; network/storage acquisition remains a separate adapter."
+      "route": "rune-source",
+      "requirements": "Editable Rune override selects a single supplied observation for each date in caller order, including repeats. The project must provide ReadMarketObservations for the full interest-rate index and requested dates.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta"
     },
     {
       "symbol": {
@@ -527,8 +531,9 @@
         "name": "IndexValueObservation"
       },
       "signatureSha256": "6f41556f4cc8435894662a1abd70528fe9bfb4d48577a45e8a1bd4eb796bc5d3",
-      "route": "data-backed",
-      "requirements": "Read supplied index observations for the requested date; define absent/multiple-observation behavior."
+      "route": "rune-source",
+      "requirements": "Editable Rune override selects one dated value for the original CDM interest-rate index. The project must bind ReadMarketObservations. Missing or duplicate observations fail explicitly.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta"
     },
     {
       "symbol": {
