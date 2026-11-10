@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { LangiumDocument } from 'langium';
-import { URI } from 'langium';
+import { AstUtils, DocumentState, URI, type AstNode, type LangiumDocument } from 'langium';
 import type { RosettaModel } from '../generated/ast.js';
 import { getSharedServices } from './shared-services.js';
+
+/** Whether linked reference access is available on a published AST. */
+export function hasComputedScopes(node: AstNode): boolean {
+  const document = AstUtils.findRootNode(node).$document;
+  return document !== undefined && document.state >= DocumentState.ComputedScopes;
+}
 
 /**
  * Result of parsing a Rosetta DSL source string.

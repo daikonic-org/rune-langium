@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import {
+  hasComputedScopes,
   isInlineFunction,
   isRosettaExpression,
   isRosettaSymbolReference,
@@ -17,6 +18,7 @@ const outputBindings = new WeakMap<object, Binding>();
 
 /** Capture authoritative link identities before the graph strips runtime references. */
 export function rememberFunctionOutputBindings(source: Dehydrated<RosettaFunction>, linked: RosettaFunction): void {
+  if (!hasComputedScopes(linked)) return;
   const visit = (value: unknown, ast: unknown, captures: readonly string[], implicit: boolean) => {
     if (!value || typeof value !== 'object' || !ast || typeof ast !== 'object') return;
     if (isInlineFunction(ast)) {

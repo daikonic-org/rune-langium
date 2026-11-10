@@ -191,8 +191,9 @@ explicitly selected original roots. It emits the replacement's canonical
 namespace, excludes overridden original bodies and retains linked originals for
 inspection. Preview schemas and Python module bindings share this selection
 boundary. Kind-qualified direct function requests resolve through that same port.
-Native TypeScript builds select project namespace roots and include the linked
-standard library in their dependency closure.
+Native TypeScript builds and managed Studio generation use the same linked
+standard library in their dependency closure. Named targets still select their
+roots from the project namespaces.
 
 Studio's source-sync fingerprint covers only namespaces with a writable source
 baseline, including their outgoing inheritance edges. Read-only reference ASTs
@@ -657,6 +658,9 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
   Metadata-aware schemas validate the same envelopes for attributes and Choice
   options. The linked input adapter accepts unambiguous upstream enum display
   names and retains canonical values and materialized code-list codes.
+- A required choice accepts a populated reference field before its target is
+  resolved. Conditions that delegate to optional functions accept an empty
+  result and still reject an explicit false.
 - Standalone schemas expose linked condition-function dependencies. The shared
   generated preview runtime loads their selected TypeScript module closure and
   reuses canonical argument adaptation and function-input validators, including
@@ -1151,9 +1155,11 @@ Studio's `example-repository` adapts these records to the existing instance stor
 WorkspaceProvider binds it to the active ProjectController, while App supplies only
 limited typed legacy storage. Before publishing reopened Rune JSON records, the repository
 uses the existing linked preview-worker decoder to restore form Choice slots. Worker
-registration uses the existing preparation bound; workspace epochs and controller revisions
-reject stale loads. Decode failures retain the original files and block semantic writes
-until a successful reload. Example saves serialize across records and use shared
+registration uses the existing preparation bound. A changed project revision
+retries decoding once against the latest snapshot. Decode failures retain the
+original files and block semantic writes until a successful reload, which
+replaces the empty placeholder without overwriting active edits. Example saves
+serialize across records and use shared
 project Save/readback, including explicit CAS removals for deletion. Late completion
 from another workspace cannot publish a Saved/failed state into the active store.
 The pure runtime `/data` entry is the single codec availability/serialization gate.
@@ -1194,7 +1200,10 @@ Workspace opening and reference dependencies occupy separate launcher sections.
 The published `daikonic-org/rune-starter` is a GitHub template; `rune-cdm-example`
 was generated from it and retains the same workflow checker and CI. The launcher
 catalog pins verified public commits rather than floating branches. Both are
-ordinary editable starter copies, without an inherited writable remote.
+ordinary editable starter copies, without an inherited writable remote. The CDM
+workspace pins 7.9.0 and demonstrates structural trade validation and product
+qualification, accrual schedule generation, and fixed-leg coupons on the same
+published vanilla-swap data. Quote uses a materialized Rune currency enum.
 Template-generated repositories do not automatically pull future template changes.
 View example opens that verified local copy. Fork example uses GitHub sign-in,
 verifies or creates the user's own fork, and enters the shared GitHub clone and

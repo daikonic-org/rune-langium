@@ -16,7 +16,7 @@ import {
 
 import type { ImplementationProvider } from './implementations.js';
 import { assertProjectGenerationCapabilities } from './capability-impact.js';
-import { buildEffectiveProject } from './effective-project.js';
+import { buildEffectiveProject, linkedProjectDocuments } from './effective-project.js';
 import { installCuratedImplementationSources } from './curated-implementations/install.js';
 import {
   loadProjectReferences,
@@ -108,8 +108,7 @@ export async function buildProject(
       };
       // Keep project namespaces as the roots, while allowing the TypeScript
       // closure to emit library functions linked by the workspace manager.
-      const linkedDocuments =
-        target.generator === 'typescript' ? graph.services.shared.workspace.LangiumDocuments.all.toArray() : documents;
+      const linkedDocuments = target.generator === 'typescript' ? linkedProjectDocuments(graph) : documents;
       return (await generateSelected(linkedDocuments, selection, options)).outputs;
     }
   );

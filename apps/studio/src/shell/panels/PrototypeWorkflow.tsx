@@ -751,7 +751,8 @@ export const PrototypeWorkflow = withInstrumentation(
           if (binding.kind === 'literal') values[path] = structuredClone(binding.value);
           else {
             const record = records[binding.exampleId];
-            if (!record) throw new Error('A saved input example is unavailable. Its binding is retained.');
+            if (record?.data === undefined)
+              throw new Error('A saved input example is unavailable. Its binding is retained.');
             values[path] = structuredClone(record.data);
             restoredIds[path] = record.id;
             restoredSources[path] = record.name;

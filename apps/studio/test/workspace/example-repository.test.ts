@@ -376,3 +376,23 @@ it('restores wire Choice examples to linked form slots before exposing records a
   expect((await adapter.read('examples/wire.json'))!.text).toBe(wire);
   expect((await repository.load()).records[0]!.data).toMatchObject({ payment: { cash: { amount: 21 } } });
 });
+
+it('retries a saved example against the revision created during its first decode', async () => {
+  const { createExampleRepository } = await import('../../src/workspace/example-repository.js');
+  const { adapter, controller } = await setup();
+  const wire = JSON.stringify({ '@type': 'example.Trade', amount: 21 });
+  await adapter.write('examples/wire.example.json', JSON.stringify({ ...example('wire'), codec: 'RUNE_JSON' }), null);
+  await adapter.write('examples/wire.json', wire, null);
+  const path = 'model/implementation.rosetta';
+  const decode = vi.fn<ExamplePayloadDecoder>().mockImplementation(async (snapshot, _descriptor, data) => {
+    if (snapshot.files.has(path)) return data;
+    await controller.save([{ path, text: 'namespace example', expectedRevision: null }]);
+    return {};
+  });
+  const repository = createExampleRepository({ workspaceId: 'examples', controller, resolveType: () => type, decode });
+  const loaded = await repository.load();
+  expect(decode).toHaveBeenCalledTimes(2);
+  expect(loaded.failures).toEqual({});
+  expect(loaded.records[0]?.data).toMatchObject({ amount: 21 });
+  expect((await adapter.read('examples/wire.json'))?.text).toBe(wire);
+});

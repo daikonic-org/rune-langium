@@ -993,6 +993,39 @@ it('does not delete a same-ID example in a new workspace after an old removal fi
   useInstanceStore.getState().setExampleRepository(undefined);
 });
 
+it('reloads a retained example when its decoder becomes available without writing the placeholder', async () => {
+  useInstanceStore.getState().setWorker(undefined);
+  const record = {
+    id: 'wire-example',
+    typeFqn: 'cdm.Example',
+    name: 'Wire example',
+    data: undefined,
+    createdAt: 0,
+    modifiedAt: 0
+  };
+  const repository = {
+    workspaceId: 'wire-workspace',
+    write: vi.fn(),
+    remove: vi.fn(),
+    load: vi
+      .fn()
+      .mockResolvedValueOnce({ records: [record], diagnostics: [], failures: { [record.id]: 'Waiting for type' } })
+      .mockResolvedValueOnce({ records: [{ ...record, data: { amount: 21 } }], diagnostics: [], failures: {} })
+  };
+  useInstanceStore.getState().setExampleRepository(repository);
+  try {
+    await vi.waitFor(() =>
+      expect(useInstanceStore.getState().saveStates[record.id]).toMatchObject({ state: 'failed', retained: true })
+    );
+    await useInstanceStore.getState().retrySave(record.id);
+    expect(useInstanceStore.getState().instances[record.id]?.data).toEqual({ amount: 21 });
+    expect(useInstanceStore.getState().saveStates[record.id]).toEqual({ state: 'saved', revision: 2 });
+    expect(repository.write).not.toHaveBeenCalled();
+  } finally {
+    useInstanceStore.getState().setExampleRepository(undefined);
+  }
+});
+
 it('retains unchanged legacy examples without blocking reference Save, while actual save failures remain blocking', async () => {
   useInstanceStore.getState().setWorker(undefined);
   const record = {

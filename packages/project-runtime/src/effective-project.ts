@@ -60,6 +60,11 @@ export interface EffectiveProjectInput {
   receipt: EffectiveProjectReceipt;
 }
 
+/** Include the linked standard library alongside the project-owned roots. */
+export function linkedProjectDocuments(graph: EffectiveProject): LangiumDocument[] {
+  return graph.services.shared.workspace.LangiumDocuments.all.toArray();
+}
+
 /** Host adoption verifies the captured context and acknowledges only a successfully linked graph. */
 export async function applyEffectiveProject(
   input: EffectiveProjectInput,

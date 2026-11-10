@@ -310,6 +310,15 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
   async retrySave(id) {
     const record = get().instances[id];
     if (!record) throw new Error('Instance no longer exists.');
+    const save = get().saveStates[id];
+    if (record.data === undefined && save?.state === 'failed' && save.retained) {
+      const epoch = get().workspaceEpoch;
+      await get().loadInstancesFromOpfs();
+      if (get().workspaceEpoch !== epoch) throw new Error('Workspace changed while reloading the example.');
+      const reloaded = get().saveStates[id];
+      if (reloaded?.state === 'failed') throw new Error(reloaded.message);
+      return;
+    }
     get().saveRecord(record);
     await get().flushInstance(id);
   },
@@ -712,21 +721,32 @@ export const useInstanceStore = create<InstanceStoreState>((set, get) => ({
         // the cross-workspace-switch case).
         set((state) => {
           const instances = { ...loaded, ...state.instances };
-          return {
-            instances,
-            recordRevisions: Object.fromEntries(
-              Object.keys(instances).map((id) => [id, state.recordRevisions[id] ?? 1])
-            ),
-            saveStates: Object.fromEntries(
-              Object.keys(instances).map((id) => [
-                id,
-                state.saveStates[id] ??
-                  (restored?.failures?.[id]
-                    ? { state: 'failed', revision: 1, message: restored.failures[id], retained: true }
-                    : { state: 'saved', revision: 1 })
-              ])
-            )
-          };
+          const recordRevisions: InstanceStoreState['recordRevisions'] = {};
+          const saveStates: InstanceStoreState['saveStates'] = {};
+          for (const [id, record] of Object.entries(instances)) {
+            const decoded = loaded[id];
+            const failure = restored?.failures?.[id];
+            let previous = state.saveStates[id];
+            let revision = state.recordRevisions[id] ?? 1;
+            if (
+              previous?.state === 'failed' &&
+              previous.retained &&
+              record.data === undefined &&
+              decoded?.data !== undefined &&
+              !failure
+            ) {
+              instances[id] = decoded;
+              revision++;
+              previous = undefined;
+            }
+            recordRevisions[id] = revision;
+            saveStates[id] =
+              previous ??
+              (failure
+                ? { state: 'failed', revision, message: failure, retained: true }
+                : { state: 'saved', revision });
+          }
+          return { instances, recordRevisions, saveStates };
         });
         // Dispatch validation for every restored instance (round-3 finding
         // #3) — without this, `validationErrors` stays empty for records
