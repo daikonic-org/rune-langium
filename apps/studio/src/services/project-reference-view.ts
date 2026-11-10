@@ -137,15 +137,23 @@ export const prepareProjectReferenceView = withInstrumentation(
     // Concrete local models are published as ready. Their inherited members and
     // type references must therefore share a linked graph with their dependencies.
     if (fallback.length === entries.length) return view;
-    const additions = [];
-    for (const entry of entries.filter((entry) => sources.has(entry.file.path))) {
-      const result = await link(entry.uri, true);
+    const local = entries.filter((entry) => sources.has(entry.file.path));
+    if (local.length) {
+      // One traversal captures shared dependencies once, rather than repeating
+      // their serialization and transfer for every installed implementation.
+      const result = await link(
+        local[0]!.uri,
+        true,
+        local.slice(1).map((entry) => entry.uri)
+      );
       signal.throwIfAborted();
       if (!result.linked || result.errors.length)
-        throw new Error(result.errors.join('\n') || 'Local reference dependencies are unavailable: ' + entry.file.path);
-      additions.push(...result.newModels);
+        throw new Error(
+          result.errors.join('\n') || 'Local reference dependencies are unavailable: ' + local[0]!.file.path
+        );
+      return materializeProjectReferenceView(view, result.newModels, signal);
     }
-    return materializeProjectReferenceView(view, additions, signal);
+    return view;
   },
   {
     op: 'prepareProjectReferenceView',
