@@ -17,7 +17,7 @@ import { runtimeHelperSource, buildRuntimeHelperImportLine } from '../helpers.js
 import { CallableNames } from './callable-names.js';
 import { TYPESCRIPT_RESERVED_NAMES } from './typescript-names.js';
 import { RUNE_VALUE_IMPORTS, RUNE_VALUE_NAMES, RUNE_VALUE_TYPE_NAMES } from '../expr/rune-value-runtime.js';
-import type { NamespaceRegistry } from './namespace-registry.js';
+import { resolveImportPath, type NamespaceRegistry } from './namespace-registry.js';
 
 export const TS_LIBRARY_RUNTIME_SOURCE = `function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
@@ -44,6 +44,7 @@ const RUNTIME_SIDECAR_SOURCE = [
  * per-namespace files import from `./runtime.zod.js`.
  */
 export const TS_RUNTIME_SIDECAR_PATH = './helpers.js';
+export const TS_INPUT_CHECK_PREFIX = '$rune$check$';
 
 /** Keep shared helpers separate from any namespace module with the same name. */
 export function typescriptHelperModuleName(registry: NamespaceRegistry): string {
@@ -66,19 +67,61 @@ export function typescriptCardinalityExports(registry: NamespaceRegistry): reado
 }
 
 /** Public shared APIs must survive explicit namespace collision re-exports. */
-function publicHelperExports(registry: NamespaceRegistry): readonly string[] {
-  const path = `./${typescriptHelperModuleName(registry)}.js`;
+export function publicHelperExports(
+  registry: NamespaceRegistry,
+  modulePath: string | null = './' + typescriptHelperModuleName(registry) + '.js'
+): readonly string[] {
+  const from = modulePath === null ? '' : " from '" + modulePath + "'";
   return [
-    `export { Cardinality, RuneObject, RuneList, is } from '${path}';`,
-    `export type { ${typescriptCardinalityExports(registry).join(', ')} } from '${path}';`
+    `export { Cardinality, RuneObject, RuneList, is }${from};`,
+    `export type { ${typescriptCardinalityExports(registry).join(', ')} }${from};`
   ];
+}
+
+export function typescriptRuntimePreamble(
+  registry: NamespaceRegistry,
+  namespace: string,
+  libraryHelpers: readonly string[],
+  metadata: boolean,
+  inline: boolean
+): string[] {
+  if (inline) {
+    return [
+      runtimeHelperSource(true, false, metadata, true),
+      ...(libraryHelpers.length ? [TS_LIBRARY_RUNTIME_SOURCE] : []),
+      ''
+    ];
+  }
+  const helper = resolveImportPath(namespace, typescriptHelperModuleName(registry), registry) + '.js';
+  return [
+    "import { Temporal } from '@js-temporal/polyfill';",
+    buildRuntimeHelperImportLine(helper, [
+      ...libraryHelpers,
+      ...RUNE_VALUE_IMPORTS,
+      ...(metadata ? ['type RuneFieldWithMeta', 'type RuneReferenceWithMeta', 'type RuneMetadata'] : [])
+    ]),
+    ''
+  ];
+}
+
+export function typescriptModuleExports(content: string): Map<string, boolean> {
+  const exports = new Map<string, boolean>();
+  for (const match of content.matchAll(/^export (type|interface|class|function|const) ([\w$]+)/gm)) {
+    const name = match[2]!;
+    exports.set(name, exports.get(name) === true || (match[1] !== 'type' && match[1] !== 'interface'));
+  }
+  return exports;
 }
 
 /**
  * Build the barrel `index.ts` content. `export * from './<ns>.js'`
  * per namespace re-exports every interface, type alias, and func.
  */
-function makeBarrelContent(perNs: ReadonlyArray<GeneratorOutput>, registry: NamespaceRegistry): string {
+export function makeTypeScriptBarrel(
+  perNs: ReadonlyArray<GeneratorOutput>,
+  registry: NamespaceRegistry,
+  facadeExports?: ReadonlyMap<string, ReadonlyMap<string, boolean>>
+): GeneratorOutput {
   const names = new CallableNames(registry, TYPESCRIPT_RESERVED_NAMES, RUNE_VALUE_NAMES, true, RUNE_VALUE_TYPE_NAMES);
   const lines = [
     `// SPDX-License-Identifier: MIT`,
@@ -90,13 +133,11 @@ function makeBarrelContent(perNs: ReadonlyArray<GeneratorOutput>, registry: Name
   for (const out of perNs) {
     const modulePath = `./${out.relativePath.replace(/\.ts$/, '.js')}`;
     const namespace = out.relativePath.replace(/\.ts$/, '').replace(/\//g, '.');
-    const exports = new Map<string, boolean>();
-    for (const match of out.content.matchAll(/^export (type|interface|class|function|const) ([\w$]+)/gm)) {
-      const name = match[2]!;
-      exports.set(name, exports.get(name) === true || (match[1] !== 'type' && match[1] !== 'interface'));
-    }
+    const exports = facadeExports?.get(out.relativePath) ?? typescriptModuleExports(out.content);
     const bindings = [...exports].map(([name, hasValue]) => {
-      const bundled = names.bundled(namespace, name);
+      const bundled = name.startsWith(TS_INPUT_CHECK_PREFIX)
+        ? TS_INPUT_CHECK_PREFIX + names.bundled(namespace, name.slice(TS_INPUT_CHECK_PREFIX.length))
+        : names.bundled(namespace, name);
       return `${hasValue ? '' : 'type '}${bundled === name ? name : `${name} as ${bundled}`}`;
     });
     lines.push(
@@ -106,7 +147,7 @@ function makeBarrelContent(perNs: ReadonlyArray<GeneratorOutput>, registry: Name
     );
   }
   lines.push('');
-  return lines.join('\n');
+  return { relativePath: 'index.ts', content: lines.join('\n'), sourceMap: [], diagnostics: [], funcs: [] };
 }
 
 /**
@@ -180,15 +221,7 @@ export const typescriptProfile: LanguageProfile<'typescript'> = {
     Adjust: null,
     Within: null
   },
-  makeBarrel(perNs, registry) {
-    return {
-      relativePath: 'index.ts',
-      content: makeBarrelContent(perNs, registry),
-      sourceMap: [],
-      diagnostics: [],
-      funcs: []
-    };
-  },
+  makeBarrel: makeTypeScriptBarrel,
   concatenate(perNs, registry) {
     return {
       relativePath: 'model.ts',

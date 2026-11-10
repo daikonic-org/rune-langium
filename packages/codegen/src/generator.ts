@@ -14,7 +14,7 @@ import {
 } from './emit/namespace-emitter.js';
 import { ZodNamespaceEmitter } from './emit/zod-emitter.js';
 import { JsonSchemaNamespaceEmitter } from './emit/json-schema-emitter.js';
-import { TsNamespaceEmitter } from './emit/ts-emitter.js';
+import { TypeScriptModelEmitter } from './emit/typescript-model-emitter.js';
 import { SqlNamespaceEmitter } from './emit/sql-emitter.js';
 import { OpenApiNamespaceEmitter } from './emit/openapi-emitter.js';
 import { XsdNamespaceEmitter } from './emit/xsd-emitter.js';
@@ -23,7 +23,6 @@ import { walkNamespace, type NamespaceWalkResult } from './emit/namespace-walker
 import type { LanguageProfile } from './emit/language-profile.js';
 import { GenericModelEmitter } from './emit/generic-model-emitter.js';
 import { zodProfile } from './emit/zod-profile.js';
-import { typescriptProfile } from './emit/typescript-profile.js';
 import { jsonSchemaProfile } from './emit/json-schema-profile.js';
 import { sqlProfile } from './emit/sql-profile.js';
 import { ExcelWholeModelEmitter } from './emit/excel-emitter.js';
@@ -48,26 +47,25 @@ import {
 //                            synthesizes a GenericModelEmitter wrapper
 //                            for layouts other than 'per-namespace'.
 //
-// A target can appear in NAMESPACE_EMITTERS + PROFILES (Zod, TS, JSON
-// Schema, SQL, Markdown) OR in WHOLE_MODEL_EMITTERS (Excel, GraphQL).
+// A target can appear in NAMESPACE_EMITTERS + PROFILES (Zod, JSON
+// Schema, SQL, Markdown) OR in WHOLE_MODEL_EMITTERS (TypeScript, Excel, GraphQL).
 // Phase 0.5.1 ships the registries; Phase 0.5.2+ fills in PROFILES.
 const NAMESPACE_EMITTERS: Partial<Record<Target, NamespaceEmitterConstructor>> = {
   zod: ZodNamespaceEmitter,
   'json-schema': JsonSchemaNamespaceEmitter,
-  typescript: TsNamespaceEmitter,
   sql: SqlNamespaceEmitter,
   openapi: OpenApiNamespaceEmitter,
   xsd: XsdNamespaceEmitter
 };
 
 const WHOLE_MODEL_EMITTERS: Partial<Record<Target, WholeModelEmitterConstructor>> = {
+  typescript: TypeScriptModelEmitter,
   excel: ExcelWholeModelEmitter
   // Phase 3: graphql: GraphqlSdlEmitter
 };
 
 const PROFILES: Partial<Record<Target, LanguageProfile<Target>>> = {
   zod: zodProfile,
-  typescript: typescriptProfile,
   'json-schema': jsonSchemaProfile,
   sql: sqlProfile
 };
@@ -142,7 +140,7 @@ function resolveEmitter(
   const profile = PROFILES[target];
 
   // Per-namespace request — go through the namespace emitter if we have one.
-  if (layout === 'per-namespace' && nsCtor && (target !== 'typescript' || options.typescript?.inlineHelpers)) {
+  if (layout === 'per-namespace' && nsCtor) {
     return nsCtor;
   }
 

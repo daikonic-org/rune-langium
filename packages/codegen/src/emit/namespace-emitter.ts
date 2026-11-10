@@ -129,8 +129,10 @@ export function emitNamespaceWithContract(
   registry: NamespaceRegistry,
   Emitter: NamespaceEmitterConstructor
 ): GeneratorOutput {
-  const emitter = new Emitter(model, options, registry);
+  return emitNamespaceDeclarations(model, new Emitter(model, options, registry));
+}
 
+export function emitNamespaceDeclarations(model: NamespaceWalkResult, emitter: NamespaceEmitter): GeneratorOutput {
   emitter.emitHeader?.();
   emitter.emitCrossNamespaceImports?.();
 
