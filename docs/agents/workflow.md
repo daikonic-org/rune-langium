@@ -655,6 +655,10 @@ standalone TypeScript/Python execution, schema/SQL/XSD generation without inject
 resource adapters, and unchanged source bytes across a fresh graph. The desktop
 `project-resources.spec.ts` journey checks punctuation-bearing values through the
 real managed worker plus invalid-resource recovery; retain the pinned CDM list case.
+Curated enum changes also require a pinned serialized publication build and
+readback of the linked reference enums. The native-implementation Prototype
+journey imports a published enum and calls the upstream validator without a
+workspace JSON copy.
 
 Generated XSD validation tests require libxml2's `xmllint` on PATH (or
 `XMLLINT_BINARY` pointing to it). macOS supplies it; Debian/Ubuntu use

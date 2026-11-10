@@ -26,6 +26,7 @@ import {
   cdmCodeListResource,
   prepareCdmCodeLists
 } from '../packages/project-runtime/dist/curated-implementations/code-list-resources.js';
+import { curatedCdmCodeListSources } from '../packages/project-runtime/dist/curated-implementations/code-list-enums.js';
 
 const corePkgDir = new URL('../packages/core/', import.meta.url);
 const langiumIndex = new URL('node_modules/langium/lib/index.js', corePkgDir);
@@ -149,7 +150,7 @@ function stampNamespacesIntoModelJson(modelJson, namespace, bigIntReplacer) {
 }
 
 async function buildArtifact(source, files, RuneDsl, documentMap) {
-  const { serializeRuneModel, runeBigIntReplacer, namespaceFromModelName } =
+  const { assertValidDocuments, serializeRuneModel, runeBigIntReplacer, namespaceFromModelName } =
     await import('../packages/core/dist/index.js');
 
   const { rosettaFiles, codeListFiles } = files;
@@ -162,8 +163,21 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
   const documents = rosettaFiles.map((file) => {
     const document = documentMap.get(`${source.id}/${file.path}`);
     if (!document) throw new Error(`Missing parsed document: ${file.path}`);
-    return document;
+    return { file, document };
   });
+  const enumSources = codeLists ? curatedCdmCodeListSources(codeLists, source.commit) : [];
+  if (enumSources.length) {
+    const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
+    const derived = enumSources.map((file) => ({
+      file,
+      document: factory.fromString(file.content, URI.parse(`[${source.id}]/${file.path}`))
+    }));
+    const enumDocuments = derived.map(({ document }) => document);
+    await RuneDsl.shared.workspace.DocumentBuilder.build(enumDocuments, { validation: false });
+    assertValidDocuments(enumDocuments);
+    documents.push(...derived);
+    console.log(`  Materialized ${derived.length - 1} code-list enums`);
+  }
 
   console.log(`  Serializing with textRegions...`);
   const version = new Date().toISOString().slice(0, 10);
@@ -174,8 +188,8 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
     version,
     langiumVersion: LANGIUM_VERSION,
     documents: await Promise.all(
-      documents.map(async (doc, i) => {
-        const model = doc.parseResult.value;
+      documents.map(async ({ file, document }) => {
+        const model = document.parseResult.value;
         const exports = [];
         for (let j = 0; j < (model.elements?.length ?? 0); j++) {
           const elem = model.elements[j];
@@ -208,8 +222,8 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
           codeLists
         );
         return {
-          path: rosettaFiles[i].path,
-          content: rosettaFiles[i].content,
+          path: file.path,
+          content: file.content,
           modelJson: ns ? stampNamespacesIntoModelJson(rawModelJson, ns, runeBigIntReplacer) : rawModelJson,
           exports
         };
@@ -223,7 +237,7 @@ async function buildArtifact(source, files, RuneDsl, documentMap) {
     bytes: gzipped,
     sha256: sha256Hex(gzipped),
     sizeBytes: gzipped.byteLength,
-    documentCount: rosettaFiles.length,
+    documentCount: artifact.documents.length,
     documents: artifact.documents,
     version
   };

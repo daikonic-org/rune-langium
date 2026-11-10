@@ -3,7 +3,7 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { referenceFiles, referenceModelSources } from '../../packages/codegen/test/helpers/cdm-reference.js';
+import { referenceFiles } from '../../packages/codegen/test/helpers/cdm-reference.js';
 import { publishedRuneFiles } from './curated-implementations.js';
 
 export const calculationPeriodDirectory = resolve(
@@ -40,9 +40,4 @@ export function calculationPeriodFiles(withCalendars = true) {
 
 export function calculationPeriodImplementations() {
   return publishedRuneFiles('cdm.base.datetime', ['AddDays', 'DayOfWeek']);
-}
-
-/** Preserve the fixture's recorded model ownership when publishing browser artifacts. */
-export function calculationPeriodModelSources() {
-  return referenceModelSources(calculationPeriodDirectory);
 }

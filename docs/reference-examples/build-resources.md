@@ -26,7 +26,7 @@ workspace configuration.
 | --- | --- | --- |
 | Rune sources / declaration identity | Existing reference closure, linking and explicit overrides | Upstream dialect changes need their own audited cohort |
 | Flat JSON code list (entry array or code-to-label object) | Prepared by shared project runtime as a canonical Rune enum for implemented generators and Prototype | Empty lists retain the previous never-value adapter boundary |
-| CDM CodeList JSON | Explicit `cdm-json` mapping; version/scheme checked; labels, descriptions and dates retained | Automatic parameterized coding-scheme/domain resolution is not enabled |
+| CDM CodeList JSON | Curated enums for populated lists; explicit `cdm-json` mappings check scheme/version and retain labels, descriptions and dates | Parameterized coding-scheme aliases still require domain binding support |
 | Referenced GitHub code-list file | `readReferenceCodeList` verifies exact Git commit/blob and returns bytes, origin and decoded entries for Save | No dedicated resource browser in Studio yet |
 | Genericode XML / XSL | Retain as repository files | No genericode reader or XSL execution; no silent conversion |
 | FpML XML configuration / XSD | Keep upstream configuration/resource files | XML instance translation remains the #647 milestone |
@@ -39,8 +39,25 @@ or a code-to-label map such as `{"USD":"US Dollar","EUR":"Euro"}`. Both use the
 same decoder and enum materializer; codes remain wire values. A pinned currency
 map under `test/fixtures/third-party/currency-list` covers this path through an
 actual in-memory Rune enum and form choices. It includes historical currencies.
-CDM's metadata-only `currency-1-0.json` identifies a scheme but supplies no codes;
-it cannot substitute for a populated currency list.
+CDM's metadata-only `currency-1-0.json` remains a scheme record. A populated
+currency list is available through the explicit mapping path.
+
+The curated CDM publisher materializes populated lists as reference enums. The
+enum name is the domain filename stem in PascalCase, so `option-type-1-0.json`
+becomes `rune.resources.cdm.OptionType`. With a bundle containing these enums,
+the type is available to the compiler, generators and Studio form:
+
+```rosetta
+namespace example.options
+import rune.resources.cdm.*
+
+type Contract:
+  option OptionType (1..1)
+```
+
+The bundle's release and checksum pin the enum source. Each derived document
+links back to the upstream JSON and records its scheme and version. The
+published `LoadCodeList` function retains the full record and date metadata.
 
 A non-empty, explicitly mapped list becomes a normal Rune enum in the captured
 project graph. The mapped alias keeps its identity and points to that enum. Native
@@ -78,8 +95,8 @@ remain explicitly unavailable for that case.
 
 The existing guard still rejects constrained or parameterized aliases. An
 explicit mapping chooses the file and preserves its version and provenance.
-The [bundled CDM loader](../implementations/curated-bundles.md) separately supplies
-full `CodeList` values to the original Rune validator from the release archive.
+The [bundled CDM loader](../implementations/curated-bundles.md) supplies full
+`CodeList` values to the original Rune validator from the same release archive.
 Automatic selection for constrained aliases remains open under #645.
 
 ## Explicit resource mapping

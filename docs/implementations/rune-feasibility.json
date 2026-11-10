@@ -307,7 +307,7 @@
       },
       "signatureSha256": "b740a22b34402bd75006f6e55622427cd9629667ed9dcfc5787fb668fc4ab28d",
       "route": "data-backed",
-      "requirements": "Domain lookup and validation can use Rune once versioned data is supplied. Publication prepares the pinned CDM classpath resources for standalone targets; explicitly mapped code-list aliases remain Rune enums."
+      "requirements": "Publication supplies pinned CDM records to the standalone loader and materializes populated lists as importable Rune enums. The upstream Rune validator retains its domain lookup and full CodeList record contract."
     },
     {
       "symbol": {

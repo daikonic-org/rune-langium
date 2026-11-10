@@ -970,7 +970,7 @@
   "implementationFiles": [
     {
       "path": "packages/project-runtime/src/code-lists.ts",
-      "sha256": "37dc14ddd301292006e81c2817fd840b3e8e3abffca67a4f7f2d51834267170c"
+      "sha256": "1114b34da855617cd09d8f2308452abff54885d526a7713e2a4ff05b5e2894dd"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/cdm.ts",
@@ -978,7 +978,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/code-list-resources.ts",
-      "sha256": "9385c847a6b409505874fc57c4da0bfa01cbc69775d0c3d667b4ce3e1b7c0210"
+      "sha256": "00c22f09d3cf63ab14015c6c275f55dae7d2a48a6fb2fd18f0f3a2d345165015"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/commodity-periods.ts",
@@ -986,7 +986,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/load-code-list.ts",
-      "sha256": "bfa92d26a2d4dbcf1f83d1b448a2d18c4190ee731b765b4270d0e66f36ae1472"
+      "sha256": "b7d347d64ccce44021d8fb63995783eecfd973e4f165b79305279cba3012aeaf"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/python/numbers.ts",
@@ -1066,7 +1066,7 @@
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
-      "sha256": "5276c9db35db06f6d3f3faf0194d897414eff78357093d29d26f9749b128cb5c"
+      "sha256": "86efcea829cabcbd9aa759e5ed9717da26a3f848e17635a7bd9b6cf0c84f5e92"
     },
     {
       "path": "packages/project-runtime/src/curated-implementations/rune/leap-year-date-difference.rosetta",
@@ -3805,7 +3805,7 @@
       },
       "rune": {
         "route": "data-backed",
-        "requirements": "Domain lookup and validation can use Rune once versioned data is supplied. Publication prepares the pinned CDM classpath resources for standalone targets; explicitly mapped code-list aliases remain Rune enums.",
+        "requirements": "Publication supplies pinned CDM records to the standalone loader and materializes populated lists as importable Rune enums. The upstream Rune validator retains its domain lookup and full CodeList record contract.",
         "upstreamDefaultHasBody": false,
         "variants": []
       },

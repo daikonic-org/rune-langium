@@ -12,6 +12,7 @@ import {
 } from '../../packages/project-runtime/src/references/index.js';
 import { prepareCuratedImplementationSources } from '../../packages/project-runtime/src/curated-implementations/install.js';
 import type { CdmCodeListCatalog } from '../../packages/project-runtime/src/curated-implementations/code-list-resources.js';
+import { curatedCdmCodeListSources } from '../../packages/project-runtime/src/curated-implementations/code-list-enums.js';
 import { referenceModelSources } from '../../packages/codegen/test/helpers/cdm-reference.js';
 import { createReferenceArtifacts, repository } from './project-reference-artifacts.js';
 
@@ -22,9 +23,14 @@ export async function createCuratedRuneProject(
   codeLists?: CdmCodeListCatalog
 ) {
   const modelSources = referenceModelSources(directory);
-  const manifest: { sources: { model: string; release: string }[] } = JSON.parse(
+  const manifest: { sources: { model: string; release: string; commit: string }[] } = JSON.parse(
     readFileSync(resolve(directory, 'sources.json'), 'utf8')
   );
+  if (codeLists) {
+    const cdm = manifest.sources.find((source) => source.model === 'cdm');
+    if (!cdm) throw new Error('Missing pinned CDM code-list source.');
+    modelSources.cdm = [...(modelSources.cdm ?? []), ...curatedCdmCodeListSources(codeLists, cdm.commit)];
+  }
   const version = (model: string) => {
     const found = manifest.sources.find((source) => source.model === model)?.release;
     if (!found) throw new Error('Missing pinned fixture release: ' + model);

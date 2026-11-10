@@ -5,6 +5,7 @@ import {
   CODE_LIST_ENUM_NAMESPACE,
   CODE_LIST_ENUM_SOURCE,
   declarationKey,
+  isRosettaSynonymSource,
   isRosettaTypeAlias,
   type RosettaTypeAlias,
   type RosettaType,
@@ -13,6 +14,8 @@ import {
 import { projectBytesRevision } from '@rune-langium/project-config';
 import { renderCodeListEnum, type ProjectCodeListBinding } from '@rune-langium/codegen/export';
 import type { ProjectDeclarations } from './override-validation.js';
+
+export const CODE_LIST_SOURCE_TEXT = `namespace ${CODE_LIST_ENUM_NAMESPACE}\nsynonym source ${CODE_LIST_ENUM_SOURCE}\n`;
 
 /** Materialized data belongs to this captured graph; workspace and upstream source bytes stay untouched. */
 export async function prepareCodeListEnums(
@@ -38,12 +41,16 @@ export async function prepareCodeListEnums(
       )
     });
   }
-  const source = plans.length
-    ? fromString(
-        `namespace ${CODE_LIST_ENUM_NAMESPACE}\nsynonym source ${CODE_LIST_ENUM_SOURCE}\n`,
-        URI.parse('file:///project-resources/source.rosetta')
-      )
-    : undefined;
+  const source =
+    plans.length &&
+    !declarations.some(
+      ({ identity, node }) =>
+        isRosettaSynonymSource(node) &&
+        identity.namespace === CODE_LIST_ENUM_NAMESPACE &&
+        node.name === CODE_LIST_ENUM_SOURCE
+    )
+      ? fromString(CODE_LIST_SOURCE_TEXT, URI.parse('file:///project-resources/source.rosetta'))
+      : undefined;
   return {
     documents: [...(source ? [source] : []), ...plans.map((plan) => plan.document)],
     keys: new Set(plans.map((plan) => plan.key)),

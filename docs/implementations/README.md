@@ -151,8 +151,8 @@ reject invalid multipliers and boundaries outside their shared date range.
 
 The [code-list fixture](../../test/fixtures/third-party/cdm-code-list-loader/README.md)
 checks the bundled `LoadCodeList` implementation and the preserved Rune
-`ValidateFpMLCodingSchemeDomain` caller. Selected code lists still materialize as
-ordinary Rune enums in the project graph.
+`ValidateFpMLCodingSchemeDomain` caller. The same curated catalog publishes
+populated lists as ordinary Rune enums for direct use in the project graph.
 
 The [Strata schedule fixture](../../test/fixtures/third-party/cdm-strata-schedules/README.md)
 compares the paired `CalculationPeriod` and `CalculationPeriods` Rune overrides
@@ -170,7 +170,7 @@ separately.
 
 | Integration family | Representative remaining functions / requirements |
 | --- | --- |
-| Calendars and schedules | Calendar sources for the remaining business centers and covered execution of `ComputeCalculationPeriod` |
+| Calendars and schedules | Calendar sources for the remaining business centers and broader `ComputeCalculationPeriod` calendar coverage |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | `FloatingRateIndexMetadata`, `GetMarketRates`, `IndexValueObservation`, `ResolveRateIndex`, `ResolveReset`, `ResolveObservation`; explicit supplied data/providers and versioned identities |
 | Timezone mappings | `TimeZoneFromBusinessCenterTime`, `ResolveTimeZoneFromTimeType`; business-center data plus named-zone/DST rules |
