@@ -696,6 +696,22 @@ export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplement
   },
   {
     kind: 'rune',
+    namespace: 'cdm.product.collateral',
+    name: 'CheckEligibilityForProduct',
+    signatureSha256: '39929306160b4581e210df12206ba5cb3c42a1117937d63251a4253945917451',
+    path: 'check-eligibility-for-product.rosetta',
+    files: ['check-eligibility-for-product.rosetta', 'collateral-eligibility-inputs.rosetta']
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.position',
+    name: 'EvaluatePortfolioState',
+    signatureSha256: '54fa32fb55fd7737c7f2d2840ce94edd63baea072e78a2ef6bb22c446d8b7e34',
+    path: 'evaluate-portfolio-state.rosetta',
+    files: ['evaluate-portfolio-state.rosetta', 'portfolio-aggregation-inputs.rosetta']
+  },
+  {
+    kind: 'rune',
     namespace: 'cdm.event.position',
     name: 'InterpolateForwardRate',
     signatureSha256: 'bc888c626bc77f5080605834f1dbefd64a382ce31d629c20f12675a257af939a',

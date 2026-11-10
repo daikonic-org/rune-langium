@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.position
+version "1.0.0"
+
+import impl.cdm.portfolio.*
+
+func EvaluatePortfolioState:
+    inputs: portfolio Portfolio (1..1)
+    output: portfolioState PortfolioState (1..1)
+
+    alias details: ReadPortfolioAggregationInputs(portfolio)
+
+    set portfolioState: PortfolioState {
+        positions: details -> groups extract [FoldPortfolioPosition(item)],
+        lineage: details -> lineage
+    }

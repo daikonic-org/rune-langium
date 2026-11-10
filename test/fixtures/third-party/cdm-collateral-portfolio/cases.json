@@ -1,0 +1,105 @@
+[
+  {
+    "id": "eligible-japanese-government-bond",
+    "function": "CheckEligibilityForProduct",
+    "identifier": "JGB",
+    "currencies": [
+      "JPY"
+    ],
+    "eligible": true
+  },
+  {
+    "id": "excludes-nonmatching-currency",
+    "function": "CheckEligibilityForProduct",
+    "identifier": "JGB",
+    "currencies": [
+      "USD"
+    ],
+    "eligible": false
+  },
+  {
+    "id": "respects-excluded-criterion",
+    "function": "CheckEligibilityForProduct",
+    "identifier": "JGB",
+    "currencies": [
+      "JPY"
+    ],
+    "include": false,
+    "eligible": false
+  },
+  {
+    "id": "evaluates-the-project-selected-schedule",
+    "function": "CheckEligibilityForProduct",
+    "identifier": "OFFERED",
+    "currencies": [
+      "USD",
+      "JPY"
+    ],
+    "eligible": true
+  },
+  {
+    "id": "requires-a-selection-between-schedules",
+    "function": "CheckEligibilityForProduct",
+    "identifier": "JGB",
+    "currencies": [
+      "USD",
+      "JPY"
+    ],
+    "expectedError": "ApplicableCollateralSchedule"
+  },
+  {
+    "id": "rejects-a-schedule-that-was-not-offered",
+    "function": "CheckEligibilityForProduct",
+    "identifier": "FOREIGN",
+    "currencies": [
+      "JPY"
+    ],
+    "expectedError": "SuppliedCollateralSchedule"
+  },
+  {
+    "id": "absent-product-has-no-eligibility-result",
+    "function": "CheckEligibilityForProduct",
+    "currencies": [
+      "JPY"
+    ]
+  },
+  {
+    "id": "sums-total-position-and-keeps-units-separate",
+    "function": "EvaluatePortfolioState",
+    "total": true,
+    "expectedShares": 107
+  },
+  {
+    "id": "uses-period-only-opening-value",
+    "function": "EvaluatePortfolioState",
+    "total": false,
+    "expectedShares": 7
+  },
+  {
+    "id": "retains-opening-amount-with-no-contributions",
+    "function": "EvaluatePortfolioState",
+    "total": true,
+    "filter": "opening-only",
+    "expectedShares": 100
+  },
+  {
+    "id": "no-position-for-the-supplied-status",
+    "function": "EvaluatePortfolioState",
+    "total": true,
+    "status": "Settled"
+  },
+  {
+    "id": "requires-amounts-to-be-resolved-before-aggregation",
+    "function": "EvaluatePortfolioState",
+    "total": true,
+    "filter": "dated",
+    "expectedError": "ResolvedPortfolioQuantity"
+  },
+  {
+    "id": "rejects-negative-nonnegative-quantity",
+    "function": "EvaluatePortfolioState",
+    "total": true,
+    "filter": "negative",
+    "expectedError": "PortfolioQuantityNonNegative"
+  }
+]

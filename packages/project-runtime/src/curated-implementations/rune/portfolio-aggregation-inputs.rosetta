@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.portfolio
+version "1.0.0"
+
+import cdm.event.common.*
+import cdm.event.position.*
+import cdm.observable.asset.Money
+import cdm.observable.asset.PriceQuantity
+import cdm.base.math.NonNegativeQuantitySchedule
+import cdm.product.template.*
+
+type PortfolioQuantitySeries:
+    opening PriceQuantity (1..1) <"Opening amount and price context in the series' unit. Supply a zero opening amount for a period-only series.">
+    changes number (0..*) <"Signed event contributions in the same unit, after resolving applicable dates and conversions.">
+
+type PortfolioPositionGroup:
+    product NonTransferableProduct (1..1)
+    series PortfolioQuantitySeries (1..*)
+    cashBalance Money (0..1)
+    tradeReference TradeState (0..1)
+        [metadata reference]
+
+type PortfolioAggregationInputs:
+    groups PortfolioPositionGroup (0..*)
+    lineage Lineage (1..1) <"CDM lineage for the selected events and previous portfolio state.">
+
+func ReadPortfolioAggregationInputs: <"Supply event contributions selected by the portfolio's aggregation parameters, grouped by product and compatible quantity unit, and the corresponding lineage.">
+    [codeImplementation]
+    inputs: portfolio Portfolio (1..1)
+    output: details PortfolioAggregationInputs (1..1)
+
+func FoldPortfolioQuantity:
+    inputs: series PortfolioQuantitySeries (1..1)
+    output: result PriceQuantity (1..1)
+
+    alias opening: series -> opening
+    alias quantity: opening -> quantity
+    alias amount: quantity -> value + (series -> changes sum)
+
+    condition ResolvedPortfolioQuantity:
+        quantity -> value exists
+            and quantity -> datedValue is absent
+            and quantity -> multiplier is absent
+            and quantity -> frequency is absent
+            and quantity -> total is absent
+
+    condition PortfolioQuantityNonNegative:
+        amount >= 0
+
+    set result: PriceQuantity {
+        price: opening -> price,
+        quantity: NonNegativeQuantitySchedule { value: amount, unit: quantity -> unit },
+        observable: opening -> observable,
+        effectiveDate: opening -> effectiveDate
+    }
+
+func FoldPortfolioPosition:
+    inputs: group PortfolioPositionGroup (1..1)
+    output: result Position (1..1)
+    set result: Position {
+        priceQuantity: group -> series extract [FoldPortfolioQuantity(item)],
+        product: Product { NonTransferableProduct: group -> product },
+        cashBalance: group -> cashBalance,
+        tradeReference: group -> tradeReference
+    }

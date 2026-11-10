@@ -14,9 +14,9 @@ that CDM commit's POM. This test inventory is not a workspace Nightly pin. It ma
 no claim about a later moving upstream commit or every historical release.
 
 There are **49 CDM native declarations**, no FpML native declarations, and **12
-language-specific implementations per target**. Thirty-two catalog entries use
-Rune, including twenty-eight owned overrides and four partially implemented
-upstream dispatch families. Five entries remain unimplemented. Selector coverage
+language-specific implementations per target**. Thirty-four catalog entries use
+Rune, including thirty owned overrides and four partially implemented
+upstream dispatch families. Three entries remain unimplemented. Selector coverage
 is measured separately. The audit parses and links
 189 original source files and verifies their Git object hashes. It rejects parse failures,
 unresolved signatures, foreign annotation identity and missing model ownership.
@@ -201,6 +201,11 @@ exercises `NewFloatingPayout` and `ResolveCashSettlementDate` with project-suppl
 transaction economics and resolved payment dates. It also runs the original
 `NewEquitySwapProduct` and `EquityCashSettlementAmount` bodies through both targets.
 
+The [collateral and portfolio fixture](../../test/fixtures/third-party/cdm-collateral-portfolio/README.md)
+uses the original eligibility evaluator and folds selected, same-unit event
+contributions into positions with the supplied CDM lineage. Prototype executes
+the eligibility check with a currency from a mapped Rune enum.
+
 ## Remaining integrations
 
 **7 catalog entries** remain unimplemented. Calendar coverage and data-provider
@@ -211,7 +216,7 @@ availability are tracked separately.
 | Calendars and schedules | Calendar sources for the remaining business centers and broader `ComputeCalculationPeriod` calendar coverage |
 | Day counts and decimal mathematics | `YearFraction`, `DayCountBasis`; wider decimal representation and day-count parity |
 | Market/reference data | Project-supplied reset records, dated forward curves and versioned identities for the installed Rune bodies |
-| Domain construction and execution | Portfolio aggregation, reset processing, payouts, key creation and collateral eligibility; authoritative algorithms, explicit external dependencies and fixture workflows |
+| FpML key compatibility | Exact Java hash semantics across inherited asset, leg and quoted currency pair values, including decimal scale |
 
 Several functions require integrations that cannot be inferred from their input
 shapes. Before marking a family available, provide target implementations,
