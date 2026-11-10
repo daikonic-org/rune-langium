@@ -497,6 +497,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
    * Used as a fallback when cross-references are not yet linked.
    */
   private resolveDataByName(name: string): Data | undefined {
+    if (!name) return undefined;
     for (const desc of this.indexManager.allElements('Data')) {
       if (desc.name === name || desc.name.endsWith('.' + name)) {
         const node = desc.node;
