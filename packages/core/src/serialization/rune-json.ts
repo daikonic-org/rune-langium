@@ -424,14 +424,19 @@ export function projectDataFormat(value: string): ProjectDataFormat | undefined 
 export function parseProjectPayload(
   input: string | Uint8Array,
   format: string,
-  options: NumberTextOptions = {}
+  options: { preserveNumberText?: boolean | 'auto' } = {}
 ): unknown {
   const selected = projectDataFormat(format);
   if (!selected) throw new Error('No installed codec supports serialization format ' + format + '.');
   const text = typeof input === 'string' ? input : new TextDecoder('utf-8', { fatal: true }).decode(input);
-  const value: unknown = options.preserveNumberText ? parseJsonNumberText(text) : JSON.parse(text);
+  // Automatic capture keeps scalar inputs and older hosts on the ordinary JSON path.
+  const mode = options.preserveNumberText;
+  const first = mode === 'auto' ? text.trimStart()[0] : undefined;
+  const preserveNumberText =
+    mode === true || ((first === '{' || first === '[') && 'rawJSON' in JSON && typeof JSON.rawJSON === 'function');
+  const value: unknown = preserveNumberText ? parseJsonNumberText(text) : JSON.parse(text);
   const decoded = selected === 'RUNE_JSON' ? decodeRuneJson(value) : value;
-  return options.preserveNumberText ? retainJsonNumberText(decoded) : decoded;
+  return preserveNumberText ? retainJsonNumberText(decoded) : decoded;
 }
 export function serializeProjectPayload(value: unknown, format: string, options: NumberTextOptions = {}): string {
   const selected = projectDataFormat(format);

@@ -277,7 +277,7 @@ export const createExampleRepository = withInstrumentation(
             }
           }
           const current = await snapshot();
-          const read = readExamples(current);
+          const read = readExamples(current, undefined, { preserveNumberText: 'auto' });
           diagnostics.push(...read.diagnostics);
           const records = new Map<string, InstanceRecord>();
           for (const entry of read.documents) {

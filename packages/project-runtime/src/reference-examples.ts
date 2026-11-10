@@ -191,7 +191,7 @@ export function prepareReferenceExample(
           .replace(/[.]json$/, ''),
     type,
     ...(execution ? { execution } : {}),
-    data: parseProjectPayload(text, format),
+    data: parseProjectPayload(text, format, { preserveNumberText: 'auto' }),
     embeddedType: embeddedType !== undefined,
     source: {
       ...origin,

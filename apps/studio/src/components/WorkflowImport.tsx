@@ -38,11 +38,7 @@ export const WorkflowImport = withInstrumentation(
       [text, setText] = useState(''),
       [error, setError] = useState('');
     const importData = async () => {
-      const first = text.trimStart()[0];
-      const numberOptions = {
-        preserveNumberText: (first === '{' || first === '[') && 'rawJSON' in JSON && typeof JSON.rawJSON === 'function'
-      };
-      const result = jsonCodec.import(text, effectiveType ?? '', numberOptions);
+      const result = jsonCodec.import(text, effectiveType ?? '', { preserveNumberText: 'auto' });
       if (result.diagnostics.length || result.data === undefined) {
         setError(result.diagnostics.map((d) => d.message).join(' ') || 'Enter JSON data.');
         return;
@@ -71,9 +67,9 @@ export const WorkflowImport = withInstrumentation(
             value && typeof value === 'object' && !Object.prototype.hasOwnProperty.call(value, '@data')
           );
           const converted = runeJsonCodec.import(
-            serializeProjectPayload(value, 'JSON', numberOptions),
+            serializeProjectPayload(value, 'JSON', { preserveNumberText: true }),
             objectPayload && session?.decode && effectiveType ? '' : (effectiveType ?? ''),
-            numberOptions
+            { preserveNumberText: 'auto' }
           );
           if (converted.diagnostics.length)
             throw new Error(converted.diagnostics.map((diagnostic) => diagnostic.message).join(' '));
