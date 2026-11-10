@@ -98,7 +98,7 @@ import { renderOnlyExists } from './only-exists.js';
 import { arrowBody, freshLocal, inlineContext, bindImplicitFeatures } from './inline-function.js';
 import { renderCardinalityOperation } from './cardinality-operations.js';
 import { methodEqualityPredicate } from './value-equality.js';
-import { renderPresence, renderPresenceCount } from './presence.js';
+import { choiceReferencePaths, isOptionalConditionCall, renderPresence, renderPresenceCount } from './presence.js';
 import { parenthesizeReceiver } from './syntax.js';
 import { nativeCollection, nativeCount } from './collection-shape.js';
 import { singletonBinaryResult, cartesianComparison } from './binary-runtime.js';
@@ -449,7 +449,7 @@ function choiceFieldValue(name: string, ctx: ExpressionTranspilerContext): strin
   const metadata = ctx.localMetadata?.get(name);
   if (metadata?.kind !== 'reference') return attrAccessExpr(name, ctx);
   const receiver = attrAccessExpr(name, { ...ctx, preserveMetadata: true });
-  const value = 'field?.value ?? field?.globalReference ?? field?.externalReference ?? field?.reference?.reference';
+  const value = choiceReferencePaths.map((path) => 'field?.' + path.join('?.')).join(' ?? ');
   return metadata.many
     ? `rune.list(${receiver}).map((field) => ${value}).filter((value) => value != null)`
     : `((field) => ${value})(${receiver})`;
@@ -820,10 +820,8 @@ export function transpileCondition(cond: Condition, ctx: ExpressionTranspilerCon
   // Other conditions use the shared expression dispatcher.
   // transpileExpression returns a boolean JS expression string.
   const boolExpr = transpileExpression(expr, ctx);
-  const target = isRosettaSymbolReference(expr) ? expr.symbol.ref : undefined;
-  const optional = target?.$type === 'RosettaFunction' && functionOutput(target)?.card.inf === 0;
   // A condition call with no applicable result passes. Explicit false still fails.
-  return wrapBoolExprForMode(optional ? `(${boolExpr} ?? true)` : boolExpr, ctx);
+  return wrapBoolExprForMode(isOptionalConditionCall(expr) ? `(${boolExpr} ?? true)` : boolExpr, ctx);
 }
 
 /**

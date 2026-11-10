@@ -59,6 +59,31 @@ async function executableFunctions<T extends Record<string, unknown> = Record<st
 const inheritedMetadataPredicates = ['one-of', 'required choice scalar, many, flag', 'flag only exists'] as const;
 
 describe('complete Python function projections', () => {
+  it('accepts an absent optional condition result and rejects explicit false', async () => {
+    const { python, exports } = await executableFunctions<{
+      Trade: new (data: object) => { validateAmount(): { valid: boolean } };
+    }>(`namespace python.optional_condition
+type Trade:
+  amount number (0..1)
+  condition Amount: CheckAmount
+func CheckAmount:
+  inputs: trade Trade (1..1)
+  output: valid boolean (0..1)
+  set valid: if trade -> amount exists then trade -> amount > 0
+`);
+    const condition = python.projections.find((entry) => entry.kind === 'condition')!;
+    const name = /^def (\w+)/.exec(condition.code)![1]!;
+    const data = [{}, { amount: -1 }, { amount: 1 }];
+    const expected = [true, false, true];
+    expect(data.map((input) => new exports.Trade(input).validateAmount().valid)).toEqual(expected);
+    expect(
+      execute(
+        python.code,
+        data.map((input) => ({ expression: `${name}(data)`, data: input }))
+      )
+    ).toEqual(expected.map((value) => ({ value })));
+  });
+
   it('consumes the bound value in argumentless pipeline operations', async () => {
     const functions = await linkedFunctions(`namespace python.pipeline
 func Supply:
@@ -147,7 +172,7 @@ func MapProbe:
     const expected =
       predicate === 'flag only exists'
         ? [true, true, true, false, false, false]
-        : [false, false, true, true, true, false];
+        : [false, predicate.startsWith('required choice'), true, true, true, false];
     expect(
       execute(
         python.code,
@@ -198,7 +223,9 @@ func Identity:
       expect(expected).toEqual(
         predicate === 'flag only exists'
           ? [true, true, true, true, false, false, false]
-          : [false, false, false, true, true, true, false]
+          : predicate.startsWith('required choice')
+            ? [false, true, true, false, true, true, false]
+            : [false, false, false, true, true, true, false]
       );
       expect(
         execute(
