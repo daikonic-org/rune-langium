@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
+import { serializeProjectPayload } from '@rune-langium/core/serialization';
 import { WorkflowImport } from '../../src/components/WorkflowImport.js';
 import { PreviewSessionContext } from '../../src/shell/providers/preview-session-context.js';
 import { useInstanceStore } from '../../src/store/instance-store.js';
@@ -51,6 +52,21 @@ it('uses the shared decoder before publishing a Rune JSON object as a workflow i
     'test.Payment',
     { amount: { value: 21, meta: { scheme: 'USD' } } },
     expect.any(AbortSignal)
+  );
+});
+it.each(['JSON', 'Rune JSON'])('retains decimal text when importing a %s object', async (format) => {
+  const { user, onImport } = await setup();
+  if (format === 'JSON') {
+    await user.click(screen.getByRole('combobox', { name: 'Import format' }));
+    await user.click(await screen.findByRole('option', { name: 'JSON', exact: true }));
+  }
+  fireEvent.change(screen.getByRole('textbox', { name: 'Import JSON data' }), {
+    target: { value: '{"amount":1.00}' }
+  });
+  await user.click(screen.getByRole('button', { name: 'Import', exact: true }));
+  await waitFor(() => expect(onImport).toHaveBeenCalledOnce());
+  expect(serializeProjectPayload(onImport.mock.calls[0]![0][0], 'JSON', { preserveNumberText: true })).toContain(
+    '"amount": 1.00'
   );
 });
 it.each(['workspace', 'cancel'])('does not publish delayed input after %s changes', async (mode) => {
