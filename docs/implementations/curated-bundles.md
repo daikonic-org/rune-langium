@@ -72,6 +72,9 @@ type on a subtype input using a generated class or its qualified `@type`.
 For scale-sensitive keys, load JSON text with `preserveNumberText: true` in
 `parseProjectPayload` or the generated TypeScript `fromJSON` method. Python can
 load numbers as `Decimal` or consume the same normalized number metadata.
+Prototype's JSON and Rune JSON object imports preserve number text on browsers
+with exact JSON number support. Function input validation selects the linked
+concrete type and retains number text when converting inputs for execution.
 Ordinary target numbers use their canonical spelling.
 Exact text requires a JSON object or array when the scalar's spelling differs
 from its ordinary numeric representation.

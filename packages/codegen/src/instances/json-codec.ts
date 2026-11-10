@@ -13,11 +13,13 @@ export interface ImportCodecResult {
   diagnostics: ImportDiagnostic[];
 }
 
+type ImportOptions = Parameters<typeof parseProjectPayload>[2];
+
 export interface ImportCodec {
   id: string;
   label: string;
   canTarget(typeFqn: string): boolean;
-  import(input: Uint8Array | string, targetTypeFqn: string): ImportCodecResult;
+  import(input: Uint8Array | string, targetTypeFqn: string, options?: ImportOptions): ImportCodecResult;
 }
 
 /**
@@ -30,9 +32,9 @@ export const jsonCodec: ImportCodec = {
   id: 'json',
   label: 'Plain JSON',
   canTarget: () => true,
-  import(input: Uint8Array | string, _targetTypeFqn: string): ImportCodecResult {
+  import(input, _targetTypeFqn, options) {
     try {
-      return { data: parseProjectPayload(input, 'JSON'), diagnostics: [] };
+      return { data: parseProjectPayload(input, 'JSON', options), diagnostics: [] };
     } catch (err) {
       return {
         data: undefined,
@@ -47,9 +49,9 @@ export const runeJsonCodec: ImportCodec = {
   id: 'RUNE_JSON',
   label: 'Rune JSON',
   canTarget: () => true,
-  import(input, targetTypeFqn) {
+  import(input, targetTypeFqn, options) {
     try {
-      const data = parseProjectPayload(input, 'RUNE_JSON');
+      const data = parseProjectPayload(input, 'RUNE_JSON', options);
       const identity =
         data && typeof data === 'object' && !Array.isArray(data)
           ? (data as Record<string, unknown>)['@type']

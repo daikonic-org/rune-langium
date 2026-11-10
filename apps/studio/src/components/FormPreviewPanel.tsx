@@ -23,6 +23,7 @@ import {
   type PreviewField,
   type PreviewSourceMapEntry
 } from '@rune-langium/codegen/export';
+import { clearJsonNumberText } from '@rune-langium/core/serialization';
 
 import { TemporalPreviewInput, TEMPORAL_INPUT_HELP } from './TemporalPreviewInput.js';
 import { FormPresentation, PreviewLayoutGroup, useNumericPresentation } from './FormPresentation.js';
@@ -1638,6 +1639,7 @@ function setValueAtPath(value: unknown, segments: Array<string | number>, nextVa
 
   const record =
     value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
+  clearJsonNumberText(record, head);
   record[head] = setValueAtPath(record[head], rest, nextValue);
   return record;
 }
@@ -1666,6 +1668,7 @@ function removeValueAtPath(value: unknown, segments: Array<string | number>): un
     return value;
   }
   const record = { ...(value as Record<string, unknown>) };
+  clearJsonNumberText(record, head);
   if (rest.length === 0) {
     delete record[head];
     return record;

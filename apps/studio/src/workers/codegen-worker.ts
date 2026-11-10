@@ -59,6 +59,7 @@ import {
   isRosettaFunction,
   isRosettaModel,
   namespaceFromModelName,
+  type Data,
   type RosettaModel,
   type RuneDslIndexManager
 } from '@rune-langium/core';
@@ -216,7 +217,7 @@ const previewPythonCache = new Map<string, VersionedEntry<PythonModule>>();
 let codegenFilesVersion = 0;
 // One result per output target, rather than retaining every visited declaration.
 const codegenGenerateCache = new Map<string, VersionedEntry<{ selectionKey: string; results: GeneratorOutput[] }>>();
-const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValidatorResult>>();
+const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValidatorResult & { subtypeKey?: string }>>();
 
 // Curated documents are relinked as a BATCH once per `preview:setFiles`
 // (the only message that ever carries new curated content) and cached here
@@ -1091,15 +1092,6 @@ async function executeFunction(
 
     if (selectedModulePath === undefined) throw new Error(`Function '${functionFqn}' not found in generated code.`);
 
-    const { value: compiled } = await getOrComputeAsync(
-      standaloneValidatorCache,
-      `function-inputs:${selectedTargetId}`,
-      () => documentsVersion,
-      () => compileStandaloneValidator(documents, selectedTargetId, true)
-    );
-    if (!compiled.validator) {
-      throw new Error(`Input validation unavailable: ${compiled.diagnostics[0]?.message ?? 'unknown error'}`);
-    }
     const resourceDiagnostics = projectResourceDiagnostics(
       project,
       documents,
@@ -1114,12 +1106,30 @@ async function executeFunction(
       }
       throw new Error(resourceDiagnostics.map((diagnostic) => diagnostic.path + ': ' + diagnostic.message).join('; '));
     }
+    const concreteInputTypes = new Map<string, Data>();
     const adaptedInputs = runInWorkerSandbox(
       '',
       '$rune$inputs',
-      { inputs, documents, targetId: selectedTargetId, normalizePreviewInputs },
-      '$rune$inputs.normalizePreviewInputs($rune$inputs.documents, $rune$inputs.targetId, $rune$inputs.inputs, { field: runeToField, reference: runeToReference })'
+      { inputs, documents, targetId: selectedTargetId, normalizePreviewInputs, concreteInputTypes },
+      '$rune$inputs.normalizePreviewInputs($rune$inputs.documents, $rune$inputs.targetId, $rune$inputs.inputs, { field: runeToField, reference: runeToReference }, $rune$inputs.concreteInputTypes)'
     );
+    const subtypeKey = JSON.stringify([...concreteInputTypes.keys()].sort());
+    const validationKey = `function-inputs:${selectedTargetId}`;
+    const cachedValidator = standaloneValidatorCache.get(validationKey);
+    if (cachedValidator?.version === documentsVersion && cachedValidator.value.subtypeKey !== subtypeKey)
+      standaloneValidatorCache.delete(validationKey);
+    const { value: compiled } = await getOrComputeAsync(
+      standaloneValidatorCache,
+      validationKey,
+      () => documentsVersion,
+      async () => ({
+        ...(await compileStandaloneValidator(documents, selectedTargetId, true, { concreteInputTypes })),
+        subtypeKey
+      })
+    );
+    if (!compiled.validator) {
+      throw new Error(`Input validation unavailable: ${compiled.diagnostics[0]?.message ?? 'unknown error'}`);
+    }
     const validation = compiled.validator.safeParse(adaptedInputs);
     if (!validation.success) {
       if (checksOnly) {

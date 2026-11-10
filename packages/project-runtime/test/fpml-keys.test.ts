@@ -1,24 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { beforeAll, expect, it } from 'vitest';
-import { isRosettaModel, serializeRuneModel } from '@rune-langium/core';
 import { parseProjectPayload } from '@rune-langium/core/serialization';
-import { createProjectSnapshot } from '@rune-langium/project-config';
 import { generatePythonModule, generateSelected } from '@rune-langium/codegen/export';
 import { compileGeneratedTypeScript } from '../../codegen/test/helpers/compiled-typescript.js';
-import { referenceModelSources } from '../../codegen/test/helpers/cdm-reference.js';
 import { runPython } from '../../codegen/test/projection/python-test-utils.js';
 import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../test/helpers/vitest-budget.js';
+import {
+  fpmlKeyCases as cases,
+  fpmlKeyNamespace as namespace,
+  publishFpmlKeyFixture
+} from '../../../test/helpers/cdm-fpml-keys.js';
 import { buildEffectiveProject } from '../src/effective-project.js';
-import { projectReferenceUri } from '../src/project-uri.js';
-import { fpmlHashLayout, fpmlKeyRecipes, prepareFpmlHashLayout } from '../src/curated-implementations/fpml-keys.js';
-import { publishCuratedImplementations } from '../src/curated-implementations/publication.js';
+import { fpmlKeyRecipes, prepareFpmlHashLayout } from '../src/curated-implementations/fpml-keys.js';
 
-const fixture = new URL('../../../test/fixtures/third-party/cdm-fpml-keys/', import.meta.url);
-const namespace = 'cdm.ingest.fpml.confirmation.pricequantity';
 const functions = Object.keys(fpmlKeyRecipes);
 const selection = {
   namespaces: [],
@@ -31,64 +27,17 @@ const selection = {
     { name: 'CrossRate', namespace: 'fpml.consolidated.fx', kind: 'Data' }
   ]
 };
-interface KeyCase {
-  id: string;
-  function: keyof typeof fpmlKeyRecipes;
-  prefix: string;
-  keyId?: string;
-  json: string;
-  preserveNumberText?: boolean;
-  expected: string;
-}
-type KeyExports = Record<KeyCase['function'], (...args: unknown[]) => unknown> & {
+type KeyExports = Record<keyof typeof fpmlKeyRecipes, (...args: unknown[]) => unknown> & {
   CrossRate: { fromJSON(text: string, options: { preserveNumberText: boolean }): unknown };
   CreateQuotedCurrencyPairKey(input: unknown): string;
   CreateQuantityKey(id: string, leg: unknown): string;
 };
-const cases: KeyCase[] = JSON.parse(readFileSync(new URL('cases.json', fixture), 'utf8'));
-const sources: { sources: { model: string; commit: string }[] } = JSON.parse(
-  readFileSync(new URL('sources.json', fixture), 'utf8')
-);
 let graph: Awaited<ReturnType<typeof buildEffectiveProject>>;
 
 beforeAll(async () => {
-  const references = Object.entries(referenceModelSources(fileURLToPath(fixture))).flatMap(([model, files]) =>
-    files.map(({ path, content }) => ({ model, uri: model + '/' + path, content }))
-  );
-  const snapshot = await createProjectSnapshot(
-    'fpml-keys',
-    new Map([
-      ['rune-config.yml', 'model: {name: FpmlKeys}'],
-      ['build-config.yml', 'schemaVersion: 1']
-    ]),
-    () => []
-  );
-  const linked = await buildEffectiveProject(snapshot, references);
-  expect(linked.diagnostics).toEqual([]);
-  const models = linked.documents.map((document) => document.parseResult.value).filter(isRosettaModel);
-  const fpml = models.filter((model) => model.name.startsWith('fpml.consolidated.'));
-  // This is a representative source slice. The inventory verifies the complete pinned layout.
-  const layout = fpmlHashLayout(fpml);
+  const { snapshot, published, fpml, sources } = await publishFpmlKeyFixture();
   expect(await prepareFpmlHashLayout([], fpml)).toBeUndefined();
-  await expect(prepareFpmlHashLayout(sources.sources, fpml)).rejects.toThrow(
-    'differs from the pinned Java hash layout'
-  );
-  const byUri = new Map(linked.documents.map((document) => [document.uri.toString(true), document.parseResult.value]));
-  const published = await Promise.all(
-    references.map(async (reference) => {
-      const model = byUri.get(projectReferenceUri(reference.uri));
-      if (!isRosettaModel(model)) throw new Error('Missing linked fixture model ' + reference.uri);
-      const commit = sources.sources.find((source) => source.model === reference.model)?.commit;
-      if (!commit) throw new Error('Missing fixture origin ' + reference.model);
-      const serialized = await publishCuratedImplementations(
-        model,
-        serializeRuneModel(linked.services.serializer.JsonSerializer, model),
-        { model: reference.model, commit },
-        { fpmlHashLayout: layout }
-      );
-      return { ...reference, serialized };
-    })
-  );
+  await expect(prepareFpmlHashLayout(sources, fpml)).rejects.toThrow('differs from the pinned Java hash layout');
   graph = await buildEffectiveProject(snapshot, published);
   expect(graph.diagnostics).toEqual([]);
 }, GENERATED_MODULE_TEST_TIMEOUT);

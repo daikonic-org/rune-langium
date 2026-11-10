@@ -1576,7 +1576,8 @@ export function normalizePreviewInputs(
   documents: LangiumDocument[],
   targetId: string,
   inputs: Record<string, unknown>,
-  wrappers: Record<FieldMetadataKind, (value: unknown) => unknown>
+  wrappers: Record<FieldMetadataKind, (value: unknown) => unknown>,
+  concreteTypes?: Map<string, Data>
 ): Record<string, unknown> {
   const namespaces = buildNamespaceIndexes(documents);
   const namespace = namespaces.find(
@@ -1585,8 +1586,13 @@ export function normalizePreviewInputs(
   );
   const func = namespace?.funcByName.get(targetId.slice(namespace.namespace.length + 1))?.node;
   if (!namespace || !func) throw new Error(`Function '${targetId}' has no input signature.`);
-  const adapter = createPreviewValueAdapter(namespaces, namespace, wrappers, (id) =>
-    resolveEffectiveProjectTargetId(documents, id, 'Data')
+  const adapter = createPreviewValueAdapter(
+    namespaces,
+    namespace,
+    wrappers,
+    (id) => resolveEffectiveProjectTargetId(documents, id, 'Data'),
+    'canonical',
+    concreteTypes
   );
   return adapter.normalizeObject(inputs, adapter.attributeFields(functionInputs(func))) as Record<string, unknown>;
 }
@@ -1597,7 +1603,8 @@ function createPreviewValueAdapter(
   typeIndex: NamespaceIndex,
   wrappers: Record<FieldMetadataKind, (value: unknown) => unknown>,
   resolveTypeId: (id: string) => string,
-  mode: 'canonical' | 'wire' = 'canonical'
+  mode: 'canonical' | 'wire' = 'canonical',
+  concreteTypes?: Map<string, Data>
 ) {
   const activeValues = new Set<object>();
   const sourcePaths = new Map<string, string>();
@@ -1816,6 +1823,7 @@ function createPreviewValueAdapter(
     }
     if (actual && actual !== node && (!isData(actual) || !extendsNode(actual, node)))
       throw new Error('Rune JSON concrete type is not assignable to ' + qualifiedTypeId(node));
+    if (isData(actual) && actual !== node && typeof declared === 'string') concreteTypes?.set(declared, actual);
     const { attributes, choiceAncestor, metadata } = collectInheritedAttributes(isData(actual) ? actual : node);
     const normalized = normalizeObject(
       value,

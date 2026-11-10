@@ -6,6 +6,7 @@ import { withInstrumentation } from '@rune-langium/instrumentation-core';
 import { transform } from 'sucrase';
 import { z } from 'zod';
 import type { LangiumDocument } from 'langium';
+import type { Data } from '@rune-langium/core';
 import {
   emitStandaloneZodSchema,
   RUNTIME_HELPER_JS_SOURCE,
@@ -27,6 +28,7 @@ type ValidatorRuntimeOptions = {
   generatorOptions?: Pick<GeneratorOptions, 'projectBindings' | 'projectResources'>;
   bindings?: ProjectBindingRegistry;
   beforeGenerate?: (selection: Parameters<typeof generateSelected>[1]) => void;
+  concreteInputTypes?: ReadonlyMap<string, Data>;
 };
 
 /** Compile canonical schemas and load their condition functions in the ordinary generated module graph. */
@@ -40,7 +42,12 @@ export const compileStandaloneValidator = withInstrumentation(
     const emitted = emitStandaloneZodSchema(
       documents,
       typeFqn,
-      functionInputs === 'metadata' ? { metadataInputs: true } : { functionInputs }
+      functionInputs === 'metadata'
+        ? { metadataInputs: true }
+        : {
+            functionInputs,
+            ...(options.concreteInputTypes?.size ? { concreteInputTypes: options.concreteInputTypes } : {})
+          }
     );
     const { code, diagnostics } = emitted;
     if (diagnostics.some((diagnostic) => diagnostic.severity === 'error')) return { validator: undefined, diagnostics };
