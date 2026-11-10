@@ -1,0 +1,10 @@
+namespace cdm.base.datetime : <"Basic date and time concepts: relative date, date range, offset, business centre etc.">
+version "${project.version}"
+
+import cdm.base.*
+
+enum PeriodEnum: <"The enumerated values to specify the period, e.g. day, week.">
+    D <"Day">
+    W <"Week">
+    M <"Month">
+    Y <"Year">

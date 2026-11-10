@@ -90,13 +90,13 @@ function shard(
   };
 }
 
-function validate(shards, candidateJobResult = 'success') {
+function validate(shards, candidateJobResult = 'success', expectedRunAttempt = '1') {
   return validateCandidateShards({
     shards,
     expectedShardCount: 2,
     expectedHeadSha: 'abc123',
     expectedRunId: '77',
-    expectedRunAttempt: '1',
+    expectedRunAttempt,
     candidateJobResult
   });
 }
@@ -144,6 +144,28 @@ test('rejects a failed shard, mixed head, run identity, or failed artifact redac
   assert.throws(() => validate([shard(1), shard(2, { headSha: 'stale' })]), /does not match abc123/);
   assert.throws(() => validate([shard(1), shard(2, { runAttempt: '2' })]), /expected 1/);
   assert.throws(() => validate([shard(1), shard(2, { redactionOutcome: 'failure' })]), /redaction concluded failure/);
+});
+
+test('accepts a reused successful shard and records both attempts', () => {
+  const shards = [shard(1), shard(2, { runAttempt: '2' })];
+  const result = validate(shards, 'success', '2');
+  assert.deepEqual(result.manifest.shardAttempts, { 1: 1, 2: 2 });
+  assert.equal(result.manifest.runId, 'candidate-77-2');
+});
+
+test('keeps the same-run, successful-shard gate on a failed-job rerun', () => {
+  const rerun = shard(2, { runAttempt: '2' });
+  for (const [earlier, error] of [
+    [{ headSha: 'stale' }, /does not match abc123/],
+    [{ runId: '76' }, /belongs to run 76, expected 77/],
+    [{ runAttempt: '0' }, /expected 1 through 2/],
+    [{ runAttempt: '3' }, /expected 1 through 2/],
+    [{ testOutcome: 'failure' }, /test step concluded failure/],
+    [{ redactionOutcome: 'failure' }, /redaction concluded failure/]
+  ]) {
+    assert.throws(() => validate([shard(1, earlier), rerun], 'success', '2'), error);
+  }
+  assert.throws(() => validate([shard(1), rerun], 'failure', '2'), /matrix concluded failure/);
 });
 
 test('rejects required journeys with missing evidence, failed status, retries, or timing overruns', () => {

@@ -1,0 +1,14 @@
+namespace cdm.base.datetime : <"Basic date and time concepts: relative date, date range, offset, business centre etc.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.base.staticdata.codelist.*
+
+type Period: <"A class to define recurring periods or time offsets.">
+    [metadata key]
+
+    periodMultiplier int (1..1) <"A time period multiplier, e.g. 1, 2 or 3 etc. A negative value can be used when specifying an offset relative to another date, e.g. -2 days.">
+    period PeriodEnum (1..1) <"A time period, e.g. a day, week, month or year of the stream. If the periodMultiplier value is 0 (zero) then period must contain the value D (day).">
+
+    condition DayPeriod: <"FpML specifies that if the periodMultiplier value is 0 (zero) then period must contain the value D (day).">
+        if periodMultiplier = 0 then period = PeriodEnum -> D

@@ -50,6 +50,12 @@ with JVM comparisons and separate term/admission cases.
 The [billing summary fixture](cdm-billing-summary/README.md) pins the original
 CDM settlement and billing types and tests the standalone curated port.
 
+## CDM market observations
+
+The [market observations fixture](cdm-market-observations/README.md) pins the
+original index types, functions and handwritten Java observation provider and
+tests. It exercises the curated Rune overrides with an explicit project provider.
+
 ## CDM calculation period range
 
 The [range fixture](cdm-period-range/README.md) pins the handwritten constructor

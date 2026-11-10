@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "model": "cdm",
+      "repository": "finos/common-domain-model",
+      "commit": "0f1f99aef829c23910476981bb91256544cb8569",
+      "release": "7.9.0"
+    },
+    {
+      "model": "fpml",
+      "repository": "rosetta-models/rune-fpml",
+      "commit": "ffda7dffda7cec97f9648123a1ba3cb8aad4e568",
+      "release": "3.13.0"
+    },
+    {
+      "model": "rune-dsl",
+      "repository": "finos/rune-dsl",
+      "commit": "c0251abb7ed07b1f2d2fe248f0b7f3aa9df7c5f6",
+      "release": "10.15.3"
+    }
+  ],
+  "declarations": [
+    {
+      "namespace": "cdm.observable.asset.calculatedrate",
+      "name": "IndexValueObservation",
+      "kind": "RosettaFunction"
+    },
+    {
+      "namespace": "cdm.event.instructioncomposition.reset",
+      "name": "GetMarketRates",
+      "kind": "RosettaFunction"
+    }
+  ],
+  "files": [
+    {
+      "name": "cdm.base.datetime--base-datetime-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-enum.rosetta",
+        "blob": "13389135f8232fa5ad70d7a20cfbdcae06887c46",
+        "sha256": "1da44bf7af1690cf4fea2a69c93feb22122b190dec49a77caf2e6d091fd88789"
+      },
+      "sha256": "110cdf9c09955eff72a25245889ce509f6f297d4b5bbcd13c3755b6f2448b0f4"
+    },
+    {
+      "name": "cdm.base.datetime--base-datetime-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-datetime-type.rosetta",
+        "blob": "20739b21a9e6553e0a57a58e2d1e96346b2114a2",
+        "sha256": "2e13d9d22655573418bf13b1768ed362ca8bed89d8101b6f575653ebfaf628d1"
+      },
+      "sha256": "332e88bc8d24e3ed97f93839b78ddde5c289061131aa17a7dea7d26f3957e596"
+    },
+    {
+      "name": "cdm.base--base-desc.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-desc.rosetta",
+        "blob": "5df70126994d2c0f27c86c7aa5267eff74689f8b",
+        "sha256": "052fb5fd14bce300baedb2264e7d757b95556eb3cb1cf22985b33c47f7c86163"
+      },
+      "sha256": "2e9b46d7f8c67a01ba93b411d087bb574f066ceb365e6b43ee22ffd787e39043"
+    },
+    {
+      "name": "cdm.base.math--base-math-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-math-type.rosetta",
+        "blob": "52f3e7d78c5d44bce7d2286055dc9e9106412460",
+        "sha256": "7f63e590725e3a9c069cf1229fb9369c30ede17389625d8541701ada7e7984d7"
+      },
+      "sha256": "c9f6e7124fbcfb4a9d0c2a3070aa35c6cf574ed099ab28ff15ea451dfd9d042c"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-enum.rosetta",
+        "blob": "bbd44addaab019b2b824a02a453a4b052db21727",
+        "sha256": "abee256ee5b1cad6de0e1a391b7597c245062c78af0f1f10875893c166977d71"
+      },
+      "sha256": "e3142c9144b16a257d477e0d995f325acfe4b434ead65531fe2b82a8c9c36e6b"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.common--base-staticdata-asset-common-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-common-type.rosetta",
+        "blob": "8392a5a6853059d1d8d17b95dc9ff6d769fc5d7e",
+        "sha256": "083dbd053d759318a8fe5861c456304238e2240a8aa210247ae6ae18930860ca"
+      },
+      "sha256": "9b31f4f566bc17d308b7a950f124a6b879b3e40e5afcf3759068c3b345c5e56a"
+    },
+    {
+      "name": "cdm.base.staticdata.asset.rates--base-staticdata-asset-rates-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-asset-rates-enum.rosetta",
+        "blob": "d0e10da5c54d5e8a69f612fedc0f61249800a661",
+        "sha256": "5b6a25630071f1c9644a298b931b8de9a264a8b13054eb130243fee928119963"
+      },
+      "sha256": "5b6a25630071f1c9644a298b931b8de9a264a8b13054eb130243fee928119963"
+    },
+    {
+      "name": "cdm.base.staticdata.identifier--base-staticdata-identifier-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-identifier-type.rosetta",
+        "blob": "80351a055b4f5409424a254e6a0c8dc15d092ff3",
+        "sha256": "45e35334685f59a8f493867d90c7d266ea8d9aad8324fca475a134fda8afd8d7"
+      },
+      "sha256": "a21e3c1fb87cecf387a00eaca5b99d4984b231535ac906f2e9f03ebe3265b909"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-enum.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-enum.rosetta",
+        "blob": "03a5f521cef70b6a6f0549b84d988459fb0734b1",
+        "sha256": "7b3dd0073e70fb1fd2426a02e1a48152f4faa7f9bfd6dee7b045925f11a88294"
+      },
+      "sha256": "238363b2a28e8b522d44f0b264951da4f4dffd123f1f0e1dded0f291f5602458"
+    },
+    {
+      "name": "cdm.base.staticdata.party--base-staticdata-party-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/base-staticdata-party-type.rosetta",
+        "blob": "127bc94f10fecf4fa597497eae2ec752d25c0dec",
+        "sha256": "dd5b6377f0130d0fbe810e072006006c660e087fc10035857fa975556ad94ddf"
+      },
+      "sha256": "6a4b5c76511ee0b43175e7e8e266207e72808deaed5e6247493839dfcbf3a0ba"
+    },
+    {
+      "name": "cdm.event.instructioncomposition.reset--event-instructioncomposition-reset-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/event-instructioncomposition-reset-func.rosetta",
+        "blob": "49b6fa803c2dcd5e83f8d6a98481574a9f3f50f4",
+        "sha256": "59e5859e44cfe3ac3a5ed7a6792b586f0b06ce35792c7ec5cb52126cfc80eac7"
+      },
+      "sha256": "f751fc11ddeb0331ef3f5cd91dfdb82ca7bf6f2e660b40f9de98f9a7ddba1205"
+    },
+    {
+      "name": "cdm.observable.asset.calculatedrate--observable-asset-calculatedrate-func.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-calculatedrate-func.rosetta",
+        "blob": "17822c5e8e52ba123839159d1b515790347e00d8",
+        "sha256": "a2a3a796e9e57c7a77e2f492b9760269e30ebdad1037f2003838bb782f99c57b"
+      },
+      "sha256": "51e7d01a559a159be4d82a1c5d2085691ca826624038682160ea5b792ca2a277"
+    },
+    {
+      "name": "cdm.observable.asset--observable-asset-type.rosetta",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/rosetta/observable-asset-type.rosetta",
+        "blob": "5603a1b688ba344edf9238610a621ab2ee5a885b",
+        "sha256": "806777ddb6393579bb0b66f5d15b26bc280ee120e447aa535a49bc4a077ebe64"
+      },
+      "sha256": "fd337f77488c8b8f1ae8bcb4c5b61b4e94ff268d20e61ba24b7dbade22244f52"
+    },
+    {
+      "name": "com.rosetta.model--annotations.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/annotations.rosetta",
+        "blob": "23fbb9326e241d45d0cb0d406885fbda323710c5",
+        "sha256": "5eb12e1d89a9a44a95af4414311f509ad36c16e70ee9a444d9061cf31e60eaa8"
+      },
+      "sha256": "4240ed9c574f8f9218dafa29748a4346acb6b9a1d911518f436ab2daaa1f5137"
+    },
+    {
+      "name": "com.rosetta.model--basictypes.rosetta",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "rune-runtime/src/main/resources/model/basictypes.rosetta",
+        "blob": "bedbfddfe7d2e1fe3ad9cacbd158b67c6ebe99ac",
+        "sha256": "36d25c009c73f83dd169fb8c309f87c372a8b9b2606d71f623d74bcb39921d3a"
+      },
+      "sha256": "1cbb271c11f09ba1c9e42c721eef6d16e8cfd21f9092521fa7584966f2a35d65"
+    }
+  ],
+  "references": [
+    {
+      "name": "cdm-LICENSE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "LICENSE.md",
+        "blob": "98dd7dbca3ed56486660567b60bbe9b59c72bcba",
+        "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+      },
+      "sha256": "edbf99eb78c11a79ec3f4f669746877cbc9182e8c13699adff4369717c96de21"
+    },
+    {
+      "name": "cdm-NOTICE.md",
+      "upstream": {
+        "model": "cdm",
+        "path": "NOTICE.md",
+        "blob": "d2d999061ccb130c82d8e5a8fd128496bf058f01",
+        "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+      },
+      "sha256": "c4b681d11530984d1dfd2c02ab73df7af8c44c576b117c64875e731217791871"
+    },
+    {
+      "name": "rune-dsl-LICENSE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "LICENSE",
+        "blob": "2e421f02995ab8c4c5a50d2f8621822e3cfb9e9a",
+        "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+      },
+      "sha256": "794bb3b24daeb697dc300cfd9651c1631c4a4ce159917297ee63c877c82aec68"
+    },
+    {
+      "name": "rune-dsl-NOTICE",
+      "upstream": {
+        "model": "rune-dsl",
+        "path": "NOTICE",
+        "blob": "fbd718975f8899218e8b1b56e645b0c0bdf0bf83",
+        "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+      },
+      "sha256": "b1e8f5f1417d8878385bbe7a93eb79a2a26f64d16fc19e5e7ce2b6fd5d9767f7"
+    },
+    {
+      "name": "java/IndexValueObservationEmptyDataProvider.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/main/java/cdm/observable/asset/fro/functions/IndexValueObservationEmptyDataProvider.java",
+        "blob": "1e5210cb4a19b4331eb8a9685ee8ef2632407e83",
+        "sha256": "92772165beef411fce1446a9800e2c9f6374aef14826db3e47dac8f3b48dd7f0"
+      },
+      "sha256": "92772165beef411fce1446a9800e2c9f6374aef14826db3e47dac8f3b48dd7f0"
+    },
+    {
+      "name": "java/EvaluateCalculatedRateTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/observable/asset/calculatedrate/functions/EvaluateCalculatedRateTest.java",
+        "blob": "633d789aa91854878bd69c4e0adefe65fbbb0e47",
+        "sha256": "4e52fef3bd911b2bbbf2298f1793c01a634d8e2554790d7e137245e3d7f19e4c"
+      },
+      "sha256": "4e52fef3bd911b2bbbf2298f1793c01a634d8e2554790d7e137245e3d7f19e4c"
+    },
+    {
+      "name": "java/IndexValueObservationMultipleTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationMultipleTest.java",
+        "blob": "3c6ed4d6a2d48aca29b2e05d3a2918fba9538df5",
+        "sha256": "1bc78faaaaf7b0a28418126b2a0bd1080421239e890f89587369a5ed4124aad2"
+      },
+      "sha256": "1bc78faaaaf7b0a28418126b2a0bd1080421239e890f89587369a5ed4124aad2"
+    },
+    {
+      "name": "java/IndexValueObservationTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationTest.java",
+        "blob": "9de5e4ae966de2e3f6d5cf89d5be3595e054ca43",
+        "sha256": "a153fc302f59972dec26a430735005e138e7d07f9aae25225e32d252a1f30f23"
+      },
+      "sha256": "a153fc302f59972dec26a430735005e138e7d07f9aae25225e32d252a1f30f23"
+    },
+    {
+      "name": "java/IndexValueObservationTestDataProvider.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationTestDataProvider.java",
+        "blob": "49bae234d288e3c0191635d9ca3582db9cfb6836",
+        "sha256": "98d7cfeb2023167c50ebf970802239f81a84e8b8a816eb61d006568f7ba08b2b"
+      },
+      "sha256": "98d7cfeb2023167c50ebf970802239f81a84e8b8a816eb61d006568f7ba08b2b"
+    },
+    {
+      "name": "java/FloatingAmountCalculationTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/product/asset/calculation/functions/FloatingAmountCalculationTest.java",
+        "blob": "0f9e956b674d045c1c5e897a8cad3977d6550624",
+        "sha256": "27d653018743209e9ba31637f0f62db35bb4e8671b5631607ed76f0ce7bbee12"
+      },
+      "sha256": "27d653018743209e9ba31637f0f62db35bb4e8671b5631607ed76f0ce7bbee12"
+    },
+    {
+      "name": "java/DetermineFloatingRateResetTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/DetermineFloatingRateResetTest.java",
+        "blob": "c6c6dbc4f8c352815a7b1e65c5e2b39f1bbd1524",
+        "sha256": "2825a8fa7e03e56aafbe7114a85bc796a7aec66e90f662c30a2cf2c191811465"
+      },
+      "sha256": "2825a8fa7e03e56aafbe7114a85bc796a7aec66e90f662c30a2cf2c191811465"
+    },
+    {
+      "name": "java/EvaluateScreenRateTest.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/EvaluateScreenRateTest.java",
+        "blob": "7ac40c0782c85887eca559501d043040e9383b0c",
+        "sha256": "7b067352f67311c88fe2ed52146da86d15f134f54846e195c0d41924b0ffcbd5"
+      },
+      "sha256": "7b067352f67311c88fe2ed52146da86d15f134f54846e195c0d41924b0ffcbd5"
+    },
+    {
+      "name": "java/FloatingRateTestHelper.java",
+      "upstream": {
+        "model": "cdm",
+        "path": "rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/FloatingRateTestHelper.java",
+        "blob": "f716c8346a0a9015bdce5d4a1cc6adfb0c445a41",
+        "sha256": "2326ddc05e83075fc854b335446bc43e7333f6ab3c120fe0f74ae4b20e95a339"
+      },
+      "sha256": "2326ddc05e83075fc854b335446bc43e7333f6ab3c120fe0f74ae4b20e95a339"
+    }
+  ],
+  "normalization": "Original namespace/import header and unmodified CST declaration bodies; inter-declaration whitespace only. Java and notice files are unmodified."
+}

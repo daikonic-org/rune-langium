@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.market
+version "1.0.0"
+
+import cdm.base.math.DatedValue
+import cdm.observable.asset.InterestRateIndex
+
+func ReadMarketObservations: <"Supply observations for this exact index and the requested dates using a project implementation.">
+    [codeImplementation]
+    inputs:
+        index InterestRateIndex (1..1)
+        dates date (1..*)
+    output:
+        observations DatedValue (0..*)
+
+func MarketObservationOnDate: <"Require a single supplied observation on the requested date.">
+    inputs:
+        observations DatedValue (0..*)
+        requestedDate date (1..1)
+    output:
+        observation DatedValue (1..1)
+
+    alias matches: observations filter [item -> date = requestedDate]
+    condition MarketObservationMissing: <"Supply an observation for the requested index and date.">
+        matches exists
+    condition MarketObservationAmbiguous: <"Supply exactly one observation for the requested index and date.">
+        matches count = 1
+    set observation: matches only-element

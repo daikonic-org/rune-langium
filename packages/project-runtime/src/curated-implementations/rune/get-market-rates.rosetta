@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.event.instructioncomposition.reset
+version "1.0.0"
+
+import cdm.base.math.DatedValue
+import cdm.observable.asset.InterestRateIndex
+import impl.cdm.market.*
+
+func GetMarketRates:
+    inputs:
+        floatingRateIndex cdm.observable.asset.FloatingRateIndex (1..1)
+        observationDates date (1..*)
+    output:
+        observedRateDates DatedValue (1..*)
+
+    alias index: InterestRateIndex { FloatingRateIndex: floatingRateIndex }
+    alias observations: ReadMarketObservations(index, observationDates)
+    set observedRateDates: observationDates extract [MarketObservationOnDate(observations, item)]

@@ -1,0 +1,99 @@
+namespace cdm.event.instructioncomposition.reset
+version "${project.version}"
+
+import cdm.base.datetime.*
+import cdm.base.datetime.daycount.*
+import cdm.base.math.*
+import cdm.base.math.*
+import cdm.base.staticdata.asset.rates.*
+import cdm.base.staticdata.codelist.*
+import cdm.event.common.*
+import cdm.event.instructioncomposition.*
+import cdm.observable.asset.*
+import cdm.observable.asset.calculatedrate.*
+import cdm.observable.asset.fro.*
+import cdm.observable.event.*
+import cdm.product.asset.*
+import cdm.product.asset.floatingrate.*
+import cdm.product.common.schedule.*
+import cdm.product.common.schedule.*
+
+/*
+ * This namespace defines the functional logic for the Interest Rate Reset Instruction Composition process. In the lifecycle of a derivative, a "Reset" occurs when a floating rate option (e.g., SOFR, EURIBOR, Term rates) is observed from the market and applied to a trade to calculate the next payment.
+
+ * The Reset Instruction Composition automates this by:
+ *    1. Bridging the gap between the legal trade confirmation and external market data.
+ *    2. Executing an 8-step deterministic workflow to sequence data extraction, date adjustments, market observations, and compounding calculations.
+
+ * CURRENT FUNCTIONAL SCOPE
+ * -------------------------------------------------------------------------------
+
+ * - Supported Business Day Conventions:
+ *      - Following
+ *      - Preceding
+ *      - Modified Following
+
+ * - Out-of-Scope Business Day Conventions:
+ *      - Modified Preceding
+ *      - Nearest
+ *      - Not Adjusted
+
+ * - Supported Observation Shifts and Offsets:
+ *      - Fixing Day Offset (applicable to Single and Multiple Observations)
+ *      - Lookback Shift (applicable to Multiple Observations)
+
+ *  - Out-of-Scope Observation Mechanisms:
+ *      - Observation Period Shift
+ *      - Lockout Shift
+ *      - Lookback Shift for Compounded Index Observations
+
+ *  - Supported Calculation Methodologies (Step 7):
+ *      - Single Observation (direct pass-through)
+ *      - Compounded Index (formula evaluation)
+ *      - Multiple Observation Compounding (Compounding / OISCompound)
+
+ *  WORKFLOW OVERVIEW
+ * -------------------------------------------------------------------------------
+
+ * - [Placeholder Function] ExtractFloatingRateOptionData
+ * - STEP 1: Collect Floating Rate Option Data
+ * - [Placeholder Function] GetNonBusinessDates
+ * - STEP 2: Determine Unadjusted Calculation Period
+ * - [Placeholder Function] GetNonBusinessDates
+ * - STEP 3: Adjust Calculation Period
+ * - STEP 4: Adjust Reset Date
+ * - [Placeholder Function] GetNonBusinessDates
+ * - STEP 5: Determine Unadjusted Observation Dates
+ * - [Placeholder Function] GetMarketRates
+ * - STEP 6: Adjust Observation Dates
+ * - STEP 7: Calculate Reset Value
+ * - STEP 8: Record Reset Instruction Output
+
+ *  STATE MANAGEMENT & TRANSITION LOGIC
+ *  -------------------------------------------------------------------------------
+ *  - STATE OVERLAY
+ *    [func] UpdateResetCompositionState:
+ *      - Implements deterministic state persistence across individual step milestones:
+ *          • Step 1: Floating Rate Index & Trade Date (Create_CollectFloatingRateOptionInstruction)
+ *          • Step 2: Unadjusted Calculation Period & Reset Date (Create_DetermineUnadjustedCalculationPeriodInstruction)
+ *          • Step 3: Adjusted Calculation Period (Create_AdjustPeriodInstruction)
+ *          • Step 4: Adjusted Reset Date
+ *          • Step 5: Unadjusted Observation Dates & Floating Rate Option Data
+ *          • Step 6: Adjusted Observation Dates
+ *          • Step 7: Final Calculation Results & Observed Rate Dates
+ *      - Field Resolution Rule:
+ *          - If the incoming step provides a value -> that value updates the state.
+ *          - Otherwise -> the previous state value is carried forward (preserved).
+ *  - NEXT STEP EVALUATION
+ *    [func] ResetInstructionNextStep:
+ *      - Evaluates the accumulated ResetInstructionState against mandatory milestone data requirements across the process lifecycle.
+ *      - Identifies the specific step enum (ResetInstructionSteps) required to resolve missing data gaps or generate the final output.
+ */
+// Instruction Composition  STEP 1 - Get Floating Rate Index Name
+func GetMarketRates: <"This function, given a floating rate index and a list of observation dates, fetches the corresponding market rate observations and returns the market rates and related observation dates in a key-value pair format.">
+    [codeImplementation]
+    inputs:
+        floatingRateIndex cdm.observable.asset.FloatingRateIndex (1..1) <"The floating rate index.">
+        observationDates date (1..*) <"The list of observation dates.">
+    output:
+        observedRateDates DatedValue (1..*) <"The list of market rate and observation dates key-value pairs.">

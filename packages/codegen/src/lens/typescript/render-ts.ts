@@ -15,6 +15,7 @@
 import type { RosettaExpression } from '@rune-langium/core';
 import { TS_RESERVED_WORDS } from '../reserved-words.js';
 import { isInSubsetS } from '../subset.js';
+import { renderTypeScriptNumberLiteral } from '../../expr/number-literal.js';
 
 type AnyNode = RosettaExpression & Record<string, unknown>;
 
@@ -123,7 +124,7 @@ function dispatch(node: AnyNode): string {
       // TypeScript→Rune→TypeScript tree-equivalence loss, not just
       // cosmetic. Refuse rather than silently drop real AST data with no
       // honest encoding available.
-      if (text.startsWith('+')) throw new UnsupportedInChild();
+      if (text.startsWith('+') || renderTypeScriptNumberLiteral(text) !== text) throw new UnsupportedInChild();
       return text;
     }
     case 'RosettaStringLiteral':

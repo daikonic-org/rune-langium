@@ -31,6 +31,27 @@ const calendarFunctions = [
 ];
 const suites = [
   {
+    directory: 'cdm-market-observations',
+    declarations: [
+      { namespace: 'cdm.observable.asset.calculatedrate', name: 'IndexValueObservation', kind: 'RosettaFunction' },
+      { namespace: 'cdm.event.instructioncomposition.reset', name: 'GetMarketRates', kind: 'RosettaFunction' }
+    ],
+    supportDeclarations: [
+      {
+        namespace: 'cdm.observable.asset.calculatedrate',
+        name: 'IndexValueObservationMultiple',
+        kind: 'RosettaFunction'
+      }
+    ],
+    references: ['IndexValueObservation'],
+    supportReferences: [
+      'rosetta-source/src/main/java/cdm/observable/asset/fro/functions/IndexValueObservationEmptyDataProvider.java',
+      'rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationTestDataProvider.java',
+      'rosetta-source/src/test/java/cdm/observable/asset/fro/functions/IndexValueObservationMultipleTest.java',
+      'rosetta-source/src/test/java/cdm/product/asset/floatingrate/functions/FloatingRateTestHelper.java'
+    ]
+  },
+  {
     directory: 'cdm-billing-summary',
     declarations: [{ namespace: 'cdm.event.common', name: 'Create_BillingSummary', kind: 'RosettaFunction' }],
     references: []

@@ -33,6 +33,7 @@ import type { ProjectionOrigin } from './types.js';
 import { renderExpression } from '../emit/rosetta/render-expression.js';
 import { onlyExistsSelection } from '../expr/only-exists.js';
 import { patternLiteral, renderPatternLiteral } from '../expr/pattern.js';
+import { renderTypeScriptNumberLiteral } from '../expr/number-literal.js';
 import { projectionNodePath } from './rebase-origin.js';
 
 export interface SourceTypeScriptOptions {
@@ -351,8 +352,9 @@ export class SourceExpressionRenderer {
       case 'RosettaBooleanLiteral':
         return atom(String(expression.value));
       case 'RosettaIntLiteral':
-      case 'RosettaNumberLiteral':
         return atom(String(expression.value));
+      case 'RosettaNumberLiteral':
+        return atom(renderTypeScriptNumberLiteral(expression.value));
       case 'RosettaStringLiteral':
         return atom(
           patternLiteral(expression) === undefined

@@ -14,6 +14,18 @@ describe('parseExpression', () => {
     expect(op.right.$type).toBe('RosettaExistsExpression');
   });
 
+  it.each(['0.033', '.0001', '-00.0070', '0.01e-03'])('preserves the digits in %s', (text) => {
+    const result = parseExpression(text);
+    expect(result.hasErrors).toBe(false);
+    expect(result.value).toMatchObject({ $type: 'RosettaNumberLiteral', value: text });
+  });
+
+  it('preserves integer digits before conversion to bigint', () => {
+    const result = parseExpression('9007199254740993');
+    expect(result.hasErrors).toBe(false);
+    expect(result.value).toMatchObject({ $type: 'RosettaIntLiteral', value: 9007199254740993n });
+  });
+
   it('parses the as-key suffix (ExpressionWithAsKey superset)', () => {
     const r = parseExpression('reference as-key');
     expect(r.hasErrors).toBe(false);
