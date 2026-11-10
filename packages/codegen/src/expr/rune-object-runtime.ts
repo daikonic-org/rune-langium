@@ -102,13 +102,17 @@ function runeObjectProxy<T extends object>(target: T, definition: () => RuneValu
         const normalized = runeValueNormalizeField(raw, field, undefined, 'read');
         Reflect.set(storage, key, normalized, storage);
         if (field.metadata) { slots.set(key, { raw: normalized, read: () => normalized }); return normalized; }
-        const slot = new RuneValue(runeList(normalized), runeValueType(field), field.min, field.max, field.check, items => {
-          const raw = field.max !== null && field.max <= 1 ? items[0] : items;
-          const cached = slots.get(key);
-          if (!cached || cached.read !== read) return;
-          Reflect.set(storage, key, raw, storage);
-          runeJson.clearNumberText(storage, field.key);
-          cached.raw = raw;
+        const slot = new RuneValue(runeList(normalized), runeValueType(field), field.min, field.max, field.check, {
+          numberText: () => runeJson.listNumberText(storage, field.key),
+          write: (items, numberText) => {
+            const raw = field.max !== null && field.max <= 1 ? items[0] : items;
+            const cached = slots.get(key);
+            if (!cached || cached.read !== read) return;
+            Reflect.set(storage, key, raw, storage);
+            if (numberText) runeJson.replaceListNumberText(storage, field.key, numberText);
+            else runeJson.clearNumberText(storage, field.key);
+            cached.raw = raw;
+          }
         });
         const canonical = field.max !== null && field.max <= 1 ? slot.$array()[0] : normalized == null ? undefined : slot.$array();
         Reflect.set(storage, key, canonical, storage);

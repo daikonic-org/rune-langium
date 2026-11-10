@@ -88,16 +88,39 @@ export function retainJsonNumberText(input: unknown): unknown {
   return captured.value;
 }
 
+function readNumberText(value: object): Record<string, unknown> | undefined {
+  const text: unknown = own(value, RUNE_JSON_NUMBER_TEXT_FIELD)
+    ? Reflect.get(value, RUNE_JSON_NUMBER_TEXT_FIELD)
+    : undefined;
+  return plainJsonRecord(text) ? text : undefined;
+}
+
+function writeNumberText(value: object, text: Record<string, unknown>): void {
+  if (Object.keys(text).length) Reflect.set(value, RUNE_JSON_NUMBER_TEXT_FIELD, text);
+  else Reflect.deleteProperty(value, RUNE_JSON_NUMBER_TEXT_FIELD);
+}
+
+export function jsonListNumberText(value: object, field: string): Record<string, unknown> | undefined {
+  const text = readNumberText(value);
+  const list = text && own(text, field) ? text[field] : undefined;
+  return plainJsonRecord(list) ? list : undefined;
+}
+
+/** Commit the number text carried by a successfully edited projected list. */
+export function replaceJsonListNumberText(value: object, field: string, list: Record<string, unknown>): void {
+  const text = { ...readNumberText(value), [field]: list };
+  if (!Object.keys(list).length) Reflect.deleteProperty(text, field);
+  writeNumberText(value, text);
+}
+
 /** Invalidate a replaced value's text and shift surviving tokens after array removal. */
 export function clearJsonNumberText(
   value: object,
   path: string | readonly (string | number)[],
   removeIndex = false
 ): void {
-  const text: unknown = own(value, RUNE_JSON_NUMBER_TEXT_FIELD)
-    ? Reflect.get(value, RUNE_JSON_NUMBER_TEXT_FIELD)
-    : undefined;
-  if (!plainJsonRecord(text)) return;
+  const text = readNumberText(value);
+  if (!text) return;
   const edit = (
     tokens: Record<string, unknown>,
     [field, ...rest]: readonly (string | number)[]
@@ -126,9 +149,7 @@ export function clearJsonNumberText(
     );
   };
   const remaining = edit(text, typeof path === 'string' ? [path] : path);
-  if (remaining === text) return;
-  if (Object.keys(remaining).length) Reflect.set(value, RUNE_JSON_NUMBER_TEXT_FIELD, remaining);
-  else Reflect.deleteProperty(value, RUNE_JSON_NUMBER_TEXT_FIELD);
+  if (remaining !== text) writeNumberText(value, remaining);
 }
 
 /** Emit original tokens only when the associated number is still current. */

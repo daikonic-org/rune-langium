@@ -23,6 +23,12 @@ type PublicApi = Record<
   ModelClass
 > & {
   is: Record<'Quote' | 'Base', (value: unknown) => boolean>;
+  Series: {
+    fromJSON(
+      input: string,
+      options?: JsonOptions
+    ): { amounts: number | number[]; toJSON(options?: JsonOptions): unknown };
+  };
 };
 
 const source = `namespace publicApi
@@ -34,6 +40,8 @@ type Quote:
  currency string (1..1)
 type Portfolio:
  quotes Quote (1..*)
+type Series:
+ amounts number (1..*)
 type Lookalike:
  amount number (1..1)
  currency string (1..1)
@@ -140,6 +148,34 @@ Child.from({ value: 1 });
     expect(JSON.stringify(exact.toJSON({ format: 'RUNE_JSON', preserveNumberText: true }))).toContain('"amount":5.00');
     expect(Reflect.set(exact, 'amount', 5)).toBe(true);
     expect(JSON.stringify(exact.toJSON({ preserveNumberText: true }))).not.toContain('5.00');
+    const numberOptions = { preserveNumberText: true };
+    const original = '{"amounts":[1.0,9007199254740993,1.00]}';
+    const edits: [string, (items: number[]) => unknown, string][] = [
+      ['index', (items) => (items[0] = 2), '[2,9007199254740993,1.00]'],
+      ['push', (items) => items.push(2), '[1.0,9007199254740993,1.00,2]'],
+      ['pop', (items) => items.pop(), '[1.0,9007199254740993]'],
+      ['shift', (items) => items.shift(), '[9007199254740993,1.00]'],
+      ['unshift', (items) => items.unshift(2), '[2,1.0,9007199254740993,1.00]'],
+      ['splice', (items) => items.splice(0, 1, 1, 2), '[1,2,9007199254740993,1.00]'],
+      ['fill', (items) => items.fill(1, 0, 1), '[1,9007199254740993,1.00]'],
+      ['copyWithin', (items) => items.copyWithin(1, 0, 1), '[1.0,1.0,1.00]'],
+      ['reverse', (items) => items.reverse(), '[1.00,9007199254740993,1.0]'],
+      ['sort', (items) => items.sort((a, b) => a - b), '[1.0,1.00,9007199254740993]'],
+      ['default sort', (items) => items.sort(), '[1.0,1.00,9007199254740993]'],
+      ['length', (items) => (items.length = 2), '[1.0,9007199254740993]']
+    ];
+    for (const [name, edit, expected] of edits) {
+      const series = api.Series.fromJSON(original, numberOptions);
+      const items = series.amounts;
+      if (!Array.isArray(items)) throw new Error('Expected a projected list');
+      edit(items);
+      expect(JSON.stringify(series.toJSON(numberOptions)), name).toBe(`{"amounts":${expected}}`);
+    }
+    const bounded = api.Series.fromJSON(original, numberOptions);
+    const amounts = bounded.amounts;
+    if (!Array.isArray(amounts)) throw new Error('Expected a projected list');
+    expect(() => amounts.splice(0)).toThrow(/expected 1/);
+    expect(JSON.stringify(bounded.toJSON(numberOptions))).toBe(original);
     expect(() => api.Quote.fromJSON({ '@type': 'other.Quote', ...input }, { format: 'RUNE_JSON' })).toThrow(
       /not assignable/
     );
