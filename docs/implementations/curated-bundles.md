@@ -75,6 +75,8 @@ load numbers as `Decimal` or consume the same normalized number metadata.
 Prototype's JSON and Rune JSON object imports preserve number text on browsers
 with exact JSON number support. Function input validation selects the linked
 concrete type and retains number text when converting inputs for execution.
+Edits discard the changed value's original spelling and retain untouched
+list items' text. Rune value equality compares the numeric values.
 Ordinary target numbers use their canonical spelling.
 Exact text requires a JSON object or array when the scalar's spelling differs
 from its ordinary numeric representation.

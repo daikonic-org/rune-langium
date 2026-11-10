@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { RUNE_JSON_NUMBER_TEXT_FIELD } from '@rune-langium/core/serialization';
+
 /** Compare typed objects or Temporal values without calling equals on an absent operand. */
 export function methodEqualityPredicate(left = 'left', right = 'right'): string {
   return `${left} == null || ${right} == null ? ${left} == null && ${right} == null : ${left}.equals(${right})`;
@@ -27,7 +29,7 @@ export function valueEqualitySource(
   const tag = Object.prototype.toString.call(value);
   if (/^\\[object Temporal\\.(PlainDate|PlainTime|PlainDateTime|ZonedDateTime|Instant|PlainYearMonth|PlainMonthDay|Duration)\\]$/.test(tag)) return tag + ':' + String(value);
   const fields = value${fields};
-  return 'object:' + JSON.stringify(Object.keys(fields).sort().filter((key) => fields[key] != null).map((key) => [key, runeValueKey(fields[key])]));
+  return 'object:' + JSON.stringify(Object.keys(fields).sort().filter((key) => key !== ${JSON.stringify(RUNE_JSON_NUMBER_TEXT_FIELD)} && fields[key] != null).map((key) => [key, runeValueKey(fields[key])]));
 };
 ${prefix}const rune = {
   equals: (left${valueType}, right${valueType}, quantifier${typescript ? "?: 'all' | 'any'" : ' = undefined'}, unequal = false)${typescript ? ': boolean' : ''} => {

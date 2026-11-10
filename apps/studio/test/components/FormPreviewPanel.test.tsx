@@ -7,6 +7,7 @@ import { StrictMode, useRef } from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
+import { parseProjectPayload, serializeProjectPayload } from '@rune-langium/core/serialization';
 import { FormPreviewPanel } from '../../src/components/FormPreviewPanel.js';
 import { usePreviewStore } from '../../src/store/preview-store.js';
 import { useOutputStore } from '../../src/store/output-store.js';
@@ -838,6 +839,40 @@ describe('FormPreviewPanel', () => {
   });
 
   describe('controlled mode (values/onValuesChange props)', () => {
+    it('retains exact decimal text for untouched list items on edit and removal', () => {
+      const schema: FormPreviewSchema = {
+        schemaVersion: 1,
+        targetId: 'test.preview.ExactAmounts',
+        title: 'Exact amounts',
+        status: 'ready',
+        fields: [
+          {
+            path: 'amounts',
+            label: 'Amounts',
+            kind: 'array',
+            required: true,
+            children: [{ path: 'amounts[]', label: 'Amount', kind: 'number', required: true }]
+          }
+        ]
+      };
+      const options = { preserveNumberText: true };
+      const initial = parseProjectPayload('{"amounts":[1.00,9007199254740993]}', 'JSON', options);
+      if (!initial || typeof initial !== 'object' || !('amounts' in initial))
+        throw new Error('Missing imported amounts');
+      const onValuesChange = vi.fn();
+      const panel = (values: Record<string, unknown>) => (
+        <FormPreviewPanel schema={schema} status={{ state: 'ready' }} values={values} onValuesChange={onValuesChange} />
+      );
+      const exact = (data: unknown) => serializeProjectPayload(data, 'JSON', options).replaceAll(/\s/g, '');
+      const { rerender } = render(panel(initial));
+      fireEvent.change(screen.getByLabelText('Amount 1'), { target: { value: '2' } });
+      const edited = onValuesChange.mock.lastCall![0];
+      expect(exact(edited)).toBe('{"amounts":[2,9007199254740993]}');
+      rerender(panel(edited));
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Amount 1' }));
+      expect(exact(onValuesChange.mock.lastCall![0])).toBe('{"amounts":[9007199254740993]}');
+    });
+
     it('resets ISO editing across temporal format changes while retaining it for value edits', () => {
       const schema: FormPreviewSchema = {
         schemaVersion: 1,

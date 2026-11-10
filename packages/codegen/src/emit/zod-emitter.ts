@@ -32,7 +32,7 @@ import {
   type RosettaExternalFunction,
   type TypeCall
 } from '@rune-langium/core';
-import { isRuneJsonAssignableType } from '@rune-langium/core/serialization';
+import { isRuneJsonAssignableType, RUNE_JSON_NUMBER_TEXT_FIELD } from '@rune-langium/core/serialization';
 import { resolveImportPath, type NamespaceRegistry } from './namespace-registry.js';
 import { emitNamespaceWithContract, type NamespaceEmitterOptions } from './namespace-emitter.js';
 import {
@@ -102,7 +102,7 @@ interface EmissionContext {
   builtinTypeMap: Readonly<Record<string, string>>;
 }
 
-const inputNumberText = "'@numberText': z.unknown().optional()";
+const inputNumberText = `${JSON.stringify(RUNE_JSON_NUMBER_TEXT_FIELD)}: z.unknown().optional()`;
 const inputMetadataFields = ["  '@type': z.string().optional()", `  ${inputNumberText}`];
 
 /**
