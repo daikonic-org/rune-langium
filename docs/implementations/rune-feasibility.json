@@ -43,6 +43,7 @@
     "packages/project-runtime/src/curated-implementations/rune/frequency.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-market-rates.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/get-non-business-dates.rosetta",
+    "packages/project-runtime/src/curated-implementations/rune/process-compound-index-reset.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/gregorian.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/index-value-observation.rosetta",
     "packages/project-runtime/src/curated-implementations/rune/interpolate-forward-rate.rosetta",
@@ -620,8 +621,10 @@
         "name": "ProcessFloatingRateReset"
       },
       "signatureSha256": "71b60e3b112027ce69e1a59d2b354c86f6cbc6e17430918164f3384eb8788798",
-      "route": "upstream-variants",
-      "requirements": "Five selectors, four with bodies; CompoundIndex has no body. Follow rate/metadata/calendar/vector dependencies."
+      "route": "rune-source",
+      "requirements": "Four preserved upstream selectors plus an owned CompoundIndex selector. The added branch reuses the original index formula with observations at the adjusted period endpoints. RefBanks requires a separate manual determination.",
+      "implementation": "packages/project-runtime/src/curated-implementations/rune/process-compound-index-reset.rosetta",
+      "implementationDispatch": ["processingType", "FloatingRateIndexProcessingTypeEnum", "CompoundIndex"]
     },
     {
       "symbol": {

@@ -133,6 +133,7 @@ import {
   functionOutput,
   buildFuncCallGraph,
   findCyclicFuncs,
+  deferredRecursiveAliases,
   topoSortFuncs,
   resolveFuncTypeTs,
   resolveFuncValueTypeTs,
@@ -1972,6 +1973,10 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       attributeTypes.set(p.name, p.typeName + (many ? '[]' : p.cardinality.lower === 0 ? ' | undefined' : ''));
     }
     attributeTypes.set(func.output.name, TsNamespaceEmitter.buildFuncOutputType(func));
+    const deferredAliases = deferredRecursiveAliases(func.source);
+    const aliasReads = [...aliasBindings].map(
+      ([name, binding]) => [name, deferredAliases.has(name) ? `${binding}()` : binding] as const
+    );
 
     return {
       selfName: parameterBindings.values().next().value ?? 'undefined',
@@ -1981,7 +1986,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       typeName: func.name,
       attributeTypes,
       diagnostics,
-      localBindings: new Map([...parameterBindings, [func.output.name, result], ...aliasBindings]),
+      localBindings: new Map([...parameterBindings, [func.output.name, result], ...aliasReads]),
       localMetadata: new Map(
         func.aliases.map((alias) => {
           const expression = alias.exprNode as RosettaExpression;
@@ -1998,6 +2003,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       currentFunc: func,
       outputAccumulator: isArray ? 'array' : 'scalar',
       aliasBindings,
+      deferredAliases,
       callGraph
     };
   }
@@ -2023,6 +2029,7 @@ export class TsNamespaceEmitter extends BaseNamespaceEmitter {
       ...ctx,
       preserveMetadata: !!ctx.localMetadata?.get(alias.name)
     });
+    if (ctx.deferredAliases.has(alias.name)) return `  const ${localName} = () => (${exprStr});`;
     return `  ${mutable ? 'let' : 'const'} ${localName} = ${exprStr};`;
   }
 

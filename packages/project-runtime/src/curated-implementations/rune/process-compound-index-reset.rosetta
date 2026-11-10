@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+override namespace cdm.product.asset.floatingrate
+version "1.0.0"
+
+import cdm.base.datetime.DateDifference
+import cdm.observable.asset.calculatedrate.*
+import cdm.product.asset.FloatingRateSpecification
+
+func ProcessFloatingRateReset(processingType: FloatingRateIndexProcessingTypeEnum -> CompoundIndex):
+    alias specification: interestRatePayout -> rateSpecification as FloatingRateSpecification
+    alias startDate: calcPeriod -> adjustedStartDate
+    alias endDate: calcPeriod -> adjustedEndDate
+    alias dates: [startDate, endDate]
+    alias indexLevels: IndexValueObservationMultiple(dates, specification -> rateOption)
+    alias accrualDays: DateDifference(startDate, endDate) + 1
+    alias rate:
+        ApplyCompoundedIndexFormula(
+            indexLevels first,
+            indexLevels last,
+            interestRatePayout -> dayCountFraction,
+            accrualDays
+        )
+
+    set floatingRate: FloatingRateSettingDetails {
+        floatingRate: rate,
+        calculationDetails: CalculatedRateDetails {
+            calculatedRate: rate,
+            observations: CalculatedRateObservations {
+                observationDates: dates,
+                observedRates: indexLevels,
+                ...
+            },
+            ...
+        },
+        ...
+    }

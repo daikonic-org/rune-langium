@@ -1,0 +1,50 @@
+[
+  {
+    "id": "screen rate on the start date",
+    "selector": "Screen",
+    "expectedRate": 0.03,
+    "resetDate": "2024-06-03",
+    "observationDate": "2024-06-03"
+  },
+  {
+    "id": "screen rate with a preceding business-day fixing",
+    "selector": "Screen",
+    "fixingOffset": -1,
+    "resetRelativeTo": "CalculationPeriodEndDate",
+    "expectedRate": 0.05,
+    "resetDate": "2024-06-06",
+    "observationDate": "2024-06-05"
+  },
+  {
+    "id": "overnight compounding",
+    "selector": "OIS",
+    "expectedRate": 0.04000435200621766,
+    "expectedGrowth": 1.0003333696000518
+  },
+  {
+    "id": "overnight arithmetic average",
+    "selector": "OvernightAvg",
+    "expectedRate": 0.04
+  },
+  {
+    "id": "deal-specific modular average",
+    "selector": "Modular",
+    "expectedRate": 0.04
+  },
+  {
+    "id": "compounded index uses both adjusted period endpoints",
+    "selector": "CompoundIndex",
+    "expectedRate": 0.27
+  },
+  {
+    "id": "compound index without market observations",
+    "selector": "CompoundIndex",
+    "missingIndex": true,
+    "expectedError": "MarketObservationMissing"
+  },
+  {
+    "id": "reference banks has no selector body",
+    "selector": "RefBanks",
+    "expectedError": "not_implemented|Native binding required"
+  }
+]

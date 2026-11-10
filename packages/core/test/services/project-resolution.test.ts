@@ -124,6 +124,34 @@ it('rejects an incomplete native function dispatch override', async () => {
   ).toBe(true);
 });
 
+it('replaces only the named selector while retaining the original base and siblings', async () => {
+  const { docs } = await namespaceOverrides([
+    `namespace upstream
+enum Kind:
+  Cash
+  Loan
+func Compute:
+  inputs:
+    kind Kind (1..1)
+    amount number (1..1)
+  output: result number (1..1)
+  set result: amount
+func Compute(kind: Kind -> Cash):
+  set result: amount + 1
+func Compute(kind: Kind -> Loan):`,
+    `override namespace upstream
+func Compute(kind: Kind -> Loan):
+  set result: amount + 2`
+  ]);
+  expect(docs.flatMap((doc) => doc.diagnostics ?? []).filter((issue) => issue.severity === 1)).toEqual([]);
+  const models = docs.map((doc) => doc.parseResult.value as RosettaModel).filter((model) => model.name === 'upstream');
+  const [, base, cash, loan] = models.find((model) => !model.overridden)!.elements;
+  const [replacement] = models.find((model) => model.overridden)!.elements;
+  expect(getEffectiveProjectDeclaration(base!)).toBe(base);
+  expect(getEffectiveProjectDeclaration(cash!)).toBe(cash);
+  expect(getEffectiveProjectDeclaration(loan!)).toBe(replacement);
+});
+
 it('accepts a complete native dispatch override while retaining its shared enum', async () => {
   const family = (base: number, branch: number) =>
     `func Compute:\n inputs: kind Kind (1..1)\n output: result number (1..1)\n set result: ${base}\nfunc Compute(kind: Kind -> Cash):\n set result: ${branch}`;

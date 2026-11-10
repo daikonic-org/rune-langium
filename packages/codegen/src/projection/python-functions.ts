@@ -16,6 +16,7 @@ import {
   type Attribute
 } from '@rune-langium/core';
 import {
+  deferredRecursiveAliases,
   extractFuncs,
   functionInputs,
   functionOutput,
@@ -377,6 +378,7 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
       `${parameters.get(input)} = rune.cardinality(${parameters.get(input)}, ${input.card.inf}, ${input.card.unbounded ? 'None' : (input.card.sup ?? 1)}, ${pyString(`Argument '${input.name}'`)})`
     );
   const bodyStart = lines.length;
+  const deferredAliases = deferredRecursiveAliases(func);
   const conditionFailureLines = new Set<number>();
   const outputType = pythonFieldType(output, context);
   const accumulatorType = outputMany || outputType.includes(' | None') ? outputType : `${outputType} | None`;
@@ -385,8 +387,9 @@ export function projectPythonFunction(func: RosettaFunction, context: PythonProj
     if (renderContext.countedReductions?.omittedAliases.has(alias)) continue;
     const local = identifier(alias.name, used);
     const text = renderPythonExpression(alias.expression, { ...renderContext, preserveMetadata: true });
-    lines.push(`${local} = ${text}`);
-    locals.set(alias, local);
+    const deferred = deferredAliases.has(alias.name);
+    lines.push(`${local} = ${deferred ? 'lambda: ' : ''}${text}`);
+    locals.set(alias, deferred ? `${local}()` : local);
     roots.set(alias.name, local);
   }
   const check = (condition: Condition) => {
