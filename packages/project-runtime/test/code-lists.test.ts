@@ -12,7 +12,8 @@ import {
 import { createProjectSnapshot } from '@rune-langium/project-config';
 import { isRosettaModel, isRosettaEnumeration } from '@rune-langium/core';
 import { buildEffectiveProject } from '../src/effective-project.js';
-import { decodeProjectCodeList, readReferenceCodeList } from '../src/code-lists.js';
+import { decodeProjectCodeList } from '../src/code-lists.js';
+import { readReferenceCodeList } from '../src/read-reference-code-list.js';
 import { prepareCdmCodeLists } from '../src/curated-implementations/code-list-resources.js';
 import { resolveProjectResource } from '../src/resources.js';
 const base = new URL('../../../test/fixtures/third-party/cdm-codelists/', import.meta.url);

@@ -3,17 +3,17 @@
 
 import { beforeAll, expect, it } from 'vitest';
 import { isRosettaEnumeration, isRosettaModel } from '@rune-langium/core';
-import { buildEffectiveProject } from '../../../project-runtime/src/effective-project.js';
+import { buildEffectiveProject } from '../src/effective-project.js';
 import {
   codeListCases,
   codeListDeclarations,
   createCuratedCodeListProject,
   expectedCodeListResult
-} from '../../../../test/helpers/cdm-code-list-loader.js';
-import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../../test/helpers/vitest-budget.js';
-import { generatePreviewSchemas, generatePythonModule, generateSelected } from '../../src/export.js';
-import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
-import { runPython } from '../projection/python-test-utils.js';
+} from '../../../test/helpers/cdm-code-list-loader.js';
+import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../test/helpers/vitest-budget.js';
+import { generatePreviewSchemas, generatePythonModule, generateSelected } from '@rune-langium/codegen/export';
+import { compileGeneratedTypeScript } from '../../codegen/test/helpers/compiled-typescript.js';
+import { runPython } from '../../codegen/test/projection/python-test-utils.js';
 
 let graph: Awaited<ReturnType<typeof buildEffectiveProject>>;
 beforeAll(async () => {

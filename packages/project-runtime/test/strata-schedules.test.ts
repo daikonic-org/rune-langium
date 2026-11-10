@@ -3,16 +3,16 @@
 
 import { beforeAll, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
-import { buildEffectiveProject } from '../../../project-runtime/src/effective-project.js';
+import { buildEffectiveProject } from '../src/effective-project.js';
 import {
   createCuratedScheduleProject,
   scheduleCases,
   scheduleDeclarations
-} from '../../../../test/helpers/cdm-strata-schedules.js';
-import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../../test/helpers/vitest-budget.js';
-import { generatePythonModule, generateSelected } from '../../src/export.js';
-import { compileGeneratedTypeScript } from '../helpers/compiled-typescript.js';
-import { runPython } from '../projection/python-test-utils.js';
+} from '../../../test/helpers/cdm-strata-schedules.js';
+import { GENERATED_MODULE_TEST_TIMEOUT } from '../../../test/helpers/vitest-budget.js';
+import { generatePythonModule, generateSelected } from '@rune-langium/codegen/export';
+import { compileGeneratedTypeScript } from '../../codegen/test/helpers/compiled-typescript.js';
+import { runPython } from '../../codegen/test/projection/python-test-utils.js';
 
 let graph: Awaited<ReturnType<typeof buildEffectiveProject>>;
 beforeAll(async () => {

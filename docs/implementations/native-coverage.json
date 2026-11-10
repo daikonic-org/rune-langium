@@ -3772,7 +3772,7 @@
         "variants": []
       },
       "regressionSuite": {
-        "path": "packages/codegen/test/implementations/code-list-loader.test.ts",
+        "path": "packages/project-runtime/test/code-list-loader.test.ts",
         "cases": "test/fixtures/third-party/cdm-code-list-loader/cases.json",
         "casesSha256": "47a93ae272df1101e7277a94f591dc77e133ba6c348c6051641b5bc06fd0b560",
         "selectors": [],
@@ -7579,7 +7579,7 @@
         "variants": []
       },
       "regressionSuite": {
-        "path": "packages/codegen/test/implementations/strata-schedules.test.ts",
+        "path": "packages/project-runtime/test/strata-schedules.test.ts",
         "cases": "test/fixtures/third-party/cdm-strata-schedules/cases.json",
         "casesSha256": "9a61a38169bbfbbcd25448e613beb3e5e40efb17d73d417e78a02c424ba24c2f",
         "selectors": [],
@@ -7736,7 +7736,7 @@
         "variants": []
       },
       "regressionSuite": {
-        "path": "packages/codegen/test/implementations/strata-schedules.test.ts",
+        "path": "packages/project-runtime/test/strata-schedules.test.ts",
         "cases": "test/fixtures/third-party/cdm-strata-schedules/cases.json",
         "casesSha256": "9a61a38169bbfbbcd25448e613beb3e5e40efb17d73d417e78a02c424ba24c2f",
         "selectors": [],
