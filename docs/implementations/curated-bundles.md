@@ -70,6 +70,13 @@ resource hashes and the original license and notice remain in the inventory and
 archive. See the [pinned code-list fixture](../../test/fixtures/third-party/cdm-code-list-loader/README.md)
 for the Java comparisons and the supported metadata-only case.
 
+The same prepared catalog also produces Rune enums in `rune.resources.cdm`.
+Each populated list is a read-only source document with its pinned JSON path,
+scheme URI and list version. These documents travel in the normal serialized
+workspace and namespace artifacts. Core links their wire-value synonyms to the
+shared `rune.resources.CodeList` source. Projects can import those enum types
+directly, and existing local resource mappings can use the same synonym source.
+
 ## Workspace installation
 
 Studio's locked-project activation and reference prepare/accept flows copy Rune files **out of the verified

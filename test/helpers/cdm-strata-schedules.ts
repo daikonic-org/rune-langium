@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { prepareCdmCodeLists } from '../../packages/project-runtime/src/curated-implementations/code-list-resources.js';
-import { createCuratedRuneProject } from './curated-rune-project.js';
+import { createCuratedRuneProject, curatedFixtureResources } from './curated-rune-project.js';
 
 const directory = resolve(import.meta.dirname, '../fixtures/third-party/cdm-strata-schedules');
 const manifest: {
   declarations: { namespace: string; name: string; kind: 'RosettaFunction' }[];
-  references: { name: string; sha256: string; upstream: { path: string } }[];
 } = JSON.parse(readFileSync(resolve(directory, 'sources.json'), 'utf8'));
 export const scheduleDeclarations = manifest.declarations;
 export const scheduleCases: {
@@ -59,13 +57,9 @@ func ListMonthlyPeriods:
 };
 
 export function createCuratedScheduleProject() {
-  const resources = manifest.references
-    .filter(({ name }) => name.startsWith('resources/'))
-    .map(({ name, upstream, sha256 }) => {
-      const content = readFileSync(resolve(directory, name), 'utf8');
-      if (createHash('sha256').update(content).digest('hex') !== sha256)
-        throw new Error('Pinned resource changed: ' + name);
-      return { path: upstream.path, content };
-    });
-  return createCuratedRuneProject(directory, scheduleCaller, prepareCdmCodeLists(resources));
+  return createCuratedRuneProject(
+    directory,
+    scheduleCaller,
+    prepareCdmCodeLists([...curatedFixtureResources(directory).values()])
+  );
 }

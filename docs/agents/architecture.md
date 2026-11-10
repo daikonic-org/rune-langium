@@ -1443,10 +1443,17 @@ generation-local declaration identity registry.
 
 ### Materialized code-list enums
 
+Curated publication renders populated CDM lists as Rune sources in
+`rune.resources.cdm` from the same pinned catalog used by `LoadCodeList`. The
+ordinary serialized bundle and namespace graph carry these reference enums and
+their shared `rune.resources.CodeList` synonym source. Each derived file records
+its upstream path, scheme and version.
+
 After linking and validating explicit resource bindings, project-runtime prepares
 non-empty lists as ordinary enum documents in `rune.resources` and rebinds only
 the mapped alias's type reference through Langium. It preserves snapshot bytes,
-receipts, declaration identities and constrained-alias guards. Core's
+receipts, declaration identities and constrained-alias guards, and reuses the
+curated synonym source when the reference is installed. Core's
 `getEnumValueLiteral` interprets the exact `rune.resources.CodeList` synonym;
 identifier sanitization and presentation labels must never change external codes.
 All enum consumers, including expression conversions and Python projections, use

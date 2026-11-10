@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Pradeep Mouli
+namespace impl.cdm.calendar
+version "1.0.0"
+
+import com.opengamma.strata.basics.date.*
+
+func NonBusinessDatesInPeriod:
+    inputs:
+        centers string (0..*)
+        startDate date (1..1)
+        endDate date (1..1)
+    output: closedDates date (0..*)
+
+    alias firstDay: CalendarDay(startDate)
+    alias lastDay: CalendarDay(endDate)
+    alias calendars: CoveredHolidayCalendars(centers, firstDay, lastDay)
+    alias weekends: CalendarDayRange(firstDay, lastDay) filter [CalendarWeekend(item, calendars)]
+    alias holidays: CalendarHolidays(calendars) filter [item >= firstDay and item <= lastDay]
+    set closedDates: [weekends, holidays] distinct then sort then extract [CalendarDate(item)]
+
+func NonBusinessDatesInList:
+    inputs:
+        centers string (0..*)
+        dates date (1..*)
+    output: closedDates date (0..*)
+
+    alias days: dates extract [CalendarDay(item)] then sort
+    alias calendars: CoveredHolidayCalendars(centers, days first, days last)
+    alias holidays: CalendarHolidays(calendars)
+    set closedDates:
+        dates filter [CalendarWeekend(CalendarDay(item), calendars) or (holidays contains CalendarDay(item))]

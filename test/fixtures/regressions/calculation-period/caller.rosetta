@@ -5,14 +5,16 @@ import cdm.base.datetime.*
 import cdm.product.common.schedule.*
 import cdm.observable.asset.calculatedrate.*
 
-// Exercise the real pinned dispatch closure with explicitly supplied test calendars.
+// Exercise the pinned dispatch with a published calendar or the synthetic test calendars.
 func FixingPeriod:
     inputs:
         start date (1..1)
         end date (1..1)
         offset int (1..1)
+        calendar string (0..1)
     output:
         result CalculationPeriodBase (1..1)
+    alias centers: if calendar exists then [calendar] else ["TEST_A", "TEST_B"]
     set result: ComputeCalculationPeriod(
         CalculationPeriodBase {adjustedStartDate: start, adjustedEndDate: end},
         [],
@@ -26,7 +28,7 @@ func FixingPeriod:
             },
             resetDatesAdjustments: BusinessDayAdjustments {
                 businessDayConvention: BusinessDayConventionEnum -> NONE,
-                businessCenters: BusinessCenters {businessCenter: ["TEST_A", "TEST_B"]}
+                businessCenters: BusinessCenters {businessCenter: centers}
             }
         }
     )

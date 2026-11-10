@@ -61,7 +61,8 @@ const testSuites = {
   },
   'packages/project-runtime/test': {
     'cdm-code-list-loader': 'code-list-loader',
-    'cdm-strata-schedules': 'strata-schedules'
+    'cdm-strata-schedules': 'strata-schedules',
+    'cdm-business-calendars': 'business-calendars'
   }
 };
 const dispatchSuites = await Promise.all(

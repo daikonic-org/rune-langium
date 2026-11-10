@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createProjectDraftSnapshot } from '../../packages/project-config/src/index.js';
@@ -11,6 +12,7 @@ import {
 } from '../../packages/project-runtime/src/references/index.js';
 import { prepareCuratedImplementationSources } from '../../packages/project-runtime/src/curated-implementations/install.js';
 import type { CdmCodeListCatalog } from '../../packages/project-runtime/src/curated-implementations/code-list-resources.js';
+import { curatedCdmCodeListSources } from '../../packages/project-runtime/src/curated-implementations/code-list-enums.js';
 import { referenceModelSources } from '../../packages/codegen/test/helpers/cdm-reference.js';
 import { createReferenceArtifacts, repository } from './project-reference-artifacts.js';
 
@@ -21,9 +23,14 @@ export async function createCuratedRuneProject(
   codeLists?: CdmCodeListCatalog
 ) {
   const modelSources = referenceModelSources(directory);
-  const manifest: { sources: { model: string; release: string }[] } = JSON.parse(
+  const manifest: { sources: { model: string; release: string; commit: string }[] } = JSON.parse(
     readFileSync(resolve(directory, 'sources.json'), 'utf8')
   );
+  if (codeLists) {
+    const cdm = manifest.sources.find((source) => source.model === 'cdm');
+    if (!cdm) throw new Error('Missing pinned CDM code-list source.');
+    modelSources.cdm = [...(modelSources.cdm ?? []), ...curatedCdmCodeListSources(codeLists, cdm.commit)];
+  }
   const version = (model: string) => {
     const found = manifest.sources.find((source) => source.model === model)?.release;
     if (!found) throw new Error('Missing pinned fixture release: ' + model);
@@ -70,4 +77,21 @@ export async function createCuratedRuneProject(
   if (prepared.diagnostics.length) throw new Error(JSON.stringify(prepared.diagnostics));
   const installed = await createProjectDraftSnapshot(snapshot, prepared.changes, () => []);
   return { fixture, references: loaded.documents, snapshot, installed, changes: prepared.changes };
+}
+
+/** Read the exact upstream resource bytes used when publishing a fixture bundle. */
+export function curatedFixtureResources(directory: string) {
+  const manifest: { references: { name: string; sha256: string; upstream: { path: string } }[] } = JSON.parse(
+    readFileSync(resolve(directory, 'sources.json'), 'utf8')
+  );
+  return new Map(
+    manifest.references
+      .filter(({ name }) => name.startsWith('resources/'))
+      .map(({ name, upstream, sha256 }) => {
+        const content = readFileSync(resolve(directory, name), 'utf8');
+        if (createHash('sha256').update(content).digest('hex') !== sha256)
+          throw new Error('Pinned resource changed: ' + name);
+        return [name, { path: upstream.path, content }];
+      })
+  );
 }

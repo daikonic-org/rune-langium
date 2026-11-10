@@ -1,10 +1,10 @@
 # Calculation-period execution evidence
 
-This is a bounded continuation of #646, not a production calendar integration.
+This is a bounded continuation of #646.
 The [pinned closure](../../test/fixtures/third-party/cdm-calculation-period/README.md)
 preserves CDM 7.9.0's three `ComputeCalculationPeriod` dispatch bodies and their
 actual dependencies. The inventory retains its single upstream Rune implementation
-path; no duplicate TypeScript/Python algorithm or curated calendar is added.
+path. The FixingDate selector uses the calendar supplied by the project.
 
 | Selector | Preserved behavior | Required data |
 | --- | --- | --- |
@@ -31,11 +31,11 @@ the missing provider. The preview marks the provider itself unavailable.
 The owned [test calendar](../../test/fixtures/regressions/calculation-period/calendars.rosetta)
 is an ordinary Rune namespace override, never a bundled implementation. `TEST_A`
 and `TEST_B` are synthetic centers with explicitly listed dates. Its empty `GBLO`
-branch is only for the finite dates in the upstream Java test; it is not a London
-holiday calendar. Unknown centers fail a named condition. Prototype's regression
-journey uses a verified, publication-produced multi-document bundle for the
-upstream closure and Rune date helpers, with the calendar supplied as editable
-workspace Rune source.
+branch covers only the dates in the upstream Java test. Unknown centers fail a
+named condition. Prototype's regression journey instead installs the
+[published Strata business calendar](business-calendars.md) and executes the
+upstream closure over the London Christmas, Boxing Day and New Year's Day
+holidays.
 
 The managed Prototype journey also exposed a shared declaration-selection bug:
 a caller reached only the abstract default of a transitive dispatch family.
@@ -54,7 +54,8 @@ the existing profile and expression-presence machinery without casts.
 The curated bundle installs four calendar overrides under the original
 `cdm.base.datetime` names. `DateDifference` uses Rune date subtraction.
 `impl.cdm.calendar` provides the bounded 400-year era calculation for
-`AddDays` and a signed leap-year day prefix. Same-month offsets that land
+`AddDays` and a signed leap-year day prefix. Integer division doubles the
+divisor only as far as the quotient requires. Same-month offsets that land
 on days 1–28 construct the date directly. `DayOfWeek` checks seven possible
 remainders from a known Monday. The original TypeScript/Python payloads remain
 readable in previously published bundles.

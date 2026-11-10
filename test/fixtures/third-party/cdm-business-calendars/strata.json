@@ -1,0 +1,74 @@
+{
+  "coordinate": "com.opengamma.strata:strata-basics:2.12.78",
+  "commit": "4268382ba38cad9f08cad64774afb21111c8ba54",
+  "artifacts": [
+    {
+      "name": "strata-basics-2.12.78.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/2.12.78/strata-basics-2.12.78.jar",
+      "runtime": true,
+      "sha256": "d1b97d31dc5d92bfac6f575b87f9f8005e8663a7905b41d118ea372783a11121"
+    },
+    {
+      "name": "strata-basics-2.12.78-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-basics/2.12.78/strata-basics-2.12.78-sources.jar",
+      "runtime": false,
+      "sha256": "7d15580813e75edf92922eea55c0f42a984898632ceea427316ae25d11e23fb5"
+    },
+    {
+      "name": "strata-collect-2.12.78.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/opengamma/strata/strata-collect/2.12.78/strata-collect-2.12.78.jar",
+      "runtime": true,
+      "sha256": "cb7fb3f72d252e7377774e3c3929999a75817c1f8eccc2c7a2170e07a9628a36"
+    },
+    {
+      "name": "guava-33.4.0-jre.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.4.0-jre/guava-33.4.0-jre.jar",
+      "runtime": true,
+      "sha256": "b918c98a7e44dbe94ebd9fe3e40cddaadb5a93e6a78eb6008b42df237241e538"
+    },
+    {
+      "name": "joda-beans-2.11.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-beans/2.11.1/joda-beans-2.11.1.jar",
+      "runtime": true,
+      "sha256": "0c0847347fdb1ad0994833c71337ce608cafb30498bdf21dff1a45633d6bfdad"
+    },
+    {
+      "name": "joda-convert-2.2.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/joda/joda-convert/2.2.3/joda-convert-2.2.3.jar",
+      "runtime": true,
+      "sha256": "b490286aecdb3f63a850c1f26f63c6e30a91f2447baf8acc30d9c3ff6574eba5"
+    }
+  ],
+  "files": [
+    {
+      "name": "packages/project-runtime/src/curated-implementations/rune/strata-holiday-LICENSE.txt",
+      "artifact": "strata-basics-2.12.78-sources.jar",
+      "entry": "META-INF/LICENSE.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "name": "packages/project-runtime/src/curated-implementations/rune/strata-holiday-NOTICE.txt",
+      "artifact": "strata-basics-2.12.78-sources.jar",
+      "entry": "META-INF/NOTICE.txt",
+      "sha256": "0dd2a6eb5fb7ae15dfc893a81aaef2db5c66de20fb205730f8e9bbfbe905f1e2"
+    },
+    {
+      "name": "test/fixtures/third-party/cdm-business-calendars/java/GlobalHolidayCalendars.java",
+      "artifact": "strata-basics-2.12.78-sources.jar",
+      "entry": "com/opengamma/strata/basics/date/GlobalHolidayCalendars.java",
+      "sha256": "f2f6dc93f736640b9798f6652ff20461609010700294406d665c4d4c0a718d6b"
+    },
+    {
+      "name": "test/fixtures/third-party/cdm-business-calendars/java/ImmutableHolidayCalendar.java",
+      "artifact": "strata-basics-2.12.78-sources.jar",
+      "entry": "com/opengamma/strata/basics/date/ImmutableHolidayCalendar.java",
+      "sha256": "f935581d69576a51e143b79ad873c645f5c7ec46e90eb74a7670d3e01762a647"
+    },
+    {
+      "name": "test/fixtures/third-party/cdm-business-calendars/resources/HolidayCalendarData.ini",
+      "artifact": "strata-basics-2.12.78-sources.jar",
+      "entry": "META-INF/com/opengamma/strata/config/base/HolidayCalendarData.ini",
+      "sha256": "fc0ad6df92dc0fef22286e87a16d9fa23da3b2697e7afb48df361fbd7bb4d267"
+    }
+  ]
+}

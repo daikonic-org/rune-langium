@@ -11,14 +11,15 @@ func GregorianFloorDivide: <"Integer floor division for a positive divisor and a
 
     // For negative n, floor(n/d) is -1 - floor((-1-n)/d).
     alias magnitude: if numerator >= 0 then numerator else -1 - numerator
+    alias supported: numerator >= -536870912 and numerator < 536870912 and divisor > 0
+    // Doubling the divisor computes the higher quotient bits. Recover the last bit on return.
+    alias doubledDivisor: 2 * divisor
+    alias higherBits:
+        if supported and magnitude >= doubledDivisor then GregorianFloorDivide(magnitude, doubledDivisor) else 0
+    alias evenQuotient: 2 * higherBits
     alias positiveQuotient:
-        if magnitude < divisor then 0
-        else [0, 268435456, 134217728, 67108864, 33554432, 16777216, 8388608,
-            4194304, 2097152, 1048576, 524288, 262144, 131072, 65536, 32768,
-            16384, 8192, 4096, 2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4, 2, 1]
-            reduce total, step [if (total + step) * divisor <= magnitude then total + step else total]
-    condition CalendarIntegers:
-        numerator >= -536870912 and numerator < 536870912 and divisor > 0
+        if supported and (evenQuotient + 1) * divisor <= magnitude then evenQuotient + 1 else evenQuotient
+    condition CalendarIntegers: supported
     set quotient: if numerator >= 0 then positiveQuotient else -1 - positiveQuotient
 
 func GregorianDayIndex: <"Signed days since March 1 of year zero in the proleptic Gregorian calendar.">

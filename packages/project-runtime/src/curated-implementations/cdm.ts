@@ -45,6 +45,28 @@ interface RuneImplementation {
   readonly files: readonly string[];
 }
 
+const businessCenter = {
+  name: 'businessCenter',
+  type: 'cdm.base.staticdata.codelist.BusinessCenter',
+  kind: 'RosettaTypeAlias',
+  card: [1, 1],
+  plain: true
+} as const;
+const holidayDates = {
+  name: 'holidayDates',
+  type: 'com.rosetta.model.date',
+  kind: 'RosettaRecordType',
+  card: [0, '*'],
+  plain: true
+} as const;
+const strataHolidaySources = [
+  'gregorian.rosetta',
+  'strata-holiday-calendar.rosetta',
+  'strata-holiday-data.rosetta',
+  'strata-holiday-LICENSE.txt',
+  'strata-holiday-NOTICE.txt'
+];
+
 const calculationPeriodDates = {
   name: 'calculationPeriodDates',
   type: 'cdm.product.common.schedule.CalculationPeriodDates',
@@ -68,6 +90,24 @@ const strataFrequencySources = [
 
 /** Audited publication signatures; selection never occurs in a generator. */
 const signatures: Readonly<Record<string, NativeFunctionShape>> = {
+  BusinessCenterHolidays: {
+    inputs: [businessCenter],
+    output: holidayDates
+  },
+  GetNonBusinessDates: {
+    inputs: [
+      { ...businessCenter, name: 'businessCenters', card: [0, '*'] },
+      {
+        name: 'period',
+        type: 'cdm.product.common.schedule.CalculationPeriodBase',
+        kind: 'Data',
+        card: [0, 1],
+        plain: true
+      },
+      { ...holidayDates, name: 'dates' }
+    ],
+    output: { ...holidayDates, name: 'nonBusinessDates', card: [1, '*'] }
+  },
   CalculationPeriod: {
     inputs: [
       calculationPeriodDates,
@@ -584,6 +624,22 @@ const utility = (name: keyof typeof typescriptUtilities, namespace = 'cdm.base.d
   }
 });
 export const CDM_IMPLEMENTATIONS: readonly (NativeImplementation | RuneImplementation)[] = [
+  {
+    kind: 'rune',
+    namespace: 'cdm.base.datetime',
+    name: 'BusinessCenterHolidays',
+    signature: signatures.BusinessCenterHolidays!,
+    path: 'business-center-holidays.rosetta',
+    files: ['business-center-holidays.rosetta', ...strataHolidaySources]
+  },
+  {
+    kind: 'rune',
+    namespace: 'cdm.event.instructioncomposition.reset',
+    name: 'GetNonBusinessDates',
+    signature: signatures.GetNonBusinessDates!,
+    path: 'get-non-business-dates.rosetta',
+    files: ['get-non-business-dates.rosetta', 'cdm-non-business-dates.rosetta', ...strataHolidaySources]
+  },
   ...(
     [
       {

@@ -42,6 +42,17 @@ export function decodeCuratedCdmCodeList(content: string, filenameVersion: strin
   if (!shortName || !canonicalUri) return undefined;
   return { identification: { ...identification, shortName, canonicalUri, version }, codes };
 }
+
+export function cdmCodeListValues(codes: readonly z.infer<typeof cdmCode>[]): CodeListValue[] {
+  return distinctCodeListValues(codes.map((code) => ({ ...code, label: code.value })));
+}
+
+function distinctCodeListValues(values: CodeListValue[]): CodeListValue[] {
+  if (new Set(values.map((code) => code.value)).size !== values.length)
+    throw new Error('Expected distinct code-list entries with string value and label.');
+  return values;
+}
+
 export interface CodeListExpectation {
   format: 'json' | 'cdm-json';
   canonicalUri?: string;
@@ -61,20 +72,16 @@ export function decodeProjectCodeList(
   if (expected.format === 'cdm-json') {
     const parsed = cdm.parse(raw);
     ({ canonicalUri, version } = parsed.identification);
-    values = parsed.codes.map(({ description, ...code }) => ({
-      ...code,
-      label: code.value,
-      ...(description ? { description } : {})
-    }));
+    values = cdmCodeListValues(parsed.codes);
   } else {
     const parsed = z.union([z.array(entry), z.record(entry.shape.value, entry.shape.label)]).parse(raw);
-    values = Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([value, label]) => ({ value, label }));
+    values = distinctCodeListValues(
+      Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([value, label]) => ({ value, label }))
+    );
   }
   if (expected.canonicalUri !== undefined && expected.canonicalUri !== canonicalUri)
     throw new Error('The code-list scheme URI differs from the configured identity.');
   if (expected.version !== undefined && expected.version !== version)
     throw new Error('The code-list version differs from the configured version.');
-  if (new Set(values.map((code) => code.value)).size !== values.length)
-    throw new Error('Expected distinct code-list entries with string value and label.');
   return { values, ...(canonicalUri ? { canonicalUri } : {}), ...(version ? { version } : {}) };
 }

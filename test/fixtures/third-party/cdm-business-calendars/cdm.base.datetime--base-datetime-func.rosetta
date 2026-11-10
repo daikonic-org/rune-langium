@@ -1,0 +1,13 @@
+namespace cdm.base.datetime: <"Basic date and time concepts: relative date, date range, offset, business centre etc.">
+version "${project.version}"
+
+import cdm.base.math.*
+import cdm.base.staticdata.codelist.*
+
+func BusinessCenterHolidays:
+    [codeImplementation]
+    // data provider - implementation provides dates from data source
+    inputs:
+        businessCenter BusinessCenter (1..1)
+    output:
+        holidayDates date (0..*)

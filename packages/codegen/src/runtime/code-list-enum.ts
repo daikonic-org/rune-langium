@@ -10,11 +10,13 @@ import type { CodeListValue } from '../types.js';
 export function renderCodeListEnum(
   name: string,
   values: readonly CodeListValue[],
-  options: { declareSource?: boolean } = {}
+  options: { declareSource?: boolean; namespace?: string } = {}
 ): string {
+  const namespace = options.namespace ?? CODE_LIST_ENUM_NAMESPACE;
+  const ownsSource = namespace === CODE_LIST_ENUM_NAMESPACE;
   const used = new Set<string>();
   const built = buildModel({
-    namespace: CODE_LIST_ENUM_NAMESPACE,
+    namespace,
     sourceName: CODE_LIST_ENUM_SOURCE,
     types: [],
     funcs: [],
@@ -31,8 +33,9 @@ export function renderCodeListEnum(
       }
     ]
   });
+  const source = options.declareSource === false ? undefined : built.synonymSourceDeclaration;
   return renderModel(
-    { name: CODE_LIST_ENUM_NAMESPACE, elements: built.elements },
-    { declarations: options.declareSource === false ? [] : [built.synonymSourceDeclaration] }
+    { name: namespace, elements: built.elements },
+    { declarations: [ownsSource ? source : `import ${CODE_LIST_ENUM_NAMESPACE}.*`] }
   );
 }

@@ -13,9 +13,8 @@ import { seedProjectBackingFiles, projectBackingFiles } from '../helpers/project
 import { createReferenceArtifacts } from '../../../../test/helpers/project-reference-artifacts.js';
 import { resolveProjectReferences, createMemoryReferenceCache } from '@rune-langium/project-runtime/references';
 import {
-  calculationPeriodModelSources,
-  calculationPeriodCaller,
-  calculationPeriodCalendars
+  calculationPeriodDirectory,
+  calculationPeriodCaller
 } from '../../../../test/helpers/cdm-calculation-period.js';
 import { createCuratedFrequencyProject } from '../../../../test/helpers/curated-frequency.js';
 import { createCuratedRuneProject } from '../../../../test/helpers/curated-rune-project.js';
@@ -27,6 +26,10 @@ import { calendarDirectory, calendarCaller } from '../../../../test/helpers/cdm-
 import { commodityPeriodsCaller, commodityPeriodsDirectory } from '../../../../test/helpers/cdm-commodity-periods.js';
 import { codeListCaller, createCuratedCodeListProject } from '../../../../test/helpers/cdm-code-list-loader.js';
 import { scheduleCaller, createCuratedScheduleProject } from '../../../../test/helpers/cdm-strata-schedules.js';
+import {
+  businessCalendarCaller,
+  createCuratedCalendarProject
+} from '../../../../test/helpers/cdm-business-calendars.js';
 
 async function openPublishedImplementationProject(
   page: Page,
@@ -179,6 +182,35 @@ test('selects a period and lists the schedule using the bundled Strata Rune port
 });
 
 for (const width of [1440, 390])
+  test(`executes the published holiday calendar and reports missing center data at ${width}px`, async ({
+    page
+  }, info) => {
+    await openPublishedImplementationProject(page, await createCuratedCalendarProject(), businessCalendarCaller, width);
+    await page.getByRole('button', { name: /^Choose a function/ }).click();
+    await page.getByRole('option', { name: /^FindNonBusinessDates.*example.calendars/ }).click();
+    const center = page.getByLabel('Center', { exact: true });
+    const execute = page.getByRole('button', { name: 'Execute', exact: true });
+    const output = page.getByRole('region', { name: 'result output' });
+    await center.fill('GBLO');
+    await page.getByLabel('Start Date', { exact: true }).fill('2024-12-25');
+    await page.getByLabel('End Date', { exact: true }).fill('2024-12-28');
+    await expect(execute).toBeEnabled();
+    await execute.click();
+    await expect(output).toContainText(/"2024-12-25"[\s\S]*"2024-12-26"[\s\S]*"2024-12-28"/);
+    await dismissLocalTransportNotices(page);
+    expect(
+      (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
+    ).toEqual([]);
+    await info.attach('business-calendars', {
+      body: await page.screenshot({ path: info.outputPath('business-calendars.png') }),
+      contentType: 'image/png'
+    });
+    await center.fill('AEAB');
+    await execute.click();
+    await expect(output).toContainText('SupportedBusinessCenter');
+  });
+
+for (const width of [1440, 390])
   test(`executes decimal vector operations and cumulative growth from a curated bundle at ${width}px`, async ({
     page
   }, info) => {
@@ -320,57 +352,24 @@ test('opening a locked bundle copies Rune overrides into editable project source
   await expect(page.getByRole('region', { name: 'result output' })).toContainText('true');
 });
 
-test('executes pinned FixingDate dispatch through published helpers and explicit calendar data in Prototype', async ({
+test('executes pinned FixingDate dispatch through the published business calendar in Prototype', async ({
   page
 }, info) => {
-  const fixture = await createReferenceArtifacts(
-    undefined,
-    undefined,
-    calculationPeriodModelSources(),
-    'https://www.daikonic.dev/curated',
-    true
-  );
-  const resolved = await resolveProjectReferences(
-    fixture.snapshot,
-    fixture.transport,
-    new AbortController().signal,
-    createMemoryReferenceCache()
-  );
-  expect(resolved.diagnostics).toEqual([]);
-  await page.route('https://www.daikonic.dev/curated/**', async (route) => {
-    const bytes = fixture.artifacts.get(route.request().url());
-    await route.fulfill({
-      status: bytes ? 200 : 404,
-      body: bytes ? Buffer.from(bytes) : '',
-      headers: { 'Access-Control-Allow-Origin': '*' }
-    });
-  });
-  await page.setViewportSize({ width: 1440, height: 960 });
-  await page.goto('./');
-  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
-    name: 'calculation.rosetta',
-    mimeType: 'text/plain',
-    buffer: Buffer.from('namespace example.calculation\n')
-  });
-  await expect(page.getByTestId('explore-workbench')).toBeVisible();
-  await seedProjectBackingFiles(page, {
-    ...Object.fromEntries(fixture.snapshot.files),
-    'build-config.lock.json': JSON.stringify(resolved.lock),
-    'model/calculation.rosetta': calculationPeriodCaller,
-    'model/test-calendars.rosetta': calculationPeriodCalendars.content
-  });
-  await page.getByTestId('rail-prototype').click();
+  const caller = { uri: 'file:///model/calculation.rosetta', content: calculationPeriodCaller };
+  const project = await createCuratedRuneProject(calculationPeriodDirectory, caller);
+  await openPublishedImplementationProject(page, project, caller, 1440);
   await page.getByRole('button', { name: /^Choose a function/ }).click();
   await page.getByRole('option', { name: /^FixingPeriod.*example.calculation/ }).click();
-  await page.getByLabel('Start', { exact: true }).fill('2024-03-01');
-  await page.getByLabel('End', { exact: true }).fill('2024-03-08');
+  await page.getByLabel('Start', { exact: true }).fill('2024-12-24');
+  await page.getByLabel('End', { exact: true }).fill('2024-12-31');
   await page.getByRole('spinbutton', { name: 'Offset', exact: true }).fill('1');
+  await page.getByLabel('Calendar', { exact: true }).fill('GBLO');
   const execute = page.getByRole('button', { name: 'Execute', exact: true });
   await expect(execute).toBeEnabled();
   await execute.click();
   const output = page.getByRole('region', { name: 'result output' });
-  await expect(output).toContainText('2024-03-06');
-  await expect(output).toContainText('2024-03-11');
+  await expect(output).toContainText('2024-12-27');
+  await expect(output).toContainText('2025-01-02');
   await dismissLocalTransportNotices(page);
   expect(
     (await new AxeBuilder({ page }).include('[data-testid="prototype-perspective"]').analyze()).violations
