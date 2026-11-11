@@ -1198,6 +1198,26 @@ may retain a clearly labeled previous result for matching workspace/function/inp
 but that history never re-enters session state, the current payload graph or the
 Save-as-example path.
 
+Workflow function composition uses ordinary Rune source as its only executable
+definition. Codegen's browser-safe `/rosetta` entry exposes
+`renderWorkflowFunction`: its authoring draft has typed/cardinality-aware inputs
+and output, named steps and a result expression. Core parses each expression;
+the existing Rune renderer emits steps as aliases and the result as an assignment.
+Calls, collection `extract`/`filter` and nested composition therefore share normal
+Core validation and all existing execution/export paths. There is no workflow
+interpreter or second serialized step graph.
+Studio's **Workflow builder** uses the canonical workspace type picker and linked
+preview schemas for callable signatures, including deferred curated functions.
+Creation saves a new source file and a standard recipe atomically through
+ProjectController; source-pattern checks, duplicate local function checks and
+source/config/file-list preconditions protect the working copy. Existing files
+are never overwritten. WorkspaceProvider's existing source adoption publishes
+the saved function; the library waits for canonical identity readback before
+opening it. Closing a draft discards it; workspace changes cancel UI publication
+of pending operations. Subsequent editing uses the ordinary Source/Inspector
+surfaces. Syntax-ready creation does not promise semantic type compatibility;
+the normal linked checks remain authoritative before execution.
+
 ### Editable starter copies and bound folders
 
 The starter catalog describes projects. Checked source adapters verify the commit,

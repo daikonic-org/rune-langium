@@ -18,6 +18,9 @@ import { useProject } from '../shell/providers/project-context.js';
 import { generateUlid } from '../services/ulid.js';
 import { saveWorkflow } from '../workspace/workflow-repository.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { WorkflowFunctionBuilder } from './WorkflowFunctionBuilder.js';
+import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
+import { resolveExampleType } from '../workspace/example-identity.js';
 export const WorkflowLibrary = withInstrumentation(
   function WorkflowLibrary({
     capture,
@@ -33,6 +36,9 @@ export const WorkflowLibrary = withInstrumentation(
     disabled?: boolean;
   }) {
     const project = useProject();
+    const workspace = useWorkspaceOptional();
+    const [builder, setBuilder] = useState(false);
+    const [created, setCreated] = useState<WorkflowDescriptor>();
     const read = useMemo(() => (project.snapshot ? readWorkflows(project.snapshot) : undefined), [project.snapshot]);
     const [active, setActive] = useState<string>();
     const [dialog, setDialog] = useState(false);
@@ -48,6 +54,8 @@ export const WorkflowLibrary = withInstrumentation(
       setSaved(undefined);
       drafts.current.clear();
       setDialog(false);
+      setBuilder(false);
+      setCreated(undefined);
       setName('');
       setBusy(false);
       setError(undefined);
@@ -55,6 +63,41 @@ export const WorkflowLibrary = withInstrumentation(
         ++generation.current;
       };
     }, [project.workspaceId]);
+
+    useEffect(() => {
+      if (!created?.function || !workspace) return;
+      if (
+        !resolveExampleType(
+          workspace,
+          { typeFqn: `${created.function.namespace}.${created.function.name}`, typeIdentity: created.function },
+          'RosettaFunction'
+        )
+      )
+        return;
+      const version = ++generation.current;
+      setCreated(undefined);
+      setBusy(true);
+      void open(created)
+        .then(
+          () => {
+            if (version === generation.current) {
+              setActive(created.id);
+              setSaved(created);
+            }
+          },
+          (failure: unknown) => {
+            if (version === generation.current)
+              setError(
+                failure instanceof Error
+                  ? failure.message
+                  : 'The function was saved. Choose its recipe to retry opening it.'
+              );
+          }
+        )
+        .finally(() => {
+          if (version === generation.current) setBusy(false);
+        });
+    }, [created, workspace, open]);
 
     const current = saved?.id === active ? saved : read?.workflows.find((entry) => entry.id === active);
     // Compare the same canonical recipe that Save writes; results and view state are intentionally absent.
@@ -100,6 +143,23 @@ export const WorkflowLibrary = withInstrumentation(
           className="workflow-library flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
           aria-label="Named workflows"
         >
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            disabled={!project.controller || busy || dialog || Boolean(created)}
+            onClick={() => {
+              try {
+                rememberDraft();
+              } catch {
+                /* Keep incomplete input editing local. */
+              }
+              setBuilder(true);
+            }}
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            Workflow builder
+          </Button>
           {onNew ? (
             <Button
               variant="ghost"
@@ -112,6 +172,7 @@ export const WorkflowLibrary = withInstrumentation(
                   /* A new draft can recover from an incomplete recipe. */
                 }
                 ++generation.current;
+                setCreated(undefined);
                 onNew();
                 setActive(undefined);
                 setSaved(undefined);
@@ -170,7 +231,7 @@ export const WorkflowLibrary = withInstrumentation(
               size="sm"
               className="workflow-library__picker"
               aria-label="Saved workflow"
-              disabled={!project.controller || dialog || busy}
+              disabled={!project.controller || dialog || busy || Boolean(created)}
             >
               <SelectValue />
             </SelectTrigger>
@@ -186,7 +247,7 @@ export const WorkflowLibrary = withInstrumentation(
           <Button
             variant="ghost"
             size="xs"
-            disabled={disabled || !project.controller || busy}
+            disabled={disabled || !project.controller || busy || Boolean(created)}
             onClick={() => {
               setName(current?.name ?? '');
               setError(undefined);
@@ -205,9 +266,9 @@ export const WorkflowLibrary = withInstrumentation(
               Unsaved changes
             </span>
           ) : null}
-          {busy ? (
+          {busy || created ? (
             <span role="status" className="text-xs text-muted-foreground">
-              Preparing workflow…
+              {created ? 'Loading created function…' : 'Preparing workflow…'}
             </span>
           ) : null}
           {!dialog && error ? (
@@ -224,6 +285,17 @@ export const WorkflowLibrary = withInstrumentation(
             </span>
           ) : null}
         </div>
+        {builder ? (
+          <WorkflowFunctionBuilder
+            key={project.workspaceId}
+            onClose={() => setBuilder(false)}
+            onCreated={(workflow) => {
+              setBuilder(false);
+              setError(undefined);
+              setCreated(workflow);
+            }}
+          />
+        ) : null}
         <Dialog
           open={dialog}
           onOpenChange={(next) => {

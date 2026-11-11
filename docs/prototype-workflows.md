@@ -10,6 +10,26 @@ Clearing changes the working input, not its stored example. **Undo clear** resto
 that input without overwriting edits to other function parameters. Editing the
 cleared input or selecting a different type ends that undo opportunity.
 
+Use **Workflow builder** to turn several steps into a reusable function. Give it
+a namespace and name, define typed inputs and a named output, then compose steps:
+
+1. Choose **Function call** to select a workspace function, including a previously
+   composed function. Bind each named argument to an input, an earlier step or a
+   Rune expression. Available names are listed beneath each step.
+2. Choose **Rune expression** for selection, conditions, `extract` or `filter`.
+   For example, `periods extract period [FixedAmountCalculation(payout, period, notional)]`
+   applies an existing calculation to each period.
+3. Set the return expression and review the generated Rune source.
+4. **Create function** saves the source and a Prototype recipe together, then opens
+   its inputs for testing. Set values or bind stored examples and **Execute**.
+
+The source is an ordinary `.rosetta` file with named aliases. It can be inspected,
+edited, called by other functions and exported through the normal tools. Types
+and references are checked by the normal workspace pipeline before execution.
+The recipe stores input bindings and output names, never a second step graph or
+execution results. Creation refuses existing files/functions; edit their source
+instead. Cancel discards the unsaved builder draft.
+
 Rune JSON node imports use the declared input type, including the element type
 for list inputs. Linked decoding accepts concrete Choice arms and derived Data
 values only when assignable to that declaration; unrelated types are rejected

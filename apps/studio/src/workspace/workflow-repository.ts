@@ -3,16 +3,28 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { declarationKey } from '@rune-langium/core/project-contract';
 import {
+  createRuneDslServices,
+  isRosettaFunction,
+  namespaceFromModelName,
+  type RosettaModel
+} from '@rune-langium/core';
+import { renderWorkflowFunction, type WorkflowFunctionDefinition } from '@rune-langium/codegen/rosetta';
+import {
   canonicalProjectJson,
   portableRecordRoot,
   projectFileRevision,
+  normalizeProjectPath,
+  isIgnoredProjectEntry,
+  projectSourcePaths,
   readWorkflows,
   readPresentations,
   WorkflowDescriptorSchema,
   PresentationDescriptorSchema,
   type WorkflowDescriptor,
   type PresentationDescriptor,
-  type ProjectSnapshot
+  type ProjectSnapshot,
+  type ProjectChange,
+  type ProjectSavePreconditions
 } from '@rune-langium/project-config';
 import type { ProjectController } from './project-controller.js';
 import { projectConfigurationPreconditions, projectRevisionAt } from './project-save-inputs.js';
@@ -29,7 +41,9 @@ async function saveDescriptor(
   identity: string,
   extension: string,
   value: unknown,
-  existing: { path: string }[]
+  existing: { path: string }[],
+  changes: readonly ProjectChange[] = [],
+  preconditions?: ProjectSavePreconditions
 ) {
   if (existing.length > 1) throw new Error('Repair duplicate descriptor identities before saving.');
   const directory = portableRecordRoot(current, root);
@@ -37,9 +51,13 @@ async function saveDescriptor(
   const path = existing[0]?.path ?? directory + '/' + (await projectFileRevision(identity)) + extension;
   if (!existing.length && current.files.has(path))
     throw new Error('An unmanaged file owns this descriptor destination.');
+  const configuration = await projectConfigurationPreconditions(current);
   return controller.save(
-    [{ path, text: JSON.stringify(value, null, 2) + '\n', expectedRevision: await projectRevisionAt(current, path) }],
-    await projectConfigurationPreconditions(current)
+    [
+      ...changes,
+      { path, text: JSON.stringify(value, null, 2) + '\n', expectedRevision: await projectRevisionAt(current, path) }
+    ],
+    { ...preconditions, inputs: [...(preconditions?.inputs ?? []), ...(configuration.inputs ?? [])] }
   );
 }
 export const saveWorkflow = withInstrumentation(
@@ -57,6 +75,77 @@ export const saveWorkflow = withInstrumentation(
     );
   },
   { op: 'saveWorkflow', capture: 0, sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' }) }
+);
+
+/** Create source and its runnable recipe in one repository transaction. Never overwrites source. */
+export const saveWorkflowFunction = withInstrumentation(
+  async function saveWorkflowFunction(
+    controller: ProjectController,
+    input: { definition: WorkflowFunctionDefinition; path: string; id: string }
+  ): Promise<{ snapshot: ProjectSnapshot; workflow: WorkflowDescriptor }> {
+    const text = renderWorkflowFunction(input.definition);
+    const current = await snapshot(controller);
+    const path = normalizeProjectPath(input.path);
+    if (!path?.endsWith('.rosetta') || path.split('/').some(isIgnoredProjectEntry))
+      throw new Error('Choose a project-relative .rosetta source path outside private storage.');
+    if ([...current.files.keys()].some((existing) => existing.toLowerCase() === path.toLowerCase()))
+      throw new Error('That source file already exists. Choose another path or edit the existing file.');
+    const files = new Map(current.files).set(path, text);
+    const sources = projectSourcePaths(files, current.project.build.sources);
+    if (!sources.includes(path)) throw new Error('This path is not included by the project source patterns.');
+    const parser = createRuneDslServices().RuneDsl.parser.LangiumParser;
+    for (const source of sources) {
+      if (source === path) continue;
+      const model = parser.parse<RosettaModel>(files.get(source)!).value;
+      if (
+        namespaceFromModelName(model.name) === input.definition.namespace &&
+        model.elements.some((element) => isRosettaFunction(element) && element.name === input.definition.name)
+      )
+        throw new Error('A function with this name already exists in that namespace.');
+    }
+    const workflow = WorkflowDescriptorSchema.parse({
+      schemaVersion: 1,
+      id: input.id,
+      name: input.definition.name,
+      function: {
+        model: 'local',
+        namespace: input.definition.namespace,
+        kind: 'RosettaFunction',
+        name: input.definition.name
+      },
+      inputs: {},
+      outputs: { [input.definition.output.name]: { name: input.definition.output.name } }
+    });
+    if (readWorkflows(current).workflows.some((entry) => entry.id === workflow.id))
+      throw new Error('This workflow identity already exists. Create a new workflow.');
+    const saved = await saveDescriptor(
+      controller,
+      current,
+      'workflows',
+      workflow.id,
+      '.workflow.json',
+      workflow,
+      [],
+      [{ path, text, expectedRevision: null }],
+      {
+        paths: [...current.files.keys()],
+        inputs: await Promise.all(
+          sources
+            .filter((source) => source !== path)
+            .map(async (source) => ({
+              path: source,
+              revision: await projectRevisionAt(current, source)
+            }))
+        )
+      }
+    );
+    return { snapshot: saved, workflow };
+  },
+  {
+    op: 'saveWorkflowFunction',
+    capture: 0,
+    sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' })
+  }
 );
 export const savePresentation = withInstrumentation(
   async function savePresentation(

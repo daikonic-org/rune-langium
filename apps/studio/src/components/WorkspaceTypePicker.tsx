@@ -33,7 +33,9 @@ export interface WorkspaceTypePickerProps {
   onSelect(value: string | null): void;
   /** Receives the selected repository option when callers need its identity metadata. */
   onSelectOption?(option: TypeOption | null): void;
-  filterKinds: TypeKind[];
+  filterKinds: Array<TypeKind | 'builtin'>;
+  includeBuiltins?: boolean;
+  disabled?: boolean;
   allowClear?: boolean;
   label: string;
   appearance?: 'field' | 'chip';
@@ -53,6 +55,8 @@ export const WorkspaceTypePicker = withInstrumentation(
     onSelect,
     onSelectOption,
     filterKinds,
+    includeBuiltins = false,
+    disabled: pickerDisabled = false,
     allowClear = false,
     label,
     appearance = 'field',
@@ -63,14 +67,14 @@ export const WorkspaceTypePicker = withInstrumentation(
     const repository = selectNodeRepository(nodesById);
     const options = useMemo(
       () =>
-        buildTypeOptions(repository, false).filter(
+        buildTypeOptions(repository, includeBuiltins).filter(
           (option) =>
             option.value === value ||
             qualifiedNameFromNodeId(option.value) === value ||
             !optionFilter ||
             optionFilter(option)
         ),
-      [repository, optionFilter, value]
+      [repository, includeBuiltins, optionFilter, value]
     );
     const selectedValue = useMemo(() => {
       if (!value) return value;
@@ -78,8 +82,10 @@ export const WorkspaceTypePicker = withInstrumentation(
       return (
         options.find(
           (option) =>
-            (!allowedKinds || (option.kind !== 'builtin' && allowedKinds.has(option.kind))) &&
-            (option.value === value || qualifiedNameFromNodeId(option.value) === value)
+            (!allowedKinds || allowedKinds.has(option.kind)) &&
+            (option.value === value ||
+              (option.kind === 'builtin' && option.label === value) ||
+              qualifiedNameFromNodeId(option.value) === value)
         )?.value ?? value
       );
     }, [filterKinds, options, value]);
@@ -99,10 +105,12 @@ export const WorkspaceTypePicker = withInstrumentation(
           placeholder={label}
           onSelect={(nextValue) => {
             resetPopover();
-            onSelect(nextValue && qualifiedNameFromNodeId(nextValue));
+            const option = options.find((option) => option.value === nextValue);
+            onSelect(option?.kind === 'builtin' ? option.label : nextValue && qualifiedNameFromNodeId(nextValue));
             onSelectOption?.(options.find((option) => option.value === nextValue) ?? null);
           }}
           allowClear={allowClear}
+          disabled={pickerDisabled}
           filterKinds={filterKinds}
           renderTrigger={({ selected, placeholder, onToggle, disabled }) => {
             const displayLabel = selected

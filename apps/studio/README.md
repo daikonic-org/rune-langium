@@ -130,10 +130,24 @@ type chooser and object form for creation, import and export, without a function
 panel. Each surface retains its own draft. Divider widths and view choice are saved
 per workspace. Narrow panes stack the nodes in reading order. A visited Prototype
 stays mounted while using other perspectives in the same workspace; workspace
-changes dispose its active sessions. Workflows and execution results are session
-state; reloading restores stored objects and presentation preferences. See
+changes dispose its active sessions. Unsaved input drafts and execution results
+are session state; reloading restores saved recipes, stored objects and presentation preferences. See
 [validation, clearing inputs and starter origin](../../docs/prototype-workflows.md)
 for recovery behavior and the distinction between a starter copy and Git sync.
+
+**Workflow builder** composes a reusable Rune function. Define its typed inputs
+and output, then add named steps. A **Function call** step selects any workspace
+function and binds its named arguments to inputs, earlier steps or Rune expressions.
+A **Rune expression** step supports operations such as `extract`, `filter` and
+conditionals. The return expression selects the final result; the source preview
+shows the complete function throughout editing.
+**Create function** saves a new `.rosetta` file together with a Prototype recipe
+and opens the function for testing. Normal validation checks its types before
+execution. The new function is available to other compositions, Explore and
+code generation. Edit its saved definition in Source or Inspector; steps are
+ordinary Rune aliases rather than a second workflow format. Cancel discards an
+unsaved builder draft. Source destinations must match the project's source
+patterns; existing files/functions are never replaced by Create.
 
 ### Form layouts and formats
 

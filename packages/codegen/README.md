@@ -33,6 +33,18 @@ used for emission, plus a kind-aware `requiredBy` map from each dependency to
 its explicit roots, without resolving the workspace a second time. Studio
 stores that receipt in its downloadable artifact envelope.
 
+## Workflow function authoring
+
+The browser-safe `@rune-langium/codegen/rosetta` entry exports
+`renderWorkflowFunction(definition)`. A definition supplies a namespace/name,
+typed/cardinality-aware inputs and output, named expression steps and a result
+expression. Core parses expressions and the shared Rune renderer emits an
+ordinary function with aliases and an output assignment. The returned source
+belongs in the normal workspace parse/link/validation pipeline before generation;
+rendering validates syntax and names, not cross-file type compatibility.
+Compositions can call each other and use collection expressions without a
+separate workflow runtime or JSON step format.
+
 ## Python projections
 
 The browser-safe `@rune-langium/codegen/export` surface exposes
