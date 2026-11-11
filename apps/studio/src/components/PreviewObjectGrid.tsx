@@ -79,6 +79,7 @@ export const PreviewObjectGrid = withInstrumentation(
                     key={cell.path}
                     data-summary-column={columnIndex}
                     data-editable={cell.editor ? 'true' : undefined}
+                    data-summary={columns[columnIndex]?.path === '$summary' || undefined}
                     data-field-path={cell.path}
                     tabIndex={-1}
                     title={cell.error ?? cell.text}

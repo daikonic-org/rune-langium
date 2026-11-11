@@ -165,6 +165,13 @@
   min-width: 6rem;
   max-width: 14rem;
 }
+.preview-object-grid td[data-summary] > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .preview-object-grid :is(th, td).preview-object-grid__actions {
   min-width: 4.5rem;
   width: 4.5rem;

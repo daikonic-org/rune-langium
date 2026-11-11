@@ -5,6 +5,7 @@ import { expect } from '@playwright/test';
 import { test } from '../helpers/studio-test.js';
 import AxeBuilder from '@axe-core/playwright';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+import { seedProjectBackingFiles } from '../helpers/project-backing.js';
 
 const source = `namespace density
 version "1.0.0"
@@ -22,6 +23,73 @@ func Calculate:
  set result: product -> amount + context -> rate
 `;
 const name = 'Cross-check illustrative SOFR daily and index compounding for one week';
+
+test('shows descriptive nested row summaries at desktop sizes and enlarged text', async ({ page }) => {
+  const source = `namespace summary
+version "1.0.0"
+type Index:
+ code string (1..1)
+type Series:
+ index Index (1..1)
+ observations number (1..*)
+func Echo:
+ inputs: series Series (1..*)
+ output: result Series (1..*)
+ set result: series
+`;
+  await page.goto('./');
+  await page
+    .locator('input[type="file"][accept=".rosetta"]')
+    .setInputFiles({ name: 'summary.rosetta', mimeType: 'text/plain', buffer: Buffer.from(source) });
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await seedProjectBackingFiles(page, {
+    'rune-config.yml': 'model: { name: Summaries }\n',
+    'build-config.yml': 'schemaVersion: 1\nsources: ["**/*.rosetta"]\ntargets: {}\n',
+    'studio-config.yml': 'schemaVersion: 1\n',
+    'summary.rosetta': source,
+    'workflows/summary.workflow.json': JSON.stringify({
+      schemaVersion: 1,
+      id: 'summary',
+      name: 'Identify supplied rate series',
+      function: { model: 'local', namespace: 'summary', name: 'Echo', kind: 'RosettaFunction' },
+      inputs: {
+        series: {
+          kind: 'literal',
+          value: [
+            { index: { code: 'USD-SOFR' }, observations: [0.043, 0.044] },
+            { index: { code: 'GBP-SONIA' }, observations: [0.046] }
+          ]
+        }
+      },
+      outputs: { result: { name: 'series' } }
+    })
+  });
+  await page.getByTestId('rail-prototype').click();
+  if (['127.0.0.1', 'localhost'].includes(new URL(page.url()).hostname)) await dismissLocalTransportNotices(page);
+  await page.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
+  await page.getByRole('option', { name: 'Identify supplied rate series', exact: true }).click();
+  const grid = page.getByRole('table', { name: 'Series', exact: true });
+  for (const [width, height] of [
+    [1280, 720],
+    [1920, 1080]
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await expect(grid.getByText('Index: USD-SOFR · Observations: 2 items', { exact: true })).toBeVisible();
+    await expect(grid.getByText('Index: GBP-SONIA · Observations: 1 item', { exact: true })).toBeVisible();
+  }
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%';
+  });
+  await expect(grid.getByText('Index: USD-SOFR · Observations: 2 items', { exact: true })).toBeVisible();
+  await grid.getByRole('button', { name: 'Open Series 2 details', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Code', { exact: true })).toHaveValue('GBP-SONIA');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  await expect(page.getByTestId('instance-payload-output')).toContainText('GBP-SONIA');
+  expect((await new AxeBuilder({ page }).include('[aria-label="Prototype workflow"]').analyze()).violations).toEqual(
+    []
+  );
+});
 
 for (const [width, height] of [
   [1280, 720],

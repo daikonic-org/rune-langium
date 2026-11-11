@@ -118,3 +118,9 @@ Existing local tests do not establish deployed service or physical-device covera
   Desktop at 1280×720 is the minimum review viewport; also verify 1920×1080.
 - Saved workflow names wrap within a wider picker. Narrow layouts retain the
   function and Execute before the input forms in reading and keyboard order.
+
+Collapsed object and object-list summaries use the declared schema's labels,
+required fields, enum labels and metadata adapters. They show identifying values
+and collection counts instead of generic field totals, with bounded traversal of
+recursive models. Summary cells wrap to two lines; full text and details remain
+available. They never infer financial units or recompute results.
