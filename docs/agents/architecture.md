@@ -47,6 +47,8 @@ so schema hydration and validation-only updates stay quiet.
 Timing is shared by animation and cleanup, and reduced motion removes spatial
 transitions while retaining the color cue. Feedback is canceled on focus, scope
 changes and unmount; it never moves the caret or scrolls another pane.
+Feedback fingerprints filter parser-only metadata and use Core's canonical
+BigInt replacer, so hydrated integer literals remain comparable to wire values.
 
 `project-config` owns file capture, revision identity, normalization and snapshot
 validation. Both Studio and the headless runtime consume these host-neutral
@@ -872,8 +874,12 @@ input order and names, escaping target keywords or internal binding collisions.
 Trailing optional arguments have defaults; preceding optional arguments retain
 explicit absence types. TypeScript exposes ordered `parameterNames` metadata even
 in single-file output; Studio uses it to adapt schema-validated named form fields.
-Python protects builtins and global callables from input-name shadowing. Curated
-publication selects model-specific implementations; Codegen reads the supplied
+Python protects builtins and global callables from input-name shadowing. Rune's
+standard-library `Min`/`Max` callables use Python's scalar builtins as native
+fallbacks only for the qualified numeric signatures; explicit bindings still win.
+Export-selection callers supply all linked workspace documents, including the
+implicit standard library, to retain those callable dependencies.
+Curated publication selects model-specific implementations; Codegen reads the supplied
 declaration payload and checks its identity, annotation, signature and target
 before emission. Preview availability uses the same payload reader. Authored Rune
 replacements and explicit host bindings take precedence. Native declarations without a supplied body require

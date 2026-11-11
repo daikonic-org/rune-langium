@@ -4,6 +4,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from './instrumentation/core.js';
+import { runeBigIntReplacer } from '@rune-langium/core';
 
 /** Presentation-only effects. Canonical values, never DOM mutations, identify changes. */
 export type ChangeEffect = 'add' | 'change' | 'remove';
@@ -83,7 +84,11 @@ export interface FeedbackChange {
 
 export const feedbackFingerprint = withInstrumentation(
   function feedbackFingerprint(value: unknown): string {
-    return JSON.stringify(value, (key, item) => (key.startsWith('$') && key !== '$refText' ? undefined : item)) ?? '';
+    return (
+      JSON.stringify(value, (key, item) =>
+        key.startsWith('$') && key !== '$refText' ? undefined : runeBigIntReplacer(key, item)
+      ) ?? ''
+    );
   },
   {
     op: 'feedbackFingerprint',
