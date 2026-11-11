@@ -11,6 +11,8 @@ import {
   assertValidDocuments,
   createRuneDslServices,
   getNodeSourceRegion,
+  isRosettaExternalFunction,
+  isRosettaSymbolReference,
   BASICTYPES_ROSETTA
 } from '@rune-langium/core';
 import {
@@ -59,6 +61,52 @@ async function executableFunctions<T extends Record<string, unknown> = Record<st
 const inheritedMetadataPredicates = ['one-of', 'required choice scalar, many, flag', 'flag only exists'] as const;
 
 describe('complete Python function projections', () => {
+  it('executes standard-library Min/Max with qualified names and retains explicit native overrides', async () => {
+    const funcs = await linkedFunctions(`namespace python.numeric_library
+func Minimum:
+  inputs: left number (1..1) right number (1..1)
+  output: result number (1..1)
+  set result: Min(left, right)
+func Maximum:
+  inputs: left number (1..1) right number (1..1)
+  output: result number (1..1)
+  set result: Max(left, right)
+`);
+    const document = AstUtils.getDocument(funcs[0]!);
+    const primitives = AstUtils.streamAllContents(document.parseResult.value)
+      .filter(isRosettaSymbolReference)
+      .map((reference) => reference.symbol.ref)
+      .filter(isRosettaExternalFunction)
+      .map((primitive) => AstUtils.getDocument(primitive))
+      .toArray();
+    const python = generatePythonModule([...new Set([document, ...primitives])]);
+    const minimum = python.bindings.get('python.numeric_library.Minimum')!;
+    const maximum = python.bindings.get('python.numeric_library.Maximum')!;
+    expect(execute(python.code, [{ expression: `${minimum}(-2, 8)` }, { expression: `${maximum}(-2, 8)` }])).toEqual([
+      { value: -2 },
+      { value: 8 }
+    ]);
+    expect(
+      execute(python.code + '\nrune.bind("com.rosetta.model.Min", lambda a, b: 42)\n', [
+        { expression: `${minimum}(-2, 8)` }
+      ])
+    ).toEqual([{ value: 42 }]);
+  });
+
+  it('requires native bindings for same-named library functions in another namespace', async () => {
+    const funcs = await linkedFunctions(`namespace python.custom_library
+library function Min(left number, right number) number
+func Probe:
+  output: result number (1..1)
+  set result: Min(1, 2)
+`);
+    const python = generatePythonModule([AstUtils.getDocument(funcs[0]!)]);
+    const probe = python.bindings.get('python.custom_library.Probe')!;
+    expect(execute(python.code, [{ expression: `${probe}()` }])).toEqual([
+      { error: 'Native binding required: python.custom_library.Min' }
+    ]);
+  });
+
   it('accepts an absent optional condition result and rejects explicit false', async () => {
     const { python, exports } = await executableFunctions<{
       Trade: new (data: object) => { validateAmount(): { valid: boolean } };

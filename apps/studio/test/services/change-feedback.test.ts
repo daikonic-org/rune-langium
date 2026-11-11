@@ -41,6 +41,13 @@ describe('effect-based presentation feedback', () => {
     );
   });
 
+  it('fingerprints hydrated integer literals using the canonical Rune serialization policy', () => {
+    const before = { value: { kind: 'int', value: 1n }, $cstRange: [1n, 2n] };
+    const moved = { value: { kind: 'int', value: 1 }, $cstRange: [8, 20] };
+    expect(feedbackFingerprint(before)).toBe(feedbackFingerprint(moved));
+    expect(feedbackFingerprint({ value: { kind: 'int', value: 2n } })).not.toBe(feedbackFingerprint(before));
+  });
+
   it('keeps existing siblings quiet when inserting or removing a field', () => {
     expect(compareFeedbackItems([item('a'), item('b')], [item('x'), item('a'), item('b')])).toEqual([
       { kind: 'add', after: item('x') }
