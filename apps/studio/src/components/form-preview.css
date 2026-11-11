@@ -45,6 +45,14 @@
   padding-block: var(--panel-padding-block);
   border-block-start: 1px solid var(--border);
 }
+.preview-object[data-empty],
+.preview-collection[data-empty] {
+  padding-block: var(--space-1);
+  gap: 0;
+}
+:is(.preview-object, .preview-collection)[data-empty] .preview-section-heading {
+  min-height: var(--space-6);
+}
 .preview-object__disclosure {
   display: flex;
   min-width: 0;

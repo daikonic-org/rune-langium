@@ -97,7 +97,7 @@ export const WorkflowLibrary = withInstrumentation(
     return (
       <>
         <div
-          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
+          className="workflow-library flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
           aria-label="Named workflows"
         >
           {onNew ? (
@@ -168,13 +168,13 @@ export const WorkflowLibrary = withInstrumentation(
           >
             <SelectTrigger
               size="sm"
-              className="w-52 max-w-full"
+              className="workflow-library__picker"
               aria-label="Saved workflow"
               disabled={!project.controller || dialog || busy}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="workflow-library__options" position="popper" align="start">
               <SelectItem value=":draft">Unsaved workflow</SelectItem>
               {read?.workflows.map((workflow) => (
                 <SelectItem key={workflow.id} value={workflow.id}>

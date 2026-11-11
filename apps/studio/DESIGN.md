@@ -105,3 +105,16 @@ Check desktop and 390px launcher/workbench, actual keyboard focus, dialogs and
 menus, code/validation colors, persisted preference and both dark transitions.
 Use the light-theme browser journey for repeatable captures and contrast evidence.
 Existing local tests do not establish deployed service or physical-device coverage.
+
+## Prototype workflow density
+
+- The default form order places required fields before optional fields at each
+  object depth, retaining source order within each group. Explicit shared layout
+  order takes precedence; this is presentation only and never rewrites payloads.
+- Empty collections show their count and Add action without an empty table.
+  Absent optional objects keep their state and Add action together in one row.
+- Workflow cards bound long field bodies while retaining their headers and
+  validation actions. Named, focusable scrolling groups support keyboard access.
+  Desktop at 1280×720 is the minimum review viewport; also verify 1920×1080.
+- Saved workflow names wrap within a wider picker. Narrow layouts retain the
+  function and Execute before the input forms in reading and keyboard order.

@@ -959,85 +959,6 @@ export const PrototypeWorkflow = withInstrumentation(
                 <path key={i} d={path} />
               ))}
             </svg>
-            <div className="workflow-inputs">
-              {functionSelected && state.schema ? (
-                objectFields.map((field) => (
-                  <InputNode
-                    key={`${state.functionFqn}:${field.path}`}
-                    field={field}
-                    schema={state.schema!}
-                    state={state}
-                    full={functionValidation}
-                    onValidation={receiveInputValidation}
-                    source={sources[field.path]}
-                    sourceId={sourceIds[field.path]}
-                    undoScope={session}
-                    onChange={(values) => session?.setInputs(values)}
-                    onClear={() => {
-                      const before = structuredClone(state.inputs[field.path]);
-                      session?.setInputs({
-                        ...session.getState().inputs,
-                        [field.path]: field.kind === 'array' ? [] : {}
-                      });
-                      return () => session?.setInputs({ ...session.getState().inputs, [field.path]: before });
-                    }}
-                    onBind={() => setBinding({ field })}
-                  />
-                ))
-              ) : draft ? (
-                <WorkflowNode
-                  key={`${mode}:${draft.id}`}
-                  name="input"
-                  typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
-                  type={draft.typeFqn.split('.').slice(-1)[0]}
-                  schema={draftSchema}
-                  values={draft.values}
-                  onChange={(values) =>
-                    setDraft({ ...draft, values, source: mode === 'panels' ? 'Object draft' : 'Workflow draft' })
-                  }
-                  onClear={() => {
-                    const before = draft;
-                    setDraft({ ...draft, values: {}, source: 'Manual input' });
-                    return () => setDraft(before);
-                  }}
-                  source={draft.source}
-                  sourceId={draft.sourceId}
-                  validation={standaloneValidation}
-                  onBind={() => setBinding({})}
-                >
-                  {!draftSchema ? (
-                    <div className="space-y-2 p-3 text-xs">
-                      <p role={draftSchemaState.error ? 'alert' : 'status'}>
-                        {draftSchemaState.error ?? 'Preparing input schema…'}
-                      </p>
-                      {draftSchemaState.error ? (
-                        <Button variant="outline" size="xs" onClick={draftSchemaState.retry}>
-                          Retry input schema
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </WorkflowNode>
-              ) : (
-                <div className="workflow-empty">
-                  {mode === 'panels'
-                    ? 'Choose an object type, or select an example below.'
-                    : 'Add an object or choose a function.'}
-                </div>
-              )}
-            </div>
-            {(mode === 'flow' ? [0, 1] : []).map((index) => (
-              <WorkflowSplitter
-                key={index}
-                label={index ? 'Resize function and output' : 'Resize inputs and function'}
-                className={`workflow-splitter workflow-splitter--${index}`}
-                container={stage}
-                value={widths[index]!}
-                max={Math.min(40, 76 - widths[1 - index]!)}
-                onChange={(value) => setColumn(index, value)}
-                onCommit={(value) => setColumn(index, value, true)}
-              />
-            ))}
             {mode === 'flow' ? (
               <div className="workflow-function" data-workflow-node="function">
                 <WorkflowNode
@@ -1135,6 +1056,85 @@ export const PrototypeWorkflow = withInstrumentation(
                 </WorkflowNode>
               </div>
             ) : null}
+            <div className="workflow-inputs">
+              {functionSelected && state.schema ? (
+                objectFields.map((field) => (
+                  <InputNode
+                    key={`${state.functionFqn}:${field.path}`}
+                    field={field}
+                    schema={state.schema!}
+                    state={state}
+                    full={functionValidation}
+                    onValidation={receiveInputValidation}
+                    source={sources[field.path]}
+                    sourceId={sourceIds[field.path]}
+                    undoScope={session}
+                    onChange={(values) => session?.setInputs(values)}
+                    onClear={() => {
+                      const before = structuredClone(state.inputs[field.path]);
+                      session?.setInputs({
+                        ...session.getState().inputs,
+                        [field.path]: field.kind === 'array' ? [] : {}
+                      });
+                      return () => session?.setInputs({ ...session.getState().inputs, [field.path]: before });
+                    }}
+                    onBind={() => setBinding({ field })}
+                  />
+                ))
+              ) : draft ? (
+                <WorkflowNode
+                  key={`${mode}:${draft.id}`}
+                  name="input"
+                  typeNodeId={draftSchema ? workflowSchemaNodeId(draftSchema) : undefined}
+                  type={draft.typeFqn.split('.').slice(-1)[0]}
+                  schema={draftSchema}
+                  values={draft.values}
+                  onChange={(values) =>
+                    setDraft({ ...draft, values, source: mode === 'panels' ? 'Object draft' : 'Workflow draft' })
+                  }
+                  onClear={() => {
+                    const before = draft;
+                    setDraft({ ...draft, values: {}, source: 'Manual input' });
+                    return () => setDraft(before);
+                  }}
+                  source={draft.source}
+                  sourceId={draft.sourceId}
+                  validation={standaloneValidation}
+                  onBind={() => setBinding({})}
+                >
+                  {!draftSchema ? (
+                    <div className="space-y-2 p-3 text-xs">
+                      <p role={draftSchemaState.error ? 'alert' : 'status'}>
+                        {draftSchemaState.error ?? 'Preparing input schema…'}
+                      </p>
+                      {draftSchemaState.error ? (
+                        <Button variant="outline" size="xs" onClick={draftSchemaState.retry}>
+                          Retry input schema
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </WorkflowNode>
+              ) : (
+                <div className="workflow-empty">
+                  {mode === 'panels'
+                    ? 'Choose an object type, or select an example below.'
+                    : 'Add an object or choose a function.'}
+                </div>
+              )}
+            </div>
+            {(mode === 'flow' ? [0, 1] : []).map((index) => (
+              <WorkflowSplitter
+                key={index}
+                label={index ? 'Resize function and output' : 'Resize inputs and function'}
+                className={`workflow-splitter workflow-splitter--${index}`}
+                container={stage}
+                value={widths[index]!}
+                max={Math.min(40, 76 - widths[1 - index]!)}
+                onChange={(value) => setColumn(index, value)}
+                onCommit={(value) => setColumn(index, value, true)}
+              />
+            ))}
             <div className="workflow-output">{resultNode}</div>
           </div>
         </fieldset>

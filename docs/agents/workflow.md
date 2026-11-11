@@ -640,6 +640,9 @@ unit suites, plus `packages/codegen/test/emit/function-input-checks.test.ts`.
 `PLAYWRIGHT_BASE_URL=http://127.0.0.1:<owned-port> pnpm --filter @rune-langium/studio exec playwright test test/e2e/prototype-workbench.spec.ts --retries=0`
 checks real worker preconditions/execution, stale output invalidation, primitive and
 scalar returns, bypass, bulk import and equal bindings, and viewport/axe checks.
+`test/e2e/prototype-density.spec.ts` is also in the optimized candidate gate. It
+checks 1280×720 and 1920×1080 desktop layouts, keyboard scrolling through long
+forms, retained values/execution, wrapping saved names, and a narrow fallback.
 Rebuild codegen before Studio consumes new generated metadata. Preserve user-owned
 servers and worktrees. Local checks do not establish deployed acceptance.
 

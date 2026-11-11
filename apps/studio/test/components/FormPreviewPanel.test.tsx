@@ -442,6 +442,48 @@ describe('FormPreviewPanel', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('keeps empty sections compact without losing add actions or item editors', async () => {
+    const schema: FormPreviewSchema = {
+      schemaVersion: 1,
+      targetId: 'test.Empty',
+      title: 'Empty',
+      status: 'ready',
+      fields: [
+        {
+          path: 'details',
+          label: 'Details',
+          kind: 'object',
+          required: false,
+          children: [{ path: 'details.name', label: 'Name', kind: 'string', required: true }]
+        },
+        {
+          path: 'entries',
+          label: 'Entries',
+          kind: 'array',
+          required: false,
+          children: [
+            {
+              path: 'entries[]',
+              label: 'Entry',
+              kind: 'object',
+              required: true,
+              children: [{ path: 'entries[].value', label: 'Value', kind: 'number', required: true }]
+            }
+          ]
+        }
+      ]
+    };
+    render(<FormPreviewPanel schema={schema} status={{ state: 'ready', targetId: schema.targetId }} />);
+    const entries = screen.getByRole('group', { name: 'Entries', exact: true });
+    expect(entries).toHaveTextContent('0 items');
+    expect(within(entries).queryByRole('table')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Add Entries item', exact: true }));
+    expect(within(entries).getByRole('table', { name: 'Entries' })).toBeVisible();
+    expect(within(entries).getByLabelText('Entries 1 Value')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Add Details', exact: true }));
+    expect(screen.getByLabelText('Name', { exact: true })).toBeVisible();
+  });
+
   it('renders scalar, enum, nested object, and array controls from the preview schema', () => {
     render(<FormPreviewPanel schema={tradeSchema} status={{ state: 'ready', targetId: tradeSchema.targetId }} />);
 

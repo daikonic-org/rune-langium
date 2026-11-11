@@ -986,7 +986,14 @@ function PreviewObjectField({
   const label = resolvedFieldLabel(field, controls.arrayIndices);
   const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
   return (
-    <div role="group" aria-labelledby={id} data-field-path={fieldPath} tabIndex={-1} className="preview-object">
+    <div
+      role="group"
+      aria-labelledby={id}
+      data-field-path={fieldPath}
+      data-empty={!materialized || undefined}
+      tabIndex={-1}
+      className="preview-object"
+    >
       <Collapsible open={expanded && materialized} onOpenChange={setExpanded}>
         <div className="preview-section-heading">
           <CollapsibleTrigger
@@ -1000,6 +1007,7 @@ function PreviewObjectField({
             <span id={id}>{label}</span>
           </CollapsibleTrigger>
           <div className="flex shrink-0 items-center gap-1">
+            {!materialized && <span className="preview-object__summary">Not added</span>}
             {materialized && (
               <Button
                 type="button"
@@ -1033,7 +1041,6 @@ function PreviewObjectField({
             )}
           </div>
         </div>
-        {!materialized && <p className="preview-object__summary">Not added</p>}
         {materialized && !expanded && <p className="preview-object__summary">{previewValueText(value)}</p>}
         <CollapsibleContent>
           <ChoiceArmChildren field={field} {...controls} />
@@ -1135,7 +1142,14 @@ function PreviewArrayField({
       })
     : [];
   return (
-    <div role="group" aria-labelledby={id} data-field-path={fieldPath} tabIndex={-1} className="preview-collection">
+    <div
+      role="group"
+      aria-labelledby={id}
+      data-field-path={fieldPath}
+      data-empty={items.length === 0 || undefined}
+      tabIndex={-1}
+      className="preview-collection"
+    >
       <div className="preview-section-heading">
         <div className="flex min-w-0 items-baseline gap-2">
           <span id={id} className="preview-field__label">
@@ -1157,7 +1171,7 @@ function PreviewArrayField({
           Add
         </Button>
       </div>
-      {child?.kind === 'object' ? (
+      {child?.kind === 'object' && items.length > 0 ? (
         <PreviewObjectGrid
           label={field.label}
           columns={columns}
@@ -1170,7 +1184,7 @@ function PreviewArrayField({
           }}
           onRemove={remove}
         />
-      ) : child ? (
+      ) : child && items.length > 0 ? (
         <div className="preview-scalar-list">
           {items.map((_, index) => (
             <div className="preview-scalar-list__row" key={`${field.path}-${index}`}>
@@ -1194,7 +1208,6 @@ function PreviewArrayField({
           ))}
         </div>
       ) : null}
-      {child?.kind !== 'object' && items.length === 0 && <p className="preview-object-grid__empty">No items yet.</p>}
       {error && <FieldError message={error} />}
     </div>
   );

@@ -221,36 +221,43 @@ export const WorkflowNode = withInstrumentation(
           </div>
         ) : null}
         {schema && (!readOnly || editing) ? (
-          <FormPreviewPanel
-            ariaLabel={`${name} fields`}
-            schema={schema}
-            status={{ state: 'ready', targetId: schema.targetId }}
-            values={values}
-            onValuesChange={
-              onChange
-                ? (value) => {
-                    setBeforeClear(undefined);
-                    onChange(value);
-                  }
-                : undefined
-            }
-            errors={Object.fromEntries(
-              validation?.diagnostics.filter((d) => !d.conditionName).map((d) => [d.path, d.message]) ?? []
-            )}
-            valid={validation?.state === 'valid'}
-            validated={validation?.state === 'valid' || validation?.state === 'invalid'}
-            layoutEditing={editing}
-            layoutParentPath={parentPath}
-            presentation={{
-              mode: 'instance',
-              showHeader: false,
-              showPayload: false,
-              showLayoutToolbar: false,
-              showStatusSummary: false,
-              showExecutionControls: false,
-              readOnly
-            }}
-          />
+          <div
+            className="workflow-node__fields studio-scroll"
+            role="group"
+            aria-label={`Scroll ${name} fields`}
+            tabIndex={0}
+          >
+            <FormPreviewPanel
+              ariaLabel={`${name} fields`}
+              schema={schema}
+              status={{ state: 'ready', targetId: schema.targetId }}
+              values={values}
+              onValuesChange={
+                onChange
+                  ? (value) => {
+                      setBeforeClear(undefined);
+                      onChange(value);
+                    }
+                  : undefined
+              }
+              errors={Object.fromEntries(
+                validation?.diagnostics.filter((d) => !d.conditionName).map((d) => [d.path, d.message]) ?? []
+              )}
+              valid={validation?.state === 'valid'}
+              validated={validation?.state === 'valid' || validation?.state === 'invalid'}
+              layoutEditing={editing}
+              layoutParentPath={parentPath}
+              presentation={{
+                mode: 'instance',
+                showHeader: false,
+                showPayload: false,
+                showLayoutToolbar: false,
+                showStatusSummary: false,
+                showExecutionControls: false,
+                readOnly
+              }}
+            />
+          </div>
         ) : schema ? (
           <FormPresentation showToolbar={false}>{null}</FormPresentation>
         ) : null}
