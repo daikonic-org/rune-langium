@@ -292,6 +292,14 @@ button.rune-enum-disclosure {
   order: 2;
 }
 
+.rune-node-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Base-container inherited rows now use the same XMLSpy-style two-line
  * stacked layout as Data attribute rows (.rune-node-row + __main / __name-line /
  * __type-line). Choice arms and Enum values stay single-line at ROW_HEIGHT. */
@@ -340,7 +348,7 @@ button.rune-enum-disclosure {
 
 .rune-node-member {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content;
   align-items: baseline;
   column-gap: var(--space-3);
   padding: var(--space-1) 0;
@@ -350,7 +358,9 @@ button.rune-enum-disclosure {
 .rune-node-member-name {
   min-width: 0;
   color: var(--color-node-text);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rune-node-member-type {
@@ -382,8 +392,14 @@ button[data-navigable]:focus-visible {
 }
 
 .rune-node-member-type[data-navigable] {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--color-node-member-type);
   font-style: italic;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rune-node-member-cardinality {

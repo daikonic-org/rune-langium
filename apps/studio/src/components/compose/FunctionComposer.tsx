@@ -920,7 +920,10 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
               Parent
             </Button>
           )}
-          <strong className="truncate">
+          <strong
+            className="truncate"
+            title={creating ? 'New composition' : identity.split('#')[0] || 'Function composer'}
+          >
             {creating ? 'New composition' : identity ? identity.split('#')[0]?.split('.').pop() : 'Function composer'}
           </strong>
           <span className="function-composer__save-state">{saveBusy ? 'Saving…' : saveLabel}</span>

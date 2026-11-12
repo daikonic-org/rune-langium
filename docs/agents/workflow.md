@@ -308,6 +308,15 @@ SQL node types derive from the exactly pinned `@l1xnan/tree-sitter-sql` grammar.
 
 ## Testing and Editor Setup
 
+UI hardening: include Studio's ExportPreviewPanel, InstancePayloadPanel,
+InstrumentationErrorBoundary and FormPreviewPanel suites. The candidate gate's
+studio-hardening.spec.ts checks compact long Graph members with named links at
+HD, wide desktop and narrow widths in both themes; production J05 also checks
+the natural height of the hydrated BusinessCenters card, independently of zoom.
+Export failure/retry tests must preserve the captured download and ignore late
+results from a previous artifact. Keep these UX checks separate from loading
+performance profiling and hosted acceptance.
+
 Vitest configs use `workspaceTestCache(import.meta.url)` for a package-local
 filesystem module cache. Independent `pnpm -r test` processes otherwise share
 the workspace cache and can delete each other's files while invalidating it

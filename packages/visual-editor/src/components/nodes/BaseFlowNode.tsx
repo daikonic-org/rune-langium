@@ -75,7 +75,9 @@ export function BaseFlowNode({
       {handles ? <Handle type="target" position={handles.target} /> : null}
       <div className="rune-node-header">
         <NodeKindBadge kind={kind} />
-        <span>{name}</span>
+        <span className="rune-node-name" title={name}>
+          {name}
+        </span>
         {metaIndicators}
         {isHydrating ? (
           <>

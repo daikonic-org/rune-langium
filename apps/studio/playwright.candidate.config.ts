@@ -45,6 +45,7 @@ export default defineConfig({
       timeout: 30000,
       testMatch: [
         'e2e/prod-review-polish.spec.ts',
+        'e2e/studio-hardening.spec.ts',
         'e2e/control-spacing.spec.ts',
         'e2e/change-feedback.spec.ts',
         'e2e/evidence-redaction.spec.ts',

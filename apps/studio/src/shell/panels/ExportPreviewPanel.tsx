@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { ExportSelect } from '../../components/ExportSelect.js';
 import type { GeneratorDiagnostic } from '@rune-langium/codegen/export';
 import type { ExportRunState } from '../../store/export-workbench-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { CircleAlert } from 'lucide-react';
+import type { ExportArtifact } from '../../services/export-artifact.js';
+import { copyTextToClipboard } from '../../services/clipboard.js';
 import {
   Dialog,
   DialogContent,
@@ -42,7 +44,7 @@ function ArtifactDiagnostics({ diagnostics }: { diagnostics: readonly GeneratorD
           </DialogHeader>
           <ul
             data-testid="export-artifact-diagnostics"
-            className="studio-scroll min-h-0 overflow-auto space-y-2 text-xs text-muted-foreground"
+            className="studio-scroll min-h-0 overflow-auto wrap-anywhere space-y-2 text-xs text-muted-foreground"
           >
             {diagnostics.map((diagnostic) => (
               <li key={`${diagnostic.severity}:${diagnostic.code}:${diagnostic.message}`}>
@@ -63,6 +65,11 @@ export interface ExportPreviewPanelProps {
   onDownload(): void;
 }
 
+type ArtifactRead = {
+  artifact: ExportArtifact;
+  path: string;
+} & ({ status: 'ready'; text: string } | { status: 'failed' });
+
 /** Read-only display of the current captured export artifact. */
 export const ExportPreviewPanel = withInstrumentation(
   function ExportPreviewPanel({
@@ -71,9 +78,12 @@ export const ExportPreviewPanel = withInstrumentation(
     onActiveFileChange,
     onDownload
   }: ExportPreviewPanelProps): ReactElement {
-    const [text, setText] = useState<string | undefined>();
+    const [read, setRead] = useState<ArtifactRead>();
+    const [readAttempt, setReadAttempt] = useState(0);
     const [uncontrolledPath, setUncontrolledPath] = useState<string | undefined>();
     const [copyStatus, setCopyStatus] = useState<string | undefined>();
+    const [copyBusy, setCopyBusy] = useState(false);
+    const copyRequest = useRef(0);
     const selectedPath = activeFile ?? uncontrolledPath;
     const artifact =
       run.status === 'ready' || run.status === 'stale'
@@ -88,6 +98,10 @@ export const ExportPreviewPanel = withInstrumentation(
         artifact?.manifest.resolvedSelection?.explicit.some((root) => file.namespaces?.includes(root.namespace))
       ) ??
       textFiles[0];
+    // A result belongs to an exact captured artifact/file, including the render
+    // before the next effect runs. Never offer a previous file's bytes as current.
+    const currentRead = read?.artifact === artifact && read?.path === textFile?.path ? read : undefined;
+    const text = currentRead?.status === 'ready' ? currentRead.text : undefined;
     const dependencyCount = artifact?.manifest.resolvedSelection
       ? Math.max(
           0,
@@ -118,37 +132,54 @@ export const ExportPreviewPanel = withInstrumentation(
 
     useEffect(() => {
       let active = true;
-      setText(undefined);
+      setRead(undefined);
       setCopyStatus(undefined);
+      setCopyBusy(false);
+      copyRequest.current++;
       if (!artifact || !textFile) return;
-      void artifact.readText(textFile.path).then((content) => {
-        if (active) setText(content);
-      });
+      const path = textFile.path;
+      void (async () => {
+        try {
+          const text = await artifact.readText(path);
+          if (active) setRead({ artifact, path, status: 'ready', text });
+        } catch {
+          if (active) setRead({ artifact, path, status: 'failed' });
+        }
+      })();
       return () => {
         active = false;
+        copyRequest.current++;
       };
-    }, [artifact, textFile?.path]);
+    }, [artifact, textFile?.path, readAttempt]);
 
     async function copyActiveFile(): Promise<void> {
-      if (text === undefined) return;
-      try {
-        await navigator.clipboard.writeText(text);
-        setCopyStatus('Copied');
-      } catch {
-        setCopyStatus('Copy failed');
+      if (text === undefined || copyBusy) return;
+      const request = ++copyRequest.current;
+      setCopyBusy(true);
+      setCopyStatus(undefined);
+      const error = await copyTextToClipboard(text);
+      if (copyRequest.current === request) {
+        setCopyStatus(error ?? 'Copied');
+        setCopyBusy(false);
       }
     }
 
     const statusNotice =
       run.status === 'generating' ? (
-        <p id="export-run-status" data-testid="export-artifact-status" className="p-4 text-sm text-muted-foreground">
+        <p
+          role="status"
+          id="export-run-status"
+          data-testid="export-artifact-status"
+          className="shrink-0 p-3 text-sm text-muted-foreground"
+        >
           Generating export… {artifact ? 'Previous output is shown below.' : null}
         </p>
       ) : run.status === 'failed' ? (
         <div
           id="export-run-status"
+          role="alert"
           data-testid="export-artifact-status"
-          className="space-y-2 p-4 text-sm text-destructive"
+          className="shrink-0 wrap-anywhere space-y-2 p-3 text-sm text-destructive"
         >
           <p>{run.message}</p>
           <ArtifactDiagnostics diagnostics={run.diagnostics} />
@@ -159,16 +190,16 @@ export const ExportPreviewPanel = withInstrumentation(
     if (!artifact && statusNotice) return statusNotice;
     if (!artifact) {
       return (
-        <p id="export-run-status" data-testid="export-artifact-status" className="p-4 text-sm text-muted-foreground">
-          No export artifact yet.
+        <p id="export-run-status" data-testid="export-artifact-status" className="p-3 text-sm text-muted-foreground">
+          No export artifact yet. Select declarations or a saved target, then generate.
         </p>
       );
     }
     if (!textFile) {
       return (
-        <div data-testid="export-artifact-binary" className="space-y-3 p-4">
+        <div data-testid="export-artifact-binary" className="space-y-3 p-3">
           {statusNotice}
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">This export contains binary files only.</p>
             <Button type="button" size="sm" disabled={run.status !== 'ready'} onClick={onDownload}>
               Download export
@@ -182,7 +213,9 @@ export const ExportPreviewPanel = withInstrumentation(
       <section data-testid="export-artifact-preview" className="flex h-full min-h-0 flex-col">
         {statusNotice}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{textFile.path}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium" title={textFile.path}>
+            {textFile.path}
+          </span>
           {dependencyCount > 0 && (
             <span
               className="text-xs text-muted-foreground"
@@ -211,10 +244,23 @@ export const ExportPreviewPanel = withInstrumentation(
               </ExportSelect>
             </div>
           )}
-          <span className="ml-auto text-xs text-muted-foreground">{run.status === 'ready' ? 'Ready' : 'Outdated'}</span>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {currentRead?.status === 'failed'
+              ? 'Preview unavailable'
+              : text === undefined
+                ? 'Loading file…'
+                : run.status === 'ready'
+                  ? 'Ready'
+                  : 'Outdated'}
+          </span>
           <ArtifactDiagnostics diagnostics={artifact.manifest.diagnostics} />
-          <Button type="button" size="sm" disabled={text === undefined} onClick={() => void copyActiveFile()}>
-            {copyStatus ?? 'Copy file'}
+          <Button
+            type="button"
+            size="sm"
+            disabled={text === undefined || copyBusy}
+            onClick={() => void copyActiveFile()}
+          >
+            {copyBusy ? 'Copying…' : copyStatus === 'Copied' ? 'Copied' : 'Copy file'}
           </Button>
           <Button type="button" size="sm" disabled={run.status !== 'ready'} onClick={onDownload}>
             Download export
@@ -223,15 +269,33 @@ export const ExportPreviewPanel = withInstrumentation(
         {dependencyNames.length > 0 && (
           <details className="shrink-0 border-b border-border px-3 py-1 text-xs text-muted-foreground">
             <summary>Included dependencies ({dependencyNames.length})</summary>
-            <p className="max-h-32 overflow-auto studio-scroll">Included: {dependencyNames.join(', ')}</p>
+            <p className="max-h-32 overflow-auto wrap-anywhere studio-scroll">Included: {dependencyNames.join(', ')}</p>
           </details>
         )}
-        <pre
-          className="studio-scroll min-h-0 flex-1 overflow-auto p-3 text-xs whitespace-pre"
-          aria-label="Generated export code"
-        >
-          {text ?? 'Loading artifact…'}
-        </pre>
+        {copyStatus && (
+          <p role="status" className="shrink-0 wrap-anywhere px-3 py-1 text-xs text-muted-foreground">
+            {copyStatus}
+          </p>
+        )}
+        {currentRead?.status === 'failed' ? (
+          <div className="studio-scroll min-h-0 flex-1 overflow-auto space-y-2 p-3">
+            <p role="alert" className="wrap-anywhere text-sm text-destructive">
+              Couldn’t read this generated file. Try loading it again or choose another file.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => setReadAttempt((attempt) => attempt + 1)}>
+              Retry file
+            </Button>
+          </div>
+        ) : (
+          <pre
+            tabIndex={0}
+            aria-busy={text === undefined}
+            className="studio-scroll min-h-0 flex-1 overflow-auto p-3 text-xs whitespace-pre focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+            aria-label="Generated export code"
+          >
+            {text ?? 'Loading artifact…'}
+          </pre>
+        )}
       </section>
     );
   },

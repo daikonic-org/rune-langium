@@ -252,6 +252,9 @@ when a direction change requires asynchronous layout. Explicit Fit View still
 fits the complete visible graph.
 Semantic zoom hides detail without changing node dimensions: summaries overlay
 the retained body space, and hidden cardinalities keep their layout width.
+Graph member grids bound both name and type columns independently of the shared
+navigation-button reset. Long labels retain full titles rather than forcing
+letter-wide name wrapping and oversized cards.
 The pinned XYFlow ESM patch batches its internal node measurements per animation
 frame, drops detached elements and cancels queued work on unmount; applying a
 second delay only in `onNodesChange` leaves its internal observer updates exposed.
@@ -1863,6 +1866,20 @@ read-only ownership survive placeholder replacement. Derived LSP/index data stay
 out of preview/download semantic worker payloads.
 
 ## Responsive reading and diagnostic presentation
+
+Generated export text reads are scoped to the exact captured artifact and path,
+including the render before effects settle. Failed reads retain the downloadable
+archive and expose an explicit retry; late results cannot replace the active
+file. Shared clipboard recovery copy keeps selectable text available when the
+browser API is absent or denied. Copy/export feedback belongs to the current
+payload revision; pending payload exports reject duplicate clicks. The root
+render boundary keeps sanitized reporting and offers an accessible themed reload
+action without displaying raw exceptions.
+Shared Dockview tabs reference Studio's rendered label/count via `aria-labelledby`,
+so dynamic badges remain part of the accessible name without duplicating titles.
+Rendered titles subscribe to native title changes, including collapsed side tabs.
+Documentation-toggle names match their visible action; nested Graph landmarks
+remain distinct.
 
 Explore reuses its side-group collapse mechanism under measured space pressure;
 explicit visibility overrides, manual arrangements and focused preview inputs

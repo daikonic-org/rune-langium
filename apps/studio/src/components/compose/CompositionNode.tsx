@@ -100,6 +100,7 @@ export const CompositionNode = withInstrumentation(
     const bindInput = (event: DragEvent, index?: number) => {
       event.preventDefault();
       event.stopPropagation();
+      if (disabled) return;
       const id = readVariable(event, actions);
       const variable = actions.variables.find((variable) => variable.id === id);
       if (!variable) return;
@@ -119,7 +120,7 @@ export const CompositionNode = withInstrumentation(
         )}
         <div className="composition-node__heading">
           <Icon className="composition-node__icon" aria-hidden="true" />
-          <strong>{label}</strong>
+          <strong title={label}>{label}</strong>
           {step.kind !== 'return' && (
             <span className="composition-node__kind">
               {step.kind === 'input' ? 'Input' : step.call ? 'Function' : 'Value'}
@@ -271,6 +272,7 @@ export const CompositionNode = withInstrumentation(
             onDrop={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              if (disabled) return;
               const id = readVariable(event, actions);
               if (id) actions.output(step, id);
             }}
@@ -284,7 +286,12 @@ export const CompositionNode = withInstrumentation(
                 onChange={(event) => actions.name(event.target.value)}
               />
             ) : (
-              <div className="composition-node__output-tags">
+              <div
+                className="composition-node__output-tags nowheel"
+                tabIndex={0}
+                role="group"
+                aria-label={`Output variables of ${step.name}`}
+              >
                 {produced.map((variable) => (
                   <span key={variable.id}>{variable.name}</span>
                 ))}

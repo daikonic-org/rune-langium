@@ -40,7 +40,7 @@ export const ExportWorkspacePanel = withInstrumentation(
           </Button>
         </div>
         {notice && (
-          <p role="status" className="shrink-0 px-3 py-1 text-xs text-muted-foreground">
+          <p role="status" className="shrink-0 wrap-anywhere px-3 py-1 text-xs text-muted-foreground">
             {notice}
           </p>
         )}
@@ -51,6 +51,7 @@ export const ExportWorkspacePanel = withInstrumentation(
             </section>
           </ResizablePanel>
           <ResizableHandle
+            withHandle
             aria-label="Resize export settings and output"
             className="h-2 w-full bg-transparent hover:bg-border focus-visible:bg-border"
           />

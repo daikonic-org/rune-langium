@@ -79,6 +79,30 @@ const tradeSchema: FormPreviewSchema = {
   ]
 };
 
+it('does not announce clipboard completion for a sample that has changed', async () => {
+  let finish!: () => void;
+  const writeText = vi.fn().mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      })
+  );
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  const { rerender } = render(
+    <FormPreviewPanel status={{ state: 'ready' }} schema={tradeSchema} values={{ id: 'old' }} errors={{}} />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Copy', exact: true }));
+  expect(screen.getByRole('button', { name: 'Copying…' })).toBeDisabled();
+  rerender(
+    <FormPreviewPanel status={{ state: 'ready' }} schema={tradeSchema} values={{ id: 'current' }} errors={{}} />
+  );
+  await act(async () => {
+    finish();
+  });
+  expect(screen.queryByText('Sample data copied.')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Copy', exact: true })).toBeEnabled();
+});
+
 const unsupportedTradeSchema: FormPreviewSchema = {
   ...tradeSchema,
   status: 'unsupported',

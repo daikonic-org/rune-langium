@@ -443,6 +443,7 @@ describe('DockShell — dockview integration (T065)', () => {
         title?: string;
         getParameters: () => TabMeta | undefined;
         onDidParametersChange: (listener: (next: TabMeta | undefined) => void) => { dispose(): void };
+        onDidTitleChange: (listener: (next: { title: string }) => void) => { dispose(): void };
       };
       params?: TabMeta;
     }>;
@@ -453,7 +454,8 @@ describe('DockShell — dockview integration (T065)', () => {
         api={{
           title: 'Files',
           getParameters: () => undefined,
-          onDidParametersChange
+          onDidParametersChange,
+          onDidTitleChange: vi.fn().mockReturnValue({ dispose: vi.fn() })
         }}
         params={undefined}
       />

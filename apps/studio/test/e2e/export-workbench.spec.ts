@@ -92,6 +92,19 @@ for (const theme of ['daikonic', 'light'])
     await page.getByRole('combobox', { name: 'Generated export file' }).selectOption(longPath);
     await expect(page.getByLabel('Generated export code')).toContainText('Long file output');
     await testInfo.attach('long-export-file-picker', { body: await page.screenshot(), contentType: 'image/png' });
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }));
+    await page.getByRole('button', { name: 'Copy file', exact: true }).click();
+    await expect(page.getByTestId('export-artifact-preview').getByRole('status')).toContainText(
+      'Select and copy the text instead'
+    );
+    await expect(page.getByRole('button', { name: 'Copy file', exact: true })).toBeEnabled();
+    await page.getByLabel('Generated export code').focus();
+    await expect(page.getByLabel('Generated export code')).toBeFocused();
+    expect((await new AxeBuilder({ page }).include('[data-testid="export-perspective"]').analyze()).violations).toEqual(
+      []
+    );
+    await testInfo.attach('clipboard-recovery-hd', { body: await page.screenshot(), contentType: 'image/png' });
     await typeNavigationButton(page.getByTestId('export-perspective'), 'demo.Party').click();
     await expect(page.getByRole('region', { name: 'Generated output', exact: true })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Generated export file' })).toHaveValue('demo.ts');

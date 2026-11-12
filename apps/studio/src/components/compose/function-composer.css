@@ -25,6 +25,7 @@
 }
 
 .function-composer__header > strong {
+  min-width: 0;
   flex: 1;
 }
 .function-composer__header svg {
@@ -75,12 +76,17 @@
   border-left: 1px solid var(--border);
   padding: var(--space-2);
   background: var(--card);
+  overflow-wrap: anywhere;
 }
 
 .function-composer h2 {
   margin: var(--space-3) 0 var(--space-1);
   font-size: inherit;
   font-weight: 600;
+}
+.function-composer__details > button {
+  height: auto;
+  white-space: normal;
 }
 .function-composer p {
   color: var(--muted-foreground);
@@ -198,11 +204,15 @@
 }
 .function-composer__error {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
   padding: calc(var(--space-1) * 1.5) var(--space-3);
   color: var(--destructive);
+  overflow-wrap: anywhere;
 }
 .function-composer__tabs {
   display: flex;
@@ -321,8 +331,13 @@
   gap: var(--space-2);
 }
 .composition-node__heading strong {
+  display: -webkit-box;
+  min-width: 0;
   flex: 1;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .composition-node__heading {
   align-items: center;
@@ -343,6 +358,10 @@
 .composition-node__argument-label {
   color: var(--muted-foreground);
   font-size: var(--text-2xs);
+}
+.composition-node__argument-label > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .composition-node__argument-label > span:last-child {
   max-width: 55%;
@@ -365,11 +384,14 @@
   font-family: var(--font-mono);
 }
 .composition-node__port-action {
+  max-width: 100%;
   justify-self: start;
   color: var(--foreground);
   font-size: var(--text-2xs);
   text-decoration: underline;
   text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  text-align: start;
 }
 .composition-node__output {
   border-top: 1px solid var(--border);
@@ -379,6 +401,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+.composition-node__output-tags {
+  max-height: 5rem;
+  overflow: auto;
+}
+.composition-node__output-tags:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 .composition-node__output-tags > span {
   max-width: 100%;
@@ -390,6 +420,7 @@
 }
 .composition-node__replacement {
   font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
 }
 .composition-variables {
   z-index: 5;
@@ -403,6 +434,8 @@
 }
 .composition-variables__header {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
@@ -432,9 +465,11 @@
   overflow-wrap: anywhere;
 }
 .composition-variable-tag > span {
+  min-width: 0;
   font-family: var(--font-mono);
 }
 .composition-variable-tag > small {
+  flex-shrink: 0;
   color: var(--muted-foreground);
   font-size: var(--text-2xs);
 }

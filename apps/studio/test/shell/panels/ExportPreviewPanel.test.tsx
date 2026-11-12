@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { ExportPreviewPanel } from '../../../src/shell/panels/ExportPreviewPanel.js';
 
@@ -221,4 +221,58 @@ it('reports the selected preview file to the workspace workbench', async () => {
     await userEvent.selectOptions(picker, 'first.ts');
   });
   expect(onActiveFileChange).toHaveBeenLastCalledWith('first.ts');
+});
+
+it('recovers a failed artifact read without regenerating or losing the captured download', async () => {
+  const readText = vi.fn().mockRejectedValueOnce(new Error('Storage unavailable')).mockResolvedValue('recovered');
+  const onDownload = vi.fn();
+  render(
+    <ExportPreviewPanel
+      run={{ status: 'ready', inputKey: 'input', artifact: { ...artifact, readText } }}
+      onDownload={onDownload}
+    />
+  );
+  expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t read this generated file');
+  expect(screen.getByText('Preview unavailable')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Copy file' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Download export' }));
+  expect(onDownload).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry file' }));
+  expect(await screen.findByText('recovered')).toBeVisible();
+  expect(screen.getByText('Ready')).toBeVisible();
+  expect(readText).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+it('ignores a late failed read after the active artifact changes', async () => {
+  let reject!: (error: Error) => void;
+  const pending = new Promise<string>((_, failure) => {
+    reject = failure;
+  });
+  const { rerender } = render(
+    <ExportPreviewPanel
+      run={{ status: 'ready', inputKey: 'old', artifact: { ...artifact, readText: () => pending } }}
+      onDownload={vi.fn()}
+    />
+  );
+  const next = { ...artifact, readText: vi.fn().mockResolvedValue('current file') };
+  rerender(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'next', artifact: next }} onDownload={vi.fn()} />);
+  expect(await screen.findByText('current file')).toBeVisible();
+  await act(async () => {
+    reject(new Error('old artifact failure'));
+  });
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByLabelText('Generated export code')).toHaveTextContent('current file');
+});
+
+it('keeps Copy available with actionable feedback when clipboard permission is denied', async () => {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: vi.fn().mockRejectedValue(new Error('Denied')) }
+  });
+  render(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={vi.fn()} />);
+  await screen.findByText('export interface Party {}');
+  fireEvent.click(screen.getByRole('button', { name: 'Copy file' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Check clipboard permissions');
+  expect(screen.getByRole('button', { name: 'Copy file' })).toBeEnabled();
 });
