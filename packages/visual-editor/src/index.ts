@@ -131,6 +131,7 @@ export {
 
 // Layout
 export { computeLayout, computeLayoutIncremental, clearLayoutCache } from './layout/dagre-layout.js';
+export { computeGraphPositions } from './layout/dagre-graph.js';
 export { computeLayoutAsync, cancelAsyncLayout } from './layout/layout-worker.js';
 export { computeGroupedLayout, findInheritanceGroups } from './layout/grouped-layout.js';
 export type { GroupInfo } from './layout/grouped-layout.js';

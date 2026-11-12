@@ -496,7 +496,8 @@ vi.mock('lucide-react', () => ({
   FolderOpen: () => React.createElement('span'),
   GitBranch: () => React.createElement('span'),
   Package: () => React.createElement('span'),
-  Boxes: () => React.createElement('span')
+  Boxes: () => React.createElement('span'),
+  Workflow: () => React.createElement('span')
 }));
 
 vi.mock('../../src/components/GraphFilterMenu.js', () => ({

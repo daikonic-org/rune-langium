@@ -141,3 +141,16 @@
     grid-row: 1 / 3;
   }
 }
+
+.workflow-function-builder__contents {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+}
+
+.workflow-function-builder--embedded {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}

@@ -18,7 +18,8 @@ import { useProject } from '../shell/providers/project-context.js';
 import { generateUlid } from '../services/ulid.js';
 import { saveWorkflow } from '../workspace/workflow-repository.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
-import { WorkflowFunctionBuilder } from './WorkflowFunctionBuilder.js';
+import { usePerspectiveStore } from '../store/perspective-store.js';
+import { useComposeNavigationStore } from '../store/compose-navigation-store.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import { resolveExampleType } from '../workspace/example-identity.js';
 export const WorkflowLibrary = withInstrumentation(
@@ -36,8 +37,14 @@ export const WorkflowLibrary = withInstrumentation(
     disabled?: boolean;
   }) {
     const project = useProject();
+    const requestedRecipe = useComposeNavigationStore((state) => state.recipe);
+    useEffect(() => {
+      if (requestedRecipe) {
+        if (requestedRecipe.workspaceId === project.workspaceId) setCreated(requestedRecipe.descriptor);
+        useComposeNavigationStore.setState({ recipe: undefined });
+      }
+    }, [requestedRecipe, project.workspaceId]);
     const workspace = useWorkspaceOptional();
-    const [builder, setBuilder] = useState(false);
     const [created, setCreated] = useState<WorkflowDescriptor>();
     const read = useMemo(() => (project.snapshot ? readWorkflows(project.snapshot) : undefined), [project.snapshot]);
     const [active, setActive] = useState<string>();
@@ -54,7 +61,6 @@ export const WorkflowLibrary = withInstrumentation(
       setSaved(undefined);
       drafts.current.clear();
       setDialog(false);
-      setBuilder(false);
       setCreated(undefined);
       setName('');
       setBusy(false);
@@ -154,11 +160,12 @@ export const WorkflowLibrary = withInstrumentation(
               } catch {
                 /* Keep incomplete input editing local. */
               }
-              setBuilder(true);
+              useComposeNavigationStore.getState().setCreating(true);
+              usePerspectiveStore.getState().setActivePerspective('compose');
             }}
           >
             <Plus className="size-3.5" aria-hidden="true" />
-            Workflow builder
+            Compose function
           </Button>
           {onNew ? (
             <Button
@@ -285,17 +292,6 @@ export const WorkflowLibrary = withInstrumentation(
             </span>
           ) : null}
         </div>
-        {builder ? (
-          <WorkflowFunctionBuilder
-            key={project.workspaceId}
-            onClose={() => setBuilder(false)}
-            onCreated={(workflow) => {
-              setBuilder(false);
-              setError(undefined);
-              setCreated(workflow);
-            }}
-          />
-        ) : null}
         <Dialog
           open={dialog}
           onOpenChange={(next) => {

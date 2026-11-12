@@ -25,8 +25,8 @@ export interface ExpressionScopeEntry {
 
 const callableTypes = new Set(['RosettaFunction', 'RosettaExternalFunction', 'RosettaRule']);
 
-/** Describe the existing language-service scope at an expression, without a second resolver. */
-export function getExpressionScope(expression: RosettaExpression, services: RuneDslServices): ExpressionScopeEntry[] {
+/** Shared canonical scope enumeration for expression editing and composition discovery. */
+export function expressionScopeSymbols(expression: RosettaExpression, services: RuneDslServices) {
   const probe = {
     $type: 'RosettaSymbolReference',
     $container: expression.$container,
@@ -40,7 +40,7 @@ export function getExpressionScope(expression: RosettaExpression, services: Rune
     property: 'symbol',
     reference: probe.symbol
   });
-  const resolved = scope
+  return scope
     .getAllElements()
     .map((description) => ({
       description,
@@ -49,6 +49,11 @@ export function getExpressionScope(expression: RosettaExpression, services: Rune
         (callableTypes.has(description.type) ? services.references.Linker.loadAstNode(description) : undefined)
     }))
     .toArray();
+}
+
+/** Describe the existing language-service scope at an expression, without a second resolver. */
+export function getExpressionScope(expression: RosettaExpression, services: RuneDslServices): ExpressionScopeEntry[] {
+  const resolved = expressionScopeSymbols(expression, services);
   const owner = AstUtils.getContainerOfType(expression, isRosettaFunction);
   const declarations = services.shared.workspace.LangiumDocuments.all
     .flatMap((doc) => {

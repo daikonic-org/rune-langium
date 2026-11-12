@@ -17,7 +17,10 @@ import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/ref
 import { isRecord } from '../services/message-guards.js';
 import {
   getExpressionScope,
+  describeFunctionComposition,
+  type FunctionComposition,
   getExpressionRegions,
+  getNodeSourceRegion,
   findExpressionOwner,
   type ExpressionScopeEntry,
   type SourceRegion,
@@ -108,12 +111,16 @@ export interface ExpressionScopeRequest {
   kind?: string;
   region?: SourceRegion;
   draftCondition?: 'precondition' | 'postcondition';
+  composition?: boolean;
+  compositionCallables?: boolean;
+  compositionCandidate?: string;
   files?: ParseWorkspaceRequest['files'];
 }
 export interface ExpressionScopeResponse {
   type: 'expressionScopeResult';
   id: string;
   entries: ExpressionScopeEntry[];
+  composition?: FunctionComposition;
   error?: string;
 }
 
@@ -737,8 +744,30 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
   }
 }
 
-async function handleExpressionScope(req: ExpressionScopeRequest): Promise<ExpressionScopeResponse> {
+async function handleExpressionScope(
+  req: ExpressionScopeRequest,
+  privateCandidate = false
+): Promise<ExpressionScopeResponse> {
   try {
+    if (req.compositionCandidate !== undefined) {
+      if (!req.files) throw new Error('A candidate requires the captured workspace.');
+      const originals = req.files;
+      const owner = URI.parse(req.uri).toString();
+      let found = false;
+      const files = originals.map((file) => {
+        if (URI.parse(file.name).toString() !== owner) return file;
+        found = true;
+        return { ...file, content: req.compositionCandidate!, serializedModelJson: undefined };
+      });
+      if (!found) throw new Error('The captured function source is unavailable.');
+      // This handler owns the existing serialized worker queue until restoration.
+      // No queued request or published model can observe a private node draft.
+      try {
+        return await handleExpressionScope({ ...req, compositionCandidate: undefined, files }, true);
+      } finally {
+        await handleParseWorkspace({ type: 'parseWorkspace', id: req.id, files: originals });
+      }
+    }
     if (req.files) {
       const parsed = await handleParseWorkspace({ type: 'parseWorkspace', id: req.id, files: req.files });
       const uri = URI.parse(req.uri).toString();
@@ -754,6 +783,32 @@ async function handleExpressionScope(req: ExpressionScopeRequest): Promise<Expre
     const owner = model && findExpressionOwner(model, req);
     if (!owner || (owner.$type !== 'RosettaFunction' && owner.$type !== 'Data'))
       throw new Error('The expression owner is unavailable.');
+    if (req.composition) {
+      if (owner.$type !== 'RosettaFunction') throw new Error('Select a function to compose.');
+      const composition = describeFunctionComposition(owner, req.compositionCallables ? RuneDsl : undefined);
+      if (privateCandidate && composition.supported && doc) {
+        const region = getNodeSourceRegion(owner);
+        // Reuse the language validator; unrelated declarations do not block a node edit.
+        const diagnostics = await RuneDsl.validation.DocumentValidator.validateDocument(doc);
+        for (const diagnostic of diagnostics) {
+          const from = doc.textDocument.offsetAt(diagnostic.range.start);
+          const to = doc.textDocument.offsetAt(diagnostic.range.end);
+          if (diagnostic.severity === 1 && from >= region.from && to <= region.to)
+            composition.reasons.push({
+              message: typeof diagnostic.message === 'string' ? diagnostic.message : diagnostic.message.value,
+              region: { from, to },
+              code: 'unsupported'
+            });
+        }
+        composition.supported = composition.reasons.length === 0;
+      }
+      return {
+        type: 'expressionScopeResult',
+        id: req.id,
+        entries: [],
+        composition
+      };
+    }
     // A detached probe asks the canonical ScopeProvider about a new condition.
     // It never changes the loaded owner or publishes an incomplete source edit.
     if (req.draftCondition) {

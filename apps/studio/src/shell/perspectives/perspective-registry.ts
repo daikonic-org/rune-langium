@@ -1,7 +1,7 @@
 // @instrumentation-codemod-applied
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { Layers, FolderOpen, GitBranch, Package, Settings, Boxes } from 'lucide-react';
+import { Layers, FolderOpen, GitBranch, Package, Settings, Boxes, Workflow } from 'lucide-react';
 import type { Perspective, PerspectiveId } from './perspective-types.js';
 import { ExploreCenterSlot, ExploreActions } from './explore-chrome.js';
 import { PrototypeActions } from './prototype-chrome.js';
@@ -18,6 +18,7 @@ export const PERSPECTIVES: readonly Perspective[] = [
     centerSlot: ExploreCenterSlot,
     actions: ExploreActions
   },
+  { id: 'compose', label: 'Compose', icon: Workflow, group: 'main', requiresWorkspace: true, title: 'Compose' },
   {
     id: 'workspaces',
     label: 'Workspaces',

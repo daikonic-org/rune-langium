@@ -1206,17 +1206,46 @@ the existing Rune renderer emits steps as aliases and the result as an assignmen
 Calls, collection `extract`/`filter` and nested composition therefore share normal
 Core validation and all existing execution/export paths. There is no workflow
 interpreter or second serialized step graph.
-Studio's **Workflow builder** uses the canonical workspace type picker and linked
-preview schemas for callable signatures, including deferred curated functions.
-Creation saves a new source file and a standard recipe atomically through
-ProjectController; source-pattern checks, duplicate local function checks and
-source/config/file-list preconditions protect the working copy. Existing files
-are never overwritten. WorkspaceProvider's existing source adoption publishes
-the saved function; the library waits for canonical identity readback before
-opening it. Closing a draft discards it; workspace changes cancel UI publication
-of pending operations. Subsequent editing uses the ordinary Source/Inspector
-surfaces. Syntax-ready creation does not promise semantic type compatibility;
-the normal linked checks remain authoritative before execution.
+Studio's **Compose** perspective is portaled from the retained Explore editor
+owner into its own activity-rail surface. It shares the selected declaration,
+canonical inspector, `ExpressionDocument`, save barrier and source update path;
+only the active perspective mounts the canonical inspector form. Its controlled
+React Flow instance has separate positions, selection and viewport state from the
+type graph. Palette/camera changes do not write Rune. Per-function leaf drafts
+survive nested navigation while the workspace remains mounted.
+Core's `describeFunctionComposition` matches the directly resolved
+`rune.studio.composition` annotation and projects acyclic aliases, calls, scoped
+`extract` calls and one whole-output set. It returns original UTF-16 regions and
+located reasons for unsupported/unresolved bodies. Conditions and metadata stay
+in Source/Inspector. The parser worker supplies these facts through its existing
+serialized parse/link context transaction, without a UI resolver or evaluator. Callable discovery is lazy: search or a port
+context requests signatures through the same ScopeProvider enumeration as the
+expression builder. Exact resolved type identity and cardinality containment
+prioritize suggestions; this never blocks other calls or replaces validation.
+Node arguments use the existing function-preview schemas for their skeleton;
+ordinary bindings live on the node and a bottom variable tag tray supplies inputs,
+locals and outputs. Designer variables remain Rune aliases. Reference-only aliases
+share one producer node, and output rebinding replaces a definition without renaming
+its consumers. Core supplies exact dependencies and source blocks. Private candidate
+analysis through the same serialized parser queue restores the captured workspace
+in a finally block, including on failure; canonical validation runs before commit.
+Stable topological source-block ordering retains comments and condition placement.
+The canvas remains mounted but inert while source reparses, preserving camera state.
+Its stateless Dagre layout reuses the visual editor's measured-dimension graph helper
+without sharing the type graph's cache. Named argument edits retain authored call spelling and trivia. Expression/alias
+edits use captured source/dependency snapshots and revision/read-only guards;
+comment-dropping edits are refused. Unsupported functions remain callable but
+show Source instead of a partial graph rewrite.
+The inline creation form uses the canonical workspace picker and preview schemas
+for deferred callable signatures. Creation atomically saves source, the ordinary
+annotation model (when absent) and a standard Prototype recipe through
+ProjectController. Source/config/file-list preconditions, duplicate identity and
+path checks preserve existing local files. Canonical identity readback gates
+opening the new function; **Try in Prototype** reuses the saved recipe and normal
+function session. Workspace-qualified navigation prevents cross-project recipe
+activation. There is no CDM-specific eligibility, workflow interpreter or second
+serialized executable graph. Syntax-ready edits still use normal semantic
+validation before execution.
 
 ### Editable starter copies and bound folders
 

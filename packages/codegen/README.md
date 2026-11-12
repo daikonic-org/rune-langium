@@ -44,6 +44,10 @@ belongs in the normal workspace parse/link/validation pipeline before generation
 rendering validates syntax and names, not cross-file type compatibility.
 Compositions can call each other and use collection expressions without a
 separate workflow runtime or JSON step format.
+Set `composition: true` to emit the ordinary `rune.studio.composition` annotation
+and import. Include Core's `COMPOSITION_MODEL_SOURCE` in the project alongside
+that output; Studio installs it atomically when creating a composition. The
+option is off by default for callers that only need ordinary Rune source.
 
 ## Python projections
 

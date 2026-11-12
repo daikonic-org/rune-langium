@@ -50,7 +50,7 @@ it('retains the complete draft after a failed save and retries the same source d
   await user.click(screen.getByRole('button', { name: 'Create function', exact: true }));
   await waitFor(() => expect(host.onCreated).toHaveBeenCalledWith(workflow));
   expect(vi.mocked(saveWorkflowFunction).mock.lastCall?.[1]).toMatchObject({
-    path: 'model/workflows/local/workflow/Calculate.rosetta',
+    path: 'model/workflows/local/compositions/Calculate.rosetta',
     definition: { name: 'Calculate', steps: [{ name: 'step1', expression: 'input * 2' }], result: 'step1' }
   });
 });

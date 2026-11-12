@@ -109,7 +109,8 @@ describe('preview collection workbench', () => {
   it('adds and removes object rows with canonical indices and an honest empty state', async () => {
     const user = userEvent.setup();
     render(<Editor values={{ parties: [] }} />);
-    expect(screen.getByText('No items yet. Add an item to edit its details.')).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'Parties' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add Parties item' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Add Parties item' }));
     expect(screen.getByRole('button', { name: 'Open Parties 1 details' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Actions for Parties 1' }));

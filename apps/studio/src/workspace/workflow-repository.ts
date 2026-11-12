@@ -4,6 +4,7 @@
 import { declarationKey } from '@rune-langium/core/project-contract';
 import {
   createRuneDslServices,
+  COMPOSITION_MODEL_SOURCE,
   isRosettaFunction,
   namespaceFromModelName,
   type RosettaModel
@@ -91,9 +92,27 @@ export const saveWorkflowFunction = withInstrumentation(
     if ([...current.files.keys()].some((existing) => existing.toLowerCase() === path.toLowerCase()))
       throw new Error('That source file already exists. Choose another path or edit the existing file.');
     const files = new Map(current.files).set(path, text);
+    const dependencyPath = 'model/rune/studio/composition.rosetta';
+    const parser = createRuneDslServices().RuneDsl.parser.LangiumParser;
+    const installedMarker = projectSourcePaths(current.files, current.project.build.sources).some((source) => {
+      const model = parser.parse<RosettaModel>(current.files.get(source)!).value;
+      return (
+        model.name === 'rune.studio' &&
+        model.elements.some((element) => element.$type === 'Annotation' && element.name === 'composition')
+      );
+    });
+    const installMarker = input.definition.composition && !installedMarker;
+    if (installMarker) {
+      if ([...files.keys()].some((entry) => entry.toLowerCase() === dependencyPath.toLowerCase()))
+        throw new Error(
+          'The composition annotation path already exists. Keep the local file and choose another source location.'
+        );
+      files.set(dependencyPath, COMPOSITION_MODEL_SOURCE);
+    }
     const sources = projectSourcePaths(files, current.project.build.sources);
     if (!sources.includes(path)) throw new Error('This path is not included by the project source patterns.');
-    const parser = createRuneDslServices().RuneDsl.parser.LangiumParser;
+    if (installMarker && !sources.includes(dependencyPath))
+      throw new Error('Project source patterns must include the composition annotation.');
     for (const source of sources) {
       if (source === path) continue;
       const model = parser.parse<RosettaModel>(files.get(source)!).value;
@@ -126,12 +145,15 @@ export const saveWorkflowFunction = withInstrumentation(
       '.workflow.json',
       workflow,
       [],
-      [{ path, text, expectedRevision: null }],
+      [
+        { path, text, expectedRevision: null },
+        ...(installMarker ? [{ path: dependencyPath, text: COMPOSITION_MODEL_SOURCE, expectedRevision: null }] : [])
+      ],
       {
         paths: [...current.files.keys()],
         inputs: await Promise.all(
           sources
-            .filter((source) => source !== path)
+            .filter((source) => current.files.has(source))
             .map(async (source) => ({
               path: source,
               revision: await projectRevisionAt(current, source)

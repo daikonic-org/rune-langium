@@ -626,13 +626,35 @@ session does not trigger a late dependency reload. Validate with `pnpm --filter
 @rune-langium/studio run test:z2f-hmr` and the expression browser journey's Python
 view; production formatter imports remain lazy.
 
+## Compose verification
+
+For composition changes, run Core's `test/api/function-composition.test.ts`,
+Studio's `composition-edit`, `expression-scope`, `workflow-repository`,
+`WorkflowFunctionBuilder`, perspective registry/host and expression-workspace suites,
+and Codegen's `test/emit/workflow-function.test.ts`. Rebuild Core/Codegen before
+Studio consumes their dist exports. The existing
+`test/e2e/workflow-function-builder.spec.ts` now exercises the dedicated Compose
+perspective: exact source preservation, layout-only moves, retained nested drafts,
+unsupported-body fallback, creation/execution/nested reuse and saved reload.
+The node-binding journey checks variable drag and keyboard binding, output
+definition replacement, comment-preserving reordering, shared producer tags and
+cycle refusal before source publication. The parser-worker test verifies private
+candidate restoration after both success and failure; composition-edit covers LF/CRLF.
+Include visual-editor layout tests when changing the shared stateless layout helper.
+It covers HD/Full HD/narrow bounds and axe; it remains in the optimized candidate
+suite. Run against an owned server and preserve user servers/worktrees. An
+ordinary Rune marker model is installed atomically with new source/recipes; test
+existing local marker preservation and source-pattern exclusion.
+
 ## Prototype workflow verification
 
 Browser fixtures that replace a complete project configuration use
 `seedProjectBackingFiles` with Studio unloaded, then restore the same workspace.
 Writing a new configuration piecemeal into a running app exposes empty files and
 Chromium swap entries to background snapshot capture. Live external-edit tests
-still use `projectBackingFiles`; preserve conflict/validation errors there.
+still use `projectBackingFiles`; preserve conflict/validation errors there. The
+backing reader excludes Chromium `.crswap` files and briefly reacquires invalidated
+OPFS handles during atomic saves; persistent read errors still fail the journey.
 
 For Flow changes, run Studio's `workflow-validation`, `preview-session-client`,
 `function-session-store`, `InstanceInspectorPanel`, arrival and Prototype perspective

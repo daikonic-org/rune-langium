@@ -34,9 +34,23 @@ export async function projectBackingFiles(
     const root = await navigator.storage.getDirectory();
     async function read(dir: FileSystemDirectoryHandle, prefix = '', result: Record<string, string> = {}) {
       for await (const [name, entry] of dir.entries()) {
+        if (name.endsWith('.crswap')) continue;
         try {
           if (entry.kind === 'directory') await read(entry, prefix + name + '/', result);
-          else result[prefix + name] = await (await entry.getFile()).text();
+          else {
+            // An atomic OPFS save can invalidate an enumerated file/blob handle.
+            // Reacquire the actual path; a persistent failure must still fail the test.
+            for (let attempt = 0; ; attempt++) {
+              try {
+                const handle = await dir.getFileHandle(name);
+                result[prefix + name] = await (await handle.getFile()).text();
+                break;
+              } catch (error) {
+                if (!(error instanceof DOMException && error.name === 'NotReadableError') || attempt >= 4) throw error;
+                await new Promise((resolve) => setTimeout(resolve, 25));
+              }
+            }
+          }
         } catch (error) {
           // Studio can remove an entry between enumeration and reading it while saving.
           if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;

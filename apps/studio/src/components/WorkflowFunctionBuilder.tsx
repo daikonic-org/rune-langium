@@ -20,13 +20,7 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Textarea } from '@rune-langium/design-system/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '@rune-langium/design-system/ui/dialog';
+import { Dialog, DialogContent } from '@rune-langium/design-system/ui/dialog';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { WorkspaceTypePicker } from './WorkspaceTypePicker.js';
 import { useProject } from '../shell/providers/project-context.js';
@@ -323,14 +317,16 @@ function StepEditor({
 export const WorkflowFunctionBuilder = withInstrumentation(
   function WorkflowFunctionBuilder({
     onClose,
-    onCreated
+    onCreated,
+    embedded = false
   }: {
+    embedded?: boolean;
     onClose(): void;
     onCreated(workflow: WorkflowDescriptor): void;
   }) {
     const project = useProject();
     const actions = useWorkspaceActionsOptional();
-    const [namespace, setNamespace] = useState('local.workflow');
+    const [namespace, setNamespace] = useState('local.compositions');
     const [name, setName] = useState('');
     const [inputs, setInputs] = useState<WorkflowFunctionParameter[]>([parameter('input')]);
     const [output, setOutput] = useState(parameter('result'));
@@ -349,6 +345,7 @@ export const WorkflowFunctionBuilder = withInstrumentation(
     const path = customPath ?? `model/workflows/${namespace.replaceAll('.', '/')}/${name || 'Function'}.rosetta`;
     const definition: WorkflowFunctionDefinition = useMemo(
       () => ({
+        composition: true,
         namespace,
         name,
         inputs,
@@ -392,197 +389,206 @@ export const WorkflowFunctionBuilder = withInstrumentation(
         if (attempt.current === version) setBusy(false);
       }
     };
-    return (
+    const content = (
+      <div className="workflow-function-builder__contents">
+        <header className="workflow-function-builder__header">
+          <h2 className="text-sm font-medium">New composition</h2>
+          <p className="text-xs text-muted-foreground">Create a reusable Rune function, then open its canvas.</p>
+        </header>
+        <div className="workflow-function-builder__body">
+          <div className="workflow-function-builder__form studio-scroll">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="grid gap-1 text-xs">
+                Namespace
+                <Input
+                  aria-label="Function namespace"
+                  value={namespace}
+                  disabled={busy}
+                  onChange={(e) => setNamespace(e.target.value)}
+                />
+              </label>
+              <label className="grid gap-1 text-xs">
+                Function name
+                <Input
+                  aria-label="Function name"
+                  value={name}
+                  disabled={busy}
+                  placeholder="CalculateCashflows"
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+            </div>
+            <section aria-label="Function inputs" className="workflow-function-builder__section">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-medium">Inputs</h3>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    const used = new Set([
+                      ...inputs.map((input) => input.name),
+                      ...steps.map((step) => step.name),
+                      output.name
+                    ]);
+                    let n = inputs.length + 1;
+                    while (used.has(`input${n}`)) n++;
+                    setInputs([...inputs, parameter(`input${n}`)]);
+                  }}
+                >
+                  <Plus className="size-3.5" />
+                  Add input
+                </Button>
+              </div>
+              {inputs.length ? (
+                inputs.map((input, i) => (
+                  <ParameterRow
+                    key={i}
+                    value={input}
+                    label={`Input ${i + 1}`}
+                    disabled={busy}
+                    onChange={(value) => setInputs(inputs.map((existing, j) => (j === i ? value : existing)))}
+                    onRemove={() => setInputs(inputs.filter((_, j) => j !== i))}
+                  />
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground">This function has no inputs.</p>
+              )}
+            </section>
+            <section aria-label="Function steps" className="workflow-function-builder__section">
+              <div>
+                <h3 className="text-sm font-medium">Steps</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Call a function, or use a Rune expression to select, map or filter values.
+                </p>
+              </div>
+              <ol className="grid gap-0">
+                {steps.map((step, i) => (
+                  <StepEditor
+                    key={step.id}
+                    step={step}
+                    index={i}
+                    count={steps.length}
+                    disabled={busy}
+                    available={[
+                      ...inputs.map((input) => input.name),
+                      ...steps.slice(0, i).map((previous) => previous.name)
+                    ]}
+                    onChange={(value) => {
+                      if (value.name !== step.name)
+                        setResult((current) => (current === step.name ? value.name : current));
+                      setSteps((current) => current.map((existing) => (existing.id === value.id ? value : existing)));
+                    }}
+                    onMove={(delta) =>
+                      setSteps((current) => {
+                        const next = [...current];
+                        [next[i], next[i + delta]] = [next[i + delta]!, next[i]!];
+                        return next;
+                      })
+                    }
+                    onRemove={() => {
+                      setSteps(steps.filter((_, j) => j !== i));
+                      if (result === step.name) setResult(steps[i - 1]?.name ?? inputs[0]?.name ?? '');
+                    }}
+                  />
+                ))}
+              </ol>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                className="justify-self-start"
+                disabled={busy}
+                onClick={() => {
+                  let n = steps.length + 1;
+                  while (steps.some((step) => step.name === `step${n}`)) n++;
+                  const next = {
+                    ...initialStep(),
+                    name: `step${n}`,
+                    expression: steps.at(-1)?.name ?? inputs[0]?.name ?? ''
+                  };
+                  setSteps([...steps, next]);
+                  setResult(next.name);
+                }}
+              >
+                <Plus className="size-3.5" />
+                Add step
+              </Button>
+            </section>
+            <section aria-label="Function output" className="workflow-function-builder__section">
+              <h3 className="text-sm font-medium">Output</h3>
+              <ParameterRow value={output} label="Output" disabled={busy} onChange={setOutput} />
+              <label className="grid gap-1 text-xs">
+                Output expression
+                <Input
+                  aria-label="Output expression"
+                  value={result}
+                  disabled={busy}
+                  onChange={(e) => setResult(e.target.value)}
+                />
+              </label>
+            </section>
+            <details className="workflow-function-builder__destination">
+              <summary>Source file</summary>
+              <Input
+                className="mt-2"
+                aria-label="Function source path"
+                value={path}
+                disabled={busy}
+                onChange={(e) => setCustomPath(e.target.value)}
+              />
+            </details>
+          </div>
+          <section className="workflow-function-builder__preview" aria-label="Rune source preview">
+            <h3 className="border-b border-border px-3 py-2 text-xs font-medium">Rune source</h3>
+            {preview.source ? (
+              <pre className="studio-scroll flex-1 overflow-auto p-3 text-xs">
+                <code>{preview.source}</code>
+              </pre>
+            ) : (
+              <p className="p-3 text-xs text-muted-foreground" role="status">
+                {name ? preview.error : 'Name the function to preview its source.'}
+              </p>
+            )}
+            <p className="border-t border-border p-3 text-xs text-muted-foreground">
+              Creates an editable source file. Prototype checks the function before execution.
+            </p>
+          </section>
+        </div>
+        <div className="workflow-function-builder__footer">
+          {error ? (
+            <p role="alert" className="mr-auto text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
+          <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy || !preview.source || !project.controller}
+            onClick={() => void create()}
+          >
+            {busy ? 'Creating function…' : 'Create function'}
+          </Button>
+        </div>
+      </div>
+    );
+    return embedded ? (
+      <section aria-label="New composition" className="workflow-function-builder workflow-function-builder--embedded">
+        {content}
+      </section>
+    ) : (
       <Dialog
         open
         onOpenChange={(open) => {
           if (!open && !busy) onClose();
         }}
       >
-        <DialogContent className="workflow-function-builder">
-          <DialogHeader className="workflow-function-builder__header">
-            <DialogTitle>Workflow builder</DialogTitle>
-            <DialogDescription>Compose a reusable Rune function.</DialogDescription>
-          </DialogHeader>
-          <div className="workflow-function-builder__body">
-            <div className="workflow-function-builder__form studio-scroll">
-              <div className="grid grid-cols-2 gap-2">
-                <label className="grid gap-1 text-xs">
-                  Namespace
-                  <Input
-                    aria-label="Function namespace"
-                    value={namespace}
-                    disabled={busy}
-                    onChange={(e) => setNamespace(e.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1 text-xs">
-                  Function name
-                  <Input
-                    aria-label="Function name"
-                    value={name}
-                    disabled={busy}
-                    placeholder="CalculateCashflows"
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </label>
-              </div>
-              <section aria-label="Function inputs" className="workflow-function-builder__section">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-medium">Inputs</h3>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => {
-                      const used = new Set([
-                        ...inputs.map((input) => input.name),
-                        ...steps.map((step) => step.name),
-                        output.name
-                      ]);
-                      let n = inputs.length + 1;
-                      while (used.has(`input${n}`)) n++;
-                      setInputs([...inputs, parameter(`input${n}`)]);
-                    }}
-                  >
-                    <Plus className="size-3.5" />
-                    Add input
-                  </Button>
-                </div>
-                {inputs.length ? (
-                  inputs.map((input, i) => (
-                    <ParameterRow
-                      key={i}
-                      value={input}
-                      label={`Input ${i + 1}`}
-                      disabled={busy}
-                      onChange={(value) => setInputs(inputs.map((existing, j) => (j === i ? value : existing)))}
-                      onRemove={() => setInputs(inputs.filter((_, j) => j !== i))}
-                    />
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">This function has no inputs.</p>
-                )}
-              </section>
-              <section aria-label="Function steps" className="workflow-function-builder__section">
-                <div>
-                  <h3 className="text-sm font-medium">Steps</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Call a function, or use a Rune expression to select, map or filter values.
-                  </p>
-                </div>
-                <ol className="grid gap-0">
-                  {steps.map((step, i) => (
-                    <StepEditor
-                      key={step.id}
-                      step={step}
-                      index={i}
-                      count={steps.length}
-                      disabled={busy}
-                      available={[
-                        ...inputs.map((input) => input.name),
-                        ...steps.slice(0, i).map((previous) => previous.name)
-                      ]}
-                      onChange={(value) => {
-                        if (value.name !== step.name)
-                          setResult((current) => (current === step.name ? value.name : current));
-                        setSteps((current) => current.map((existing) => (existing.id === value.id ? value : existing)));
-                      }}
-                      onMove={(delta) =>
-                        setSteps((current) => {
-                          const next = [...current];
-                          [next[i], next[i + delta]] = [next[i + delta]!, next[i]!];
-                          return next;
-                        })
-                      }
-                      onRemove={() => {
-                        setSteps(steps.filter((_, j) => j !== i));
-                        if (result === step.name) setResult(steps[i - 1]?.name ?? inputs[0]?.name ?? '');
-                      }}
-                    />
-                  ))}
-                </ol>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  className="justify-self-start"
-                  disabled={busy}
-                  onClick={() => {
-                    let n = steps.length + 1;
-                    while (steps.some((step) => step.name === `step${n}`)) n++;
-                    const next = {
-                      ...initialStep(),
-                      name: `step${n}`,
-                      expression: steps.at(-1)?.name ?? inputs[0]?.name ?? ''
-                    };
-                    setSteps([...steps, next]);
-                    setResult(next.name);
-                  }}
-                >
-                  <Plus className="size-3.5" />
-                  Add step
-                </Button>
-              </section>
-              <section aria-label="Function output" className="workflow-function-builder__section">
-                <h3 className="text-sm font-medium">Output</h3>
-                <ParameterRow value={output} label="Output" disabled={busy} onChange={setOutput} />
-                <label className="grid gap-1 text-xs">
-                  Return expression
-                  <Input
-                    aria-label="Return expression"
-                    value={result}
-                    disabled={busy}
-                    onChange={(e) => setResult(e.target.value)}
-                  />
-                </label>
-              </section>
-              <details className="workflow-function-builder__destination">
-                <summary>Source file</summary>
-                <Input
-                  className="mt-2"
-                  aria-label="Function source path"
-                  value={path}
-                  disabled={busy}
-                  onChange={(e) => setCustomPath(e.target.value)}
-                />
-              </details>
-            </div>
-            <section className="workflow-function-builder__preview" aria-label="Rune source preview">
-              <h3 className="border-b border-border px-3 py-2 text-xs font-medium">Rune source</h3>
-              {preview.source ? (
-                <pre className="studio-scroll flex-1 overflow-auto p-3 text-xs">
-                  <code>{preview.source}</code>
-                </pre>
-              ) : (
-                <p className="p-3 text-xs text-muted-foreground" role="status">
-                  {name ? preview.error : 'Name the function to preview its source.'}
-                </p>
-              )}
-              <p className="border-t border-border p-3 text-xs text-muted-foreground">
-                Creates an editable source file. Prototype checks the function before execution.
-              </p>
-            </section>
-          </div>
-          <div className="workflow-function-builder__footer">
-            {error ? (
-              <p role="alert" className="mr-auto text-xs text-destructive">
-                {error}
-              </p>
-            ) : null}
-            <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={busy || !preview.source || !project.controller}
-              onClick={() => void create()}
-            >
-              {busy ? 'Creating function…' : 'Create function'}
-            </Button>
-          </div>
+        <DialogContent className="workflow-function-builder" aria-label="New composition">
+          {content}
         </DialogContent>
       </Dialog>
     );

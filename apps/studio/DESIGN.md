@@ -124,3 +124,23 @@ required fields, enum labels and metadata adapters. They show identifying values
 and collection counts instead of generic field totals, with bounded traversal of
 recursive models. Summary cells wrap to two lines; full text and details remain
 available. They never infer financial units or recompute results.
+
+## Compose
+
+Compose shares the active project and editor session. Keep its function palette,
+canvas, bottom variable tray and step/signature inspector distinct, with compact shared controls and
+collapsible side panels. HD is the minimum desktop viewport; narrow screens stack
+panels and start with the palette collapsed. Prefer vertical dependency layout in
+narrow canvases so node text stays readable. Positions, selection and camera are
+view state; only Apply changes source. Unsupported bodies show located Source
+reasons, and stale drafts retain their recovery controls.
+
+Ordinary argument/output bindings live on the node. Selecting a node reveals
+compact Variable/Value controls and a bounded searchable tag tray beneath the
+graph, with drag and keyboard binding paths. Selection does not create a draft.
+Use preview signature metadata for type/required labels, keeping original argument
+indexes when required controls appear first. Variables sharing a value tag one
+producer rather than drawing duplicate computations. The inspector holds complex
+expressions, documentation and the canonical signature; it does not repeat bindings.
+Keep the last graph mounted but inert while current source reparses, retaining
+camera position without implying that stale bindings can be applied.

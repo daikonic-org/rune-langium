@@ -52,6 +52,7 @@ export interface ExpressionWorkspaceProps {
   readOnly: boolean;
   onContentChange(path: string, fullSource: string): void;
   onOpenSource(): void;
+  onOpenComposer?(): void;
   lspClient?: LspClientService;
   lspReady?: boolean;
   sourceError?: string;
@@ -71,6 +72,7 @@ export const ExpressionWorkspace = withInstrumentation(
     readOnly,
     onContentChange,
     onOpenSource,
+    onOpenComposer,
     lspClient,
     lspReady,
     sourceError,
@@ -329,6 +331,11 @@ export const ExpressionWorkspace = withInstrumentation(
             ))}
           </div>
           <div role="group" aria-label="Expression actions" className="flex flex-wrap items-center gap-1">
+            {onOpenComposer && !target && (
+              <Button size="xs" variant="ghost" onClick={onOpenComposer}>
+                Open composer
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="xs"

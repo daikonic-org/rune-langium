@@ -21,7 +21,14 @@ need to embed the editor in a larger application.
 **Do NOT use when:**
 - You only need a single graph — use the pre-created `useEditorStore` singleton.
 
-API surface: 74 functions, 103 types, 14 constants
+API surface: 75 functions, 103 types, 14 constants
+
+For an independent function-composition canvas, reuse `computeGraphPositions`
+with measured node dimensions and keep positions/camera outside the type-graph
+store/cache. Studio Compose binds arguments on nodes from function-preview
+metadata and uses a searchable variable tray. Core supplies resolved dependencies
+and exact source regions; variables remain Rune aliases, with no graph runtime.
+See [Compose](https://github.com/daikonic-org/rune-langium/blob/master/docs/design/function-composer/spec.md).
 
 ## Configuration
 
@@ -31,7 +38,7 @@ API surface: 74 functions, 103 types, 14 constants
 
 **Key functions:** `createEditorStore` (Create an isolated zustand editor store instance)
 
-*191 exports total — see references/ for full API.*
+*192 exports total — see references/ for full API.*
 
 ## References
 

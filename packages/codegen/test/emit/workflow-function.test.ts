@@ -2,7 +2,14 @@
 // Copyright (c) 2026 Daikonic contributors
 
 import { expect, it } from 'vitest';
-import { createRuneDslServices, BASICTYPES_ROSETTA } from '@rune-langium/core';
+import {
+  createRuneDslServices,
+  BASICTYPES_ROSETTA,
+  COMPOSITION_MODEL_SOURCE,
+  describeFunctionComposition,
+  isRosettaFunction,
+  parseWorkspace
+} from '@rune-langium/core';
 import { URI } from 'langium';
 import { renderWorkflowFunction, type WorkflowFunctionDefinition } from '../../src/workflow-function.js';
 import { generate } from '../../src/export.js';
@@ -104,4 +111,28 @@ it('rejects conflicting names, malformed expressions and invalid cardinalities b
   expect(() =>
     renderWorkflowFunction({ ...definition, output: { ...definition.output, cardinality: { min: 2, max: 1 } } })
   ).toThrow('Cardinality');
+});
+
+it('opts in only when requested and retains the exact marker despite a shadowing annotation', async () => {
+  const plain = renderWorkflowFunction({
+    ...definition,
+    imports: [],
+    steps: [{ name: 'adjusted', expression: 'values' }],
+    result: 'adjusted'
+  });
+  expect(plain).not.toContain('[rune.studio.composition]');
+  const marked = renderWorkflowFunction({
+    ...definition,
+    composition: true,
+    imports: [],
+    steps: [{ name: 'adjusted', expression: 'values' }],
+    result: 'adjusted'
+  });
+  const parsed = await parseWorkspace([
+    { uri: 'memory:///marker.rosetta', content: COMPOSITION_MODEL_SOURCE },
+    { uri: 'memory:///owner.rosetta', content: marked + '\nannotation composition: <"Different local meaning.">\n' }
+  ]);
+  expect(parsed.every((entry) => !entry.hasErrors)).toBe(true);
+  const owner = parsed[1]!.value.elements.find(isRosettaFunction)!;
+  expect(describeFunctionComposition(owner)).toMatchObject({ optedIn: true, supported: true });
 });

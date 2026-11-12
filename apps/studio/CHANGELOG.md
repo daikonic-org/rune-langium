@@ -1,5 +1,17 @@
 # @rune-langium/studio
 
+## Unreleased
+
+- Add Compose with an opt-in Rune function canvas, function/primitives palette,
+  in-node argument/output bindings, searchable variable tray, guarded source edits
+  and shared Inspector/Prototype navigation.
+- Refresh the raw JavaScript bundle ceiling to 19,340,000 bytes, retaining about
+  5% headroom above the measured 18,437,779-byte candidate. A parent-Studio-source
+  build with the same installed dependencies/additive Core and Codegen exports
+  measures 18,385,283 bytes; Compose adds 52,496 bytes (0.29%). The previous
+  6,593,600-byte ceiling used a May 2026 baseline. No dependency was added and the
+  guard remains enabled.
+
 ## 0.3.0
 
 ### Minor Changes

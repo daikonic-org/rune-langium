@@ -129,6 +129,18 @@ export type { SourceComment } from './api/source-comments.js';
 
 export { getAnnotationDefinitions } from './api/annotation-definitions.js';
 export type { AnnotationDefinitionIdentity } from './api/annotation-definitions.js';
+export {
+  describeFunctionComposition,
+  COMPOSITION_ANNOTATION,
+  COMPOSITION_MODEL_SOURCE
+} from './api/function-composition.js';
+export type {
+  FunctionComposition,
+  CompositionStep,
+  CompositionCall,
+  CompositionParameter,
+  CompositionCallable
+} from './api/function-composition.js';
 
 export {
   buildImportAliasMap,

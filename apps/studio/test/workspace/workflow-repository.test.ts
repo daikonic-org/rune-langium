@@ -54,6 +54,30 @@ it('creates editable Rune source and a standard recipe that survive reopening to
   expect(readWorkflows(controller.current()!).workflows).toHaveLength(1);
 });
 
+it('installs the ordinary annotation model once and preserves its editable local bytes', async () => {
+  const { adapter, controller } = await setup();
+  const first = await saveWorkflowFunction(controller, {
+    definition: { ...composition, composition: true },
+    path: 'model/first.rosetta',
+    id: 'first'
+  });
+  const markerPath = 'model/rune/studio/composition.rosetta';
+  const marker = first.snapshot.files.get(markerPath)!;
+  expect(marker).toContain('annotation composition:');
+  expect(first.snapshot.files.get('model/first.rosetta')).toContain('[rune.studio.composition]');
+  const local = marker + '\n// retain local documentation\n';
+  await controller.save([
+    { path: markerPath, text: local, expectedRevision: (await adapter.read(markerPath))!.revision }
+  ]);
+  const second = await saveWorkflowFunction(controller, {
+    definition: { ...composition, composition: true, name: 'Again' },
+    path: 'model/second.rosetta',
+    id: 'second'
+  });
+  expect(second.snapshot.files.get(markerPath)).toBe(local);
+  expect(readWorkflows(second.snapshot).workflows).toHaveLength(2);
+});
+
 it('rejects excluded/private paths and malformed drafts without writing source or recipes', async () => {
   const { controller } = await setup();
   const before = [...controller.current()!.files];

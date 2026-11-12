@@ -16,6 +16,13 @@ Use `generate()` when you need emitted files for a concrete target, and
 source maps for a selected data type. This package expects parsed Langium
 documents from `@rune-langium/core`.
 
+For Studio composition authoring, use `renderWorkflowFunction` from `/rosetta`
+with `composition: true`; it emits an ordinary Rune function using the exact
+`rune.studio.composition` annotation. Install Core's `COMPOSITION_MODEL_SOURCE`
+through the project transaction. The recipe describes Prototype inputs; it is not
+a second executable graph. Existing bodies need source-region edits, not wholesale
+regeneration. See [Compose](../../docs/design/function-composer/spec.md).
+
 ## Configuration
 
 9 configuration interfaces — see references/config.md for details.

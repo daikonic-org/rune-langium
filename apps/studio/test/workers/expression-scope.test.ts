@@ -2,8 +2,67 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect } from 'vitest';
-import { getExpressionRegions } from '@rune-langium/core';
+import { getExpressionRegions, COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
 import { createParserWorkerHarness } from './parser-worker-harness.js';
+
+it('classifies compositions through the serialized parse/link transaction, including a shadowed marker', async () => {
+  const worker = createParserWorkerHarness();
+  const source =
+    'namespace example\nimport rune.studio.*\nfunc Twice:\n [composition]\n inputs: value number (1..1)\n output: result number (1..1)\n alias scaled: value * 2\n set result: scaled';
+  const request = {
+    type: 'expressionScope' as const,
+    composition: true,
+    id: 'composition',
+    uri: 'file:///owner.rosetta',
+    name: 'Twice',
+    kind: 'RosettaFunction'
+  };
+  for (const namespace of ['rune.studio', 'other']) {
+    const result = await worker.send({
+      ...request,
+      files: [
+        { name: request.uri, content: source.replace('rune.studio', namespace) },
+        { name: 'file:///marker.rosetta', content: COMPOSITION_MODEL_SOURCE.replace('rune.studio', namespace) }
+      ]
+    });
+    expect(result.type).toBe('expressionScopeResult');
+    if (result.type !== 'expressionScopeResult') throw new Error('fixture response');
+    expect(result.error).toBeUndefined();
+    expect(result.composition?.optedIn).toBe(namespace === 'rune.studio');
+    expect(result.composition?.supported).toBe(namespace === 'rune.studio');
+  }
+});
+
+it('loads callable signatures lazily and suggests exact declared types/cardinality without validating by name', async () => {
+  const worker = createParserWorkerHarness();
+  const source =
+    'namespace suggestions\nimport rune.studio.*\nfunc Owner:\n [composition]\n inputs: value number (1..1)\n output: result number (1..1)\n set result: value\nfunc Numeric:\n inputs: amount number (1..1)\n output: result number (1..1)\n set result: amount\nfunc Text:\n inputs: amount string (1..1)\n output: result string (1..1)\n set result: amount';
+  const request = {
+    type: 'expressionScope' as const,
+    composition: true,
+    id: 'suggest',
+    uri: 'file:///suggestions.rosetta',
+    name: 'Owner',
+    kind: 'RosettaFunction',
+    files: [
+      { name: 'file:///suggestions.rosetta', content: source },
+      { name: 'file:///marker.rosetta', content: COMPOSITION_MODEL_SOURCE },
+      { name: 'file:///types.rosetta', content: 'namespace com.rosetta.model\nbasicType number\nbasicType string\n' }
+    ]
+  };
+  const initial = await worker.send(request);
+  if (initial.type !== 'expressionScopeResult') throw new Error('fixture response');
+  expect(initial.composition?.callables).toBeUndefined();
+  const discovered = await worker.send({ ...request, compositionCallables: true });
+  if (discovered.type !== 'expressionScopeResult') throw new Error('fixture response');
+  expect(discovered.error).toBeUndefined();
+  expect(
+    discovered.composition?.callables?.find((entry) => entry.identity === 'suggestions.Numeric')?.accepts['input:value']
+  ).toEqual(['amount']);
+  expect(
+    discovered.composition?.callables?.find((entry) => entry.identity === 'suggestions.Text')?.accepts['input:value']
+  ).toBeUndefined();
+});
 
 describe('builder scope in the linked parser worker', () => {
   it('reuses the linked document and rejects a stale expression position', async () => {
@@ -103,5 +162,53 @@ it('matches the existing function-condition scope for new preconditions and post
     expect(draft.error).toBeUndefined();
     expect(existing.error).toBeUndefined();
     expect(draft.entries).toEqual(existing.entries);
+  }
+});
+
+it('analyzes a private composition candidate and restores the captured workspace on success and failure', async () => {
+  const worker = createParserWorkerHarness();
+  const source = `namespace private.candidate
+import rune.studio.*
+func Owner:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias original: value * 2
+ set result: original
+`;
+  const uri = 'file:///candidate.rosetta';
+  const files = [
+    { name: uri, content: source },
+    { name: 'file:///marker.rosetta', content: COMPOSITION_MODEL_SOURCE },
+    { name: 'system:///types.rosetta', content: 'namespace com.rosetta.model\nbasicType number\n' }
+  ];
+  const request = {
+    type: 'expressionScope' as const,
+    composition: true,
+    id: 'private-candidate',
+    uri,
+    name: 'Owner',
+    kind: 'RosettaFunction'
+  };
+  for (const candidate of [
+    source.replaceAll('original', 'replacement'),
+    source + '\nfunc : broken',
+    source.replace(' set result:', ' alias original: value * 3\n set result:')
+  ]) {
+    const result = await worker.send({ ...request, files, compositionCandidate: candidate });
+    if (result.type !== 'expressionScopeResult') throw new Error('fixture response');
+    if (candidate.includes('broken')) expect(result.error).toBeTruthy();
+    else if (candidate.includes('value * 3')) {
+      expect(result.error).toBeUndefined();
+      expect(result.composition?.supported).toBe(false);
+      expect(result.composition?.reasons.some((reason) => reason.message.includes('Duplicate shortcut'))).toBe(true);
+    } else {
+      expect(result.error).toBeUndefined();
+      expect(result.composition?.steps.map((step) => step.name)).toEqual(['value', 'replacement', 'result']);
+    }
+    const restored = await worker.send(request);
+    if (restored.type !== 'expressionScopeResult') throw new Error('fixture response');
+    expect(restored.error).toBeUndefined();
+    expect(restored.composition?.steps.map((step) => step.name)).toEqual(['value', 'original', 'result']);
   }
 });

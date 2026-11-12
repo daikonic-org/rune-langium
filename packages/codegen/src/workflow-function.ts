@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Daikonic contributors
 
-import { isRosettaSymbolReference, parseExpression, type RosettaExpression } from '@rune-langium/core';
+import {
+  COMPOSITION_ANNOTATION,
+  isRosettaSymbolReference,
+  parseExpression,
+  type RosettaExpression
+} from '@rune-langium/core';
 import { renderModel } from './emit/rosetta/rosetta-render-core.js';
 
 /** An authoring draft. The persisted/executable definition is ordinary Rune source. */
@@ -15,6 +20,7 @@ export interface WorkflowFunctionStep {
   expression: string;
 }
 export interface WorkflowFunctionDefinition {
+  composition?: boolean;
   namespace: string;
   name: string;
   description?: string;
@@ -75,7 +81,9 @@ export function renderWorkflowFunction(definition: WorkflowFunctionDefinition): 
     if (names.has(name)) throw new Error(`The name ${name} is already used by this function.`);
     names.add(name);
   }
-  const imports = [...new Set(definition.imports ?? [])].filter((namespace) => namespace !== definition.namespace);
+  const imports = [
+    ...new Set([...(definition.imports ?? []), ...(definition.composition ? ['rune.studio'] : [])])
+  ].filter((namespace) => namespace !== definition.namespace);
   for (const namespace of imports) qualified(namespace, 'Imported namespace');
   return renderModel(
     {
@@ -85,6 +93,9 @@ export function renderWorkflowFunction(definition: WorkflowFunctionDefinition): 
         {
           $type: 'RosettaFunction',
           name: definition.name,
+          annotations: definition.composition
+            ? [{ $type: 'AnnotationRef', annotation: { $refText: COMPOSITION_ANNOTATION }, qualifiers: [] }]
+            : [],
           definition: definition.description,
           inputs: definition.inputs.map(parameter),
           output: parameter(definition.output),
