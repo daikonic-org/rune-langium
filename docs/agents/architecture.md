@@ -1244,7 +1244,10 @@ edits use captured source/dependency snapshots and revision/read-only guards;
 comment-dropping edits are refused. Unsupported functions remain callable but
 show Source instead of a partial graph rewrite.
 The inline creation form uses the canonical workspace picker and preview schemas
-for deferred callable signatures. Creation atomically saves source, the ordinary
+for deferred callable signatures. Prototype resets workspace-owned state before
+consuming a matching Compose navigation request, including on its lazy first mount;
+the request remains pending locally until the function can be resolved.
+Creation atomically saves source, the ordinary
 annotation model (when absent) and a standard Prototype recipe through
 ProjectController. Source/config/file-list preconditions, duplicate identity and
 path checks preserve existing local files. Canonical identity readback gates

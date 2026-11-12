@@ -433,7 +433,7 @@ async function callStep(dialog: Locator, index: number, name: string, argument: 
   await dialog.getByLabel(`Step ${index} argument value`, { exact: true }).fill(argument);
 }
 
-test('creates, executes and reuses a composed workflow function with portable source and recipes', async ({
+test('creates in Compose, opens Prototype on its first visit and executes reusable functions', async ({
   page
 }, testInfo) => {
   test.setTimeout(120000);
@@ -449,9 +449,13 @@ test('creates, executes and reuses a composed workflow function with portable so
     'studio-config.yml': 'schemaVersion: 1\n',
     'workflow.rosetta': source
   });
-  await page.getByTestId('rail-prototype').click();
+  await page.getByTestId('rail-compose').click();
+  await expect(page.getByTestId('prototype-perspective')).toHaveCount(0);
   if (['127.0.0.1', 'localhost'].includes(new URL(page.url()).hostname)) await dismissLocalTransportNotices(page);
-  await page.getByRole('button', { name: 'Compose function', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Composition canvas', exact: true })
+    .getByRole('button', { name: 'New composition', exact: true })
+    .click();
   const builder = page.getByRole('region', { name: 'New composition', exact: true });
   await builder.getByLabel('Function name', { exact: true }).fill('DoubleTwice');
   await builder.getByLabel('Input 1 name', { exact: true }).fill('value');

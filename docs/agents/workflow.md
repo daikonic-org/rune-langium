@@ -646,6 +646,8 @@ Studio's `composition-starters` tests validate every factory in a linked Rune
 workspace; `composition-primitives` checks presentation by canonical expression kind.
 Zero-argument replacement is covered by both entered expressions and variable
 binding. The creation form retains loaded arguments when the same callee is reselected.
+The creation journey starts in Compose before Prototype has mounted. Library tests
+retain a matching navigation request through initialization and discard foreign-workspace requests.
 Include visual-editor layout tests when changing the shared stateless layout helper.
 It covers HD/Full HD/narrow bounds and axe; it remains in the optimized candidate
 suite. Run against an owned server and preserve user servers/worktrees. An

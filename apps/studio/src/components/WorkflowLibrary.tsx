@@ -38,12 +38,6 @@ export const WorkflowLibrary = withInstrumentation(
   }) {
     const project = useProject();
     const requestedRecipe = useComposeNavigationStore((state) => state.recipe);
-    useEffect(() => {
-      if (requestedRecipe) {
-        if (requestedRecipe.workspaceId === project.workspaceId) setCreated(requestedRecipe.descriptor);
-        useComposeNavigationStore.setState({ recipe: undefined });
-      }
-    }, [requestedRecipe, project.workspaceId]);
     const workspace = useWorkspaceOptional();
     const [created, setCreated] = useState<WorkflowDescriptor>();
     const read = useMemo(() => (project.snapshot ? readWorkflows(project.snapshot) : undefined), [project.snapshot]);
@@ -69,6 +63,14 @@ export const WorkflowLibrary = withInstrumentation(
         ++generation.current;
       };
     }, [project.workspaceId]);
+
+    // Reset workspace state before consuming navigation, including Prototype's lazy first mount.
+    useEffect(() => {
+      if (requestedRecipe) {
+        if (requestedRecipe.workspaceId === project.workspaceId) setCreated(requestedRecipe.descriptor);
+        useComposeNavigationStore.setState({ recipe: undefined });
+      }
+    }, [requestedRecipe, project.workspaceId]);
 
     useEffect(() => {
       if (!created?.function || !workspace) return;
