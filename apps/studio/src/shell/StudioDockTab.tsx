@@ -70,9 +70,12 @@ export const StudioDockTab = withInstrumentation(
       >
         <span className="studio-dock-tab__label">{title}</span>
         {count !== undefined ? (
-          <NumberChiclet className="studio-dock-tab__count" title={`${count} item${count === 1 ? '' : 's'}`}>
-            {count}
-          </NumberChiclet>
+          <>
+            {' '}
+            <NumberChiclet className="studio-dock-tab__count" title={`${count} item${count === 1 ? '' : 's'}`}>
+              {count}
+            </NumberChiclet>
+          </>
         ) : null}
       </div>
     );

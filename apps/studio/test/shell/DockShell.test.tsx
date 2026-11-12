@@ -433,7 +433,7 @@ describe('DockShell — dockview integration (T065)', () => {
     expect(lastApi?.panelStates.get('workspace.output')?.parameterCalls).toContainEqual({ count: 3 });
   });
 
-  it('renders dock tabs without crashing when params are missing', async () => {
+  it.each([undefined, 0, 3])('renders readable dock tabs with count=%s', async (count) => {
     render(<DockShell studioVersion="0.1.0" workspaceId="ws-1" />);
     await act(() => new Promise((resolve) => setTimeout(resolve, 5)));
 
@@ -448,21 +448,26 @@ describe('DockShell — dockview integration (T065)', () => {
       params?: TabMeta;
     }>;
     const onDidParametersChange = vi.fn().mockReturnValue({ dispose: vi.fn() });
+    const params = count === undefined ? undefined : { count };
 
     const { container } = render(
       <Tab
         api={{
           title: 'Files',
-          getParameters: () => undefined,
+          getParameters: () => params,
           onDidParametersChange,
           onDidTitleChange: vi.fn().mockReturnValue({ dispose: vi.fn() })
         }}
-        params={undefined}
+        params={params}
       />
     );
 
     expect(container.querySelector('.studio-dock-tab__label')?.textContent).toBe('Files');
-    expect(screen.queryByTitle(/item/)).toBeNull();
+    expect(container.querySelector('.studio-dock-tab')?.textContent).toBe(
+      count === undefined ? 'Files' : `Files ${count}`
+    );
+    if (count === undefined) expect(screen.queryByTitle(/item/)).toBeNull();
+    else expect(screen.getByTitle(`${count} items`)).toHaveTextContent(String(count));
   });
 
   it('surfaces a user-visible notice when an invalid saved factory layout is reset', () => {

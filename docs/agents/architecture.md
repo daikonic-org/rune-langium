@@ -1877,6 +1877,8 @@ render boundary keeps sanitized reporting and offers an accessible themed reload
 action without displaying raw exceptions.
 Shared Dockview tabs reference Studio's rendered label/count via `aria-labelledby`,
 so dynamic badges remain part of the accessible name without duplicating titles.
+Literal whitespace separates titles from counts; a CSS gap alone joins their
+underlying text into one word for text-based accessibility checks.
 Rendered titles subscribe to native title changes, including collapsed side tabs.
 Documentation-toggle names match their visible action; nested Graph landmarks
 remain distinct.
