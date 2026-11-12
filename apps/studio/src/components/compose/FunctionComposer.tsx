@@ -21,7 +21,9 @@ import {
   ExpressionBuilder,
   makeNodeId,
   qualifiedNameFromNodeId,
-  formatCardinality
+  formatCardinality,
+  parseCardinality,
+  createExpressionStarter
 } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
@@ -70,7 +72,13 @@ import {
   type NodeArgument,
   type NodeBindingActions
 } from './CompositionNode.js';
+import {
+  COMPOSITION_PRIMITIVES,
+  findCompositionPrimitive,
+  type CompositionPrimitiveId
+} from './composition-primitives.js';
 const MIME = 'application/x-rune-composition-function';
+const PRIMITIVE_MIME = 'application/x-rune-composition-primitive';
 const FIT = { padding: 0.12, minZoom: 0.35, maxZoom: 1 };
 const NODE_TYPES = { composition: CompositionNode };
 const DRAFT_NODE = 'draft:new';
@@ -132,6 +140,7 @@ interface Draft {
   region: SourceRegion;
   scopeRegion?: SourceRegion;
   expression: string;
+  expressionType?: CompositionStep['expressionType'];
   name: string;
   stepId?: string;
   adding?: boolean;
@@ -169,6 +178,10 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   const [selectedVariable, setSelectedVariable] = useState<string>();
   const [applyBusy, setApplyBusy] = useState(false);
   const [query, setQuery] = useState('');
+  const matchingPrimitives = COMPOSITION_PRIMITIVES.filter((primitive) =>
+    `${primitive.label} ${primitive.description}`.toLowerCase().includes(query.trim().toLowerCase())
+  );
+  const primitiveGroups = [...new Set(matchingPrimitives.map((primitive) => primitive.group))];
   const [palette, setPalette] = useState(() => !(window.matchMedia?.('(max-width: 899px)').matches ?? false));
   const [details, setDetails] = useState(true);
   const [tab, setTab] = useState<'step' | 'signature'>('step');
@@ -305,6 +318,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
         id: draft.stepId!,
         name: draft.name,
         kind: draft.callee ? 'call' : 'expression',
+        expressionType: draft.expressionType,
         dependencies: [],
         region: draft.region,
         call: draft.callee
@@ -466,7 +480,11 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
     if (next) changeDraft(next);
   };
   const [signaturePending, setSignaturePending] = useState(false);
-  const beginAdd = async (callee?: string, position?: XYPosition, each = false) => {
+  const beginAdd = async (
+    callee?: string,
+    position?: XYPosition,
+    primitiveId: CompositionPrimitiveId = 'expression'
+  ) => {
     if (!writable || !composition || draft || !editor || signaturePending || applyBusy) return;
     const binding = capture();
     if (!binding) return;
@@ -481,9 +499,13 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
           portContext ?? ''
         ]?.[0]
       : undefined;
-    const inputName = composition.steps.find(
-      (step) => step.kind === 'input' && (!each || !/\.\.1\)?$/.test(step.parameter?.cardinality ?? ''))
-    )?.name;
+    const primitive = findCompositionPrimitive(primitiveId)!;
+    const collection = primitive.group === 'Collections' || primitive.group === 'Totals';
+    const inputName = composition.steps.find((step) => {
+      if (step.kind !== 'input') return false;
+      const card = parseCardinality(step.parameter?.cardinality ?? '(1..1)');
+      return !collection || card.unbounded || (card.sup ?? 1) > 1;
+    })?.name;
     const input = inputName ? compositionReference(inputName) : undefined;
     let next: Draft = {
       binding,
@@ -494,8 +516,9 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       position,
       adding: true,
       stepId: DRAFT_NODE,
-      expression: each
-        ? `${input ?? variables.find((variable) => variable.kind === 'input')?.reference ?? '[]'} extract [ item ]`
+      expressionType: primitive.expressionType,
+      expression: primitive.expressionType
+        ? createExpressionStarter(primitive.expressionType, input ?? (collection ? '[]' : '0'))
         : (input ?? '0')
     };
     if (callee) {
@@ -833,7 +856,14 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
         return;
       }
       const next = makeDraft(step);
-      if (next) changeDraft({ ...next, expression: value });
+      if (next)
+        changeDraft({
+          ...next,
+          expression: value,
+          callee: undefined,
+          argumentRegions: undefined,
+          arguments: undefined
+        });
       setVariablesOpen(true);
     },
     output: (step, variableId) => {
@@ -997,26 +1027,45 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                       : 'Show signatures'}
                 </Button>
                 <h2>Primitives</h2>
-                {(['Expression', 'For each', 'Output'] as const)
-                  .filter((name) => name.toLowerCase().includes(query.toLowerCase()))
-                  .map((name) => (
-                    <Button
-                      key={name}
-                      size="sm"
-                      variant="ghost"
-                      disabled={
-                        !composition?.supported ||
-                        (name !== 'Output' && (!writable || Boolean(draft) || signaturePending))
-                      }
-                      onClick={() =>
-                        name === 'Output'
-                          ? pick(composition!.steps.find((step) => step.kind === 'return')!)
-                          : void beginAdd(undefined, undefined, name === 'For each')
-                      }
-                    >
-                      {name}
-                    </Button>
+                <div className="function-composer__primitives">
+                  {primitiveGroups.map((group) => (
+                    <div key={group} role="group" aria-label={group}>
+                      <h3>{group}</h3>
+                      <div className="function-composer__primitive-grid">
+                        {matchingPrimitives
+                          .filter((primitive) => primitive.group === group)
+                          .map(({ id, label, description, icon: Icon }) => {
+                            const disabled =
+                              !composition?.supported ||
+                              (id !== 'output' && (!writable || Boolean(draft) || signaturePending || applyBusy));
+                            return (
+                              <Button
+                                key={id}
+                                size="sm"
+                                variant="ghost"
+                                title={description}
+                                disabled={disabled}
+                                draggable={id !== 'output' && !disabled}
+                                onDragStart={(event) => {
+                                  event.dataTransfer.setData(PRIMITIVE_MIME, id);
+                                  event.dataTransfer.effectAllowed = 'copy';
+                                }}
+                                onClick={() =>
+                                  id === 'output'
+                                    ? pick(composition!.steps.find((step) => step.kind === 'return')!)
+                                    : void beginAdd(undefined, undefined, id)
+                                }
+                              >
+                                <Icon aria-hidden="true" />
+                                {label}
+                              </Button>
+                            );
+                          })}
+                      </div>
+                    </div>
                   ))}
+                  {!matchingPrimitives.length && <p>No matching primitives.</p>}
+                </div>
                 <h2>
                   Functions <span>{filtered.length}</span>
                 </h2>
@@ -1158,9 +1207,14 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                     }}
                     onDrop={(event) => {
                       event.preventDefault();
+                      const primitive = findCompositionPrimitive(event.dataTransfer.getData(PRIMITIVE_MIME));
+                      const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+                      if (primitive && primitive.id !== 'output') {
+                        void beginAdd(undefined, position, primitive.id);
+                        return;
+                      }
                       const id = event.dataTransfer.getData(MIME);
-                      if (catalog.some((option) => option.value === id))
-                        void beginAdd(id, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+                      if (catalog.some((option) => option.value === id)) void beginAdd(id, position);
                     }}
                     aria-label="Function dependency graph"
                   >

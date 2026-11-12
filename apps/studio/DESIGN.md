@@ -135,6 +135,13 @@ narrow canvases so node text stays readable. Positions, selection and camera are
 view state; only Apply changes source. Unsupported bodies show located Source
 reasons, and stale drafts retain their recovery controls.
 
+Group primitives in a compact two-column palette: values/decisions, collections,
+totals and Output. Use distinct Lucide icons with visible labels and descriptive
+tooltips; reuse the same presentation registry on nodes. Core's expression kind
+determines a saved node's icon, never its variable name. Primitive placement has
+both click and drag paths and stages an ordinary expression draft. Inner branch
+and closure formulas stay in the focused expression builder.
+
 Ordinary argument/output bindings live on the node. Selecting a node reveals
 compact Variable/Value controls and a bounded searchable tag tray beneath the
 graph, with drag and keyboard binding paths. Selection does not create a draft.

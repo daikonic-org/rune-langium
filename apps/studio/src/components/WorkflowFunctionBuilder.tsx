@@ -249,9 +249,10 @@ function StepEditor({
             filterKinds={['func']}
             disabled={disabled}
             onSelect={() => {}}
-            onSelectOption={(option) =>
-              onChange({ ...step, callee: option?.value ?? null, parameters: [], arguments: [], ready: false })
-            }
+            onSelectOption={(option) => {
+              const callee = option?.value ?? null;
+              if (callee !== step.callee) onChange({ ...step, callee, parameters: [], arguments: [], ready: false });
+            }}
           />
           {step.callee && !step.ready && !error ? (
             <p role="status" className="text-xs text-muted-foreground">

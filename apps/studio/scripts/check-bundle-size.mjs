@@ -8,10 +8,11 @@
  * Walks `apps/studio/dist/assets/` and sums all `.js` / `.mjs` byte sizes.
  * Fails non-zero if the total exceeds `STUDIO_MAX_BUNDLE_BYTES`.
  *
- * Current baseline (2026-11-11): 18,437,779 bytes.
+ * Current candidate (2026-11-12): 18,445,358 bytes.
  * Parent Studio source at 657bf5dc with the same installed dependencies and
- * additive Core/Codegen exports totals 18,385,283 bytes; Compose adds 52,496
- * bytes (0.29%). The May 2026 6,279,619-byte baseline predates these toolchain
+ * additive Core/Codegen exports totaled 18,385,283 bytes; initial Compose added
+ * 52,496 bytes (0.29%). Primitive polish and call-state fixes add another 7,579
+ * bytes (0.04%). The May 2026 6,279,619-byte baseline predates these toolchain
  * features and no longer describes the shipped application.
  *
  * Default gate: 19,340,000 bytes (~5% headroom above the current baseline).

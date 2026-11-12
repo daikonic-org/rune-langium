@@ -5,10 +5,14 @@
 - Add Compose with an opt-in Rune function canvas, function/primitives palette,
   in-node argument/output bindings, searchable variable tray, guarded source edits
   and shared Inspector/Prototype navigation.
+- Group decision, collection and aggregation starters into a compact icon palette,
+  matching saved-node labels/icons to the linked expression kind. Preserve loaded
+  arguments when reselecting a callee and allow replacing zero-argument calls.
 - Refresh the raw JavaScript bundle ceiling to 19,340,000 bytes, retaining about
-  5% headroom above the measured 18,437,779-byte candidate. A parent-Studio-source
+  5% headroom above the measured 18,445,358-byte candidate. A parent-Studio-source
   build with the same installed dependencies/additive Core and Codegen exports
-  measures 18,385,283 bytes; Compose adds 52,496 bytes (0.29%). The previous
+  measured 18,385,283 bytes; initial Compose added 52,496 bytes (0.29%). Primitive
+  polish and call-state fixes add another 7,579 bytes (0.04%). The previous
   6,593,600-byte ceiling used a May 2026 baseline. No dependency was added and the
   guard remains enabled.
 

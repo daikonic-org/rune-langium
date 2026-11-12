@@ -89,6 +89,38 @@
 .function-composer__palette > button {
   justify-content: flex-start;
 }
+.function-composer__primitives {
+  display: grid;
+  gap: var(--space-2);
+}
+.function-composer__primitives h3 {
+  margin: 0 0 var(--space-1);
+  color: var(--muted-foreground);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+}
+.function-composer__primitive-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+.function-composer__primitive-grid > button {
+  min-width: 0;
+  height: 28px;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+  font-size: var(--text-xs);
+}
+.function-composer__primitive-grid svg, .composition-node__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+.composition-node[data-selected='true'] .composition-node__icon {
+  color: var(--primary);
+}
 .function-composer__function {
   display: flex;
   min-width: 0;
@@ -289,7 +321,12 @@
   gap: var(--space-2);
 }
 .composition-node__heading strong {
+  flex: 1;
   overflow-wrap: anywhere;
+}
+.composition-node__heading {
+  align-items: center;
+  justify-content: flex-start;
 }
 .composition-node__arguments {
   display: grid;

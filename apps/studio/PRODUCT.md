@@ -58,6 +58,8 @@ approximations. See [architecture and invariants](../../docs/agents/architecture
   guards needed by its actual runtime contract.
 - Compose explicitly marked Rune functions using a function palette, dependency
   canvas, direct node bindings and a searchable variable tray in the current project.
+  Grouped primitive starters cover values, decisions, collection transforms and
+  totals, with consistent palette/canvas icons and canonical expression editing.
 - Preview forms, structural validation and function execution using sample data.
   Loading, pending validation, unavailable services and genuine errors must be
   distinguished from successful readiness.

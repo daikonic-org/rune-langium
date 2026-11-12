@@ -640,6 +640,12 @@ The node-binding journey checks variable drag and keyboard binding, output
 definition replacement, comment-preserving reordering, shared producer tags and
 cycle refusal before source publication. The parser-worker test verifies private
 candidate restoration after both success and failure; composition-edit covers LF/CRLF.
+The primitive journey covers the expanded palette, description search, click/drag
+placement, discard without persistence and labels/icons after an expression edit.
+Studio's `composition-starters` tests validate every factory in a linked Rune
+workspace; `composition-primitives` checks presentation by canonical expression kind.
+Zero-argument replacement is covered by both entered expressions and variable
+binding. The creation form retains loaded arguments when the same callee is reselected.
 Include visual-editor layout tests when changing the shared stateless layout helper.
 It covers HD/Full HD/narrow bounds and axe; it remains in the optimized candidate
 suite. Run against an owned server and preserve user servers/worktrees. An

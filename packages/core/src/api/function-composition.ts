@@ -37,6 +37,8 @@ export interface CompositionStep {
   id: string;
   name: string;
   kind: 'input' | 'call' | 'each' | 'expression' | 'return';
+  /** Canonical outer expression kind, retained for presentation without reparsing source. */
+  expressionType?: RosettaExpression['$type'];
   region?: SourceRegion;
   statement?: SourceRegion;
   /** Exact source block, including attached trivia, for stable variable reordering. */
@@ -193,6 +195,7 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
         : {}),
       name,
       kind: kind ?? (expression.$type === 'MapOperation' ? 'each' : call ? 'call' : 'expression'),
+      expressionType: expression.$type,
       region: getNodeSourceRegion(expression),
       statement,
       dependencies: [...dependencies],

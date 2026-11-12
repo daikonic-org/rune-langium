@@ -7,6 +7,7 @@ import type { CompositionStep } from '@rune-langium/core';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import { compositionNodePresentation } from './composition-primitives.js';
 
 export interface CompositionVariable {
   id: string;
@@ -77,6 +78,7 @@ export const CompositionNode = withInstrumentation(
     const actions = useContext(NodeBindingContext);
     if (!actions) return null;
     const step = data.step;
+    const { label, icon: Icon } = compositionNodePresentation(step);
     const editing = actions.draftId === step.id;
     const active = selected || editing;
     const disabled = !actions.writable || actions.busy;
@@ -105,22 +107,19 @@ export const CompositionNode = withInstrumentation(
       else actions.argument(step, index, variable.reference, variable.id);
     };
     return (
-      <div className="composition-node" data-composition-step={step.id} data-selected={active} data-kind={step.kind}>
+      <div
+        className="composition-node"
+        data-composition-step={step.id}
+        data-selected={active}
+        data-kind={step.kind}
+        data-expression-type={step.expressionType}
+      >
         {step.kind !== 'input' && (
           <Handle id="input" type="target" position={data.vertical ? Position.Top : Position.Left} />
         )}
         <div className="composition-node__heading">
-          <strong>
-            {step.kind === 'return'
-              ? 'Output'
-              : step.kind === 'each'
-                ? 'For each'
-                : step.call
-                  ? step.call.identity.split('.').pop()
-                  : step.kind === 'input'
-                    ? step.name
-                    : 'Expression'}
-          </strong>
+          <Icon className="composition-node__icon" aria-hidden="true" />
+          <strong>{label}</strong>
           {step.kind !== 'return' && (
             <span className="composition-node__kind">
               {step.kind === 'input' ? 'Input' : step.call ? 'Function' : 'Value'}

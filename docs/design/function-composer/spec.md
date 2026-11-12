@@ -130,10 +130,13 @@ Use the following regions at HD 1280×720 and Full HD 1920×1080:
 
 - **Left: palette**, with one search across Functions and Primitives. Functions
   come from the current project and loaded libraries, including nested
-  compositions. The initial primitives are Expression, For each and Output;
-  signature controls own Inputs. Filters, choices, constructors and arithmetic
-  remain available within the focused expression editor until a larger graph
-  representation is explicitly supported.
+  compositions. A compact two-column primitive palette groups Expression, Branch
+  and Fallback; For each, Filter, Sort, Distinct and Flatten; Reduce, Count and Sum;
+  and the existing Output. Icons and short descriptions distinguish operations.
+  Click or drag a starter, edit its Rune expression, then Apply; selecting Output
+  never adds another output. Signature controls own Inputs. These are focused
+  expression nodes, not graphs of their internal branches or closure bodies.
+  Constructors, field selection and arithmetic remain in the expression builder.
 - **Center: composition canvas**, with typed ports, data dependencies, named
   intermediate results and a reversible Rune source view.
 - **Right: selected-step inspector**, with documentation, complex expression
@@ -150,6 +153,11 @@ source/details plus a pannable canvas. Opening the palette stacks it rather than
 squeezing the graph and controls into three narrow columns.
 
 Moving a node changes view state only. Save state reflects actual source persistence.
+Primitive starters reuse the expression builder's operator factories and canonical
+Rune renderer. Collection starters prefer a plural input, otherwise an empty list.
+Defaults are editable examples, not inferred business logic. Node presentation
+uses Core's outer AST expression kind, so labels/icons follow applied source edits
+rather than variable names. Input, callable function and Output have distinct icons.
 Back to inspector preserves drafts and selection. View-only reference declarations
 use the existing Modify/override flow for local changes. Invalid or stale source
 retains the draft and gates Apply, with an explicit recovery choice.

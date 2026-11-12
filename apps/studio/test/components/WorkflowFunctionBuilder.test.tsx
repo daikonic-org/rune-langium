@@ -95,6 +95,11 @@ it('uses a deferred function identity for its signature and recovers argument lo
     'reference.Double(input)'
   );
   expect(screen.getByLabelText('Function name', { exact: true })).toHaveValue('Calculate');
+  await user.click(screen.getByRole('button', { name: 'Step 1 function: Double — reference', exact: true }));
+  await user.click(await screen.findByRole('option', { name: 'Double — reference', exact: true }));
+  expect(screen.getByLabelText('Step 1 argument value', { exact: true })).toHaveValue('input');
+  expect(screen.getByRole('button', { name: 'Create function', exact: true })).toBeEnabled();
+  expect(schema).toHaveBeenCalledTimes(2);
 });
 
 it('does not publish an old completion after the builder is unmounted on a workspace change', async () => {

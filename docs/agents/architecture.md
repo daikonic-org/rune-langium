@@ -1231,6 +1231,13 @@ analysis through the same serialized parser queue restores the captured workspac
 in a finally block, including on failure; canonical validation runs before commit.
 Stable topological source-block ordering retains comments and condition placement.
 The canvas remains mounted but inert while source reparses, preserving camera state.
+Core retains the outer AST `expressionType` in composition facts. Studio's shared
+primitive presentation registry uses it for palette/canvas icons and labels without
+classifying source strings. Visual-editor's `createExpressionStarter` reuses the
+existing operator catalog factories, parser and canonical Rune renderer; starters
+are complete editable expressions and use the same guarded candidate transaction.
+Nested branches/closures remain opaque focused expressions rather than new graph
+execution semantics.
 Its stateless Dagre layout reuses the visual editor's measured-dimension graph helper
 without sharing the type graph's cache. Named argument edits retain authored call spelling and trivia. Expression/alias
 edits use captured source/dependency snapshots and revision/read-only guards;

@@ -203,6 +203,124 @@ async function openComposition(page: Page, content: string, name: string) {
   return composer;
 }
 
+test('offers searchable primitive starters with matching canvas icons and preserves discarded drafts', async ({
+  page
+}, testInfo) => {
+  test.setTimeout(120000);
+  const content = `namespace workflow
+import rune.studio.*
+func Analyze:
+ [composition]
+ inputs: values number (0..*)
+ output: result number (0..*)
+ set result: values
+`;
+  const composer = await openComposition(page, content, 'Analyze');
+  const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+  const search = palette.getByRole('textbox', { name: 'Search functions and primitives', exact: true });
+  const draft = composer.locator('[data-composition-step="draft:new"]');
+  for (const label of [
+    'Expression',
+    'Branch',
+    'Fallback',
+    'For each',
+    'Filter',
+    'Sort',
+    'Distinct',
+    'Flatten',
+    'Reduce',
+    'Count',
+    'Sum'
+  ]) {
+    const button = palette.getByRole('button', { name: label, exact: true });
+    await expect(button.locator('svg')).toHaveAttribute('aria-hidden', 'true');
+    await button.click();
+    await expect(draft.locator('.composition-node__heading strong')).toHaveText(label);
+    await expect(draft.locator('.composition-node__icon')).toHaveAttribute('aria-hidden', 'true');
+    expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+    await draft.getByRole('button', { name: 'Discard', exact: true }).click();
+    await expect(draft).toHaveCount(0);
+  }
+  await search.fill('duplicate');
+  await expect(palette.getByRole('button', { name: 'Distinct', exact: true })).toBeVisible();
+  await expect(palette.getByRole('button', { name: 'Filter', exact: true })).toHaveCount(0);
+  await search.fill('no such primitive');
+  await expect(palette.getByText('No matching primitives.', { exact: true })).toBeVisible();
+  await search.fill('');
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await palette
+    .getByRole('button', { name: 'Filter', exact: true })
+    .dispatchEvent('dragstart', { dataTransfer: transfer });
+  const canvas = composer.getByRole('region', { name: 'Composition canvas', exact: true });
+  const bounds = (await canvas.boundingBox())!;
+  await canvas.locator('.react-flow').dispatchEvent('drop', {
+    dataTransfer: transfer,
+    clientX: bounds.x + 100,
+    clientY: bounds.y + 100
+  });
+  await transfer.dispose();
+  await expect(draft.locator('.composition-node__heading strong')).toHaveText('Filter');
+  await draft.getByRole('textbox', { name: 'Output variable name', exact: true }).fill('chosen');
+  await draft.getByRole('textbox', { name: 'chosen expression', exact: true }).fill('values filter [item > 0]');
+  await draft.getByRole('button', { name: 'Apply', exact: true }).click();
+  const chosen = composer.locator('[data-composition-step="alias:chosen"]');
+  await expect(chosen).toHaveAttribute('data-expression-type', 'FilterOperation');
+  await expect(chosen.locator('.composition-node__heading strong')).toHaveText('Filter');
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toContain('alias chosen: values filter [item > 0]');
+  await chosen.getByRole('textbox', { name: 'chosen expression', exact: true }).fill('values count');
+  await chosen.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(chosen).toHaveAttribute('data-expression-type', 'RosettaCountOperation');
+  await expect(chosen.locator('.composition-node__heading strong')).toHaveText('Count');
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toContain('alias chosen: values count');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(palette.locator('.function-composer__primitive-grid').first()).toBeVisible();
+  await expect.poll(() => palette.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('compose-primitives-hd.png') });
+});
+
+test('replaces zero-argument calls with entered expressions and variable bindings', async ({ page }) => {
+  const content = `namespace workflow
+import rune.studio.*
+func Constant:
+ output: result number (1..1)
+ set result: 7
+func ReplaceConstant:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ set result: Constant()
+`;
+  const composer = await openComposition(page, content, 'ReplaceConstant');
+  const output = composer.locator('[data-composition-step="return"]');
+  const expression = output.getByRole('textbox', { name: 'result expression', exact: true });
+  const save = async (expected: string) => {
+    await output.getByRole('button', { name: 'Apply', exact: true }).click();
+    await composer.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
+  };
+  await expression.fill('value + 1');
+  await expect(expression).toHaveValue('value + 1');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await save(content.replace('set result: Constant()', 'set result: value + 1'));
+  await expression.fill('Constant()');
+  await save(content);
+  const tray = composer.getByRole('region', { name: 'Available variables', exact: true });
+  await tray
+    .locator('.composition-variable-tag')
+    .filter({ has: page.locator('span', { hasText: /^value$/ }) })
+    .click();
+  await output.getByRole('button', { name: 'Bind selected variable to result value', exact: true }).click();
+  await expect(expression).toHaveValue('value');
+  await save(content.replace('set result: Constant()', 'set result: value'));
+  await expect(composer.getByRole('button', { name: 'Open Constant definition', exact: true })).toHaveCount(0);
+});
+
 test('binds variables on nodes, replaces existing definitions once and rejects cycles before publishing', async ({
   page
 }, testInfo) => {

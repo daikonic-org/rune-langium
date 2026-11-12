@@ -143,8 +143,12 @@ named arguments directly on the node. Choose a variable or enter a Rune value/
 expression; preview schemas supply parameter names, types and requiredness.
 Search includes loaded signatures and documentation. Select a
 typed input/call output and choose **Find calls** for declared-type/cardinality
-suggestions; normal validation remains authoritative. **Expression**, **For each** and **Output** keep smaller Rune
-expressions in the existing expression builder. The center canvas shows data
+suggestions; normal validation remains authoritative. The grouped **Primitives**
+palette adds expressions, branches/fallbacks, collection transforms and totals
+by click or drag; **Output** selects the existing output. Each starter has a
+matching canvas icon and an editable Rune expression, with the existing expression
+builder for detailed editing. Search matches descriptions as well as names.
+The center canvas shows data
 dependencies. Selecting a node opens a searchable variable tray below the graph.
 Drag a tag onto an input or output, or select it and use the binding action. An
 output can define a new variable or replace an existing definition while keeping

@@ -9,3 +9,5 @@ Browser UI components and helpers for graph-based Rune DSL editing.
 - Render interactive graphs with `RuneTypeGraph`
 - Embed namespace, detail, and editor panels in custom shells
 - Reuse layout, validation, and store helpers in Studio-style apps
+- Seed focused collection/decision expressions with `createExpressionStarter`,
+  backed by the expression palette and shared Rune renderer

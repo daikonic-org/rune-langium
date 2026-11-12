@@ -48,6 +48,11 @@ it('projects dependencies and exact expression ranges without modifying source o
   expect(
     result.steps.filter((step) => step.region).map((step) => source.slice(step.region!.from, step.region!.to))
   ).toEqual(['value * 2', 'scaled']);
+  expect(result.steps.map((step) => step.expressionType)).toEqual([
+    undefined,
+    'ArithmeticOperation',
+    'RosettaSymbolReference'
+  ]);
 });
 it.each([
   ['nested assignments', ' set result: value\n set result: 3'],

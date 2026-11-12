@@ -28,6 +28,10 @@ with measured node dimensions and keep positions/camera outside the type-graph
 store/cache. Studio Compose binds arguments on nodes from function-preview
 metadata and uses a searchable variable tray. Core supplies resolved dependencies
 and exact source regions; variables remain Rune aliases, with no graph runtime.
+Use `createExpressionStarter(type, source)` for complete collection/decision
+starters from the shared operator catalog and Rune renderer. Compose presents
+these in grouped icon buttons; inner formulas stay in the focused builder and
+saved node icons follow Core's `expressionType`.
 See [Compose](../../docs/design/function-composer/spec.md).
 
 ## Configuration
