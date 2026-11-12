@@ -9,6 +9,7 @@ import { useState, useCallback, memo } from 'react';
 import type { TypeKind } from '../../types.js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { Button } from '@rune-langium/design-system/ui/button';
 
 export interface TypeCreatorProps {
   onCreateType: (kind: TypeKind, name: string, namespace: string) => void;
@@ -48,7 +49,7 @@ export const TypeCreator = memo(function TypeCreator({
       <div className="rune-type-creator__header">Create Type</div>
       <div className="rune-type-creator__form">
         <Select value={kind} onValueChange={(val) => setKind(val as TypeKind)}>
-          <SelectTrigger className="rune-type-creator__kind" aria-label="Type kind">
+          <SelectTrigger aria-label="Type kind">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -58,32 +59,28 @@ export const TypeCreator = memo(function TypeCreator({
           </SelectContent>
         </Select>
         <Input
-          variant="inline"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type name"
-          className="px-2 py-1 text-sm"
           aria-label="Type name"
           autoFocus
         />
         <Input
-          variant="inline"
           type="text"
           value={namespace}
           onChange={(e) => setNamespace(e.target.value)}
           placeholder="Namespace"
-          className="px-2 py-1 text-sm"
           aria-label="Namespace"
         />
-        <button type="button" onClick={handleCreate} disabled={!name.trim()} className="rune-type-creator__submit">
+        <Button type="button" size="xs" onClick={handleCreate} disabled={!name.trim()}>
           Create
-        </button>
+        </Button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="rune-type-creator__cancel">
+          <Button type="button" variant="secondary" size="xs" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </div>

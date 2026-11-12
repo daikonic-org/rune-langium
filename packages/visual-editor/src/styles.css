@@ -363,6 +363,11 @@ button.rune-enum-disclosure {
   white-space: nowrap;
 }
 
+/* Enum values and disclosures have no type/cardinality columns. */
+.rune-node-member > :only-child {
+  grid-column: 1 / -1;
+}
+
 .rune-node-member-type {
   color: var(--color-node-member-type);
   font-style: italic;

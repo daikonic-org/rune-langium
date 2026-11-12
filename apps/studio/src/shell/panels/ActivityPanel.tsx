@@ -3,7 +3,8 @@
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@rune-langium/design-system/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { useUtilityHeaderActions } from '../utility-header-actions-context.js';
 import { useActivityStore } from '../../store/activity-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -44,30 +45,25 @@ export const ActivityPanel = withInstrumentation(
     const headerActions = useMemo(
       () => (
         <>
-          <Select value={filter} onValueChange={(value) => setFilter(value as InstrumentationNamespace | 'all')}>
-            <SelectTrigger
-              size="sm"
-              aria-label="Filter activity by namespace"
-              data-testid="activity-namespace-filter"
-              className="min-w-28 px-2 py-0 text-xs data-[size=sm]:h-6 focus-visible:ring-inset"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {NAMESPACE_FILTERS.map((ns) => (
-                <SelectItem key={ns} value={ns}>
-                  {ns === 'all' ? 'All' : ns}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <button
-            type="button"
-            className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
-            onClick={clearEntries}
+          <NativeSelect
+            value={filter}
+            onChange={(event) => {
+              const next = NAMESPACE_FILTERS.find((namespace) => namespace === event.target.value);
+              if (next) setFilter(next);
+            }}
+            aria-label="Filter activity by namespace"
+            data-testid="activity-namespace-filter"
+            className="min-w-28"
           >
+            {NAMESPACE_FILTERS.map((namespace) => (
+              <option key={namespace} value={namespace}>
+                {namespace === 'all' ? 'All' : namespace}
+              </option>
+            ))}
+          </NativeSelect>
+          <Button type="button" variant="secondary" size="xs" onClick={clearEntries}>
             Clear
-          </button>
+          </Button>
         </>
       ),
       [filter, clearEntries]

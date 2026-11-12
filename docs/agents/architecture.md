@@ -333,6 +333,12 @@ standard (28px) heights. Existing button size names retain width/icon intent;
 Studio must not add competing global height overrides. Multi-line editors, list
 rows and touch/resize hit areas remain separate. Dockview uses one unlayered sash
 geometry rule set: a theme hairline inside the existing 16px drag target.
+Input has one field treatment for inline and ordinary form editing. Input,
+Textarea, NativeSelect and SelectTrigger reuse a private field-chrome definition
+in design-system. NativeSelect in the existing `/ui/select` module owns ordinary
+option lists; rich Select and searchable domain pickers preserve their focus,
+selection and z2f binding contracts. Repeated utility actions use Button rather
+than app-local button chrome. Field groups use 8px gaps and nested sets use 12px.
 The desktop launcher fills its frame with Recents beside Starters, each owning
 its overflow; Reference Models uses the same full-frame body. Narrow launchers
 retain a stacked layout. Navigation and workspace actions stay outside Recents'

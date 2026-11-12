@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { TARGET_OPTIONS_SCHEMAS } from '@rune-langium/codegen/export';
-import { ExportSelect } from './ExportSelect.js';
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 
 const fields = { dialect: 'Dialect', inheritance: 'Inheritance', enumStrategy: 'Enum strategy' } as const;
 /** Owner schemas supply values; Studio supplies only presentation labels. */
@@ -19,7 +19,7 @@ export const SqlOptionsForm = withInstrumentation(
         {(Object.keys(fields) as (keyof typeof fields)[]).map((field) => (
           <label key={field} className="flex flex-col gap-1 text-xs font-medium">
             {fields[field]}
-            <ExportSelect
+            <NativeSelect
               aria-label={fields[field]}
               value={typeof value[field] === 'string' ? value[field] : ''}
               onChange={(event) => {
@@ -35,7 +35,7 @@ export const SqlOptionsForm = withInstrumentation(
                   {option}
                 </option>
               ))}
-            </ExportSelect>
+            </NativeSelect>
           </label>
         ))}
       </div>

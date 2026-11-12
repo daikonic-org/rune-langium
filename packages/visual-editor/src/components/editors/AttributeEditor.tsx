@@ -7,6 +7,7 @@
 
 import { useState, useCallback, memo } from 'react';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { Button } from '@rune-langium/design-system/ui/button';
 
 export interface AttributeEditorProps {
   nodeId: string;
@@ -48,41 +49,35 @@ export const AttributeEditor = memo(function AttributeEditor({
       <div className="rune-attribute-editor__header">Add Attribute</div>
       <div className="rune-attribute-editor__form">
         <Input
-          variant="inline"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Attribute name"
-          className="px-2 py-1 text-sm"
           aria-label="Attribute name"
           autoFocus
         />
         <Input
-          variant="inline"
           type="text"
           value={typeName}
           onChange={(e) => setTypeName(e.target.value)}
           placeholder="Type"
-          className="px-2 py-1 text-sm"
           aria-label="Attribute type"
         />
         <Input
-          variant="inline"
           type="text"
           value={cardinality}
           onChange={(e) => setCardinality(e.target.value)}
           placeholder="Cardinality"
-          className="px-2 py-1 text-sm"
           aria-label="Cardinality"
         />
-        <button type="button" onClick={handleAdd} disabled={!name.trim()} className="rune-attribute-editor__submit">
+        <Button type="button" size="xs" onClick={handleAdd} disabled={!name.trim()}>
           Add
-        </button>
+        </Button>
         {onCancel && (
-          <button type="button" onClick={onCancel} className="rune-attribute-editor__cancel">
+          <Button type="button" variant="secondary" size="xs" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </div>

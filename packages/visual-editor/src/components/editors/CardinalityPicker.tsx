@@ -194,7 +194,6 @@ export function CardinalityPicker({
           <div className="flex flex-col gap-1">
             <Input
               ref={customInputRef}
-              variant="inline"
               type="text"
               value={customValue}
               onChange={(e) => {

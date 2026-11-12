@@ -9,7 +9,8 @@ import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js
 
 const source = `namespace harden
 enum BusinessCenterEnum:
- LN
+ LondonBusinessCenter
+ VeryLongBusinessCenterCodeThatRequiresAccessToTheCompleteValue
  NY
 enum CommodityBusinessCalendarEnum:
  Coal
@@ -57,5 +58,24 @@ for (const theme of ['daikonic', 'light'])
         (await new AxeBuilder({ page }).include('[data-testid="explore-workbench"]').analyze()).violations
       ).toEqual([]);
       await page.screenshot({ path: info.outputPath('graph-hardening.png') });
+      await typeNavigationButton(page, 'harden.BusinessCenterEnum', 'RosettaEnumeration').click();
+      const enumNode = page
+        .locator('.rune-node-enum')
+        .filter({ has: page.getByTitle('LondonBusinessCenter', { exact: true }) });
+      await expect(enumNode).toBeVisible();
+      const enumRows = await enumNode.locator('.rune-node-member').evaluateAll((elements) =>
+        elements.map((row) => {
+          const value = row.firstElementChild!;
+          return {
+            rowWidth: row.clientWidth,
+            valueWidth: value.clientWidth,
+            title: value.getAttribute('title'),
+            text: value.textContent
+          };
+        })
+      );
+      expect(enumRows.length).toBe(3);
+      expect(enumRows.every((row) => row.valueWidth === row.rowWidth && row.title === row.text)).toBe(true);
+      await page.screenshot({ path: info.outputPath('graph-enum.png') });
     });
   }

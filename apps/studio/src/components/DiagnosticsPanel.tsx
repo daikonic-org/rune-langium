@@ -27,6 +27,7 @@ import {
 import type { LspDiagnostic } from '../store/diagnostics-store.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { NumberChiclet } from '@rune-langium/design-system/ui/number-chiclet';
+import { Button } from '@rune-langium/design-system/ui/button';
 import { cn } from '@rune-langium/design-system/utils';
 import { flattenDiagnostics } from '../utils/flatten-diagnostics.js';
 import type { FlatDiagnosticRow } from '../utils/flatten-diagnostics.js';
@@ -203,13 +204,9 @@ export const DiagnosticsPanel = withInstrumentation(
                   : 'Parser, validation, and linker issues will appear here as you edit.'}
               </p>
               {isFilteredEmpty ? (
-                <button
-                  type="button"
-                  className="text-xs font-medium text-primary hover:text-primary/80"
-                  onClick={resetFilters}
-                >
+                <Button type="button" variant="link" size="xs" onClick={resetFilters}>
                   Show all severities
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
@@ -337,15 +334,17 @@ function ProblemsHeaderActions({
       <Popover>
         <PopoverTrigger
           render={
-            <button
+            <Button
               type="button"
-              className="studio-panel-action"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
               data-active={hasActiveSeverityFilters ? 'true' : undefined}
               aria-label="Filter diagnostics"
               title="Filter diagnostics"
             >
               <Filter className="size-4" />
-            </button>
+            </Button>
           }
         />
         <PopoverContent className="w-56 p-2" align="end" sideOffset={6}>
@@ -356,13 +355,13 @@ function ProblemsHeaderActions({
             {SEVERITY_ORDER.map((severity) => {
               const active = visibleSeverities[severity];
               return (
-                <button
+                <Button
                   key={severity}
                   type="button"
-                  className={cn(
-                    'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors',
-                    active ? 'bg-accent/65 text-foreground' : 'text-muted-foreground hover:bg-accent/45'
-                  )}
+                  variant="ghost"
+                  size="xs"
+                  className="w-full justify-between text-muted-foreground"
+                  aria-pressed={active}
                   onClick={() => onToggleSeverity(severity)}
                 >
                   <span className="inline-flex items-center gap-2">
@@ -379,7 +378,7 @@ function ProblemsHeaderActions({
                     <span className="capitalize">{severity}</span>
                   </span>
                   <span className="text-3xs font-medium uppercase tracking-[0.12em]">{active ? 'On' : 'Off'}</span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -388,37 +387,44 @@ function ProblemsHeaderActions({
       <Popover>
         <PopoverTrigger
           render={
-            <button
+            <Button
               type="button"
-              className="studio-panel-action"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground"
               aria-label="Problem panel options"
               title="Problem panel options"
             >
               <MoreHorizontal className="size-4" />
-            </button>
+            </Button>
           }
         />
         <PopoverContent className="w-52 p-2" align="end" sideOffset={6}>
           <div className="space-y-1">
-            <button
+            <Button
               type="button"
-              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+              variant="ghost"
+              size="xs"
+              className="w-full justify-between"
+              aria-pressed={showSummary}
               onClick={onToggleSummary}
             >
               <span>{showSummary ? 'Hide summary row' : 'Show summary row'}</span>
               <span className="text-3xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 {showSummary ? 'On' : 'Off'}
               </span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent disabled:cursor-default disabled:opacity-50"
+              variant="secondary"
+              size="xs"
+              className="w-full justify-between"
               onClick={onResetFilters}
               disabled={!hasActiveSeverityFilters}
             >
               <span>Show all severities</span>
               <span className="text-3xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Reset</span>
-            </button>
+            </Button>
           </div>
         </PopoverContent>
       </Popover>

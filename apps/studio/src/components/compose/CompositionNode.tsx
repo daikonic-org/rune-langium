@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { createContext, useContext, type DragEvent } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { formatCardinality, parseCardinality } from '@rune-langium/visual-editor';
@@ -157,7 +158,7 @@ export const CompositionNode = withInstrumentation(
                   </div>
                   {active ? (
                     <div className="composition-node__binding">
-                      <select
+                      <NativeSelect
                         aria-label={`${step.name} ${argument.name} binding mode`}
                         value={argument.mode}
                         disabled={disabled}
@@ -167,9 +168,9 @@ export const CompositionNode = withInstrumentation(
                       >
                         <option value="variable">Variable</option>
                         <option value="value">Value</option>
-                      </select>
+                      </NativeSelect>
                       {argument.mode === 'variable' ? (
-                        <select
+                        <NativeSelect
                           aria-label={`${step.name} argument ${argument.name}`}
                           aria-required={card.inf > 0}
                           disabled={disabled}
@@ -188,7 +189,7 @@ export const CompositionNode = withInstrumentation(
                               {variable.kind === 'local' ? ' (scoped)' : ''}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       ) : (
                         <Input
                           aria-label={`${step.name} argument ${argument.name}`}
@@ -301,7 +302,7 @@ export const CompositionNode = withInstrumentation(
             )}
             {active && (
               <>
-                <select
+                <NativeSelect
                   aria-label={`Bind output of ${step.name}`}
                   value={output?.id ?? ''}
                   disabled={disabled}
@@ -321,7 +322,7 @@ export const CompositionNode = withInstrumentation(
                         {variable.kind === 'output' ? ' (function output)' : ''}
                       </option>
                     ))}
-                </select>
+                </NativeSelect>
                 {actions.selectedVariable && (
                   <Button
                     size="xs"

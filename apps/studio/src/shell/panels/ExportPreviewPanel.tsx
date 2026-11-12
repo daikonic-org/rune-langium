@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { ExportSelect } from '../../components/ExportSelect.js';
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import type { GeneratorDiagnostic } from '@rune-langium/codegen/export';
 import type { ExportRunState } from '../../store/export-workbench-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -226,9 +226,10 @@ export const ExportPreviewPanel = withInstrumentation(
           )}
           {textFiles.length > 1 && (
             <div className="w-52 min-w-0 max-w-full">
-              <ExportSelect
+              <NativeSelect
                 aria-label="Generated export file"
-                className="h-7 truncate"
+                size="default"
+                className="truncate"
                 title={textFile.path}
                 value={textFile.path}
                 onChange={(event) => {
@@ -241,7 +242,7 @@ export const ExportPreviewPanel = withInstrumentation(
                     {file.path}
                   </option>
                 ))}
-              </ExportSelect>
+              </NativeSelect>
             </div>
           )}
           <span className="ml-auto text-xs text-muted-foreground">

@@ -36,6 +36,15 @@ available; no system preference silently replaces an explicit choice.
 
 ## Workbench density and frame
 
+- Use the existing design-system [control families](../../packages/design-system/README.md#control-families).
+  Input has one treatment for forms and inline editors; NativeSelect owns plain
+  option lists, while rich/searchable pickers retain their selection behavior.
+  Field chrome and keyboard focus are shared with Textarea and SelectTrigger.
+  z2f constructs and validates schema forms; its adapter reuses design-system
+  fields and visual-editor's FieldTemplate rather than restyling them.
+- Repeated panel actions use Button variants and sizes, including pressed state.
+  Keep tree rows, tabs, graph ports and multiline diagnostics as domain controls.
+  Their semantics and hit areas are not interchangeable with single-line actions.
 - Single-line controls use two heights: compact 24px and standard 28px. The
   shared Button, Input and Select primitives own sizing; Studio must not override
   these with additional global minimum heights. Existing button size names keep

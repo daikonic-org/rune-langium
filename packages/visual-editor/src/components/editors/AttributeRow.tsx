@@ -287,7 +287,6 @@ function AttributeRow({
         name={`${prefix}.name`}
         render={({ field, fieldState }) => (
           <Input
-            variant="inline"
             aria-invalid={fieldState.invalid}
             data-slot="attribute-name"
             type="text"

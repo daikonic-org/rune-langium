@@ -3,6 +3,7 @@
 
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { Button } from '@rune-langium/design-system/ui/button';
 
 /** Shared hide/show chrome for the utility tray and auxiliary side panels. */
 export const PanelCollapseButton = withInstrumentation(
@@ -29,9 +30,11 @@ export const PanelCollapseButton = withInstrumentation(
           ? ChevronLeft
           : ChevronRight;
     return (
-      <button
+      <Button
         type="button"
-        className="studio-panel-action studio-utility-toggle"
+        variant="ghost"
+        size="icon-xs"
+        className="text-muted-foreground"
         onClick={onToggle}
         aria-label={action}
         title={action}
@@ -39,7 +42,7 @@ export const PanelCollapseButton = withInstrumentation(
         data-testid={testId}
       >
         <Icon className="size-4" aria-hidden="true" />
-      </button>
+      </Button>
     );
   },
   { op: 'PanelCollapseButton' }

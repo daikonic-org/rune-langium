@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ReactFlow,
@@ -1292,7 +1293,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                   <>
                     <label className="function-composer__step-picker">
                       Step
-                      <select
+                      <NativeSelect
                         aria-label="Selected composition step"
                         value={selected}
                         onChange={(event) => {
@@ -1308,7 +1309,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                               {step.name}
                             </option>
                           ))}
-                      </select>
+                      </NativeSelect>
                     </label>
                     {selectedStep?.parameter && selectedStep.kind !== 'return' && (
                       <Button
