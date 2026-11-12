@@ -26,6 +26,48 @@ beforeEach(() => {
 });
 const status = { state: 'ready' as const, targetId: schema.targetId };
 const values = { amount: 1234.56789, tax: 12.3456, quantity: 125, name: 'Trade A' };
+
+it('puts required fields first at every depth while preserving explicit shared order and payloads', async () => {
+  await useFormPresentationStore.getState().load();
+  const change = vi.fn();
+  const { container } = render(
+    <FormPreviewPanel
+      schema={{
+        ...schema,
+        fields: [
+          { path: 'notes', label: 'Notes', kind: 'string', required: false },
+          schema.fields[0]!,
+          {
+            path: 'details',
+            label: 'Details',
+            kind: 'object',
+            required: true,
+            typeSymbol: 'data:test.Details',
+            children: [
+              { path: 'details.optional', label: 'Optional', kind: 'string', required: false },
+              { path: 'details.required', label: 'Required', kind: 'string', required: true }
+            ]
+          }
+        ]
+      }}
+      status={status}
+      values={{ notes: 'kept', amount: 12, details: { optional: 'also kept', required: 'yes' } }}
+      onValuesChange={change}
+    />
+  );
+  const order = () =>
+    [...container.querySelectorAll('[data-layout-field]')].map((n) => n.getAttribute('data-layout-field'));
+  expect(order()).toEqual(['amount', 'details', 'required', 'optional', 'notes']);
+  useFormPresentationStore.getState().update(undefined, (current) => ({
+    ...current,
+    layouts: { 'data:test.Trade': { columns: 1, order: ['notes', 'details', 'amount'], spans: {} } }
+  }));
+  await vi.waitFor(() => expect(order()).toEqual(['notes', 'details', 'required', 'optional', 'amount']));
+  expect(screen.getByLabelText('Notes', { exact: true })).toHaveValue('kept');
+  expect(screen.getByLabelText('Optional', { exact: true })).toHaveValue('also kept');
+  expect(change).not.toHaveBeenCalled();
+});
+
 async function select(label: string, option: string) {
   const user = userEvent.setup({ writeToClipboard: false });
   await user.click(screen.getByRole('combobox', { name: label }));

@@ -105,3 +105,49 @@ Check desktop and 390px launcher/workbench, actual keyboard focus, dialogs and
 menus, code/validation colors, persisted preference and both dark transitions.
 Use the light-theme browser journey for repeatable captures and contrast evidence.
 Existing local tests do not establish deployed service or physical-device coverage.
+
+## Prototype workflow density
+
+- The default form order places required fields before optional fields at each
+  object depth, retaining source order within each group. Explicit shared layout
+  order takes precedence; this is presentation only and never rewrites payloads.
+- Empty collections show their count and Add action without an empty table.
+  Absent optional objects keep their state and Add action together in one row.
+- Workflow cards bound long field bodies while retaining their headers and
+  validation actions. Named, focusable scrolling groups support keyboard access.
+  Desktop at 1280×720 is the minimum review viewport; also verify 1920×1080.
+- Saved workflow names wrap within a wider picker. Narrow layouts retain the
+  function and Execute before the input forms in reading and keyboard order.
+
+Collapsed object and object-list summaries use the declared schema's labels,
+required fields, enum labels and metadata adapters. They show identifying values
+and collection counts instead of generic field totals, with bounded traversal of
+recursive models. Summary cells wrap to two lines; full text and details remain
+available. They never infer financial units or recompute results.
+
+## Compose
+
+Compose shares the active project and editor session. Keep its function palette,
+canvas, bottom variable tray and step/signature inspector distinct, with compact shared controls and
+collapsible side panels. HD is the minimum desktop viewport; narrow screens stack
+panels and start with the palette collapsed. Prefer vertical dependency layout in
+narrow canvases so node text stays readable. Positions, selection and camera are
+view state; only Apply changes source. Unsupported bodies show located Source
+reasons, and stale drafts retain their recovery controls.
+
+Group primitives in a compact two-column palette: values/decisions, collections,
+totals and Output. Use distinct Lucide icons with visible labels and descriptive
+tooltips; reuse the same presentation registry on nodes. Core's expression kind
+determines a saved node's icon, never its variable name. Primitive placement has
+both click and drag paths and stages an ordinary expression draft. Inner branch
+and closure formulas stay in the focused expression builder.
+
+Ordinary argument/output bindings live on the node. Selecting a node reveals
+compact Variable/Value controls and a bounded searchable tag tray beneath the
+graph, with drag and keyboard binding paths. Selection does not create a draft.
+Use preview signature metadata for type/required labels, keeping original argument
+indexes when required controls appear first. Variables sharing a value tag one
+producer rather than drawing duplicate computations. The inspector holds complex
+expressions, documentation and the canonical signature; it does not repeat bindings.
+Keep the last graph mounted but inert while current source reparses, retaining
+camera position without implying that stale bindings can be applied.

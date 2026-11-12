@@ -288,10 +288,10 @@ export const PreviewLayoutGroup = withInstrumentation(
     const drag = useRef<{ key: string; target?: string; after?: boolean; pointer: number } | null>(null);
     const [drop, setDrop] = useState<{ key: string; after: boolean } | null>(null);
     const [announcement, announce] = useState('');
-    const members = fields.map((field) => ({
-      field,
-      key: formMemberKey(field.declaredPath ?? field.path, parentPath)
-    }));
+    // Required fields lead by default; explicit saved order still takes precedence.
+    const members = fields
+      .map((field) => ({ field, key: formMemberKey(field.declaredPath ?? field.path, parentPath) }))
+      .sort((a, b) => Number(b.field.required) - Number(a.field.required));
     const byKey = new Map(members.map((member) => [member.key, member]));
     const ordered = [
       ...layout.order.flatMap((key) => (byKey.has(key) ? [byKey.get(key)!] : [])),

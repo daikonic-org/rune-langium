@@ -977,6 +977,7 @@ function PreviewObjectField({
   ...controls
 }: PreviewFieldControlProps & { field: Extract<PreviewField, { kind: 'object' }> }): ReactElement {
   const id = useId();
+  const definitions = useContext(PreviewDefinitions);
   const [expanded, setExpanded] = useState(true);
   const details = useContext(PreviewDetailNavigation);
   const fieldPath = formatFieldPath(field.path, controls.arrayIndices);
@@ -986,7 +987,14 @@ function PreviewObjectField({
   const label = resolvedFieldLabel(field, controls.arrayIndices);
   const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
   return (
-    <div role="group" aria-labelledby={id} data-field-path={fieldPath} tabIndex={-1} className="preview-object">
+    <div
+      role="group"
+      aria-labelledby={id}
+      data-field-path={fieldPath}
+      data-empty={!materialized || undefined}
+      tabIndex={-1}
+      className="preview-object"
+    >
       <Collapsible open={expanded && materialized} onOpenChange={setExpanded}>
         <div className="preview-section-heading">
           <CollapsibleTrigger
@@ -1000,6 +1008,7 @@ function PreviewObjectField({
             <span id={id}>{label}</span>
           </CollapsibleTrigger>
           <div className="flex shrink-0 items-center gap-1">
+            {!materialized && <span className="preview-object__summary">Not added</span>}
             {materialized && (
               <Button
                 type="button"
@@ -1033,8 +1042,9 @@ function PreviewObjectField({
             )}
           </div>
         </div>
-        {!materialized && <p className="preview-object__summary">Not added</p>}
-        {materialized && !expanded && <p className="preview-object__summary">{previewValueText(value)}</p>}
+        {materialized && !expanded && (
+          <p className="preview-object__summary">{previewValueText(value, field, definitions)}</p>
+        )}
         <CollapsibleContent>
           <ChoiceArmChildren field={field} {...controls} />
         </CollapsibleContent>
@@ -1044,13 +1054,54 @@ function PreviewObjectField({
   );
 }
 
-function previewValueText(value: unknown): string {
+function previewValueText(
+  value: unknown,
+  source?: PreviewField,
+  definitions?: FormPreviewSchema['definitions'],
+  depth = 0
+): string {
   if (value === undefined || value === null || value === '') return 'Not set';
   if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? '' : 's'}`;
-  if (typeof value === 'object') {
-    const count = Object.values(value).filter((child) => child !== undefined && child !== null && child !== '').length;
-    return `${count} field${count === 1 ? '' : 's'} set`;
+  const field = source && expandPreviewField(source, definitions);
+  if (field && depth < 6) {
+    const payload = metadataPreviewField(field, value);
+    if (payload.path !== field.path) {
+      const relativePath = payload.path.slice(field.path.length + 1);
+      return previewValueText(getValueAtPath(value, pathToSegments(relativePath)), payload, definitions, depth + 1);
+    }
   }
+  if (typeof value === 'object') {
+    if (depth >= 6 || field?.kind !== 'object') return 'Details available';
+    const typeName = (field.referencedTypeFqn ?? field.typeSymbol ?? field.definitionId)
+      ?.split('.')
+      .at(-1)
+      ?.toLowerCase();
+    const identifiesType = (child: PreviewField) => child.path.split('.').at(-1)?.toLowerCase() === typeName;
+    const entries = field.children
+      .map((child) => ({
+        field: child,
+        value: getValueAtPath(value, pathToSegments(child.path.slice(field.path.length + 1)))
+      }))
+      .filter(
+        ({ value }) =>
+          value !== undefined && value !== null && value !== '' && (!Array.isArray(value) || value.length > 0)
+      )
+      .sort(
+        (a, b) =>
+          Number(identifiesType(b.field)) - Number(identifiesType(a.field)) ||
+          Number(b.field.required) - Number(a.field.required) ||
+          Number(a.field.kind === 'array') - Number(b.field.kind === 'array')
+      )
+      .slice(0, depth === 0 ? 2 : 1)
+      .map(({ field, value }) => ({
+        label: field.label,
+        text: previewValueText(value, field, definitions, depth + 1)
+      }));
+    if (!entries.length) return 'No values set';
+    if (entries.length === 1) return entries[0]!.text;
+    return entries.map(({ label, text }) => `${label}: ${text}`).join(' · ');
+  }
+  if (field?.kind === 'enum') return field.enumValues.find((entry) => entry.value === value)?.label ?? String(value);
   return String(value);
 }
 
@@ -1084,7 +1135,7 @@ function PreviewArrayField({
     ...(armFields.length ? [{ path: '$choice', label: 'Type' }] : []),
     ...scalarColumns.map((column) => ({ path: column.path, label: column.label, editable: column.required }))
   ];
-  if (!columns.length) columns.push({ path: '$summary', label: 'Value' });
+  if (!columns.length) columns.push({ path: '$summary', label: 'Summary' });
   const rows: PreviewGridRow[] = child
     ? items.map((_, index) => {
         const indices = [...(controls.arrayIndices ?? []), index];
@@ -1109,7 +1160,7 @@ function PreviewArrayField({
                 );
           return {
             path: cellPath,
-            text: previewValueText(cellValue),
+            text: previewValueText(cellValue, scalar ?? (column.path === '$summary' ? child : undefined), definitions),
             empty: cellValue === undefined || cellValue === null || cellValue === '',
             error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined,
             editor: scalar?.required ? (
@@ -1135,7 +1186,14 @@ function PreviewArrayField({
       })
     : [];
   return (
-    <div role="group" aria-labelledby={id} data-field-path={fieldPath} tabIndex={-1} className="preview-collection">
+    <div
+      role="group"
+      aria-labelledby={id}
+      data-field-path={fieldPath}
+      data-empty={items.length === 0 || undefined}
+      tabIndex={-1}
+      className="preview-collection"
+    >
       <div className="preview-section-heading">
         <div className="flex min-w-0 items-baseline gap-2">
           <span id={id} className="preview-field__label">
@@ -1157,7 +1215,7 @@ function PreviewArrayField({
           Add
         </Button>
       </div>
-      {child?.kind === 'object' ? (
+      {child?.kind === 'object' && items.length > 0 ? (
         <PreviewObjectGrid
           label={field.label}
           columns={columns}
@@ -1170,7 +1228,7 @@ function PreviewArrayField({
           }}
           onRemove={remove}
         />
-      ) : child ? (
+      ) : child && items.length > 0 ? (
         <div className="preview-scalar-list">
           {items.map((_, index) => (
             <div className="preview-scalar-list__row" key={`${field.path}-${index}`}>
@@ -1194,7 +1252,6 @@ function PreviewArrayField({
           ))}
         </div>
       ) : null}
-      {child?.kind !== 'object' && items.length === 0 && <p className="preview-object-grid__empty">No items yet.</p>}
       {error && <FieldError message={error} />}
     </div>
   );

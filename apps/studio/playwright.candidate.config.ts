@@ -50,6 +50,8 @@ export default defineConfig({
         'e2e/evidence-redaction.spec.ts',
         'e2e/workbench-reading-space.spec.ts',
         'e2e/workflow-nested-validation.spec.ts',
+        'e2e/prototype-density.spec.ts',
+        'e2e/workflow-function-builder.spec.ts',
         'e2e/export-workbench.spec.ts',
         'e2e/review-api-polish.spec.ts',
         'e2e/inspector-details.spec.ts',

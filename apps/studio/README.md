@@ -130,10 +130,50 @@ type chooser and object form for creation, import and export, without a function
 panel. Each surface retains its own draft. Divider widths and view choice are saved
 per workspace. Narrow panes stack the nodes in reading order. A visited Prototype
 stays mounted while using other perspectives in the same workspace; workspace
-changes dispose its active sessions. Workflows and execution results are session
-state; reloading restores stored objects and presentation preferences. See
+changes dispose its active sessions. Unsaved input drafts and execution results
+are session state; reloading restores saved recipes, stored objects and presentation preferences. See
 [validation, clearing inputs and starter origin](../../docs/prototype-workflows.md)
 for recovery behavior and the distinction between a starter copy and Git sync.
+
+### Compose
+
+**Compose** opens the Function composer in the current project. Search the left
+palette for local/library functions, add a call by click or drag, and bind its
+named arguments directly on the node. Choose a variable or enter a Rune value/
+expression; preview schemas supply parameter names, types and requiredness.
+Search includes loaded signatures and documentation. Select a
+typed input/call output and choose **Find calls** for declared-type/cardinality
+suggestions; normal validation remains authoritative. The grouped **Primitives**
+palette adds expressions, branches/fallbacks, collection transforms and totals
+by click or drag; **Output** selects the existing output. Each starter has a
+matching canvas icon and an editable Rune expression, with the existing expression
+builder for detailed editing. Search matches descriptions as well as names.
+The center canvas shows data
+dependencies. Selecting a node opens a searchable variable tray below the graph.
+Drag a tag onto an input or output, or select it and use the binding action. An
+output can define a new variable or replace an existing definition while keeping
+its name and downstream references; cycles are refused. The right inspector holds
+complex expression editing and the canonical function signature/details. **Source** and **Inspector** remain available throughout.
+
+A function opts in with the ordinary `[composition]` annotation from
+`rune.studio`. **New composition** installs that small model, its new `.rosetta`
+source and a standard Prototype recipe in one guarded save, preserving existing
+files. After creation, **Try in Prototype** opens that recipe for normal
+validation/execution. Any function is callable as a step; its own canvas needs
+both the marker and a supported body. Multiple/nested output assignments,
+accumulation, dispatch/inherited bodies and unresolved references stay in Source
+with an explanation. No CDM convention or special return type is required.
+
+**Apply** commits a step draft to the same source/save pipeline as Explore.
+Unapplied drafts survive parent/callee navigation in the mounted workspace;
+changed source/dependencies disable Apply and retain the draft for recovery.
+Moving nodes and collapsing panels never change source. Definitions remain normal
+Rune aliases and a whole-output assignment, shared with generated artifacts.
+The [design contract](../../docs/design/function-composer/spec.md) describes the
+opt-in and supported-body boundary. Reload restores saved source/recipes; private unapplied step drafts are session
+state. Designer variables remain Rune aliases. Reference-only variables share a
+producer node; bindings are checked privately before one revision-guarded source
+edit, preserving comments and condition blocks.
 
 ### Form layouts and formats
 

@@ -131,6 +131,7 @@ export {
 
 // Layout
 export { computeLayout, computeLayoutIncremental, clearLayoutCache } from './layout/dagre-layout.js';
+export { computeGraphPositions } from './layout/dagre-graph.js';
 export { computeLayoutAsync, cancelAsyncLayout } from './layout/layout-worker.js';
 export { computeGroupedLayout, findInheritanceGroups } from './layout/grouped-layout.js';
 export type { GroupInfo } from './layout/grouped-layout.js';
@@ -160,6 +161,8 @@ export type { TrackedState } from './store/history.js';
 export { ExpressionBuilder } from './components/editors/expression-builder/ExpressionBuilder.js';
 export type { ExpressionBuilderProps } from './components/editors/expression-builder/ExpressionBuilder.js';
 export type { FunctionScope, FunctionScopeEntry } from './store/expression-store.js';
+export { createExpressionStarter } from './adapters/expression-starters.js';
+export type { ExpressionStarterType } from './adapters/expression-starters.js';
 
 // Hooks
 export { useAutoSave } from './hooks/useAutoSave.js';

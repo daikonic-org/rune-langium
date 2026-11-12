@@ -626,13 +626,43 @@ session does not trigger a late dependency reload. Validate with `pnpm --filter
 @rune-langium/studio run test:z2f-hmr` and the expression browser journey's Python
 view; production formatter imports remain lazy.
 
+## Compose verification
+
+For composition changes, run Core's `test/api/function-composition.test.ts`,
+Studio's `composition-edit`, `expression-scope`, `workflow-repository`,
+`WorkflowFunctionBuilder`, perspective registry/host and expression-workspace suites,
+and Codegen's `test/emit/workflow-function.test.ts`. Rebuild Core/Codegen before
+Studio consumes their dist exports. The existing
+`test/e2e/workflow-function-builder.spec.ts` now exercises the dedicated Compose
+perspective: exact source preservation, layout-only moves, retained nested drafts,
+unsupported-body fallback, creation/execution/nested reuse and saved reload.
+The node-binding journey checks variable drag and keyboard binding, output
+definition replacement, comment-preserving reordering, shared producer tags and
+cycle refusal before source publication. The parser-worker test verifies private
+candidate restoration after both success and failure; composition-edit covers LF/CRLF.
+The primitive journey covers the expanded palette, description search, click/drag
+placement, discard without persistence and labels/icons after an expression edit.
+Studio's `composition-starters` tests validate every factory in a linked Rune
+workspace; `composition-primitives` checks presentation by canonical expression kind.
+Zero-argument replacement is covered by both entered expressions and variable
+binding. The creation form retains loaded arguments when the same callee is reselected.
+The creation journey starts in Compose before Prototype has mounted. Library tests
+retain a matching navigation request through initialization and discard foreign-workspace requests.
+Include visual-editor layout tests when changing the shared stateless layout helper.
+It covers HD/Full HD/narrow bounds and axe; it remains in the optimized candidate
+suite. Run against an owned server and preserve user servers/worktrees. An
+ordinary Rune marker model is installed atomically with new source/recipes; test
+existing local marker preservation and source-pattern exclusion.
+
 ## Prototype workflow verification
 
 Browser fixtures that replace a complete project configuration use
 `seedProjectBackingFiles` with Studio unloaded, then restore the same workspace.
 Writing a new configuration piecemeal into a running app exposes empty files and
 Chromium swap entries to background snapshot capture. Live external-edit tests
-still use `projectBackingFiles`; preserve conflict/validation errors there.
+still use `projectBackingFiles`; preserve conflict/validation errors there. The
+backing reader excludes Chromium `.crswap` files and briefly reacquires invalidated
+OPFS handles during atomic saves; persistent read errors still fail the journey.
 
 For Flow changes, run Studio's `workflow-validation`, `preview-session-client`,
 `function-session-store`, `InstanceInspectorPanel`, arrival and Prototype perspective
@@ -640,6 +670,9 @@ unit suites, plus `packages/codegen/test/emit/function-input-checks.test.ts`.
 `PLAYWRIGHT_BASE_URL=http://127.0.0.1:<owned-port> pnpm --filter @rune-langium/studio exec playwright test test/e2e/prototype-workbench.spec.ts --retries=0`
 checks real worker preconditions/execution, stale output invalidation, primitive and
 scalar returns, bypass, bulk import and equal bindings, and viewport/axe checks.
+`test/e2e/prototype-density.spec.ts` is also in the optimized candidate gate. It
+checks 1280×720 and 1920×1080 desktop layouts, keyboard scrolling through long
+forms, retained values/execution, wrapping saved names, and a narrow fallback.
 Rebuild codegen before Studio consumes new generated metadata. Preserve user-owned
 servers and worktrees. Local checks do not establish deployed acceptance.
 

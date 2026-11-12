@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from '@rune-langium/core';
 import { astToModel } from '../../src/adapters/ast-to-model.js';
+import { computeGraphPositions } from '../../src/layout/dagre-graph.js';
 import { clearLayoutCache, computeLayout, computeLayoutIncremental } from '../../src/layout/dagre-layout.js';
 import type { TypeGraphNode, TypeGraphEdge } from '../../src/types.js';
 import { SIMPLE_INHERITANCE_SOURCE, DEEP_INHERITANCE_SOURCE } from '../helpers/fixture-loader.js';
@@ -155,3 +156,20 @@ describe('computeLayout', () => {
     expect(narrowNode!.position.x - wideNode!.position.x).toBeGreaterThanOrEqual(420);
   });
 });
+
+it.each(['TB', 'LR'] as const)(
+  'lays out independent measured canvases without sharing type-graph cache (%s)',
+  (direction) => {
+    const nodes = [
+      { id: 'a', width: 410, height: 330 },
+      { id: 'b', width: 280, height: 180 }
+    ];
+    const edges = [{ source: 'a', target: 'b' }];
+    const options = { direction, nodeSeparation: 40, rankSeparation: 60 };
+    const original = computeGraphPositions(nodes, edges, options);
+    if (direction === 'TB') expect(original.b!.y - original.a!.y).toBeGreaterThanOrEqual(330 + 60);
+    else expect(original.b!.x - original.a!.x).toBeGreaterThanOrEqual(410 + 60);
+    computeGraphPositions([{ id: 'unrelated', width: 1000, height: 2000 }], [], { ...options, direction: 'LR' });
+    expect(computeGraphPositions(nodes, edges, options)).toEqual(original);
+  }
+);

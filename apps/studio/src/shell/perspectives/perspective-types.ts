@@ -3,7 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-export type PerspectiveId = 'explore' | 'workspaces' | 'git' | 'export' | 'settings' | 'prototype';
+export type PerspectiveId = 'explore' | 'workspaces' | 'git' | 'export' | 'settings' | 'prototype' | 'compose';
 
 export interface Perspective {
   id: PerspectiveId;

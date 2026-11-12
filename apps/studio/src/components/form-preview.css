@@ -45,6 +45,14 @@
   padding-block: var(--panel-padding-block);
   border-block-start: 1px solid var(--border);
 }
+.preview-object[data-empty],
+.preview-collection[data-empty] {
+  padding-block: var(--space-1);
+  gap: 0;
+}
+:is(.preview-object, .preview-collection)[data-empty] .preview-section-heading {
+  min-height: var(--space-6);
+}
 .preview-object__disclosure {
   display: flex;
   min-width: 0;
@@ -156,6 +164,13 @@
 .preview-object-grid td {
   min-width: 6rem;
   max-width: 14rem;
+}
+.preview-object-grid td[data-summary] > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .preview-object-grid :is(th, td).preview-object-grid__actions {
   min-width: 4.5rem;

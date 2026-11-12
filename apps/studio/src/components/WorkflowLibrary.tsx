@@ -18,6 +18,10 @@ import { useProject } from '../shell/providers/project-context.js';
 import { generateUlid } from '../services/ulid.js';
 import { saveWorkflow } from '../workspace/workflow-repository.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { usePerspectiveStore } from '../store/perspective-store.js';
+import { useComposeNavigationStore } from '../store/compose-navigation-store.js';
+import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
+import { resolveExampleType } from '../workspace/example-identity.js';
 export const WorkflowLibrary = withInstrumentation(
   function WorkflowLibrary({
     capture,
@@ -33,6 +37,9 @@ export const WorkflowLibrary = withInstrumentation(
     disabled?: boolean;
   }) {
     const project = useProject();
+    const requestedRecipe = useComposeNavigationStore((state) => state.recipe);
+    const workspace = useWorkspaceOptional();
+    const [created, setCreated] = useState<WorkflowDescriptor>();
     const read = useMemo(() => (project.snapshot ? readWorkflows(project.snapshot) : undefined), [project.snapshot]);
     const [active, setActive] = useState<string>();
     const [dialog, setDialog] = useState(false);
@@ -48,6 +55,7 @@ export const WorkflowLibrary = withInstrumentation(
       setSaved(undefined);
       drafts.current.clear();
       setDialog(false);
+      setCreated(undefined);
       setName('');
       setBusy(false);
       setError(undefined);
@@ -55,6 +63,49 @@ export const WorkflowLibrary = withInstrumentation(
         ++generation.current;
       };
     }, [project.workspaceId]);
+
+    // Reset workspace state before consuming navigation, including Prototype's lazy first mount.
+    useEffect(() => {
+      if (requestedRecipe) {
+        if (requestedRecipe.workspaceId === project.workspaceId) setCreated(requestedRecipe.descriptor);
+        useComposeNavigationStore.setState({ recipe: undefined });
+      }
+    }, [requestedRecipe, project.workspaceId]);
+
+    useEffect(() => {
+      if (!created?.function || !workspace) return;
+      if (
+        !resolveExampleType(
+          workspace,
+          { typeFqn: `${created.function.namespace}.${created.function.name}`, typeIdentity: created.function },
+          'RosettaFunction'
+        )
+      )
+        return;
+      const version = ++generation.current;
+      setCreated(undefined);
+      setBusy(true);
+      void open(created)
+        .then(
+          () => {
+            if (version === generation.current) {
+              setActive(created.id);
+              setSaved(created);
+            }
+          },
+          (failure: unknown) => {
+            if (version === generation.current)
+              setError(
+                failure instanceof Error
+                  ? failure.message
+                  : 'The function was saved. Choose its recipe to retry opening it.'
+              );
+          }
+        )
+        .finally(() => {
+          if (version === generation.current) setBusy(false);
+        });
+    }, [created, workspace, open]);
 
     const current = saved?.id === active ? saved : read?.workflows.find((entry) => entry.id === active);
     // Compare the same canonical recipe that Save writes; results and view state are intentionally absent.
@@ -97,9 +148,27 @@ export const WorkflowLibrary = withInstrumentation(
     return (
       <>
         <div
-          className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
+          className="workflow-library flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-1.5"
           aria-label="Named workflows"
         >
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            disabled={!project.controller || busy || dialog || Boolean(created)}
+            onClick={() => {
+              try {
+                rememberDraft();
+              } catch {
+                /* Keep incomplete input editing local. */
+              }
+              useComposeNavigationStore.getState().setCreating(true);
+              usePerspectiveStore.getState().setActivePerspective('compose');
+            }}
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            Compose function
+          </Button>
           {onNew ? (
             <Button
               variant="ghost"
@@ -112,6 +181,7 @@ export const WorkflowLibrary = withInstrumentation(
                   /* A new draft can recover from an incomplete recipe. */
                 }
                 ++generation.current;
+                setCreated(undefined);
                 onNew();
                 setActive(undefined);
                 setSaved(undefined);
@@ -168,13 +238,13 @@ export const WorkflowLibrary = withInstrumentation(
           >
             <SelectTrigger
               size="sm"
-              className="w-52 max-w-full"
+              className="workflow-library__picker"
               aria-label="Saved workflow"
-              disabled={!project.controller || dialog || busy}
+              disabled={!project.controller || dialog || busy || Boolean(created)}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="workflow-library__options" position="popper" align="start">
               <SelectItem value=":draft">Unsaved workflow</SelectItem>
               {read?.workflows.map((workflow) => (
                 <SelectItem key={workflow.id} value={workflow.id}>
@@ -186,7 +256,7 @@ export const WorkflowLibrary = withInstrumentation(
           <Button
             variant="ghost"
             size="xs"
-            disabled={disabled || !project.controller || busy}
+            disabled={disabled || !project.controller || busy || Boolean(created)}
             onClick={() => {
               setName(current?.name ?? '');
               setError(undefined);
@@ -205,9 +275,9 @@ export const WorkflowLibrary = withInstrumentation(
               Unsaved changes
             </span>
           ) : null}
-          {busy ? (
+          {busy || created ? (
             <span role="status" className="text-xs text-muted-foreground">
-              Preparing workflow…
+              {created ? 'Loading created function…' : 'Preparing workflow…'}
             </span>
           ) : null}
           {!dialog && error ? (

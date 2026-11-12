@@ -442,6 +442,235 @@ describe('FormPreviewPanel', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('keeps empty sections compact without losing add actions or item editors', async () => {
+    const schema: FormPreviewSchema = {
+      schemaVersion: 1,
+      targetId: 'test.Empty',
+      title: 'Empty',
+      status: 'ready',
+      fields: [
+        {
+          path: 'details',
+          label: 'Details',
+          kind: 'object',
+          required: false,
+          children: [{ path: 'details.name', label: 'Name', kind: 'string', required: true }]
+        },
+        {
+          path: 'entries',
+          label: 'Entries',
+          kind: 'array',
+          required: false,
+          children: [
+            {
+              path: 'entries[]',
+              label: 'Entry',
+              kind: 'object',
+              required: true,
+              children: [{ path: 'entries[].value', label: 'Value', kind: 'number', required: true }]
+            }
+          ]
+        }
+      ]
+    };
+    render(<FormPreviewPanel schema={schema} status={{ state: 'ready', targetId: schema.targetId }} />);
+    const entries = screen.getByRole('group', { name: 'Entries', exact: true });
+    expect(entries).toHaveTextContent('0 items');
+    expect(within(entries).queryByRole('table')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Add Entries item', exact: true }));
+    expect(within(entries).getByRole('table', { name: 'Entries' })).toBeVisible();
+    expect(within(entries).getByLabelText('Entries 1 Value')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Add Details', exact: true }));
+    expect(screen.getByLabelText('Name', { exact: true })).toBeVisible();
+  });
+
+  it('summarizes deferred nested records with enum labels and observation counts without changing values', () => {
+    const schema: FormPreviewSchema = {
+      schemaVersion: 1,
+      targetId: 'test.Market',
+      title: 'Market',
+      status: 'ready',
+      fields: [
+        {
+          path: 'rates',
+          label: 'Rates',
+          kind: 'array',
+          required: true,
+          children: [
+            {
+              path: 'rates[]',
+              label: 'Rate series',
+              kind: 'object',
+              required: true,
+              definitionId: 'Series',
+              children: []
+            }
+          ]
+        }
+      ],
+      definitions: {
+        Series: {
+          fields: [
+            { path: 'index', label: 'Index', kind: 'object', required: true, definitionId: 'Index', children: [] },
+            {
+              path: 'observations',
+              label: 'Observations',
+              kind: 'array',
+              required: true,
+              children: [{ path: 'observations[]', label: 'Observation', kind: 'number', required: true }]
+            }
+          ]
+        },
+        Index: {
+          choiceArmPaths: ['floatingRateIndex'],
+          fields: [
+            {
+              path: 'floatingRateIndex',
+              label: 'Floating rate index',
+              kind: 'object',
+              required: false,
+              definitionId: 'FRO',
+              referencedTypeFqn: 'test.FloatingRateIndex',
+              children: []
+            }
+          ]
+        },
+        FRO: {
+          fields: [
+            {
+              path: 'identifier',
+              label: 'Identifier',
+              kind: 'array',
+              required: true,
+              children: [
+                {
+                  path: 'identifier[]',
+                  label: 'Asset identifier',
+                  kind: 'object',
+                  required: true,
+                  children: [
+                    {
+                      path: 'identifier[].identifier',
+                      label: 'Identifier',
+                      kind: 'string',
+                      required: true,
+                      metadata: { kind: 'field', payloadShape: null }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              path: 'assetType',
+              label: 'Asset type',
+              kind: 'enum',
+              required: true,
+              enumValues: [{ value: 'Other', label: 'Other' }]
+            },
+            {
+              path: 'floatingRateIndex',
+              label: 'Floating rate index',
+              kind: 'enum',
+              required: true,
+              metadata: { kind: 'field', payloadShape: null },
+              enumValues: [
+                { value: 'USD_SOFR', label: 'USD-SOFR' },
+                { value: 'GBP_SONIA', label: 'GBP-SONIA' }
+              ]
+            }
+          ]
+        }
+      }
+    };
+    const values = {
+      rates: [
+        {
+          index: {
+            floatingRateIndex: {
+              identifier: [{ identifier: { value: 'USD-SOFR', meta: {} } }],
+              assetType: 'Other',
+              floatingRateIndex: { value: 'USD_SOFR', meta: {} }
+            }
+          },
+          observations: [0.043, 0.044]
+        },
+        {
+          index: {
+            floatingRateIndex: {
+              identifier: [{ identifier: { value: 'GBP-SONIA', meta: {} } }],
+              assetType: 'Other',
+              floatingRateIndex: { value: 'GBP_SONIA', meta: {} }
+            }
+          },
+          observations: [0.046]
+        }
+      ]
+    };
+    const before = structuredClone(values),
+      onValuesChange = vi.fn();
+    render(
+      <FormPreviewPanel schema={schema} status={{ state: 'ready' }} values={values} onValuesChange={onValuesChange} />
+    );
+    const grid = within(screen.getByRole('table', { name: 'Rates', exact: true }));
+    expect(grid.getByRole('columnheader', { name: 'Summary' })).toBeVisible();
+    expect(grid.getByText('Index: USD-SOFR · Observations: 2 items', { exact: true })).toBeVisible();
+    expect(grid.getByText('Index: GBP-SONIA · Observations: 1 item', { exact: true })).toBeVisible();
+    expect(grid.getByRole('button', { name: 'Open Rates 2 details', exact: true })).toBeVisible();
+    expect(values).toEqual(before);
+    expect(onValuesChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps false and zero meaningful in a collapsed object summary', async () => {
+    const schema: FormPreviewSchema = {
+      schemaVersion: 1,
+      targetId: 'test.Settings',
+      title: 'Settings',
+      status: 'ready',
+      fields: [
+        {
+          path: 'settings',
+          label: 'Options',
+          kind: 'object',
+          required: true,
+          children: [
+            { path: 'settings.note', label: 'Note', kind: 'string', required: false },
+            { path: 'settings.active', label: 'Active', kind: 'boolean', required: true },
+            { path: 'settings.minimum', label: 'Minimum', kind: 'number', required: true }
+          ]
+        }
+      ]
+    };
+    render(
+      <FormPreviewPanel
+        schema={schema}
+        status={{ state: 'ready' }}
+        values={{ settings: { note: '', active: false, minimum: 0 } }}
+      />
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Options', exact: true }));
+    expect(screen.getByText('Active: false · Minimum: 0', { exact: true })).toBeVisible();
+  });
+
+  it('bounds recursive summaries instead of expanding the entire nested payload', async () => {
+    const schema: FormPreviewSchema = {
+      schemaVersion: 1,
+      targetId: 'test.Chain',
+      title: 'Chain',
+      status: 'ready',
+      fields: [{ path: 'head', label: 'Head', kind: 'object', required: true, definitionId: 'Node', children: [] }],
+      definitions: {
+        Node: {
+          fields: [{ path: 'next', label: 'Next', kind: 'object', required: false, definitionId: 'Node', children: [] }]
+        }
+      }
+    };
+    let chain: object = {};
+    for (let i = 0; i < 8; i++) chain = { next: chain };
+    render(<FormPreviewPanel schema={schema} status={{ state: 'ready' }} values={{ head: chain }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Head', exact: true }));
+    expect(screen.getByText('Details available', { exact: true })).toBeVisible();
+  });
+
   it('renders scalar, enum, nested object, and array controls from the preview schema', () => {
     render(<FormPreviewPanel schema={tradeSchema} status={{ state: 'ready', targetId: tradeSchema.targetId }} />);
 

@@ -52,3 +52,14 @@ export function dagrePositions(graph: ReturnType<typeof buildDagreGraph>, nodes:
   }
   return positions;
 }
+
+/** Stateless layout for independently owned canvases, using their measured node dimensions. */
+export function computeGraphPositions(
+  nodes: readonly { id: string; width: number; height: number }[],
+  edges: readonly { source: string; target: string }[],
+  options: Pick<Required<LayoutOptions>, 'direction' | 'nodeSeparation' | 'rankSeparation'>
+) {
+  const graph = buildDagreGraph(nodes, edges, options);
+  dagre.layout(graph);
+  return dagrePositions(graph, nodes);
+}

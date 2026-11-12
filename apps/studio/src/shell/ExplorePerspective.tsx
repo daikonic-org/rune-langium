@@ -25,6 +25,10 @@
  * explorer sidebar merge into the dockable shell, reducing chrome (T091).
  */
 
+import { createPortal } from 'react-dom';
+import { ComposeSurfaceContext } from './perspectives/compose-surface.js';
+import { FunctionComposer } from '../components/compose/FunctionComposer.js';
+import { usePerspectiveStore } from '../store/perspective-store.js';
 import { DraftConditionEditor } from '../components/editing/DraftConditionEditor.js';
 import { useChangeFeedback } from '../hooks/useChangeFeedback.js';
 import { diagramFeedbackItems, inspectorFeedbackItems } from '../services/feedback-items.js';
@@ -35,7 +39,7 @@ import { projectSourcePaths } from '@rune-langium/project-config';
 import { kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import { InspectorDeclarationActions } from '../components/InspectorDeclarationActions.js';
 import { CuratedDeclarationInspector } from './panels/CuratedDeclarationInspector.js';
-import { useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
+import { useContext, useRef, useCallback, useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import type { AstNodeWithTextRegion } from 'langium';
 import {
   RuneTypeGraph,
@@ -478,6 +482,8 @@ export const ExplorePerspective = withInstrumentation(
   function ExplorePerspective() {
     // Workspace model data — formerly props, now from WorkspaceProvider.
     const workspace = useWorkspace();
+    const composeSurface = useContext(ComposeSurfaceContext);
+    const composeActive = usePerspectiveStore((state) => state.activePerspective === 'compose');
     const project = useProject();
     const referencesLoading =
       project.status === 'loading' ||
@@ -509,6 +515,8 @@ export const ExplorePerspective = withInstrumentation(
     const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier, flushWorkspaceSave, workspaceSaveState } =
       useWorkspaceActions();
     const inspectorScope = `${workspaceId}:${workspace.workspaceEpoch ?? 0}`;
+    const [composeScope, setComposeScope] = useState<string>();
+    if (composeActive && composeScope !== inspectorScope) setComposeScope(inspectorScope);
     const formCommitRegistry = useMemo(createEditorCommitRegistry, []);
 
     const graphRef = useRef<RuneTypeGraphRef>(null);
@@ -2526,6 +2534,9 @@ export const ExplorePerspective = withInstrumentation(
         <ExpressionWorkspace
           key={`${workspaceId}:${props.nodeId}`}
           {...props}
+          onOpenComposer={
+            composeActive ? undefined : () => usePerspectiveStore.getState().setActivePerspective('compose')
+          }
           sourceOwner={
             selectedNodeData?.$type === 'RosettaFunction' || selectedNodeData?.$type === 'Data'
               ? selectedNodeData
@@ -2554,6 +2565,7 @@ export const ExplorePerspective = withInstrumentation(
       ),
       [
         workspaceId,
+        composeActive,
         selectedNodeData,
         selectedExpressionFile,
         files,
@@ -3090,11 +3102,11 @@ export const ExplorePerspective = withInstrumentation(
         <CenterStackPanel
           renderGraph={renderGraphPane}
           renderSource={renderSourcePane}
-          renderInspector={renderInspectorPane}
+          renderInspector={() => (composeActive ? null : renderInspectorPane())}
           renderStructure={renderStructurePane}
         />
       ),
-      [renderGraphPane, renderSourcePane, renderInspectorPane, renderStructurePane]
+      [renderGraphPane, renderSourcePane, renderInspectorPane, renderStructurePane, composeActive]
     );
 
     // Memoize the overrides object so DockShell's useMemo([panelComponents])
@@ -3134,6 +3146,52 @@ export const ExplorePerspective = withInstrumentation(
       [inspectorFocusNonce]
     );
 
+    const composerPortal =
+      composeSurface &&
+      composeScope === inspectorScope &&
+      createPortal(
+        <FunctionComposer
+          key={inspectorScope}
+          workspaceKey={inspectorScope}
+          active={composeActive}
+          onNavigate={navigateToNode}
+          onSave={async () => {
+            await flushWorkspaceSave?.();
+          }}
+          saveLabel={
+            workspaceSaveState === 'error' ? 'Save failed' : workspaceSaveState === 'saving' ? 'Saving…' : 'Autosave on'
+          }
+          inspector={renderInspectorPane()}
+          editor={
+            selectedNodeType === 'RosettaFunction' && selectedNodeId
+              ? {
+                  nodeId: selectedNodeId,
+                  file: selectedExpressionFile,
+                  parsed: selectedParsedModel,
+                  documents: expressionDocuments,
+                  parseCurrent: selectedParseCurrent,
+                  readOnly: selectedNodeIsRefOnly,
+                  dependencySnapshot: files,
+                  loadScope: selectedExpressionFile
+                    ? (region) =>
+                        requestExpressionScope(selectedExpressionFile.path, selectedNodeId, region, files).then(
+                          expressionScopeFromEntries
+                        )
+                    : undefined,
+                  onContentChange: handleSourceChange,
+                  onOpenSource: () => {
+                    if (selectedSourceFilePath) requestSourceFile(selectedSourceFilePath);
+                    usePerspectiveStore.getState().setActivePerspective('explore');
+                  },
+                  lspClient,
+                  lspReady
+                }
+              : undefined
+          }
+        />,
+        composeSurface
+      );
+
     // Empty-content guard (keep-alive hazard): ExplorePerspective is ALWAYS
     // mounted by PerspectiveHost (display:none when inactive), including before
     // any user files OR reference models exist. With neither editable files,
@@ -3144,11 +3202,14 @@ export const ExplorePerspective = withInstrumentation(
     // loadModels([]) materializes placeholder nodes from deferredExports.
     if (fileCount === 0 && models.length === 0 && deferredExports.length === 0) {
       return (
-        <div
-          data-testid="explore-workbench"
-          aria-busy={referencesLoading}
-          className="flex flex-col h-full overflow-hidden"
-        />
+        <>
+          <div
+            data-testid="explore-workbench"
+            aria-busy={referencesLoading}
+            className="flex flex-col h-full overflow-hidden"
+          />
+          {composerPortal}
+        </>
       );
     }
 
@@ -3198,6 +3259,8 @@ export const ExplorePerspective = withInstrumentation(
             />
           </SourceNavigationFeedbackContext.Provider>
         </div>
+
+        {composerPortal}
 
         <footer
           role="group"

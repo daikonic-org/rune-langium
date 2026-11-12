@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { readWorkflows, readPresentations } from '@rune-langium/project-config';
 import { createProjectController } from '../../src/workspace/project-controller.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { createOpfsRoot } from '../setup/opfs-mock.js';
-import { saveWorkflow, savePresentation } from '../../src/workspace/workflow-repository.js';
+import { saveWorkflow, savePresentation, saveWorkflowFunction } from '../../src/workspace/workflow-repository.js';
+import type { WorkflowFunctionDefinition } from '@rune-langium/codegen/rosetta';
 const type = { model: 'local', namespace: 'example', kind: 'Data', name: 'Money' };
+const composition: WorkflowFunctionDefinition = {
+  namespace: 'local.workflow',
+  name: 'Twice',
+  inputs: [{ name: 'input', type: 'number', cardinality: { min: 1, max: 1 } }],
+  output: { name: 'result', type: 'number', cardinality: { min: 1, max: 1 } },
+  steps: [{ name: 'scaled', expression: 'input * 2' }],
+  result: 'scaled'
+};
 async function setup() {
   const adapter = createProjectFileAdapter({
     workspaceId: 'recipes',
@@ -18,6 +27,89 @@ async function setup() {
   await controller.load();
   return { adapter, controller };
 }
+
+it('creates editable Rune source and a standard recipe that survive reopening together', async () => {
+  const { adapter, controller } = await setup();
+  const path = 'model/workflows/twice.rosetta';
+  const saved = await saveWorkflowFunction(controller, { definition: composition, path, id: 'twice' });
+  expect(saved.snapshot.files.get(path)).toContain('alias scaled:');
+  expect(saved.snapshot.files.get(path)).toContain('input * 2');
+  const reopened = createProjectController({ workspaceId: 'recipes', adapter, validateTarget: () => [] });
+  const restored = await reopened.load();
+  expect(restored.files.get(path)).toEqual(saved.snapshot.files.get(path));
+  expect(readWorkflows(restored).workflows).toEqual([saved.workflow]);
+  expect(saved.workflow.function).toEqual({
+    model: 'local',
+    namespace: 'local.workflow',
+    kind: 'RosettaFunction',
+    name: 'Twice'
+  });
+  expect(saved.workflow).not.toHaveProperty('steps');
+  await expect(saveWorkflowFunction(controller, { definition: composition, path, id: 'another' })).rejects.toThrow(
+    'already exists'
+  );
+  await expect(
+    saveWorkflowFunction(controller, { definition: composition, path: 'model/other.rosetta', id: 'another' })
+  ).rejects.toThrow('function with this name');
+  expect(readWorkflows(controller.current()!).workflows).toHaveLength(1);
+});
+
+it('installs the ordinary annotation model once and preserves its editable local bytes', async () => {
+  const { adapter, controller } = await setup();
+  const first = await saveWorkflowFunction(controller, {
+    definition: { ...composition, composition: true },
+    path: 'model/first.rosetta',
+    id: 'first'
+  });
+  const markerPath = 'model/rune/studio/composition.rosetta';
+  const marker = first.snapshot.files.get(markerPath)!;
+  expect(marker).toContain('annotation composition:');
+  expect(first.snapshot.files.get('model/first.rosetta')).toContain('[rune.studio.composition]');
+  const local = marker + '\n// retain local documentation\n';
+  await controller.save([
+    { path: markerPath, text: local, expectedRevision: (await adapter.read(markerPath))!.revision }
+  ]);
+  const second = await saveWorkflowFunction(controller, {
+    definition: { ...composition, composition: true, name: 'Again' },
+    path: 'model/second.rosetta',
+    id: 'second'
+  });
+  expect(second.snapshot.files.get(markerPath)).toBe(local);
+  expect(readWorkflows(second.snapshot).workflows).toHaveLength(2);
+});
+
+it('rejects excluded/private paths and malformed drafts without writing source or recipes', async () => {
+  const { controller } = await setup();
+  const before = [...controller.current()!.files];
+  for (const path of ['../outside.rosetta', '.studio/private.rosetta', 'generated/Twice.rosetta'])
+    await expect(saveWorkflowFunction(controller, { definition: composition, path, id: 'bad' })).rejects.toThrow();
+  await expect(
+    saveWorkflowFunction(controller, {
+      definition: { ...composition, result: 'if' },
+      path: 'model/invalid.rosetta',
+      id: 'bad'
+    })
+  ).rejects.toThrow('Result');
+  expect([...controller.current()!.files]).toEqual(before);
+});
+
+it('retains external edits and refuses a stale composition save before writing either destination', async () => {
+  const { adapter, controller } = await setup();
+  const path = 'model/existing.rosetta';
+  await controller.save([{ path, text: 'namespace support\ntypeAlias Amount: number\n', expectedRevision: null }]);
+  const revision = (await adapter.read(path))!.revision;
+  const original = controller.save.bind(controller);
+  vi.spyOn(controller, 'save').mockImplementationOnce(async (changes, preconditions) => {
+    await adapter.write(path, 'namespace support\ntypeAlias Amount: int\n', revision);
+    return original(changes, preconditions);
+  });
+  await expect(
+    saveWorkflowFunction(controller, { definition: composition, path: 'model/twice.rosetta', id: 'twice' })
+  ).rejects.toThrow();
+  expect((await adapter.read(path))!.text).toContain('int');
+  expect(await adapter.read('model/twice.rosetta')).toBeUndefined();
+  expect((await adapter.list()).filter((entry) => entry.endsWith('.workflow.json'))).toEqual([]);
+});
 it('saves distinct named no-function recipes, output definitions and presentation through repository readback', async () => {
   const { adapter, controller } = await setup();
   const flow = {

@@ -4,7 +4,7 @@
 /**
  * Browser-safe entry for the `.rosetta` render-core.
  *
- * Re-exports ONLY the pure render-core. It must never import `./index.js`,
+ * Exposes the pure render-core and parser-backed authoring helpers. Never import `./index.js`,
  * `./generator.js`, or anything under `./emit/excel-emitter.js` — those pull in
  * ExcelJS (Node-only) and would break browser bundling of the visual editor.
  */
@@ -18,3 +18,9 @@ export {
   UnsupportedSynonymBodyError
 } from './emit/rosetta/render-synonym-body.js';
 export { treesEquivalent } from './emit/rosetta/expression-tree-equivalence.js';
+export { renderWorkflowFunction } from './workflow-function.js';
+export type {
+  WorkflowFunctionDefinition,
+  WorkflowFunctionParameter,
+  WorkflowFunctionStep
+} from './workflow-function.js';

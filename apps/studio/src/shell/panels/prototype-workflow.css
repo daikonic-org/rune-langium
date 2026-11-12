@@ -17,6 +17,32 @@
   padding: var(--space-1) var(--space-2);
 }
 
+.workflow-library__picker {
+  width: min(32rem, 100%);
+  height: auto;
+  max-height: none;
+  padding-block: var(--space-1);
+  white-space: normal;
+  text-align: start;
+}
+
+.workflow-library__picker [data-slot="select-value"] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  overflow-wrap: anywhere;
+}
+
+.workflow-library__options {
+  max-width: min(36rem, calc(100vw - var(--space-4)));
+}
+
+.workflow-library__options [data-slot="select-item"] > span:last-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .workflow-stage {
   --workflow-input-width: 32%;
   --workflow-function-width: 28%;
@@ -123,6 +149,17 @@
 .workflow-node [data-testid="panel-formPreview"] {
   height: auto;
   min-height: 0;
+}
+
+.workflow-node__fields {
+  max-height: clamp(10rem, 24dvh, 24rem);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.workflow-node__fields:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
 }
 
 .workflow-node .preview-panel__body {
@@ -293,6 +330,10 @@
 }
 
 @media (max-width: 640px) {
+  .workflow-library__picker {
+    flex-basis: 100%;
+  }
+
   .workflow button[data-size], .workflow [role="combobox"] {
     min-height: 44px;
     min-width: 44px;

@@ -8,12 +8,16 @@
  * Walks `apps/studio/dist/assets/` and sums all `.js` / `.mjs` byte sizes.
  * Fails non-zero if the total exceeds `STUDIO_MAX_BUNDLE_BYTES`.
  *
- * Baseline (captured after 019 Phase 2 LSP-retirement on 2026-05-12):
- *   6,279,619 bytes — see commit removing apps/studio/src/workers/lsp-worker.ts.
+ * Current candidate (2026-11-12): 18,445,354 bytes.
+ * Parent Studio source at 657bf5dc with the same installed dependencies and
+ * additive Core/Codegen exports totaled 18,385,283 bytes; initial Compose added
+ * 52,496 bytes (0.29%). Primitive polish and navigation/call-state fixes add another 7,575
+ * bytes (0.04%). The May 2026 6,279,619-byte baseline predates these toolchain
+ * features and no longer describes the shipped application.
  *
- * Default gate: 6,593,600 bytes (~5% headroom above baseline). Set the
- * `STUDIO_MAX_BUNDLE_BYTES` env var in CI to override, e.g. after an
- * intentional dependency bump.
+ * Default gate: 19,340,000 bytes (~5% headroom above the current baseline).
+ * Keep this bounded regression guard; intentional baseline changes require a
+ * measured comparison and a CHANGELOG entry, rather than disabling the check.
  */
 
 import { readdir, stat } from 'node:fs/promises';
@@ -21,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
 const DIST = fileURLToPath(new URL('../dist/assets', import.meta.url));
-const DEFAULT_MAX_BYTES = 6_593_600;
+const DEFAULT_MAX_BYTES = 19_340_000;
 // GitHub Actions expands `${{ vars.X }}` to an empty string when the variable
 // is unset, not undefined — so `??` doesn't fall through. Treat empty/whitespace
 // the same as unset so CI uses the default ceiling without manual configuration.

@@ -9,6 +9,7 @@
 
 import {
   type ExpressionScopeEntry,
+  type FunctionComposition,
   type SourceRegion,
   parse,
   parseWorkspace,
@@ -1205,29 +1206,61 @@ export const requestExpressionScope = withInstrumentation(
     region: SourceRegion | { draftCondition: 'precondition' | 'postcondition' },
     files?: readonly WorkspaceFile[]
   ): Promise<ExpressionScopeEntry[]> {
-    const snapshot = files
-      ?.filter((file) => !file.path.endsWith(BUNDLE_MARKER_SUFFIX) && (!file.refOnly || file.serializedModelJson))
-      .map((file) => ({
-        name: pathToUri(file.path),
-        content: file.content,
-        serializedModelJson: file.serializedModelJson,
-        exports: file.exports
-      }));
-    const response = await workerRequest({
-      type: 'expressionScope',
-      id: String(++requestId),
-      uri: pathToUri(uri),
-      name: nameFromNodeId(nodeId),
-      kind: kindFromNodeId(nodeId),
-      ...('draftCondition' in region ? region : { region }),
-      files: snapshot
-    });
-    if (response.type !== 'expressionScopeResult') throw new Error('Unexpected expression scope response');
-    if (response.error) throw new Error(response.error);
-    return response.entries;
+    return (await requestFunctionContext(uri, nodeId, region, files)).entries;
   },
   { op: 'requestExpressionScope' }
 );
+
+/** The same serialized parse/link transaction supplies both scope and composition facts. */
+export const requestFunctionComposition = withInstrumentation(
+  async function requestFunctionComposition(
+    uri: string,
+    nodeId: string,
+    files: readonly WorkspaceFile[],
+    compositionCallables = false,
+    compositionCandidate?: string
+  ): Promise<FunctionComposition> {
+    const response = await requestFunctionContext(
+      uri,
+      nodeId,
+      { composition: true, compositionCallables, compositionCandidate },
+      files
+    );
+    if (!response.composition) throw new Error('Composition facts are unavailable.');
+    return response.composition;
+  },
+  { op: 'requestFunctionComposition', capture: 0 }
+);
+
+async function requestFunctionContext(
+  uri: string,
+  nodeId: string,
+  target:
+    | SourceRegion
+    | { draftCondition: 'precondition' | 'postcondition' }
+    | { composition: true; compositionCallables?: boolean; compositionCandidate?: string },
+  files?: readonly WorkspaceFile[]
+): Promise<ExpressionScopeResponse> {
+  const snapshot = files
+    ?.filter((file) => !file.path.endsWith(BUNDLE_MARKER_SUFFIX) && (!file.refOnly || file.serializedModelJson))
+    .map((file) => ({
+      name: pathToUri(file.path),
+      content: file.content,
+      serializedModelJson: file.serializedModelJson,
+      exports: file.exports
+    }));
+  const response = await workerRequest({
+    type: 'expressionScope',
+    id: String(++requestId),
+    uri: pathToUri(uri),
+    name: nameFromNodeId(nodeId),
+    kind: kindFromNodeId(nodeId),
+    ...('from' in target ? { region: target } : target),
+    files: snapshot
+  });
+  if (response.error) throw new Error(response.error);
+  return response;
+}
 
 export const linkDocument = withInstrumentation(
   async function linkDocument(

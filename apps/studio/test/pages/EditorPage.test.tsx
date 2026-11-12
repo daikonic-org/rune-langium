@@ -463,7 +463,8 @@ vi.mock('../../src/components/StudioToastProvider.js', () => ({
   useStudioToast: () => ({ showToast: showToastSpy, showLoadingToast: vi.fn(() => 'toast-id'), dismissToast: vi.fn() })
 }));
 
-vi.mock('lucide-react', () => ({
+vi.mock('lucide-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('lucide-react')>()),
   Maximize2: () => React.createElement('span'),
   LayoutGrid: () => React.createElement('span'),
   Code2: () => React.createElement('span'),
@@ -496,7 +497,8 @@ vi.mock('lucide-react', () => ({
   FolderOpen: () => React.createElement('span'),
   GitBranch: () => React.createElement('span'),
   Package: () => React.createElement('span'),
-  Boxes: () => React.createElement('span')
+  Boxes: () => React.createElement('span'),
+  Workflow: () => React.createElement('span')
 }));
 
 vi.mock('../../src/components/GraphFilterMenu.js', () => ({

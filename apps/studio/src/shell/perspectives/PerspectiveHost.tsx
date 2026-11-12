@@ -23,6 +23,7 @@ import { ExplorePerspective } from '../ExplorePerspective.js';
 import type { WorkspaceKind } from '../../workspace/persistence.js';
 import type { WorkspaceFile } from '../../services/workspace.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import { ComposeSurfaceContext } from './compose-surface.js';
 import { PerspectiveHeading } from './PerspectiveHeading.js';
 
 interface Props {
@@ -67,6 +68,7 @@ export const PerspectiveHost = withInstrumentation(
     workspaceKind,
     files
   }: Props): React.ReactElement {
+    const [composeSurface, setComposeSurface] = useState<HTMLDivElement | null>(null);
     const active = usePerspectiveStore((s) => s.activePerspective);
     // Effective-perspective fallback — shared with AppHeader via
     // resolveEffectivePerspective so the bar and the body never disagree.
@@ -80,31 +82,36 @@ export const PerspectiveHost = withInstrumentation(
       // content's min-content width, so a wide child (e.g. the open-file tab
       // strip with many files) forces this host — and the whole layout — past
       // the viewport. `min-w-0` lets it honor the row width and clip/scroll inside.
-      <div className="flex-1 min-h-0 min-w-0">
-        {/* Explore: kept alive — hidden via display:none, NEVER unmounted. */}
-        <div
-          data-perspective-slot="explore"
-          // `studio-perspective-enter` replays its fade-in each time the class
-          // is re-added (i.e. every time Explore becomes active again).
-          className={effective === 'explore' ? 'h-full studio-perspective-enter' : 'h-full'}
-          style={{ display: effective === 'explore' ? undefined : 'none' }}
-        >
-          <ExplorePerspective />
+      <ComposeSurfaceContext.Provider value={composeSurface}>
+        <div className="flex-1 min-h-0 min-w-0">
+          {/* Explore: kept alive — hidden via display:none, NEVER unmounted. */}
+          <div
+            data-perspective-slot="explore"
+            // `studio-perspective-enter` replays its fade-in each time the class
+            // is re-added (i.e. every time Explore becomes active again).
+            className={effective === 'explore' ? 'h-full studio-perspective-enter' : 'h-full'}
+            style={{ display: effective === 'explore' ? undefined : 'none' }}
+          >
+            <ExplorePerspective />
+          </div>
+          <PerspectiveScreen id="compose" active={effective === 'compose'}>
+            <div ref={setComposeSurface} className="h-full min-h-0 min-w-0" />
+          </PerspectiveScreen>
+          {hasWorkspace && prototypeWorkspace === key ? (
+            <PerspectiveScreen key={key} id="prototype" active={effective === 'prototype'}>
+              <PrototypePerspective />
+            </PerspectiveScreen>
+          ) : null}
+          {effective !== 'explore' && effective !== 'prototype' && effective !== 'compose' && (
+            <PerspectiveScreen key={effective} id={effective}>
+              {effective === 'workspaces' && <WorkspacesPerspective />}
+              {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
+              {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}
+              {effective === 'settings' && <SettingsPerspective workspaceForm={WorkspaceDirectoriesFormAdapter} />}
+            </PerspectiveScreen>
+          )}
         </div>
-        {hasWorkspace && prototypeWorkspace === key ? (
-          <PerspectiveScreen key={key} id="prototype" active={effective === 'prototype'}>
-            <PrototypePerspective />
-          </PerspectiveScreen>
-        ) : null}
-        {effective !== 'explore' && effective !== 'prototype' && (
-          <PerspectiveScreen key={effective} id={effective}>
-            {effective === 'workspaces' && <WorkspacesPerspective />}
-            {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
-            {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}
-            {effective === 'settings' && <SettingsPerspective workspaceForm={WorkspaceDirectoriesFormAdapter} />}
-          </PerspectiveScreen>
-        )}
-      </div>
+      </ComposeSurfaceContext.Provider>
     );
   },
   { op: 'PerspectiveHost' }

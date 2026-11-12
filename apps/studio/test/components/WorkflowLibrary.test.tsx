@@ -1,14 +1,45 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useState } from 'react';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 vi.mock('../../src/workspace/workflow-repository.js', () => ({ saveWorkflow: vi.fn().mockResolvedValue(undefined) }));
 import { saveWorkflow } from '../../src/workspace/workflow-repository.js';
 import { WorkflowLibrary } from '../../src/components/WorkflowLibrary.js';
 import { ProjectContext } from '../../src/shell/providers/project-context.js';
-import type { ProjectSnapshot } from '@rune-langium/project-config';
+import type { ProjectSnapshot, WorkflowDescriptor } from '@rune-langium/project-config';
+import { useComposeNavigationStore } from '../../src/store/compose-navigation-store.js';
+
+afterEach(() => useComposeNavigationStore.setState({ recipe: undefined }));
+
+it.each(['one', 'other'])(
+  'retains only a matching pending recipe from workspace %s on first mount',
+  async (workspaceId) => {
+    const recipe: WorkflowDescriptor = {
+      schemaVersion: 1,
+      id: 'composed',
+      name: 'Composed function',
+      function: { namespace: 'example', name: 'Calculate', kind: 'RosettaFunction' },
+      inputs: {},
+      outputs: {}
+    };
+    useComposeNavigationStore.getState().requestRecipe(workspaceId, recipe);
+    render(
+      <ProjectContext value={{ status: 'ready', workspaceId: 'one', diagnostics: [] }}>
+        <WorkflowLibrary capture={() => recipe} open={vi.fn().mockResolvedValue(undefined)} />
+      </ProjectContext>
+    );
+    await waitFor(() => expect(useComposeNavigationStore.getState().recipe).toBeUndefined());
+    // The recipe must survive initialization while its workspace function is still loading.
+    if (workspaceId === 'one') {
+      expect(screen.getByText('Loading created function…', { exact: true })).toBeVisible();
+    } else {
+      expect(screen.queryByText('Loading created function…', { exact: true })).toBeNull();
+    }
+  }
+);
+
 it('does not carry a saved recipe selection into another workspace', async () => {
   const recipe = { schemaVersion: 1, id: 'old', name: 'Old workflow', inputs: {}, outputs: {} };
   const snapshot = (files: Map<string, string>) =>
