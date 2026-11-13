@@ -10,7 +10,8 @@ import {
   renderNativeImplementationInventory,
   nativeSourceBlobHash,
   handwrittenJavaReferences,
-  validateCatalogImplementation
+  validateCatalogImplementation,
+  catalogRegressionSuite
 } from './lib/native-implementation-inventory.mjs';
 import { isCuratedSourceFile, CuratedModelIdSchema } from '../packages/curated-schema/dist/index.js';
 import { AstUtils, URI } from '../packages/core/node_modules/langium/lib/index.js';
@@ -78,7 +79,7 @@ const testSuites = {
     'cdm-floating-rate-reset': 'floating-rate-reset'
   }
 };
-const dispatchSuites = await Promise.all(
+const regressionSuites = await Promise.all(
   Object.entries(testSuites).flatMap(([testDirectory, suites]) =>
     Object.entries(suites).map(async ([directory, testName]) => {
       const base = `test/fixtures/third-party/${directory}`;
@@ -86,7 +87,7 @@ const dispatchSuites = await Promise.all(
       const casesPath = `${base}/cases.json`;
       const casesText = await readFile(resolve(root, casesPath), 'utf8');
       return {
-        declarations: manifest.declarations,
+        declarations: manifest.declarations.map((declaration) => ({ model: 'cdm', ...declaration })),
         path: `${testDirectory}/${testName}.test.ts`,
         casesPath,
         casesText,
@@ -95,6 +96,26 @@ const dispatchSuites = await Promise.all(
     })
   )
 );
+const sourceSuites = {
+  'native-implementations': [['cdm.base.datetime', 'Today']],
+  'native-utilities': [
+    ['cdm.base.datetime', 'Now'],
+    ['cdm.base.datetime', 'ToTime'],
+    ['cdm.ingest.fpml.confirmation.common', 'StringContains']
+  ],
+  'rune-implementations': [
+    ['cdm.base.datetime', 'PopOffDateList'],
+    ['cdm.event.common', 'EmptyExecutionDetails'],
+    ['cdm.event.common', 'EmptyTransferHistory']
+  ]
+};
+for (const [name, declarations] of Object.entries(sourceSuites))
+  regressionSuites.push({
+    path: `packages/codegen/test/implementations/${name}.test.ts`,
+    declarations: declarations.map(([namespace, name]) => ({ model: 'cdm', namespace, name, kind: 'RosettaFunction' }))
+  });
+// A catalog reference must resolve to a real test file, including suites with inline cases.
+await Promise.all(regressionSuites.map((suite) => readFile(resolve(root, suite.path), 'utf8')));
 const sources = JSON.parse(
   await readFile(resolve(root, values.sources ?? 'scripts/fixtures/native-implementation-sources.json'), 'utf8')
 );
@@ -378,18 +399,6 @@ for (const document of documents) {
     )
       throw new Error('Published Rune selection differs from the reviewed effective implementation.');
     validateCatalogImplementation(implementation);
-    const suite = dispatchSuites.find((suite) =>
-      suite.declarations.some(
-        (declaration) =>
-          declaration.namespace === symbol.namespace &&
-          declaration.name === symbol.name &&
-          declaration.kind === symbol.kind
-      )
-    );
-    const cases =
-      suite?.cases.filter(
-        (entry) => entry.function === symbol.name || (!entry.function && suite.declarations.length === 1)
-      ) ?? [];
     const dispatchAttribute = functions.find(
       (candidate) =>
         candidate.name === node.name &&
@@ -416,24 +425,9 @@ for (const document of documents) {
         ...(dispatch ? { implementationDispatch: dispatch } : {}),
         variants
       },
-      ...(suite && cases.length
+      ...(implementation.kind !== 'unimplemented'
         ? {
-            regressionSuite: {
-              path: suite.path,
-              cases: suite.casesPath,
-              casesSha256: createHash('sha256').update(suite.casesText).digest('hex'),
-              selectors: [
-                ...new Set(
-                  cases
-                    .filter((entry) => !entry.expectedError)
-                    .flatMap((entry) => {
-                      const selector = entry.selector ?? entry.inputs?.[dispatchAttribute];
-                      return selector === undefined ? [] : [selector];
-                    })
-                )
-              ].sort(),
-              caseCount: cases.length
-            }
+            regressionSuite: catalogRegressionSuite(regressionSuites, symbol, dispatchAttribute)
           }
         : {})
     });
