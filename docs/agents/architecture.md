@@ -334,10 +334,15 @@ Studio must not add competing global height overrides. Multi-line editors, list
 rows and touch/resize hit areas remain separate. Dockview uses one unlayered sash
 geometry rule set: a theme hairline inside the existing 16px drag target.
 Input has one field treatment for inline and ordinary form editing. Input,
-Textarea, NativeSelect and SelectTrigger reuse a private field-chrome definition
+Textarea, NativeSelect and PickerTrigger reuse a private field-chrome definition
 in design-system. NativeSelect in the existing `/ui/select` module owns ordinary
 option lists; rich Select and searchable domain pickers preserve their focus,
-selection and z2f binding contracts. Repeated utility actions use Button rather
+selection and z2f binding contracts. SelectTrigger composes PickerTrigger;
+CardinalityPicker, SourceRefField and empty type references use the same trigger.
+CommandInput and namespace searches compose SearchInput, retaining input refs,
+ARIA and Base UI keyboard selection. SelectItem, CommandItem and PickerOption
+share option-row presentation; namespace virtualization and type-kind chips
+retain domain geometry. Repeated utility actions use Button rather
 than app-local button chrome. Field groups use 8px gaps and nested sets use 12px.
 The desktop launcher fills its frame with Recents beside Starters, each owning
 its overflow; Reference Models uses the same full-frame body. Narrow launchers

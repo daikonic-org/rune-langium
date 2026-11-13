@@ -47,6 +47,7 @@ export default defineConfig({
         'e2e/prod-review-polish.spec.ts',
         'e2e/studio-hardening.spec.ts',
         'e2e/control-spacing.spec.ts',
+        'e2e/specialized-controls.spec.ts',
         'e2e/change-feedback.spec.ts',
         'e2e/evidence-redaction.spec.ts',
         'e2e/workbench-reading-space.spec.ts',

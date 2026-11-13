@@ -14,8 +14,8 @@
 import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
 import type { JSX, DragEvent, MouseEvent, KeyboardEvent } from 'react';
-import { ArrowUpRight, ChevronRight, ChevronDown, Link, Search } from 'lucide-react';
-import { Input } from '@rune-langium/design-system/ui/input';
+import { ArrowUpRight, ChevronRight, ChevronDown, Link } from 'lucide-react';
+import { SearchInput } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { NumberChiclet } from '@rune-langium/design-system/ui/number-chiclet';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
@@ -412,18 +412,16 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
 
         {/* Toolbar */}
         <div className="flex items-center gap-2 border-b px-3 py-2">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/80" />
-            <Input
-              type="text"
-              placeholder="Filter types or namespaces..."
-              aria-label="Filter types or namespaces"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-7 border-border/70 bg-background/55 pl-8 pr-2 text-2xs shadow-none placeholder:text-muted-foreground"
-              data-testid="namespace-search"
-            />
-          </div>
+          <SearchInput
+            type="text"
+            placeholder="Filter types or namespaces..."
+            aria-label="Filter types or namespaces"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-7"
+            wrapperClassName="flex-1"
+            data-testid="namespace-search"
+          />
         </div>
 
         {selection !== undefined && (

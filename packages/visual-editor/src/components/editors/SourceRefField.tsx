@@ -10,9 +10,9 @@
  * Popover + Base UI Command primitives.
  */
 
-import { ChevronDown } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
+import { PickerTrigger, pickerTriggerVariants } from '@rune-langium/design-system/ui/picker';
 import {
   Command,
   CommandCollection,
@@ -65,10 +65,7 @@ export function SourceRefField({
 
   if (readOnly) {
     return (
-      <span
-        data-slot="source-ref"
-        className="inline-flex items-center h-6 gap-1.5 rounded-md border border-input bg-background px-1.5 text-xs text-foreground"
-      >
+      <span data-slot="source-ref" className={pickerTriggerVariants()}>
         {label || placeholder}
       </span>
     );
@@ -79,24 +76,19 @@ export function SourceRefField({
       <PopoverTrigger
         disabled={disabled}
         render={
-          <button
-            type="button"
-            data-slot="source-ref-trigger"
-            className="nodrag nopan inline-flex max-w-full items-center h-6 gap-1.5 rounded-md border border-input bg-background px-1.5 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50"
-          >
+          <PickerTrigger data-slot="source-ref-trigger" className="nodrag nopan">
             <span className="truncate">{label || placeholder}</span>
-            <ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-          </button>
+          </PickerTrigger>
         }
       />
       <PopoverContent align="start" sideOffset={4} className="w-auto p-0">
         <Command className="nodrag nopan" items={items} onItemSelect={handleSelect}>
-          <CommandInput aria-label="Search sources" placeholder="Search sources…" />
+          <CommandInput aria-label="Search sources" placeholder="Search sources…" disabled={disabled} />
           <CommandList>
             <CommandEmpty>No matching options.</CommandEmpty>
             <CommandCollection<SourceRefOption>>
               {(item) => (
-                <CommandItem key={item.value.value} value={item}>
+                <CommandItem key={item.value.value} value={item} disabled={disabled}>
                   {item.value.label}
                   {item.value.namespace ? (
                     <span className="ml-2 text-muted-foreground">{item.value.namespace}</span>

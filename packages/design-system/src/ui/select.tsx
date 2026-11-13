@@ -6,7 +6,8 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 
 import { cn } from '../utils';
-import { fieldControlStyles } from './control-styles';
+import { fieldControlStyles, pickerOptionStyles } from './control-styles';
+import { PickerTrigger, pickerTriggerVariants } from './picker';
 
 /** Native selection for plain option lists, retaining platform keyboard behavior. */
 function NativeSelect({
@@ -161,6 +162,7 @@ function SelectTrigger({
   className,
   size = 'sm',
   children,
+  render,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: 'sm' | 'default';
@@ -169,11 +171,14 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        fieldControlStyles,
-        "flex min-h-6 max-h-7 w-fit items-center justify-between gap-1.5 py-0 whitespace-nowrap transition-[color,box-shadow] data-[size=default]:h-7 data-[size=default]:px-2 data-[size=sm]:h-6 data-[size=sm]:px-1.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg:not([class*='size-'])]:size-3",
-        className
-      )}
+      render={render ?? <PickerTrigger size={size} indicator={false} />}
+      className={(state) =>
+        cn(
+          render != null && pickerTriggerVariants({ size }),
+          '*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5',
+          typeof className === 'function' ? className(state) : className
+        )
+      }
       {...props}
     >
       {children}
@@ -262,15 +267,18 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
-      className={cn(
-        "data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
-      )}
+      className={(state) =>
+        cn(
+          pickerOptionStyles,
+          'pr-8 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2',
+          typeof className === 'function' ? className(state) : className
+        )
+      }
       {...props}
     >
       <span data-slot="select-item-indicator" className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+          <CheckIcon className="size-3.5" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

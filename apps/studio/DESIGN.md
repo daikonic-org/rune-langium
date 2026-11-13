@@ -39,7 +39,11 @@ available; no system preference silently replaces an explicit choice.
 - Use the existing design-system [control families](../../packages/design-system/README.md#control-families).
   Input has one treatment for forms and inline editors; NativeSelect owns plain
   option lists, while rich/searchable pickers retain their selection behavior.
-  Field chrome and keyboard focus are shared with Textarea and SelectTrigger.
+  Field chrome and keyboard focus are shared with Textarea and PickerTrigger.
+  SelectTrigger and domain popover pickers reuse that trigger. SearchInput owns
+  the search icon/inset in Command and namespace searches; option rows share
+  spacing and focus/selection states. Type-kind chips retain their domain colors
+  and virtualized tree rows retain their measured heights.
   z2f constructs and validates schema forms; its adapter reuses design-system
   fields and visual-editor's FieldTemplate rather than restyling them.
 - Repeated panel actions use Button variants and sizes, including pressed state.

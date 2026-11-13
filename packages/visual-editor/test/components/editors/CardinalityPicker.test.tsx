@@ -66,5 +66,30 @@ describe('CardinalityPicker', () => {
 
     const input = screen.getByLabelText('Custom cardinality');
     expect(input).toBeDisabled();
+    fireEvent.change(input, { target: { value: '2..3' } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('announces an invalid custom range without committing it', () => {
+    const onChange = vi.fn();
+    render(<CardinalityPicker value="(0..1)" onChange={onChange} />);
+    fireEvent.click(screen.getByRole('option', { name: 'Custom…' }));
+    const input = screen.getByRole('textbox', { name: 'Custom cardinality' });
+    fireEvent.change(input, { target: { value: '3..2' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription(screen.getByRole('alert').textContent!);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('prevents preset selection if disabled while its options are displayed', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<CardinalityPicker value="(0..1)" onChange={onChange} />);
+    rerender(<CardinalityPicker value="(0..1)" onChange={onChange} disabled />);
+    const option = screen.getByRole('option', { name: '1..*' });
+    expect(option).toBeDisabled();
+    fireEvent.click(option);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

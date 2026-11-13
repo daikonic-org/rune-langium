@@ -31,6 +31,7 @@
     "./ui/kbd": "./src/ui/kbd.tsx",
     "./ui/label": "./src/ui/label.tsx",
     "./ui/number-chiclet": "./src/ui/number-chiclet.tsx",
+    "./ui/picker": "./src/ui/picker.tsx",
     "./ui/popover": "./src/ui/popover.tsx",
     "./ui/radio-group": "./src/ui/radio-group.tsx",
     "./ui/resizable": "./src/ui/resizable.tsx",
