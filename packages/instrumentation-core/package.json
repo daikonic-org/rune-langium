@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "Isomorphic instrumentation core (withInstrumentation, configureInstrumentation, Level, InstrumentationOptions) shared across browser, Web Worker, Cloudflare Pages Functions, and Node consumers.",
   "type": "module",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -23,7 +25,7 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

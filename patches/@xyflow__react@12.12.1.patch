@@ -1,8 +1,7 @@
 diff --git a/dist/esm/index.js b/dist/esm/index.js
-index 422889fc98ea26cf4c4b45d6d7b84479550f4728..4e10b7b2806fdf1f650af319c27b6430d82d15ce 100644
 --- a/dist/esm/index.js
 +++ b/dist/esm/index.js
-@@ -2146,6 +2146,8 @@ function useVisibleNodeIds(onlyRenderVisible) {
+@@ -2146,6 +2146,8 @@
  const selector$b = (s) => s.updateNodeInternals;
  function useResizeObserver() {
      const updateNodeInternals = useStore(selector$b);
@@ -11,7 +10,7 @@ index 422889fc98ea26cf4c4b45d6d7b84479550f4728..4e10b7b2806fdf1f650af319c27b6430
      const [resizeObserver] = useState(() => {
          if (typeof ResizeObserver === 'undefined') {
              return null;
-@@ -2160,12 +2162,25 @@ function useResizeObserver() {
+@@ -2160,12 +2162,25 @@
                      force: true,
                  });
              });
@@ -39,10 +38,9 @@ index 422889fc98ea26cf4c4b45d6d7b84479550f4728..4e10b7b2806fdf1f650af319c27b6430
      }, [resizeObserver]);
      return resizeObserver;
 diff --git a/dist/esm/index.mjs b/dist/esm/index.mjs
-index 422889fc98ea26cf4c4b45d6d7b84479550f4728..4e10b7b2806fdf1f650af319c27b6430d82d15ce 100644
 --- a/dist/esm/index.mjs
 +++ b/dist/esm/index.mjs
-@@ -2146,6 +2146,8 @@ function useVisibleNodeIds(onlyRenderVisible) {
+@@ -2146,6 +2146,8 @@
  const selector$b = (s) => s.updateNodeInternals;
  function useResizeObserver() {
      const updateNodeInternals = useStore(selector$b);
@@ -51,7 +49,7 @@ index 422889fc98ea26cf4c4b45d6d7b84479550f4728..4e10b7b2806fdf1f650af319c27b6430
      const [resizeObserver] = useState(() => {
          if (typeof ResizeObserver === 'undefined') {
              return null;
-@@ -2160,12 +2162,25 @@ function useResizeObserver() {
+@@ -2160,12 +2162,25 @@
                      force: true,
                  });
              });

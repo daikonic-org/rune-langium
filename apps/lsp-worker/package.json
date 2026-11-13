@@ -18,13 +18,13 @@
     "@rune-langium/curated-schema": "workspace:*",
     "@rune-langium/lsp-server": "workspace:*",
     "@rune-langium/worker-core": "workspace:*",
-    "langium": "^4.4.0",
-    "zod": "^4.6.7"
+    "langium": "^4.4.2",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261025.1",
-    "vitest": "^5.0.5",
-    "wrangler": "^4.152.0"
+    "@cloudflare/workers-types": "^5.20261112.1",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.161.0"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

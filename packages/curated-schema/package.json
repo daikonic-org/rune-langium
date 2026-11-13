@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "Single source of truth for curated-mirror types: CuratedManifest, CuratedModelId, ErrorCategory. Consumed by both apps/curated-mirror-worker (publisher) and apps/studio (loader).",
   "type": "module",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -23,10 +25,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "zod": "^4.6.7"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

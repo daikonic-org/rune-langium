@@ -79,16 +79,16 @@
     "@rune-langium/core": "workspace:*",
     "@rune-langium/curated-schema": "workspace:*",
     "@rune-langium/project-config": "workspace:*",
-    "langium": "^4.4.0",
-    "pako": "^3.0.2",
-    "semver": "7.8.5",
-    "zod": "^4.6.7"
+    "langium": "^4.4.2",
+    "pako": "^3.0.3",
+    "semver": "7.8.6",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@js-temporal/polyfill": "^0.5.1",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/semver": "7.8.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }

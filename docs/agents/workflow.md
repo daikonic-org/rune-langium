@@ -132,12 +132,12 @@ Public control-prop changes also require the [design-sync preview and contract
 checks](../../.design-sync/NOTES.md#build); its hidden preview tree has a separate
 TypeScript project and is outside workspace package type-checks.
 
-Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
+Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 31 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
 
-`@xyflow/react@12.12.0` has a narrow ESM measurement patch in
-`patches/@xyflow__react@12.12.0.patch`. Both browser and Node ESM entries defer
+`@xyflow/react@12.12.1` has a narrow ESM measurement patch in
+`patches/@xyflow__react@12.12.1.patch`. Both browser and Node ESM entries defer
 the internal ResizeObserver update, coalesce changes by node identity and cancel
 pending work on unmount. The UMD entry is not used by Studio and is unmodified.
 On upgrade, recheck native observer errors, node geometry across semantic zoom
@@ -161,14 +161,33 @@ The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in 
 The October 26 dependency refresh uses react-day-picker 10 through the shared
 Calendar wrapper and vscode-languageserver 11. Keep resolver 5.9.2 while
 `@zod-to-form/react@0.13.0` and `@zod-to-form/vite@0.5.0` declare the resolver 5
-peer range; resolver 6 needs an upstream compatibility release. TypeDoc and the
+peer range; newer resolver majors need an upstream compatibility release. TypeDoc and the
 codegen compiler-API alias retain TypeScript 6.0.3, while workspace compilation
 uses TypeScript 7.0.2. The root OpenTelemetry API override stays at 1.9.1 because
 react-doctor's Sentry/OpenTelemetry 2.12 SDK peers exclude 1.10; remove the cap
 when that dependency chain declares support. Do not suppress peer checks. Miniflare retains its scoped Undici 7 override at
-7.30.1 for the HTTP parser fixes; do not force its consumers onto Undici 8.
+7.30.2 for the HTTP parser fixes; do not force its consumers onto Undici 8.
+
+The November 13 refresh retains two visible development-tool advisories.
+`minimatch@10.2.6` is affected by
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), but forcing
+v11 breaks TypeDoc 0.28.20's `Minimatch.matchOne` call during entry-point discovery.
+Use an upstream-compatible TypeDoc release before replacing its matcher; do not
+apply a global major override to the legacy production v3/v5 consumers.
+`deepmerge@4.3.1` remains in the shadcn development CLI because npm has not
+published the advisory's fixed `4.3.2` release. Keep
+[GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) visible in
+the full audit. Neither advisory has a new audit exception or a production-tree
+finding.
 
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
+
+Core's Langium dependency range is also the accepted serialized-reference format
+range in `projectToolchainDiagnostics`. Keep its `^4.4.0` compatibility floor
+while resolving the current 4.4.x patch in the lockfile. Raising that floor with
+`update --latest` rejects already published 4.4.0 cohorts and existing project
+locks. Only narrow it deliberately with migration/publication planning and the
+reference restore tests; fixtures must not be rewritten merely to hide that break.
 
 ## Production UX checkout
 
