@@ -54,7 +54,54 @@ for (const theme of ['light', 'daikonic'])
       const row = page.locator('[data-slot="attribute-row"]').first();
       const cardinality = row.getByRole('button', { name: 'Cardinality 1..1', exact: true });
       await cardinality.click();
-      const metrics: Record<string, unknown> = { cardinality: await capture(page, info, 'cardinality', cardinality) };
+      await page.evaluate(() => document.fonts.ready);
+      const alignment = await cardinality.evaluate((element) => {
+        const measure = (target: Element | null) => {
+          if (!target) return null;
+          const box = target.getBoundingClientRect();
+          const style = getComputedStyle(target);
+          return {
+            top: box.top,
+            height: box.height,
+            centerY: box.top + box.height / 2,
+            display: style.display,
+            lineHeight: style.lineHeight,
+            verticalAlign: style.verticalAlign
+          };
+        };
+        const row = element.closest('[data-slot="attribute-row"]');
+        const label = element.querySelector('[data-slot="cardinality-value"]');
+        let inkCenterY: number | undefined;
+        if (label) {
+          const font = getComputedStyle(label);
+          const context = document.createElement('canvas').getContext('2d');
+          if (context) {
+            context.font = `${font.fontStyle} ${font.fontWeight} ${font.fontSize} ${font.fontFamily}`;
+            const ink = context.measureText(label.textContent ?? '');
+            const baseline = document.createElement('span');
+            baseline.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+            label.append(baseline);
+            inkCenterY =
+              baseline.getBoundingClientRect().top + (ink.actualBoundingBoxDescent - ink.actualBoundingBoxAscent) / 2;
+            baseline.remove();
+          }
+        }
+        return {
+          trigger: measure(element),
+          wrapper: measure(element.parentElement),
+          name: measure(row?.querySelector('[data-slot="attribute-name"]') ?? null),
+          label: measure(label),
+          chevron: measure(element.querySelector('svg')),
+          inkCenterY,
+          textBoxSupported: CSS.supports('text-box-trim', 'trim-both')
+        };
+      });
+      expect(Math.abs(alignment.trigger!.centerY - alignment.name!.centerY)).toBeLessThan(0.5);
+      expect(Math.abs(alignment.inkCenterY! - alignment.trigger!.centerY)).toBeLessThan(0.5);
+      const metrics: Record<string, unknown> = {
+        alignment,
+        cardinality: await capture(page, info, 'cardinality', cardinality)
+      };
       await page.getByRole('option', { name: 'Custom…', exact: true }).click();
       const custom = page.getByRole('textbox', { name: 'Custom cardinality', exact: true });
       await custom.fill('3..2');

@@ -62,6 +62,9 @@ const TRIGGER_VARIANT_CLASS: Record<NonNullable<CardinalityPickerProps['variant'
 /** Sentinel value used to trigger the custom input flow. */
 const CUSTOM_VALUE = '__custom__';
 
+// Center the visible numeral bounds rather than the font's extra leading.
+const CARDINALITY_LABEL_CLASS = 'font-mono [text-box:trim-both_cap_alphabetic]';
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -160,7 +163,10 @@ export function CardinalityPicker({
               triggerClassName
             )}
           >
-            <span data-slot="cardinality-value" className={cn('font-mono', !hasValue && 'text-muted-foreground')}>
+            <span
+              data-slot="cardinality-value"
+              className={cn(CARDINALITY_LABEL_CLASS, !hasValue && 'text-muted-foreground')}
+            >
               {displayValue}
             </span>
           </PickerTrigger>
@@ -204,7 +210,7 @@ export function CardinalityPicker({
                   onClick={() => commitPreset(preset.value)}
                   className="font-mono"
                 >
-                  {preset.label}
+                  <span className={CARDINALITY_LABEL_CLASS}>{preset.label}</span>
                 </PickerOption>
               );
             })}

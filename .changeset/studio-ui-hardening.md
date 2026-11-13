@@ -15,3 +15,4 @@ in the existing design system, with compact shared form spacing and focus states
 Share picker triggers, search fields and option-row presentation across ordinary
 Select/Command controls and specialized Rune cardinality, source and type pickers.
 Remove empty search-result padding while preserving the screen-reader live region.
+Optically center cardinality numerals in triggers and preset rows using their font metrics.
