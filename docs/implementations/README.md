@@ -239,10 +239,11 @@ records the current explicit JSON-list boundary.
 
 ### Public benchmark data sources
 
-The installed `impl.cdm.market.ReadMarketObservations` and
-`ReadForwardRateSnapshot` contracts accept project-supplied data. The bundle does
-not currently include HTTP acquisition adapters. Useful public sources for a
-dated observation snapshot include:
+The installed `impl.cdm.market.ReadMarketObservations` contract accepts project
+data. [Explicit benchmark acquisition](benchmark-data.md) now downloads SOFR,
+SONIA and €STR fixings and compounded indices and materializes a portable Rune
+provider from verified saved snapshots. `ReadForwardRateSnapshot` still requires
+a separately supplied forward curve. Public sources include:
 
 | Source | Available inputs |
 | --- | --- |

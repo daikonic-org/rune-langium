@@ -1140,6 +1140,18 @@ scopes. Unsupported resource generators fail before publication; provider callba
 never enter serialized captures or generated source. Workflow caches include the
 saved project revision so resource/config-only changes cannot retain valid status.
 
+Public benchmark acquisition lives at project-runtime's `/market-data` boundary,
+invoked explicitly by the CLI. One series registry owns official endpoint, CDM
+identity and source-unit mappings for SOFR/SONIA/€STR fixings and compounded
+indices. Snapshots retain exact response text and provenance; checksum/identity
+validation and one decoder derive their observations during acquisition and
+offline replay. Materialization produces an ordinary `override namespace
+impl.cdm.market` provider, preserving the existing CDM observation guards and
+shared target/Prototype execution. Builds and emitters never fetch benchmark data.
+Reference and benchmark HTTP reads share a bounded canceling stream reader.
+See [benchmark snapshots](../implementations/benchmark-data.md) for admitted
+tenors, missing-data behavior and refresh/install rules.
+
 Static project initialization stays in project-config/import and consumes only
 opened repository text. The runtime adds explicit catalog artifact-to-release
 mappings; it never interprets Maven versions as tags or loads Java code. The

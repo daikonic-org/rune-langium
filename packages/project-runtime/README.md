@@ -4,6 +4,12 @@ MIT-licensed composition of portable configuration, the Rune parser and installe
 code generators. The `/browser` entry is host-neutral. Native filesystem discovery is
 available separately from `@rune-langium/project-runtime/node`.
 
+The host-neutral `/market-data` entry explicitly acquires provenance-checked
+SOFR, SONIA and €STR fixing/compounded-index snapshots. It validates saved bytes
+and materializes an ordinary Rune observation-provider override for offline
+TypeScript, Python and Prototype execution. Acquisition never runs implicitly
+during a build. See [benchmark data](../../docs/implementations/benchmark-data.md).
+
 `serializeProjectData` accepts linked documents and a declared type through its
 data context. Optional `model` and `version` values replace existing wire headers;
 omitting them preserves the payload's original headers. Hosts must supply linked

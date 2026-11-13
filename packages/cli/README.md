@@ -9,6 +9,22 @@ Command-line entry points for batch Rune DSL parsing, validation, and code gener
 - `rune-dsl parse <paths...>`
 - `rune-dsl validate <paths...>`
 - `rune-dsl generate --input <paths...> --language <lang> --output <dir>`
+- `rune-dsl market-data --start <date> --end <date> --output <new-dir>`
+
+## Public benchmark data
+
+```sh
+rune-dsl market-data --start 2026-11-02 --end 2026-11-06 \
+  --output ./model/benchmark-data --json
+```
+
+Explicitly acquire SOFR, SONIA and €STR fixings and compounded indices into six
+provenance/checksum snapshots and an editable Rune observation provider. Append
+`--series sofr sonia estr` for only rates. The output directory must be new;
+existing project files are never replaced. All selected feeds are validated
+before output creation. Generated code and Prototype use the saved provider
+offline. Refresh into a separate directory and review/copy the active provider;
+do not select competing overrides. See [series, installation and limits](../../docs/implementations/benchmark-data.md).
 
 ## Named project builds
 

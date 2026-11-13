@@ -50,6 +50,10 @@
       "types": "./dist/project-data.d.ts",
       "import": "./dist/project-data.js"
     },
+    "./market-data": {
+      "types": "./dist/market-data.d.ts",
+      "import": "./dist/market-data.js"
+    },
     "./examples": {
       "types": "./dist/reference-examples.d.ts",
       "import": "./dist/reference-examples.js"
