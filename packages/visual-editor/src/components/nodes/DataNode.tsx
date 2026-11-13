@@ -60,20 +60,25 @@ export const DataNode = memo(function DataNode({ data, selected, id }: NodeProps
                     key={member.name}
                     className={`rune-node-member${member.override ? ' rune-node-member-override' : ''}`}
                   >
-                    <span className="rune-node-member-name">{member.name}</span>
+                    <span className="rune-node-member-name" title={member.name}>
+                      {member.name}
+                    </span>
                     {typeName &&
                       (targetId && navigation.hasActions ? (
                         <button
                           type="button"
                           className="rune-node-member-type nodrag nopan"
                           data-navigable
+                          title={typeName}
                           onClick={(e) => handleTypeClick(e, targetId)}
                           {...navigation.targetProps(targetId)}
                         >
                           {typeName}
                         </button>
                       ) : (
-                        <span className="rune-node-member-type">{typeName}</span>
+                        <span className="rune-node-member-type" title={typeName}>
+                          {typeName}
+                        </span>
                       ))}
                     {card && <span className="rune-node-member-cardinality">{card}</span>}
                   </div>

@@ -9,6 +9,7 @@ import { SEV, useOutputStore } from '../../store/output-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { formatTelemetryEntryDetails } from './telemetry-entry-details.js';
 import { DebugReportDialog } from '../../components/DebugReportDialog.js';
+import { Button } from '@rune-langium/design-system/ui/button';
 
 const SEVERITY_CLASS: Record<string, string> = {
   error: 'text-destructive',
@@ -35,20 +36,12 @@ export const OutputPanel = withInstrumentation(
     const headerActions = useMemo(
       () => (
         <>
-          <button
-            type="button"
-            className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
-            onClick={() => setDebugReportOpen(true)}
-          >
+          <Button type="button" variant="secondary" size="xs" onClick={() => setDebugReportOpen(true)}>
             Export debug info
-          </button>
-          <button
-            type="button"
-            className="rounded border border-border px-2 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
-            onClick={clearLines}
-          >
+          </Button>
+          <Button type="button" variant="secondary" size="xs" onClick={clearLines}>
             Clear
-          </button>
+          </Button>
         </>
       ),
       [clearLines]

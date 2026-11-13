@@ -159,7 +159,6 @@ function EnumValueRow({
             const isEmpty = (field.value ?? '').trim() === '';
             return (
               <Input
-                variant="inline"
                 type="text"
                 value={field.value ?? ''}
                 onChange={(e) => {

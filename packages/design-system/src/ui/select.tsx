@@ -6,6 +6,38 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 
 import { cn } from '../utils';
+import { fieldControlStyles, pickerOptionStyles } from './control-styles';
+import { PickerTrigger, pickerTriggerVariants } from './picker';
+
+/** Native selection for plain option lists, retaining platform keyboard behavior. */
+function NativeSelect({
+  children,
+  className,
+  size = 'sm',
+  ...props
+}: Omit<React.ComponentProps<'select'>, 'size'> & { size?: 'sm' | 'default' }) {
+  return (
+    <span data-slot="native-select-wrapper" className="relative block min-w-0">
+      <select
+        {...props}
+        data-slot="native-select"
+        data-size={size}
+        className={cn(
+          fieldControlStyles,
+          'w-full min-w-0 appearance-none pr-6 py-0 forced-colors:appearance-auto',
+          size === 'sm' ? 'h-6 pl-1.5' : 'h-7 pl-2',
+          className
+        )}
+      >
+        {children}
+      </select>
+      <ChevronDownIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute right-1.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground forced-colors:hidden"
+      />
+    </span>
+  );
+}
 
 // CSS variable mapping:
 // --radix-select-content-available-height → --available-height
@@ -128,8 +160,9 @@ function SelectValue({
 
 function SelectTrigger({
   className,
-  size = 'default',
+  size = 'sm',
   children,
+  render,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: 'sm' | 'default';
@@ -138,15 +171,19 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        "border-input [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex min-h-6 max-h-7 w-fit items-center justify-between gap-1.5 rounded-md border bg-transparent py-0 whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-7 data-[size=default]:px-2 data-[size=default]:text-sm data-[size=sm]:h-6 data-[size=sm]:px-1.5 data-[size=sm]:text-xs *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
-        className
-      )}
+      render={render ?? <PickerTrigger size={size} indicator={false} />}
+      className={(state) =>
+        cn(
+          render != null && pickerTriggerVariants({ size }),
+          '*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5',
+          typeof className === 'function' ? className(state) : className
+        )
+      }
       {...props}
     >
       {children}
       <SelectPrimitive.Icon>
-        <ChevronDownIcon className="size-4 opacity-50" />
+        <ChevronDownIcon className="size-3 text-muted-foreground" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -230,15 +267,18 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
-      className={cn(
-        "data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
-      )}
+      className={(state) =>
+        cn(
+          pickerOptionStyles,
+          'pr-8 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2',
+          typeof className === 'function' ? className(state) : className
+        )
+      }
       {...props}
     >
       <span data-slot="select-item-indicator" className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <CheckIcon className="size-4" />
+          <CheckIcon className="size-3.5" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
@@ -281,6 +321,7 @@ function SelectScrollDownButton({ className, ...props }: React.ComponentProps<ty
 }
 
 export {
+  NativeSelect,
   Select,
   SelectContent,
   SelectGroup,

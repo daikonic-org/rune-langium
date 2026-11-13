@@ -77,6 +77,12 @@
   font-size: var(--text-xs);
 }
 
+.workflow-function-builder__argument > span,
+.workflow-function-builder__destination {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .workflow-function-builder__expression {
   min-height: 4rem;
   max-height: 12rem;

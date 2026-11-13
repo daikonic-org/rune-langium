@@ -48,12 +48,10 @@ describe('ActivityPanel namespace filter', () => {
     useActivityStore.getState().addActivity('lsp', true, 'connected');
     renderActivityPanel();
     const user = userEvent.setup();
-    await user.click(screen.getByRole('combobox', { name: 'Filter activity by namespace' }));
-    await user.click(await screen.findByRole('option', { name: 'codegen', exact: true }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Filter activity by namespace' }), 'codegen');
     expect(screen.getByText('generated')).toBeInTheDocument();
     expect(screen.queryByText('connected')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Filter activity by namespace' }));
-    await user.click(await screen.findByRole('option', { name: 'git', exact: true }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Filter activity by namespace' }), 'git');
     expect(screen.getByText('No activity matches this filter.')).toBeInTheDocument();
   });
 

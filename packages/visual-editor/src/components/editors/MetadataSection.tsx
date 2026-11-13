@@ -6,6 +6,7 @@ import { useFormContext } from 'react-hook-form';
 import { EditorController } from '../forms/EditorFormProvider.js';
 import { Field, FieldLabel, FieldGroup } from '@rune-langium/design-system/ui/field';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { Textarea } from '@rune-langium/design-system/ui/textarea';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { useEditorActionsContext } from '../forms/sections/EditorActionsContext.js';
 import {
@@ -85,7 +86,6 @@ export function MetadataScalar({
               id={id}
               aria-label={label}
               placeholder={inline ? 'Display name (optional)' : undefined}
-              variant={inline ? 'inline' : undefined}
               value={field.value ?? ''}
               disabled={readOnly}
               aria-invalid={fieldState.invalid}
@@ -100,7 +100,7 @@ export function MetadataScalar({
               }}
             />
           ) : (
-            <textarea
+            <Textarea
               id={id}
               value={field.value ?? ''}
               readOnly={readOnly}
@@ -117,7 +117,7 @@ export function MetadataScalar({
                     : event.target.value
                 );
               }}
-              className="studio-scroll min-h-0 max-h-96 w-full resize-y overflow-auto rounded border border-input bg-background px-2 py-1 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-inset focus:ring-ring"
+              className="studio-scroll min-h-0 max-h-96 resize-y overflow-auto"
             />
           )}
           {fieldState.error && (

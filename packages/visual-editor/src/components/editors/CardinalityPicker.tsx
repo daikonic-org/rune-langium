@@ -2,30 +2,17 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 /**
- * CardinalityPicker — chip/pill trigger that opens a compact preset popover.
- *
- * Shares the structure-view / inspector "type selector" idiom: a mono chip
- * trigger (`TypeChip` / `rune-inspector-pill` aesthetic) that opens a
- * `Popover` listing the four common cardinalities plus a custom input. This
- * deliberately mirrors `TypeReferenceField` + `NamespaceTreePicker` rather than
- * a base-ui `Select`, because the Select:
- *   - rendered oversized inside structure nodes (its `data-[size=sm]:h-8` beat
- *     the chip's `h-auto`),
- *   - never opened inside a React Flow node (no `nodrag nopan`, so RF claimed
- *     the pointerdown as a canvas gesture), and
- *   - highlighted items with `text-primary-foreground` (poor contrast) instead
- *     of the `text-accent-foreground` the popover lists use.
- * The Popover + chip trigger fixes all three and unifies the look with the
- * type field. Public props are unchanged so both call sites (the structure
- * `CardinalityCell` `chip` variant and the inspector `AttributeRow` `pill`
- * variant) and z2f's `componentMap` keep working.
+ * CardinalityPicker — shared field trigger and option rows, with Rune preset
+ * and custom-cardinality validation. Popover composition retains the custom
+ * input flow and React Flow gesture guards in both Structure and Inspector.
  */
 
-import { useCallback, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { cn } from '@rune-langium/design-system/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { FieldError } from '@rune-langium/design-system/ui/field';
+import { PickerOption, PickerTrigger } from '@rune-langium/design-system/ui/picker';
 import { validateCardinality } from '../../validation/edit-validator.js';
 
 // ---------------------------------------------------------------------------
@@ -40,12 +27,8 @@ export interface CardinalityPickerProps {
   /** Whether the picker is disabled. */
   disabled?: boolean;
   /**
-   * Visual variant for the trigger.
-   * - `'default'`: compact mono box (h-5, rounded).
-   * - `'chip'`: structure-view chip — wears `rune-cell-card` so it matches the
-   *   `TypeChip` cells in the same row.
-   * - `'pill'`: inspector pill — wears `rune-inspector-pill`, the shared muted
-   *   rounded-field box, so it stays in sync with the type-reference field.
+   * Context hook for Structure (`chip`) or Inspector (`pill`). All variants
+   * share the design system's compact field chrome and focus treatment.
    */
   variant?: 'default' | 'chip' | 'pill';
   /** Optional wrapper class override (merged onto the trigger). */
@@ -69,27 +52,18 @@ const PRESETS = [
   { label: '1..*', value: '(1..*)' }
 ] as const;
 
-/** Trigger chrome per variant. `nodrag nopan` keeps React Flow from claiming
- *  the click when the chip lives inside a structure node (the same guard the
- *  row's expand button uses). */
+/** Context hooks retain structure geometry without defining another field look. */
 const TRIGGER_VARIANT_CLASS: Record<NonNullable<CardinalityPickerProps['variant']>, string> = {
-  // Structure chip — `rune-cell-card` is the mono muted pill the TypeChip cells
-  // sit beside; the structure-node font-size override drops it to 2xs there.
-  chip: 'rune-cell-card nodrag nopan',
-  // Inspector pill — the shared muted rounded-field box.
-  pill: 'rune-inspector-pill nodrag nopan',
-  // Default compact box.
-  default:
-    'nodrag nopan inline-flex h-5 min-w-[3.75rem] items-center gap-0.5 rounded-md bg-muted px-1.5 text-2xs font-mono leading-none text-muted-foreground'
+  chip: 'rune-cell-card',
+  pill: 'rune-inspector-pill',
+  default: 'min-w-[3.75rem]'
 };
 
 /** Sentinel value used to trigger the custom input flow. */
 const CUSTOM_VALUE = '__custom__';
 
-function joinClasses(...classNames: Array<string | undefined>): string | undefined {
-  const joined = classNames.filter((className) => Boolean(className && className.trim())).join(' ');
-  return joined.length > 0 ? joined : undefined;
-}
+// Center the visible numeral bounds rather than the font's extra leading.
+const CARDINALITY_LABEL_CLASS = 'font-mono [text-box:trim-both_cap_alphabetic]';
 
 // ---------------------------------------------------------------------------
 // Component
@@ -110,6 +84,7 @@ export function CardinalityPicker({
   const [customValue, setCustomValue] = useState('');
   const [customError, setCustomError] = useState<string | null>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
+  const customErrorId = useId();
 
   // Normalize the value for display (strip parens).
   const normalizedValue = value.replace(/[()]/g, '').trim();
@@ -129,10 +104,11 @@ export function CardinalityPicker({
 
   const commitPreset = useCallback(
     (presetValue: string) => {
+      if (disabled) return;
       onChange(presetValue);
       handleOpenChange(false);
     },
-    [onChange, handleOpenChange]
+    [disabled, onChange, handleOpenChange]
   );
 
   const startCustom = useCallback(() => {
@@ -142,6 +118,7 @@ export function CardinalityPicker({
   }, [normalizedValue]);
 
   const commitCustom = useCallback(() => {
+    if (disabled) return;
     if (!customValue.trim()) {
       setCustomError(null);
       return;
@@ -155,7 +132,7 @@ export function CardinalityPicker({
     const formatted = customValue.startsWith('(') ? customValue : `(${customValue})`;
     onChange(formatted);
     handleOpenChange(false);
-  }, [customValue, onChange, handleOpenChange]);
+  }, [customValue, disabled, onChange, handleOpenChange]);
 
   const handleCustomKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -177,24 +154,29 @@ export function CardinalityPicker({
         data-slot="cardinality-picker"
         disabled={disabled}
         render={
-          <button
-            type="button"
+          <PickerTrigger
             aria-label={`Cardinality ${displayValue}`}
-            className={joinClasses(TRIGGER_VARIANT_CLASS[variant], wrapperClassName, triggerClassName)}
+            className={cn(
+              'nodrag nopan font-mono text-2xs',
+              TRIGGER_VARIANT_CLASS[variant],
+              wrapperClassName,
+              triggerClassName
+            )}
           >
-            <span data-slot="cardinality-value" className={cn('font-mono', !hasValue && 'text-muted-foreground')}>
+            <span
+              data-slot="cardinality-value"
+              className={cn(CARDINALITY_LABEL_CLASS, !hasValue && 'text-muted-foreground')}
+            >
               {displayValue}
             </span>
-            <ChevronDown className="size-3 shrink-0 opacity-50" aria-hidden="true" />
-          </button>
+          </PickerTrigger>
         }
       />
-      <PopoverContent align="start" sideOffset={4} className={joinClasses('w-auto min-w-[6rem] p-1', contentClassName)}>
+      <PopoverContent align="start" sideOffset={4} className={cn('w-auto min-w-[6rem] p-1', contentClassName)}>
         {showCustom ? (
           <div className="flex flex-col gap-1">
             <Input
               ref={customInputRef}
-              variant="inline"
               type="text"
               value={customValue}
               onChange={(e) => {
@@ -207,48 +189,42 @@ export function CardinalityPicker({
               placeholder="inf..sup"
               aria-label="Custom cardinality"
               aria-invalid={!!customError}
+              aria-describedby={customError ? customErrorId : undefined}
               autoFocus
-              className={joinClasses(
-                `w-full px-1.5 py-0.5 text-2xs font-mono leading-none disabled:cursor-not-allowed${customError ? ' border-destructive' : ''}`,
-                inputClassName
-              )}
+              className={cn('font-mono', inputClassName)}
             />
-            {customError && <span className="px-1 text-2xs text-destructive">{customError}</span>}
+            <FieldError id={customErrorId} className="px-1">
+              {customError}
+            </FieldError>
           </div>
         ) : (
           <div className="flex flex-col" role="listbox" aria-label="Cardinality presets">
             {PRESETS.map((preset) => {
               const isSelected = matchingPreset?.value === preset.value;
               return (
-                <button
+                <PickerOption
                   key={preset.value}
-                  type="button"
                   role="option"
                   aria-selected={isSelected}
+                  disabled={disabled}
                   onClick={() => commitPreset(preset.value)}
-                  className={cn(
-                    'flex w-full items-center rounded-sm px-2 py-1 text-xs font-mono text-foreground hover:bg-accent/50',
-                    isSelected && 'bg-accent text-accent-foreground'
-                  )}
+                  className="font-mono"
                 >
-                  {preset.label}
-                </button>
+                  <span className={CARDINALITY_LABEL_CLASS}>{preset.label}</span>
+                </PickerOption>
               );
             })}
             <div className="my-1 h-px bg-border" aria-hidden="true" />
-            <button
-              type="button"
+            <PickerOption
               role="option"
               aria-selected={!matchingPreset && hasValue}
+              disabled={disabled}
               data-value={CUSTOM_VALUE}
               onClick={startCustom}
-              className={cn(
-                'flex w-full items-center rounded-sm px-2 py-1 text-xs text-muted-foreground hover:bg-accent/50',
-                !matchingPreset && hasValue && 'bg-accent text-accent-foreground'
-              )}
+              className="text-muted-foreground"
             >
               Custom…
-            </button>
+            </PickerOption>
           </div>
         )}
       </PopoverContent>

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
+import { Field, FieldContent, FieldDescription, FieldLabel } from '@rune-langium/design-system/ui/field';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +20,8 @@ export const DebugReportDialog = withInstrumentation(
   function DebugReportDialog({ onClose }: { onClose(): void }) {
     const workspace = useWorkspaceOptional();
     const [includeSource, setIncludeSource] = useState(false);
+    const includeSourceId = useId();
+    const sourceHelpId = useId();
     return (
       <Dialog
         open
@@ -35,20 +39,20 @@ export const DebugReportDialog = withInstrumentation(
           <p className="text-sm text-muted-foreground">
             Nothing is uploaded. Logs and file names may contain private information; review the file before sharing.
           </p>
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
+          <Field orientation="horizontal">
+            <Checkbox
+              id={includeSourceId}
+              aria-describedby={sourceHelpId}
               checked={includeSource}
-              onChange={(event) => setIncludeSource(event.target.checked)}
+              onCheckedChange={setIncludeSource}
             />
-            <span>
-              Include available workspace source
-              <br />
-              <span className="text-xs text-muted-foreground">
+            <FieldContent>
+              <FieldLabel htmlFor={includeSourceId}>Include available workspace source</FieldLabel>
+              <FieldDescription id={sourceHelpId}>
                 Source is excluded by default. Unloaded curated files are not fetched.
-              </span>
-            </span>
-          </label>
+              </FieldDescription>
+            </FieldContent>
+          </Field>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancel

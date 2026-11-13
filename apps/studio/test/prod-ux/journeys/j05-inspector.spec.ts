@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { checkout as test, expect, loadCdm, readCombinedOpLog } from '../fixtures.js';
-import { typeNavigationButton } from '../../helpers/type-navigation.js';
+import { declarationNodeId, typeNavigationButton } from '../../helpers/type-navigation.js';
 import { expectPopulatedAttributes } from '../readiness.js';
 import { ANCHOR_DATA } from '../anchors.js';
 
@@ -70,6 +70,11 @@ test.describe('J05 — Inspector pane', () => {
       const inspector = stack.locator('[data-pane="inspector"]');
       await inspector.scrollIntoViewIfNeeded();
       await expectPopulatedAttributes(inspector);
+      const graphCard = stack.getByTestId(`rf__node-${declarationNodeId(ANCHOR_DATA)}`).locator('.rune-node');
+      await expect(graphCard.locator('.rune-node-member')).toHaveCount(3);
+      // Natural dimensions remain independent of semantic zoom. Long linked
+      // type names must not squeeze the member name to a letter-wide column.
+      await expect.poll(() => graphCard.evaluate((card) => card.clientHeight)).toBeLessThan(220);
       await evidence.checkpoint('narrow-three-pane-inspector');
       expect(
         (await readCombinedOpLog(page)).filter(

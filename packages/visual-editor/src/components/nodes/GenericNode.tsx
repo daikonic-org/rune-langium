@@ -109,20 +109,25 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
                     key={member.name}
                     className={`rune-node-member${member.override ? ' rune-node-member-override' : ''}`}
                   >
-                    <span className="rune-node-member-name">{member.name}</span>
+                    <span className="rune-node-member-name" title={member.name}>
+                      {member.name}
+                    </span>
                     {typeName &&
                       (targetId && navigation.hasActions ? (
                         <button
                           type="button"
                           className="rune-node-member-type nodrag nopan"
                           data-navigable
+                          title={typeName}
                           onClick={(e) => handleTypeClick(e, targetId)}
                           {...navigation.targetProps(targetId)}
                         >
                           {typeName}
                         </button>
                       ) : (
-                        <span className="rune-node-member-type">{typeName}</span>
+                        <span className="rune-node-member-type" title={typeName}>
+                          {typeName}
+                        </span>
                       ))}
                     {card && <span className="rune-node-member-cardinality">{card}</span>}
                   </div>
@@ -139,13 +144,16 @@ export const GenericNode = memo(function GenericNode({ data, selected, id }: Nod
                     type="button"
                     className="rune-node-member-type nodrag nopan"
                     data-navigable
+                    title={outputTypeName}
                     onClick={(e) => handleTypeClick(e, outputTargetId)}
                     {...navigation.targetProps(outputTargetId)}
                   >
                     {outputTypeName}
                   </button>
                 ) : (
-                  <span className="rune-node-member-type">{outputTypeName}</span>
+                  <span className="rune-node-member-type" title={outputTypeName}>
+                    {outputTypeName}
+                  </span>
                 )}
               </div>
             </div>

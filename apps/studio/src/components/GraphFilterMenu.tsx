@@ -84,15 +84,17 @@ export const GraphFilterMenu = withInstrumentation(
         <PopoverTrigger
           render={
             compact ? (
-              <button
+              <Button
                 type="button"
-                className={cn('studio-panel-action', className)}
+                variant="ghost"
+                size="icon-xs"
+                className={cn('text-muted-foreground', className)}
                 data-active={filtersActive ? 'true' : undefined}
                 aria-label="Filter visible types and relationships"
                 title="Filter visible types and relationships"
               >
                 <Filter className="size-4" />
-              </button>
+              </Button>
             ) : (
               <Button
                 variant={filtersActive ? 'default' : 'secondary'}
@@ -112,22 +114,21 @@ export const GraphFilterMenu = withInstrumentation(
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Node Types</span>
               {!allNodesVisible && (
-                <button className="text-xs text-primary hover:text-primary/80" onClick={showAllNodeKinds} type="button">
+                <Button variant="link" size="xs" onClick={showAllNodeKinds} type="button">
                   Show all
-                </button>
+                </Button>
               )}
             </div>
             <div className="space-y-0.5">
               {NODE_KINDS.map(({ kind, label, color, icon: Icon }) => {
                 const active = visibleNodeKinds.has(kind);
                 return (
-                  <button
+                  <Button
                     key={kind}
-                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm transition-colors ${
-                      active
-                        ? 'text-foreground hover:bg-accent'
-                        : 'text-muted-foreground/50 hover:bg-accent/50 line-through'
-                    }`}
+                    variant="ghost"
+                    size="xs"
+                    className={cn('w-full justify-start', !active && 'text-muted-foreground line-through')}
+                    aria-pressed={active}
                     onClick={() => toggleNodeKind(kind)}
                     type="button"
                   >
@@ -140,7 +141,7 @@ export const GraphFilterMenu = withInstrumentation(
                     />
                     <Icon className="size-3.5 shrink-0" style={{ opacity: active ? 1 : 0.4 }} />
                     <span>{label}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -153,22 +154,21 @@ export const GraphFilterMenu = withInstrumentation(
                 Relationships
               </span>
               {!allEdgesVisible && (
-                <button className="text-xs text-primary hover:text-primary/80" onClick={showAllEdgeKinds} type="button">
+                <Button variant="link" size="xs" onClick={showAllEdgeKinds} type="button">
                   Show all
-                </button>
+                </Button>
               )}
             </div>
             <div className="space-y-0.5">
               {EDGE_KINDS.map(({ kind, label, color, dashed }) => {
                 const active = visibleEdgeKinds.has(kind);
                 return (
-                  <button
+                  <Button
                     key={kind}
-                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm transition-colors ${
-                      active
-                        ? 'text-foreground hover:bg-accent'
-                        : 'text-muted-foreground/50 hover:bg-accent/50 line-through'
-                    }`}
+                    variant="ghost"
+                    size="xs"
+                    className={cn('w-full justify-start', !active && 'text-muted-foreground line-through')}
+                    aria-pressed={active}
                     type="button"
                     onClick={() => toggleEdgeKind(kind)}
                   >
@@ -182,7 +182,7 @@ export const GraphFilterMenu = withInstrumentation(
                       />
                     </span>
                     <span>{label}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -192,12 +192,12 @@ export const GraphFilterMenu = withInstrumentation(
             {/* Focus-related type behavior */}
             <div className="space-y-1">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Focus Mode</div>
-              <button
+              <Button
                 type="button"
-                className={cn(
-                  'flex items-center justify-between w-full px-2 py-1.5 rounded text-sm transition-colors',
-                  focusMode ? 'hover:bg-accent text-foreground' : 'text-muted-foreground'
-                )}
+                variant="ghost"
+                size="xs"
+                className={cn('w-full justify-between', !focusMode && 'text-muted-foreground')}
+                aria-pressed={includeBasicTypesInFocus}
                 onClick={handleToggleBasicTypesInFocus}
                 title="When off, Basic Types are removed from focus-related neighbors"
               >
@@ -215,13 +215,13 @@ export const GraphFilterMenu = withInstrumentation(
                     )}
                   />
                 </span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={cn(
-                  'flex items-center justify-between w-full px-2 py-1.5 rounded text-sm transition-colors',
-                  focusMode ? 'hover:bg-accent text-foreground' : 'text-muted-foreground'
-                )}
+                variant="ghost"
+                size="xs"
+                className={cn('w-full justify-between', !focusMode && 'text-muted-foreground')}
+                aria-pressed={includeTypeAliasesInFocus}
                 onClick={handleToggleTypeAliasesInFocus}
                 title="When off, Type Alias nodes are removed from focus-related neighbors"
               >
@@ -239,19 +239,15 @@ export const GraphFilterMenu = withInstrumentation(
                     )}
                   />
                 </span>
-              </button>
+              </Button>
             </div>
 
             <Separator className="my-2" />
 
             {/* Reset button */}
-            <button
-              className="w-full px-2 py-1.5 rounded text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-center"
-              onClick={handleResetAll}
-              type="button"
-            >
+            <Button variant="secondary" size="xs" className="w-full" onClick={handleResetAll} type="button">
               Reset all filters
-            </button>
+            </Button>
           </div>
         </PopoverContent>
       </Popover>

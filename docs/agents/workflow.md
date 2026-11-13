@@ -119,6 +119,19 @@ verify the generated form imports the shared Input and renders its `data-slot`
 and focus treatment. Do not replace canonical configuration validation to style
 workspace settings.
 
+Studio's z2f adapter re-exports design-system labels, descriptions and errors and
+visual-editor's shared FieldTemplate. Keep its generated-checkbox alignment hook;
+do not recreate form composition or validation to adjust spacing. After changing
+shared controls, run Studio and visual-editor units/type-checks, then the optimized
+candidate suite, including `control-spacing.spec.ts` for native selection,
+keyboard focus, generated checkbox alignment and compact field rhythm, and
+`specialized-controls.spec.ts` for cardinality errors, namespace filtering and
+source-picker keyboard selection. That suite records matched picker screenshots
+and geometry in light/Daikonic at 1280px and 390px for visual comparison.
+Public control-prop changes also require the [design-sync preview and contract
+checks](../../.design-sync/NOTES.md#build); its hidden preview tree has a separate
+TypeScript project and is outside workspace package type-checks.
+
 Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 30.1 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
@@ -307,6 +320,15 @@ manifests; update those together if deliberately upgrading the generator.
 SQL node types derive from the exactly pinned `@l1xnan/tree-sitter-sql` grammar.
 
 ## Testing and Editor Setup
+
+UI hardening: include Studio's ExportPreviewPanel, InstancePayloadPanel,
+InstrumentationErrorBoundary and FormPreviewPanel suites. The candidate gate's
+studio-hardening.spec.ts checks compact long Graph members with named links at
+HD, wide desktop and narrow widths in both themes; production J05 also checks
+the natural height of the hydrated BusinessCenters card, independently of zoom.
+Export failure/retry tests must preserve the captured download and ignore late
+results from a previous artifact. Keep these UX checks separate from loading
+performance profiling and hosted acceptance.
 
 Vitest configs use `workspaceTestCache(import.meta.url)` for a package-local
 filesystem module cache. Independent `pnpm -r test` processes otherwise share

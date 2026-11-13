@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -62,15 +63,11 @@ export default function DesignPreferencesPreview() {
           </p>
           <label className="flex items-center justify-between gap-3 text-sm">
             Pane pill gap
-            <select
-              className="rounded border border-border bg-background px-2 py-1 text-sm"
-              value={gap}
-              onChange={(event) => setGap(event.target.value)}
-            >
+            <NativeSelect value={gap} onChange={(event) => setGap(event.target.value)}>
               <option value="compact">None</option>
               <option value="current">Current (16px)</option>
               <option value="wide">Wider (24px)</option>
-            </select>
+            </NativeSelect>
           </label>
           <Button variant="secondary" size="sm" onClick={reset}>
             Reset to current design

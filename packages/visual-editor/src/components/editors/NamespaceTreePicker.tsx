@@ -17,9 +17,9 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
 import { cn } from '@rune-langium/design-system/utils';
-import { Input } from '@rune-langium/design-system/ui/input';
+import { SearchInput } from '@rune-langium/design-system/ui/input';
+import { PickerOption } from '@rune-langium/design-system/ui/picker';
 import type { TypeOption, TypeKind } from '../../types.js';
 import {
   buildSegmentedNamespaceTreeFromOptions,
@@ -121,35 +121,26 @@ export function NamespaceTreePicker({
   return (
     <div className={cn('flex w-64 flex-col', className)} data-slot="namespace-tree-picker">
       <div className="p-2 pb-1.5">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search types…"
-            aria-label="Search types"
-            autoFocus={autoFocusSearch}
-            className="h-7 pl-7 text-xs"
-            data-testid="nstp-search"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search types…"
+          aria-label="Search types"
+          autoFocus={autoFocusSearch}
+          className="h-7"
+          data-testid="nstp-search"
+        />
       </div>
 
       {allowClear && (
-        <button
-          type="button"
+        <PickerOption
           onClick={() => onSelect(null)}
           data-testid="nstp-clear"
-          className={cn(
-            'flex h-7 w-full items-center px-3 text-xs text-muted-foreground hover:bg-accent/50',
-            value === null && 'bg-accent text-accent-foreground'
-          )}
+          aria-current={value === null ? 'true' : undefined}
+          className="h-7 px-3 text-muted-foreground"
         >
           — None —
-        </button>
+        </PickerOption>
       )}
 
       <NamespaceBreadcrumb path={activeFocus} onFocus={focusNamespace} />
@@ -186,8 +177,7 @@ export function NamespaceTreePicker({
                       indentPx={namespaceTreeIndent(row.depth)}
                     />
                   ) : row.kind === 'type' ? (
-                    <button
-                      type="button"
+                    <PickerOption
                       data-testid={`nstp-type-${row.nodeId}`}
                       onClick={() => onSelect(row.nodeId)}
                       style={{
@@ -197,10 +187,7 @@ export function NamespaceTreePicker({
                       title={labels.get(row.nodeId)?.fullLabel}
                       aria-label={`${row.name}${labels.get(row.nodeId)?.qualifier ? ` ${labels.get(row.nodeId)!.qualifier}` : ''}`}
                       aria-current={row.nodeId === value ? 'true' : undefined}
-                      className={cn(
-                        'rune-namespace-type-row relative flex w-full items-center gap-2 pr-2 text-xs text-foreground hover:bg-accent/50',
-                        row.nodeId === value && 'bg-accent text-accent-foreground'
-                      )}
+                      className="rune-namespace-type-row"
                     >
                       <NamespaceTreeGuides depth={row.depth ?? 1} />
                       <span
@@ -218,7 +205,7 @@ export function NamespaceTreePicker({
                           </>
                         )}
                       </span>
-                    </button>
+                    </PickerOption>
                   ) : null}
                 </div>
               );

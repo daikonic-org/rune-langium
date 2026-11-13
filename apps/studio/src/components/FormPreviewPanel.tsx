@@ -67,6 +67,7 @@ import {
   splitChoiceArmFields
 } from '../services/preview-validator.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import { copyTextToClipboard } from '../services/clipboard.js';
 import { useChangeFeedback, useFeedbackRevision } from '../hooks/useChangeFeedback.js';
 import { previewFeedbackItems } from '../services/feedback-items.js';
 import { ChangeFeedbackText } from './ChangeFeedbackText.js';
@@ -167,6 +168,9 @@ export const FormPreviewPanel = withInstrumentation(
     const resetSample = usePreviewStore((s) => s.resetSample);
     const sample = usePreviewStore((s) => (schema ? s.samples.get(schema.targetId) : undefined));
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+    const [copying, setCopying] = useState(false);
+    const copyEpoch = useRef(0);
+    const copyPending = useRef(false);
     const [executionState, setExecutionState] = useState<'idle' | 'running'>('idle');
 
     // Namespace-qualified `targetId` (`${namespace}.${name}`), NOT the bare
@@ -305,6 +309,16 @@ export const FormPreviewPanel = withInstrumentation(
         }
       );
     }, [controlledErrors, controlledValid, controlledValidated, defaultValues, isControlled, sample, schema, values]);
+
+    useEffect(() => {
+      copyEpoch.current++;
+      copyPending.current = false;
+      setCopyFeedback(null);
+      setCopying(false);
+      return () => {
+        copyEpoch.current++;
+      };
+    }, [activeSample?.serialized, activeSample?.targetId]);
 
     const showStatusOnly = !schema || status.state === 'unavailable' || schema.schemaVersion !== 1;
 
@@ -479,26 +493,21 @@ export const FormPreviewPanel = withInstrumentation(
     }, [defaultValues, isControlled, onValuesChange, resetSample, schema]);
 
     const handleCopySample = useCallback(async () => {
-      if (!activeSample) {
+      if (!activeSample || copyPending.current) {
         return;
       }
-      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-        setCopyFeedback('Clipboard access is unavailable in this browser.');
-        return;
+      const epoch = copyEpoch.current;
+      copyPending.current = true;
+      setCopying(true);
+      setCopyFeedback(null);
+      const error = await copyTextToClipboard(activeSample.serialized);
+      if (epoch !== copyEpoch.current) return;
+      copyPending.current = false;
+      setCopying(false);
+      if (error) {
+        useOutputStore.getState().addLine(fmtLine('preview', 'copy sample data failed', error), 'error');
       }
-      try {
-        await navigator.clipboard.writeText(activeSample.serialized);
-        setCopyFeedback('Sample data copied.');
-      } catch (error) {
-        console.error('[FormPreviewPanel] Failed to copy sample data:', error);
-        useOutputStore
-          .getState()
-          .addLine(
-            fmtLine('preview', 'copy sample data failed', error instanceof Error ? error.message : String(error)),
-            'error'
-          );
-        setCopyFeedback('Copy failed. Check clipboard permissions and try again.');
-      }
+      setCopyFeedback(error ?? 'Sample data copied.');
     }, [activeSample]);
 
     const summaryMessage = schema ? getSummaryMessage(schema, status, activeSample) : undefined;
@@ -555,11 +564,13 @@ export const FormPreviewPanel = withInstrumentation(
         className="studio-scroll flex h-full flex-col overflow-auto"
       >
         {presentation.showHeader ? (
-          <header className="flex items-center justify-between gap-3 border-b border-border px-panel-x py-panel-y">
-            <h2 className="truncate text-sm font-semibold">{schema.title}</h2>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <Button type="button" variant="ghost" size="xs" onClick={handleCopySample}>
-                Copy
+          <header className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-border px-panel-x py-panel-y">
+            <h2 className="min-w-0 flex-1 basis-28 truncate text-sm font-semibold" title={schema.title}>
+              {schema.title}
+            </h2>
+            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Button type="button" variant="ghost" size="xs" disabled={copying} onClick={handleCopySample}>
+                {copying ? 'Copying…' : 'Copy'}
               </Button>
               <Button type="button" variant="ghost" size="xs" onClick={handleReset}>
                 {presentation.mode === 'instance' ? 'Reset values' : 'Reset'}

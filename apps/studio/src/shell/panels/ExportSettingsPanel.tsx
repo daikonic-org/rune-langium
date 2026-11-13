@@ -6,7 +6,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@rune-langium/design-system/ui/tabs';
 import { projectInitializationStatus } from '@rune-langium/project-runtime/status';
 import { ProjectInitializationEvidence } from '../../components/ProjectInitializationEvidence.js';
-import { ExportSelect } from '../../components/ExportSelect.js';
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { IMPLEMENTED_TARGETS, TARGET_DESCRIPTORS, type Target } from '@rune-langium/codegen/export';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
@@ -265,7 +265,7 @@ export const ExportSettingsPanel = withInstrumentation(
           )}
           <label className="flex flex-col gap-1.5 text-xs font-medium">
             Target
-            <ExportSelect
+            <NativeSelect
               aria-label="Export target"
               value={target}
               onChange={(event) => onChange({ ...config, target: event.target.value as Target })}
@@ -280,12 +280,12 @@ export const ExportSettingsPanel = withInstrumentation(
                   {TARGET_DESCRIPTORS[candidate].label}
                 </option>
               ))}
-            </ExportSelect>
+            </NativeSelect>
           </label>
           {panel && (
             <label className="flex flex-col gap-1.5 text-xs font-medium">
               Layout
-              <ExportSelect
+              <NativeSelect
                 aria-label="Export layout"
                 value={(targetOptions.layout as string | undefined) ?? panel.defaultLayout ?? ''}
                 onChange={(event) =>
@@ -301,7 +301,7 @@ export const ExportSettingsPanel = withInstrumentation(
                     {layout.hint ? ` — ${layout.hint}` : ''}
                   </option>
                 ))}
-              </ExportSelect>
+              </NativeSelect>
             </label>
           )}
           {OptionsForm && (

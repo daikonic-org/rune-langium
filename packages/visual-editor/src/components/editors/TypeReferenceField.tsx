@@ -21,6 +21,7 @@ import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { cn } from '@rune-langium/design-system/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
 import { RowGlyph } from '@rune-langium/design-system/ui/row-glyph';
+import { PickerTrigger } from '@rune-langium/design-system/ui/picker';
 import { resolveNodeId, TypeReferenceImports } from './TypeLink.js';
 import { NamespaceTreePicker } from './NamespaceTreePicker.js';
 import { TypeChip, typeChipKind } from './structure/TypeChip.js';
@@ -184,9 +185,13 @@ export function TypeReferenceField({
                     className="truncate"
                   />
                 ) : (
-                  <button type="button" data-slot="type-picker-trigger" className="rune-type-reference__placeholder">
+                  <PickerTrigger
+                    indicator={false}
+                    data-slot="type-picker-trigger"
+                    className="rune-type-reference__placeholder"
+                  >
                     {emptyLabel ?? placeholder}
-                  </button>
+                  </PickerTrigger>
                 )
               }
             />

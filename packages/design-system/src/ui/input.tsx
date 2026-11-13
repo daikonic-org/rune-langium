@@ -4,55 +4,46 @@
 /**
  * Input — shadcn/ui Input component.
  *
- * Variants:
- * - `default`: full-width compact field with inset ring focus, bg-background.
- * - `inline`: compact inspector/row field with the same border, fill and inset
- *   focus treatment. Size and width are supplied by the caller.
+ * One compact field treatment, shared by forms and inline editors.
+ * Callers supply layout constraints such as width and flex growth.
  *
  * @module
  */
 
 import * as React from 'react';
+import { SearchIcon } from 'lucide-react';
 
 import { cn } from '../utils';
+import { fieldControlStyles } from './control-styles';
 
-export interface InputProps extends React.ComponentProps<'input'> {
-  /**
-   * Visual variant.
-   * - `'default'`: full-width compact field.
-   * - `'inline'`: compact row/inspector field with an inset focus ring.
-   */
-  variant?: 'default' | 'inline';
-}
+export type InputProps = React.ComponentProps<'input'>;
 
-function Input({ className, type, variant = 'default', ...props }: InputProps) {
+const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input({ className, type, ...props }, ref) {
   return (
     <input
       type={type}
       data-slot="input"
-      data-variant={variant !== 'default' ? variant : undefined}
-      className={cn(
-        'min-h-6 max-h-7',
-        // ── default variant ───────────────────────────────────────────────
-        variant === 'default' && [
-          'h-6 w-full rounded-md border border-input bg-background px-1.5 py-0 text-xs text-foreground',
-          'placeholder:text-muted-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-          'disabled:opacity-50'
-        ],
-        // ── inline variant — compact inspector/row field ──────────────────
-        variant === 'inline' && [
-          'rounded-md border border-input bg-background text-foreground',
-          'placeholder:text-muted-foreground',
-          'outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-          'disabled:opacity-50 disabled:bg-background',
-          'transition-[border-color,box-shadow]'
-        ],
-        className
-      )}
+      ref={ref}
+      className={cn(fieldControlStyles, 'h-6 min-h-6 max-h-7 w-full px-1.5 py-0', className)}
       {...props}
     />
   );
-}
+});
 
-export { Input };
+/** Input with one shared search affordance; refs and ARIA reach the input. */
+const SearchInput = React.forwardRef<HTMLInputElement, InputProps & { wrapperClassName?: string }>(function SearchInput(
+  { className, wrapperClassName, ...props },
+  ref
+) {
+  return (
+    <div data-slot="search-input-wrapper" className={cn('relative w-full min-w-0', wrapperClassName)}>
+      <SearchIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground"
+      />
+      <Input type="text" {...props} ref={ref} className={cn('pl-6', className)} />
+    </div>
+  );
+});
+
+export { Input, SearchInput };

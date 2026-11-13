@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { createContext, useContext, type DragEvent } from 'react';
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import { formatCardinality, parseCardinality } from '@rune-langium/visual-editor';
@@ -100,6 +101,7 @@ export const CompositionNode = withInstrumentation(
     const bindInput = (event: DragEvent, index?: number) => {
       event.preventDefault();
       event.stopPropagation();
+      if (disabled) return;
       const id = readVariable(event, actions);
       const variable = actions.variables.find((variable) => variable.id === id);
       if (!variable) return;
@@ -119,7 +121,7 @@ export const CompositionNode = withInstrumentation(
         )}
         <div className="composition-node__heading">
           <Icon className="composition-node__icon" aria-hidden="true" />
-          <strong>{label}</strong>
+          <strong title={label}>{label}</strong>
           {step.kind !== 'return' && (
             <span className="composition-node__kind">
               {step.kind === 'input' ? 'Input' : step.call ? 'Function' : 'Value'}
@@ -156,7 +158,7 @@ export const CompositionNode = withInstrumentation(
                   </div>
                   {active ? (
                     <div className="composition-node__binding">
-                      <select
+                      <NativeSelect
                         aria-label={`${step.name} ${argument.name} binding mode`}
                         value={argument.mode}
                         disabled={disabled}
@@ -166,9 +168,9 @@ export const CompositionNode = withInstrumentation(
                       >
                         <option value="variable">Variable</option>
                         <option value="value">Value</option>
-                      </select>
+                      </NativeSelect>
                       {argument.mode === 'variable' ? (
-                        <select
+                        <NativeSelect
                           aria-label={`${step.name} argument ${argument.name}`}
                           aria-required={card.inf > 0}
                           disabled={disabled}
@@ -187,7 +189,7 @@ export const CompositionNode = withInstrumentation(
                               {variable.kind === 'local' ? ' (scoped)' : ''}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       ) : (
                         <Input
                           aria-label={`${step.name} argument ${argument.name}`}
@@ -271,6 +273,7 @@ export const CompositionNode = withInstrumentation(
             onDrop={(event) => {
               event.preventDefault();
               event.stopPropagation();
+              if (disabled) return;
               const id = readVariable(event, actions);
               if (id) actions.output(step, id);
             }}
@@ -284,7 +287,12 @@ export const CompositionNode = withInstrumentation(
                 onChange={(event) => actions.name(event.target.value)}
               />
             ) : (
-              <div className="composition-node__output-tags">
+              <div
+                className="composition-node__output-tags nowheel"
+                tabIndex={0}
+                role="group"
+                aria-label={`Output variables of ${step.name}`}
+              >
                 {produced.map((variable) => (
                   <span key={variable.id}>{variable.name}</span>
                 ))}
@@ -294,7 +302,7 @@ export const CompositionNode = withInstrumentation(
             )}
             {active && (
               <>
-                <select
+                <NativeSelect
                   aria-label={`Bind output of ${step.name}`}
                   value={output?.id ?? ''}
                   disabled={disabled}
@@ -314,7 +322,7 @@ export const CompositionNode = withInstrumentation(
                         {variable.kind === 'output' ? ' (function output)' : ''}
                       </option>
                     ))}
-                </select>
+                </NativeSelect>
                 {actions.selectedVariable && (
                   <Button
                     size="xs"

@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { Input } from '@rune-langium/design-system/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@rune-langium/design-system/ui/alert';
 import type { GitHubInitializationSession } from '../workspace/project-initialization.js';
 import { ProjectInitializationReview } from './ProjectInitializationReview.js';
@@ -279,7 +280,7 @@ export const GitHubWorkspaceFlow = withInstrumentation(
       <div role="dialog" aria-label="Choose a repository" data-testid="github-repo-form">
         <p>Authorisation succeeded. Paste the repository URL to clone.</p>
         <label htmlFor="repo-url-input">Repository URL or owner/repo</label>
-        <input
+        <Input
           id="repo-url-input"
           data-testid="repo-url-input"
           type="text"
@@ -288,7 +289,7 @@ export const GitHubWorkspaceFlow = withInstrumentation(
           placeholder="https://github.com/owner/repo"
         />
         <label htmlFor="repo-branch-input">Branch</label>
-        <input
+        <Input
           id="repo-branch-input"
           data-testid="repo-branch-input"
           type="text"

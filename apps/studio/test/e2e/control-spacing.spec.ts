@@ -24,7 +24,15 @@ for (const theme of ['light', 'daikonic'])
         await page.getByRole('button', { name: 'Show Preview panel', exact: true }).click();
         await page.getByRole('tab', { name: 'Form', exact: true }).dblclick();
       }
-      await expect(preview.getByLabel('First Name', { exact: true })).toBeVisible();
+      const firstName = preview.getByLabel('First Name', { exact: true });
+      await expect(firstName).toBeVisible();
+      await expect(firstName).toHaveCSS('height', '24px');
+      await firstName.focus();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+      await expect(firstName).toBeFocused();
+      expect(await firstName.evaluate((control) => control.matches(':focus-visible'))).toBe(true);
+      expect(await firstName.evaluate((control) => getComputedStyle(control).boxShadow)).not.toBe('none');
       await dismissLocalTransportNotices(page);
       const checkbox = preview.getByRole('checkbox', { name: 'Enabled', exact: true });
       await preview.getByText('Enabled', { exact: true }).click();
@@ -62,6 +70,20 @@ for (const theme of ['light', 'daikonic'])
       await expect(settings).toBeVisible();
       await expect(settings).toHaveCSS('padding-left', '12px');
       await expect(settings).toHaveCSS('padding-top', '8px');
+      const privacy = settings.getByTestId('settings-privacy-section');
+      const privacyGeometry = await privacy.evaluate((section) => {
+        const control = section.querySelector('[role="checkbox"]')!.getBoundingClientRect();
+        const label = section.querySelector('label')!.getBoundingClientRect();
+        const help = section.querySelector('[data-slot="field-description"]')!.getBoundingClientRect();
+        return { gap: label.left - control.right, helpOffset: help.left - label.left };
+      });
+      expect(privacyGeometry).toEqual({ gap: 8, helpOffset: 0 });
+      const themeSelect = settings.getByRole('combobox', { name: /theme/i });
+      await expect(themeSelect).toHaveCSS('height', '24px');
+      await themeSelect.selectOption(theme === 'light' ? 'daikonic' : 'light');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'light' ? 'daikonic' : 'light');
+      await themeSelect.selectOption(theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await waitForEntranceAnimations(page);
       await page.screenshot({ path: info.outputPath('settings.png'), fullPage: true });
     });

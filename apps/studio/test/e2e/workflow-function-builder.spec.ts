@@ -203,6 +203,48 @@ async function openComposition(page: Page, content: string, name: string) {
   return composer;
 }
 
+for (const theme of ['daikonic', 'light'])
+  test(`keeps long composition names and variable tags within the workbench (${theme})`, async ({ page }, info) => {
+    const name = 'Accrual' + 'Schedule'.repeat(16);
+    const variable = 'calculated' + 'Amount'.repeat(24);
+    await page.addInitScript((theme) => localStorage.setItem('rune-studio:theme', theme), theme);
+    const composer = await openComposition(
+      page,
+      source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+        `\nfunc ${name}:\n [composition]\n inputs: value number (1..1)\n output: result number (1..1)\n alias ${variable}: Double(value)\n set result: ${variable}\n`,
+      name
+    );
+    await composer
+      .getByRole('combobox', { name: 'Selected composition step', exact: true })
+      .selectOption(`alias:${variable}`);
+    const node = composer.locator(`[data-composition-step="alias:${variable}"]`);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+      await expect(composer.locator('.function-composer__header > strong')).toHaveAttribute(
+        'title',
+        `workflow.${name}`
+      );
+      await expect
+        .poll(() =>
+          composer.locator('.function-composer__header').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
+        )
+        .toBe(true);
+      await expect.poll(() => node.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      const tray = composer.getByRole('region', { name: 'Available variables', exact: true });
+      await expect(tray.getByRole('button').filter({ hasText: variable })).toBeVisible();
+      expect(await tray.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      if (width >= 1280)
+        expect(
+          await composer
+            .getByRole('complementary', { name: 'Composition details', exact: true })
+            .evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
+        ).toBe(true);
+      await node.getByRole('group', { name: `Output variables of ${variable}`, exact: true }).focus();
+      expect((await new AxeBuilder({ page }).include('.function-composer').analyze()).violations).toEqual([]);
+      await page.screenshot({ path: info.outputPath(`compose-long-content-${width}.png`) });
+    }
+  });
+
 test('offers searchable primitive starters with matching canvas icons and preserves discarded drafts', async ({
   page
 }, testInfo) => {

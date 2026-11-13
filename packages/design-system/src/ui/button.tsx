@@ -58,7 +58,8 @@ const buttonVariants = cva(
         // Same fix as `outline`: accent-foreground for readable hover text,
         // plus a distinct pressed step.
         ghost:
-          'hover:bg-accent hover:text-accent-foreground active:bg-accent/70 dark:hover:bg-accent/50 dark:active:bg-accent/70',
+          'hover:bg-accent hover:text-accent-foreground active:bg-accent/70 dark:hover:bg-accent/50 dark:active:bg-accent/70 ' +
+          'aria-pressed:bg-accent aria-pressed:text-accent-foreground data-[active=true]:bg-accent data-[active=true]:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
         // Translucent frosted-glass treatment for chrome surfaces (toolbar /
         // header). Was the contextual `.glass-toolbar [data-slot=button]`

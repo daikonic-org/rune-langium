@@ -57,19 +57,39 @@ describe('CardinalityPicker', () => {
     expect(onChange).toHaveBeenCalledWith('(2..3)');
   });
 
-  it('uses inline-variant focus and disabled styling for the custom cardinality input', () => {
-    render(<CardinalityPicker value="(0..1)" onChange={vi.fn()} disabled />);
+  it('retains the disabled state when a custom input is already displayed', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<CardinalityPicker value="(0..1)" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole('option', { name: 'Custom…' }));
+    rerender(<CardinalityPicker value="(0..1)" onChange={onChange} disabled />);
 
     const input = screen.getByLabelText('Custom cardinality');
-    // inline variant: focus uses border-primary + 1px primary shadow (not focus-visible ring)
-    expect(input).toHaveClass('focus:border-primary');
-    // disabled classes from inline variant + call-site className
-    expect(input).toHaveClass('disabled:opacity-50');
-    expect(input).toHaveClass('disabled:cursor-not-allowed');
-    // data-slot and data-variant from <Input variant="inline">
-    expect(input).toHaveAttribute('data-slot', 'input');
-    expect(input).toHaveAttribute('data-variant', 'inline');
+    expect(input).toBeDisabled();
+    fireEvent.change(input, { target: { value: '2..3' } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('announces an invalid custom range without committing it', () => {
+    const onChange = vi.fn();
+    render(<CardinalityPicker value="(0..1)" onChange={onChange} />);
+    fireEvent.click(screen.getByRole('option', { name: 'Custom…' }));
+    const input = screen.getByRole('textbox', { name: 'Custom cardinality' });
+    fireEvent.change(input, { target: { value: '3..2' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription(screen.getByRole('alert').textContent!);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('prevents preset selection if disabled while its options are displayed', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<CardinalityPicker value="(0..1)" onChange={onChange} />);
+    rerender(<CardinalityPicker value="(0..1)" onChange={onChange} disabled />);
+    const option = screen.getByRole('option', { name: '1..*' });
+    expect(option).toBeDisabled();
+    fireEvent.click(option);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

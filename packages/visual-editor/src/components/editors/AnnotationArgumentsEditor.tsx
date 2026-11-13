@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
+import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { X } from 'lucide-react';
 import { useFormContext, useFieldArray, useWatch } from 'react-hook-form';
 import { EditorController } from '../forms/EditorFormProvider.js';
@@ -160,8 +161,7 @@ function AnnotationQualifiers({
             </label>
             <label className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               Value kind
-              <select
-                className="h-6 min-w-0 rounded-md border border-input bg-background px-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              <NativeSelect
                 value={paths[qualifierIndex]?.qualPath ? 'path' : 'value'}
                 onChange={(event) => {
                   setValue(`${name}.qualValue`, event.target.value === 'value' ? '' : undefined, { shouldDirty: true });
@@ -180,7 +180,7 @@ function AnnotationQualifiers({
               >
                 <option value="value">Text</option>
                 <option value="path">Attribute path</option>
-              </select>
+              </NativeSelect>
             </label>
             {paths[qualifierIndex]?.qualPath ? (
               <QualifierPathField prefix={name} nodes={nodes} onCommit={commit} />

@@ -40,7 +40,6 @@ export const InstanceExplorerPanel = withInstrumentation(
             placeholder="Type FQN (e.g. test.Party)"
             value={newTypeFqn}
             onChange={(e) => setNewTypeFqn(e.target.value)}
-            className="h-7 text-xs"
           />
           <div className="flex gap-1.5">
             <Input
@@ -48,7 +47,6 @@ export const InstanceExplorerPanel = withInstrumentation(
               placeholder="Example name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="h-7 text-xs"
             />
             <Button
               type="button"
@@ -61,13 +59,13 @@ export const InstanceExplorerPanel = withInstrumentation(
             </Button>
           </div>
         </div>
-        <input
+        <Input
           type="search"
           aria-label="Search examples"
           placeholder="Search examples"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="border-b border-border bg-transparent px-2 py-1 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:bg-accent/20"
+          className="my-2 w-auto mx-2"
         />
         <ul className="studio-scroll flex-1 overflow-auto">
           {rows.map((r) => (

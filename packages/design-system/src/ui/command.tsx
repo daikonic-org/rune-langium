@@ -9,9 +9,10 @@
 
 import * as React from 'react';
 import { Combobox } from '@base-ui/react/combobox';
-import { Search } from 'lucide-react';
 
 import { cn } from '../utils';
+import { pickerOptionStyles } from './control-styles';
+import { SearchInput } from './input';
 
 export interface CommandEntry<Value> {
   readonly value: Value;
@@ -56,20 +57,10 @@ function Command<Value>({ items, onItemSelect, className, children, ...props }: 
   );
 }
 
-function CommandInput({ className, ...props }: React.ComponentProps<typeof Combobox.Input>) {
+function CommandInput({ render, ...props }: React.ComponentProps<typeof Combobox.Input>) {
   return (
-    <div className="flex items-center border-b border-input px-3" data-slot="command-input-wrapper">
-      <Search className="mr-2 size-4 shrink-0 opacity-50" />
-      <Combobox.Input
-        data-slot="command-input"
-        className={cn(
-          'flex h-10 w-full rounded bg-transparent py-3 text-sm outline-none',
-          'placeholder:text-muted-foreground',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          className
-        )}
-        {...props}
-      />
+    <div className="border-b border-input p-1.5" data-slot="command-input-wrapper">
+      <Combobox.Input data-slot="command-input" render={render ?? <SearchInput />} {...props} />
     </div>
   );
 }
@@ -88,7 +79,14 @@ function CommandEmpty({ className, ...props }: React.ComponentProps<typeof Combo
   return (
     <Combobox.Empty
       data-slot="command-empty"
-      className={cn('py-6 text-center text-sm text-muted-foreground', className)}
+      // Base UI keeps this polite live region mounted when results exist.
+      // Collapse its empty spacing without hiding it from assistive technology.
+      className={(state) =>
+        cn(
+          'py-6 text-center text-sm text-muted-foreground empty:py-0',
+          typeof className === 'function' ? className(state) : className
+        )
+      }
       {...props}
     />
   );
@@ -141,13 +139,7 @@ function CommandItem({ className, ...props }: React.ComponentProps<typeof Combob
   return (
     <Combobox.Item
       data-slot="command-item"
-      className={cn(
-        'relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none',
-        'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
-        'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-        '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
-        className
-      )}
+      className={(state) => cn(pickerOptionStyles, typeof className === 'function' ? className(state) : className)}
       {...props}
     />
   );

@@ -66,7 +66,7 @@ for (const theme of ['dark', 'light'] as const) {
     await showPane(page, 'Source');
     const editor = fullSourceEditor(page);
     const before = await codeMirrorDocument(editor);
-    await page.getByRole('button', { name: 'Hide source documentation', exact: true }).click();
+    await page.getByRole('button', { name: 'Hide docs', exact: true }).click();
     await expect(editor.locator('.cm-foldPlaceholder').first()).toBeVisible();
     expect(await codeMirrorDocument(editor)).toBe(before);
     const initialFolds = await editor.locator('.cm-foldPlaceholder').count();
@@ -79,7 +79,7 @@ for (const theme of ['dark', 'light'] as const) {
     await expect(editor.locator('.cm-foldPlaceholder')).toHaveCount(initialFolds + 1);
     const edited = await codeMirrorDocument(editor);
     expect(edited).toBe(before.trimEnd() + added);
-    await page.getByRole('button', { name: 'Show source documentation', exact: true }).click();
+    await page.getByRole('button', { name: 'Show docs', exact: true }).click();
     await expect(editor.locator('.cm-foldPlaceholder')).toHaveCount(0);
     expect(await codeMirrorDocument(editor)).toBe(edited);
     const preview = page.getByTestId('panel-formPreview');

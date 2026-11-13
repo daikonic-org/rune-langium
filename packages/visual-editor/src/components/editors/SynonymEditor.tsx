@@ -268,7 +268,6 @@ function EditableSynonyms(props: SynonymEditorProps) {
           />
           {props.kind !== 'class' && (
             <Input
-              variant="inline"
               value={value}
               onChange={(event) => setValue(event.target.value)}
               placeholder={props.kind === 'enumValue' ? 'Synonym value…' : 'Value name…'}

@@ -34,7 +34,9 @@ export const EnumNode = memo(function EnumNode({ data, selected, id }: NodeProps
           <div className="rune-node-members">
             {members.slice(0, ENUM_PREVIEW_LIMIT).map((member: any) => (
               <div key={member.name} className="rune-node-member">
-                <span className="rune-node-member-name">{member.name}</span>
+                <span className="rune-node-member-name" title={member.name}>
+                  {member.name}
+                </span>
               </div>
             ))}
             {members.length > ENUM_PREVIEW_LIMIT && (

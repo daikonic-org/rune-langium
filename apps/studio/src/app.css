@@ -1740,70 +1740,9 @@ html {
   flex-wrap: wrap;
 }
 
-/* SelectTrigger chrome for the type-kind picker. The sibling text fields
- * (type-creator __name/__namespace, attribute-editor __name/__type/__card) are
- * now <Input variant="inline">, which owns their chrome — their BEM rules were
- * removed here: being UNLAYERED, they overrode the inline variant's
- * bg-card/border-border/padding (which live in @layer utilities), so the
- * migration was only half-applied until they came out. */
-.rune-type-creator__kind {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--text-sm);
-  border: var(--hairline) solid var(--input);
-  border-radius: var(--radius-md);
-  outline: none;
-  background: var(--background);
-  color: var(--foreground);
-}
-
-.rune-type-creator__kind:focus {
-  border-color: var(--primary);
-}
-
-.rune-type-creator__submit,
-.rune-attribute-editor__submit {
-  padding: var(--space-2) var(--space-6);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--primary-foreground);
-  background: var(--primary);
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-
-.rune-type-creator__submit:hover,
-.rune-attribute-editor__submit:hover {
-  background: var(--primary);
-}
-
-/* Form submit buttons fade harder (0.5) than the global :disabled
- * (0.4) so the heavier "this is not currently submittable" signal
- * reads against the saturated primary background. */
-.rune-type-creator__submit:disabled,
-.rune-attribute-editor__submit:disabled {
-  opacity: 0.5;
-}
-
-.rune-type-creator__cancel,
-.rune-attribute-editor__cancel {
-  padding: var(--space-2) var(--space-6);
-  font-size: var(--text-sm);
-  background: transparent;
-  border: var(--hairline) solid var(--input);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  color: var(--muted-foreground);
-}
-
-.rune-type-creator__cancel:hover,
-.rune-attribute-editor__cancel:hover {
-  background: var(--muted);
-}
-
 /* ---------- Editor Form Panel — Dark Theme (T038) ---------- */
 
-/* Focus ring on expression editor (textarea — not an <Input variant="inline">) */
+/* Expression-code editors retain their dedicated focus treatment. */
 [data-slot='expression-editor']:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 1px var(--primary);
@@ -2109,24 +2048,7 @@ html[data-theme="light"] .preview-panel__editor {
 .studio-app .studio-panel-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
-}
-.studio-app .studio-panel-action {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
-  color: var(--muted-foreground);
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-}
-.studio-app .studio-panel-action:hover {
-  background: var(--accent);
-  color: var(--foreground);
+  gap: calc(var(--space-1) / 2);
 }
 /* Pressed: flatten the hover lift and darken so click reads distinctly.
  * Unlayered on purpose — Tailwind's @layer utilities (hover:bg-*, shadow-*)
@@ -2137,21 +2059,6 @@ html[data-theme="light"] .preview-panel__editor {
     inset 0 1.5px 3px rgba(2, 6, 23, 0.45),
     0 0 0 1px rgba(8, 12, 22, 0.1) !important;
   transform: translateY(0.5px);
-}
-
-/* Pressed state one step past hover so click reads distinctly. */
-.studio-app .studio-panel-action:active {
-  background: color-mix(in oklch, var(--accent) 70%, transparent);
-  color: var(--foreground);
-}
-.studio-app .studio-panel-action[data-active='true'],
-.studio-app .studio-panel-action[aria-pressed='true'] {
-  background: color-mix(in oklch, var(--accent) 88%, transparent);
-  color: var(--foreground);
-}
-.studio-app .studio-utility-toggle {
-  width: 28px;
-  height: 28px;
 }
 
 /* The Explorer's sole dock title retains the original content heading's emphasis. */

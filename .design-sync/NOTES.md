@@ -30,8 +30,8 @@ Project: "Daikonic Studio Components" (`projectId` in config.json). Package shap
 - Preview card shell forces `body{background:#fff}`; every authored preview imports `./_studio-dark` (side effect: `html.dark` + `data-theme="daikonic"` + body bg/fg tokens) so portaled overlays inherit the theme. The import is stripped from `.prompt.md` examples.
 
 - Shared text fields use compact `h-6` / `text-xs` / `px-1.5` defaults, `rounded-md`
-  corners and an inset focus ring. Input's `inline` variant leaves density to the
-  caller while sharing the same fill, border and focus treatment. Textarea uses
+  corners and an inset focus ring. Input has one treatment for both form and
+  inline editing; callers supply layout constraints. Textarea uses
   that chrome with vertical content space; larger form/search controls retain
   explicit height overrides. Keep focus inside the field so Inspector scroll
   boundaries do not clip it.

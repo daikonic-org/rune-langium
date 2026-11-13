@@ -2286,7 +2286,7 @@ export const ExplorePerspective = withInstrumentation(
     const renderGraphPane = useCallback(
       (showInspector: () => void) => (
         <section
-          aria-label="Graph"
+          aria-label="Type graph"
           data-testid="panel-visualPreview"
           data-component="workspace.visualPreview"
           className="flex h-full min-h-0 flex-col overflow-hidden"
@@ -2427,7 +2427,7 @@ export const ExplorePerspective = withInstrumentation(
                 variant="ghost"
                 size="xs"
                 aria-pressed={hideSourceDocumentation}
-                aria-label={hideSourceDocumentation ? 'Show source documentation' : 'Hide source documentation'}
+                title={hideSourceDocumentation ? 'Show source documentation' : 'Hide source documentation'}
                 onClick={() => setHideSourceDocumentation((hidden) => !hidden)}
               >
                 {hideSourceDocumentation ? 'Show docs' : 'Hide docs'}

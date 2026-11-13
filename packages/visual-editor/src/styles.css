@@ -292,6 +292,14 @@ button.rune-enum-disclosure {
   order: 2;
 }
 
+.rune-node-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Base-container inherited rows now use the same XMLSpy-style two-line
  * stacked layout as Data attribute rows (.rune-node-row + __main / __name-line /
  * __type-line). Choice arms and Enum values stay single-line at ROW_HEIGHT. */
@@ -340,7 +348,7 @@ button.rune-enum-disclosure {
 
 .rune-node-member {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) max-content;
   align-items: baseline;
   column-gap: var(--space-3);
   padding: var(--space-1) 0;
@@ -350,7 +358,14 @@ button.rune-enum-disclosure {
 .rune-node-member-name {
   min-width: 0;
   color: var(--color-node-text);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Enum values and disclosures have no type/cardinality columns. */
+.rune-node-member > :only-child {
+  grid-column: 1 / -1;
 }
 
 .rune-node-member-type {
@@ -382,8 +397,14 @@ button[data-navigable]:focus-visible {
 }
 
 .rune-node-member-type[data-navigable] {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--color-node-member-type);
   font-style: italic;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rune-node-member-cardinality {
@@ -675,50 +696,14 @@ button[data-navigable]:focus-visible {
 
 /* ── Shared type reference field ─────────────────────────────── */
 
-/* ── Inspector pill box — the shared "muted rounded field" aesthetic ──
-   SSoT for an inspector selector's chrome: 8px radius, muted fill, transparent
-   border that lights up on hover, primary ring on focus. Worn by the
-   cardinality pill (variant="pill") and any future inspector selector. The
-   type-reference field does NOT use this — its colored chip is the pill. */
-.rune-inspector-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: auto;
-  min-width: 0;
-  padding: 2px var(--space-2);
-  border: var(--hairline) solid transparent;
-  border-radius: var(--radius-lg);
-  background: color-mix(in oklch, var(--muted) 20%, transparent);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  line-height: 1.1;
-  color: var(--muted-foreground);
-  transition:
-    border-color var(--motion-fast),
-    background-color var(--motion-fast),
-    box-shadow var(--motion-fast);
-}
-
-.rune-inspector-pill:hover {
-  border-color: color-mix(in oklch, var(--border) 78%, transparent);
-  background: color-mix(in oklch, var(--muted) 32%, transparent);
-}
-
-.rune-inspector-pill:focus-within {
-  border-color: color-mix(in oklch, var(--primary) 42%, transparent);
-  background: color-mix(in oklch, var(--muted) 42%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 18%, transparent);
-}
-
 /* ── Inspector editable row band ──────────────────────────────────────
    SSoT for the resting "row band": a soft muted fill so each editable row
    (attribute, enum value, choice option, function input) reads as a distinct
    band against the panel background, deepening on hover. Pairs with the
    per-row `border border-transparent hover:border-border` outline the rows
    already carry. Kept here (not as a Tailwind utility cluster repeated at four
-   call sites) so the band is tuned from one place — same convention as
-   `.rune-inspector-pill` above. */
+   call sites) so the band is tuned from one place. Field triggers themselves
+   use the design-system PickerTrigger. */
 .rune-inspector-row {
   border-radius: var(--radius-sm);
   background: color-mix(in oklch, var(--muted) 30%, transparent);
@@ -865,7 +850,6 @@ button[data-navigable]:focus-visible {
 .rune-type-reference__placeholder {
   flex: 1 1 auto;
   min-width: 0;
-  padding-inline: 2px;
   color: var(--muted-foreground);
   font-size: var(--text-2xs);
   font-family: var(--font-mono);
@@ -942,7 +926,6 @@ button[data-navigable]:focus-visible {
 :root {
   --rune-chip-padding-y: 2px;
   --rune-chip-padding-x: 4px;
-  --rune-pill-padding-x: 5px;
   --rune-row-indent: 6px;
   /* Chrome padding — bridges design-system tokens to the rune SSoT
    * so the no-literal-layout-px rule can require var(--rune-*) on all
@@ -988,19 +971,7 @@ button[data-navigable]:focus-visible {
  * file (base-row margin, type-picker-trigger ellipsis, structure-node font-size,
  * drag-over outline), keyed off the retained `.rune-cell-type-chip` class. */
 
-/* Cardinality pill — monospace badge replacing plain text */
-.rune-cell-card {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--space-1) / 2);
-  padding: var(--rune-chip-padding-y) var(--rune-pill-padding-x);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  background: var(--muted);
-  color: var(--muted-foreground);
-  cursor: pointer;
-}
+/* Cardinality uses PickerTrigger; only structure-context typography lives here. */
 
 /* Drop-over highlight states — outline does not reflow, so bare px is OK */
 .rune-cell-type-wrap--over .rune-cell-type-chip,

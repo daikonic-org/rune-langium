@@ -51,7 +51,6 @@ export function NameCell({ value, nodeId, attrName, disabled }: NameCellProps): 
   if (editing) {
     return (
       <Input
-        variant="inline"
         ref={focusOnMount}
         aria-label={`Edit ${attrName}`}
         className="rune-cell-editor w-full px-1 py-0.5 text-xs"

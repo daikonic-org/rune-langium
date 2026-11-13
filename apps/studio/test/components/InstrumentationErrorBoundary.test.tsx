@@ -21,7 +21,9 @@ describe('InstrumentationErrorBoundary', () => {
         <Bomb />
       </InstrumentationErrorBoundary>
     );
-    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Studio couldn’t display this view' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reload Studio' })).toBeVisible();
+    expect(screen.queryByText('render crash')).not.toBeInTheDocument();
     expect(emitted).toEqual([expect.objectContaining({ op: 'ReactRenderCrash', level: 'error' })]);
     consoleError.mockRestore();
   });

@@ -252,6 +252,9 @@ when a direction change requires asynchronous layout. Explicit Fit View still
 fits the complete visible graph.
 Semantic zoom hides detail without changing node dimensions: summaries overlay
 the retained body space, and hidden cardinalities keep their layout width.
+Graph member grids bound both name and type columns independently of the shared
+navigation-button reset. Long labels retain full titles rather than forcing
+letter-wide name wrapping and oversized cards.
 The pinned XYFlow ESM patch batches its internal node measurements per animation
 frame, drops detached elements and cancels queued work on unmount; applying a
 second delay only in `onNodesChange` leaves its internal observer updates exposed.
@@ -330,6 +333,17 @@ standard (28px) heights. Existing button size names retain width/icon intent;
 Studio must not add competing global height overrides. Multi-line editors, list
 rows and touch/resize hit areas remain separate. Dockview uses one unlayered sash
 geometry rule set: a theme hairline inside the existing 16px drag target.
+Input has one field treatment for inline and ordinary form editing. Input,
+Textarea, NativeSelect and PickerTrigger reuse a private field-chrome definition
+in design-system. NativeSelect in the existing `/ui/select` module owns ordinary
+option lists; rich Select and searchable domain pickers preserve their focus,
+selection and z2f binding contracts. SelectTrigger composes PickerTrigger;
+CardinalityPicker, SourceRefField and empty type references use the same trigger.
+CommandInput and namespace searches compose SearchInput, retaining input refs,
+ARIA and Base UI keyboard selection. SelectItem, CommandItem and PickerOption
+share option-row presentation; namespace virtualization and type-kind chips
+retain domain geometry. Repeated utility actions use Button rather
+than app-local button chrome. Field groups use 8px gaps and nested sets use 12px.
 The desktop launcher fills its frame with Recents beside Starters, each owning
 its overflow; Reference Models uses the same full-frame body. Narrow launchers
 retain a stacked layout. Navigation and workspace actions stay outside Recents'
@@ -1863,6 +1877,22 @@ read-only ownership survive placeholder replacement. Derived LSP/index data stay
 out of preview/download semantic worker payloads.
 
 ## Responsive reading and diagnostic presentation
+
+Generated export text reads are scoped to the exact captured artifact and path,
+including the render before effects settle. Failed reads retain the downloadable
+archive and expose an explicit retry; late results cannot replace the active
+file. Shared clipboard recovery copy keeps selectable text available when the
+browser API is absent or denied. Copy/export feedback belongs to the current
+payload revision; pending payload exports reject duplicate clicks. The root
+render boundary keeps sanitized reporting and offers an accessible themed reload
+action without displaying raw exceptions.
+Shared Dockview tabs reference Studio's rendered label/count via `aria-labelledby`,
+so dynamic badges remain part of the accessible name without duplicating titles.
+Literal whitespace separates titles from counts; a CSS gap alone joins their
+underlying text into one word for text-based accessibility checks.
+Rendered titles subscribe to native title changes, including collapsed side tabs.
+Documentation-toggle names match their visible action; nested Graph landmarks
+remain distinct.
 
 Explore reuses its side-group collapse mechanism under measured space pressure;
 explicit visibility overrides, manual arrangements and focused preview inputs

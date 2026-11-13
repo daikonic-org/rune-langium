@@ -36,6 +36,19 @@ available; no system preference silently replaces an explicit choice.
 
 ## Workbench density and frame
 
+- Use the existing design-system [control families](../../packages/design-system/README.md#control-families).
+  Input has one treatment for forms and inline editors; NativeSelect owns plain
+  option lists, while rich/searchable pickers retain their selection behavior.
+  Field chrome and keyboard focus are shared with Textarea and PickerTrigger.
+  SelectTrigger and domain popover pickers reuse that trigger. SearchInput owns
+  the search icon/inset in Command and namespace searches; option rows share
+  spacing and focus/selection states. Type-kind chips retain their domain colors
+  and virtualized tree rows retain their measured heights.
+  z2f constructs and validates schema forms; its adapter reuses design-system
+  fields and visual-editor's FieldTemplate rather than restyling them.
+- Repeated panel actions use Button variants and sizes, including pressed state.
+  Keep tree rows, tabs, graph ports and multiline diagnostics as domain controls.
+  Their semantics and hit areas are not interchangeable with single-line actions.
 - Single-line controls use two heights: compact 24px and standard 28px. The
   shared Button, Input and Select primitives own sizing; Studio must not override
   these with additional global minimum heights. Existing button size names keep
@@ -87,6 +100,27 @@ available; no system preference silently replaces an explicit choice.
   type identity without weakening the contrast of a tiny letter.
 - Splitters stay invisible at rest and highlight the full 4px gap on hover or
   drag. Keep the existing transparent 16px drag target without a shadow outline.
+  Export's compact settings/output split additionally shows a small center grip,
+  so controls below the settings fold have a discoverable resize affordance.
+
+## Recovery and long content
+
+Generated artifact reads retain their captured file identity: failed text reads
+offer Retry file while the captured ZIP remains downloadable. Late results from a
+previous file or payload do not announce success or failure for the current one.
+Copy actions share browser-permission recovery copy, retain selectable text, and
+show a pending state. Repeated payload exports wait for their current operation.
+The render-crash fallback uses the current theme and an explicit Reload Studio
+action without exposing raw exception content.
+
+Graph member rows reserve bounded space for names, type links and cardinality.
+Long labels truncate with their full names available on hover; they must not
+squeeze names into letter-wide columns or change dimensions as zoom changes.
+Composer labels, variable tags and errors wrap within their panes; required
+controls and recovery actions remain reachable at HD and narrow widths.
+Tab names reference their visible label and count; documentation controls use
+their visible action as their accessible name. Nested Graph regions have
+distinct names for landmark navigation.
 
 ## Review
 
