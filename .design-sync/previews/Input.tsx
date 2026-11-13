@@ -4,17 +4,17 @@
 import './_studio-dark';
 import { Input, Label } from '@rune-langium/design-system';
 
-// J08 edit round-trip: inspector attribute-name field (inline variant, filled).
+// J08 edit round-trip: filled inspector attribute-name field.
 export const InlineAttributeName = () => (
   <div className="flex w-[320px] flex-col gap-1.5">
     <Label htmlFor="attr-name" className="text-muted-foreground">
       Attribute name
     </Label>
-    <Input id="attr-name" variant="inline" className="h-7 px-2 font-mono text-xs" defaultValue="tradeDate" />
+    <Input id="attr-name" className="h-7 px-2 font-mono text-xs" defaultValue="tradeDate" />
   </div>
 );
 
-// J05 inspector: default variant, empty with placeholder.
+// J05 inspector: empty namespace field with placeholder.
 export const DefaultPlaceholder = () => (
   <div className="flex w-[320px] flex-col gap-1.5">
     <Label htmlFor="ns-name">Namespace</Label>
@@ -22,7 +22,7 @@ export const DefaultPlaceholder = () => (
   </div>
 );
 
-// J12 import dialog: default variant filled, plus disabled read-only field.
+// J12 import dialog: filled schema URL plus disabled target namespace.
 export const FilledAndDisabled = () => (
   <div className="flex w-[320px] flex-col gap-3">
     <div className="flex flex-col gap-1.5">
