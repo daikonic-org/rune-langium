@@ -243,7 +243,13 @@ The installed `impl.cdm.market.ReadMarketObservations` contract accepts project
 data. [Explicit benchmark acquisition](benchmark-data.md) now downloads SOFR,
 SONIA and €STR fixings and compounded indices and materializes a portable Rune
 provider from verified saved snapshots. `ReadForwardRateSnapshot` still requires
-a separately supplied forward curve. Public sources include:
+a separately supplied forward curve.
+
+The [shared catalog specification](../design/market-data-catalog/spec.md) proposes
+D1/R2 history, daily CI refresh and curve adapters behind the same provider seams.
+It covers the six downloaded fixing/index series as well as future curve data.
+
+Public sources include:
 
 | Source | Available inputs |
 | --- | --- |

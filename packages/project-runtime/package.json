@@ -83,6 +83,7 @@
     "@rune-langium/core": "workspace:*",
     "@rune-langium/curated-schema": "workspace:*",
     "@rune-langium/project-config": "workspace:*",
+    "csv-parse": "7.0.3",
     "langium": "^4.4.2",
     "pako": "^3.0.3",
     "semver": "7.8.6",

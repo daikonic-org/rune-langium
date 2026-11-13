@@ -100,7 +100,14 @@ it('accepts a valid empty publication window without inventing weekend fixings',
   expect((await readBenchmarkSnapshot(snapshot)).observations).toEqual([]);
 });
 
-it.each(['A,A\n1,2\n', 'A,B\n1\n', 'A\n"unclosed', 'A\n"closed"bad', 'A\nnot"quoted'])(
+it('retains CSV text through BOMs, blank lines, quoted newlines and escaped quotes', () => {
+  expect(benchmarkCsv('\uFEFFDATE,VALUE,NOTE\r\n\r\n2026-11-02,4.33,"First, ""quoted""\r\nsecond line"\r\n')).toEqual({
+    headers: ['DATE', 'VALUE', 'NOTE'],
+    rows: [{ DATE: '2026-11-02', VALUE: '4.33', NOTE: 'First, "quoted"\r\nsecond line' }]
+  });
+});
+
+it.each(['', 'A,\n1,2\n', 'A,A\n1,2\n', 'A,B\n1\n', 'A,B\n1,2,3\n', 'A\n"unclosed', 'A\n"closed"bad', 'A\nnot"quoted'])(
   'rejects malformed CSV rather than shifting columns',
   (content) => {
     expect(() => benchmarkCsv(content)).toThrow();

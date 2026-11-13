@@ -1149,8 +1149,13 @@ offline replay. Materialization produces an ordinary `override namespace
 impl.cdm.market` provider, preserving the existing CDM observation guards and
 shared target/Prototype execution. Builds and emitters never fetch benchmark data.
 Reference and benchmark HTTP reads share a bounded canceling stream reader.
+CSV decoding uses `csv-parse`'s browser ESM entry; the adapter owns feed-specific
+identity, units and date checks rather than CSV syntax.
 See [benchmark snapshots](../implementations/benchmark-data.md) for admitted
 tenors, missing-data behavior and refresh/install rules.
+The [shared market-data catalog proposal](../design/market-data-catalog/spec.md)
+keeps D1/R2 history and daily CI acquisition behind the existing project provider
+seams. It does not add network access to calculations or change CDM signatures.
 
 Static project initialization stays in project-config/import and consumes only
 opened repository text. The runtime adds explicit catalog artifact-to-release

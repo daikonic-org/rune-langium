@@ -794,6 +794,9 @@ importers:
       '@rune-langium/project-config':
         specifier: workspace:*
         version: link:../project-config
+      csv-parse:
+        specifier: 7.0.3
+        version: 7.0.3
       langium:
         specifier: ^4.4.2
         version: 4.4.2
@@ -4046,6 +4049,9 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  csv-parse@7.0.3:
+    resolution: {integrity: sha512-YFd3QM/yo17vH91L1IOZuvl09zM0zEEtdfTcOCKWcMdM++MNaQSyp09slXyFCLaPXvHstQFx/xC8myiFHSMUvw==}
 
   d3-color@3.1.1:
     resolution: {integrity: sha512-lfab8x0Bj0UO7SNsY8dZSbNIA6ipbkE3X0NG9nqjCu6CfCHZseuDnOSJY7hidKrjpP++i1M2qT+FlAdPKYRilA==}
@@ -9329,6 +9335,8 @@ snapshots:
   css.escape@1.5.1: {}
 
   csstype@3.2.3: {}
+
+  csv-parse@7.0.3: {}
 
   d3-color@3.1.1: {}
 

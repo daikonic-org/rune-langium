@@ -7,6 +7,11 @@ Rune override for `impl.cdm.market.ReadMarketObservations`. The original CDM
 the existing curated implementations. Generated TypeScript, Python and Prototype
 use the same saved Rune source without network access.
 
+The [shared market-data catalog specification](../design/market-data-catalog/spec.md)
+extends this delivery pattern to D1/R2 history, daily CI refresh and future curve
+datasets. It preserves the provider contracts and explicit project pins; shared
+storage and scheduled refresh are proposed, not part of the current CLI.
+
 ## Acquire and install
 
 After installing the CLI and the matching curated CDM implementation sources:
@@ -76,6 +81,8 @@ dates. Duplicate dates, invalid/missing numeric values, unexpected series/units,
 malformed CSV, and out-of-window dates fail rather than producing partial data.
 A selected feed failure prevents output creation. Published empty windows remain
 empty; requesting a missing date still fails through the canonical Rune guard.
+CSV syntax is read by `csv-parse`'s browser ESM distribution; the shared adapter
+validates feed identities, dates, units and nonempty, unique column headers.
 One snapshot per series is accepted by a provider; choose the desired acquisition
 explicitly when revisions or overlapping windows exist.
 
