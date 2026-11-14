@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",
-    "@hookform/resolvers": "^5.9.2",
+    "@hookform/resolvers": "^7.0.5",
     "@rune-langium/codegen": "workspace:*",
     "@rune-langium/core": "workspace:*",
     "@rune-langium/design-system": "workspace:*",
