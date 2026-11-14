@@ -1,10 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rune-cdm-example-data",
-  "main": "src/index.ts",
+  "main": "src/worker.ts",
   "compatibility_date": "2026-11-13",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
+  "worker_loaders": [{ "binding": "EXECUTION_LOADER" }],
+  "vars": { "EXECUTION_ALLOWED_GITHUB_IDS": "" },
   "observability": {
     "enabled": true
   },

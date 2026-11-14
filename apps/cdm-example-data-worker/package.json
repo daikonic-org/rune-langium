@@ -12,25 +12,28 @@
     "test": "vitest run",
     "type-check": "tsc --noEmit",
     "refresh": "node scripts/refresh.mjs",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/build-driver.mjs && tsc -p tsconfig.build.json",
+    "check:driver": "node scripts/build-driver.mjs --check",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:check": "drizzle-kit check --config drizzle.config.ts"
   },
   "dependencies": {
+    "@rune-langium/project-config": "workspace:*",
     "@rune-langium/project-runtime": "workspace:*",
     "@rune-langium/worker-core": "workspace:*",
-    "zod": "4.6.7",
     "drizzle-orm": "0.45.4",
-    "@rune-langium/project-config": "workspace:*"
+    "node-sql-parser": "5.4.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261112.1",
     "@types/node": "^26.6.6",
     "cloudflare": "7.3.0",
+    "drizzle-kit": "0.31.11",
+    "esbuild": "0.28.2",
     "miniflare": "5.20261110.2-beta",
     "vitest": "^5.1.0",
-    "wrangler": "^4.161.0",
-    "drizzle-kit": "0.31.11"
+    "wrangler": "^4.161.0"
   },
   "engines": {
     "node": ">=26.13.0"

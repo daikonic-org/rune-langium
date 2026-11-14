@@ -96,6 +96,45 @@ previously acquired v1 captures offline with repeated `--import <snapshot.json>`
 arguments. Their original URL, retrieval timestamp, raw response and hash are
 preserved; catalog ingestion time is recorded separately.
 
+## Studio-hosted preparation
+
+The [database-proxy specification](../../docs/design/studio-database-proxy/spec.md)
+defines the candidate hosted execution path. `examples/prepare-market-data.ts`
+uses ordinary Drizzle queries and accepts a host-supplied SQLite connection.
+The same module is tested on standalone native SQLite and an isolated hosted
+Worker against D1, retaining source snapshot IDs, generations and decimal text.
+The read views expose accepted capture rows. Selecting an exact generation reads
+that capture, rather than merging earlier captures into a latest-value window;
+the existing catalog selection contract owns that revision-selection behavior.
+
+Studio's `prepareHostedDatabase` transport sends the module and its input revision
+to `/api/database-preparation`. The Pages gateway validates the
+existing GitHub bearer credential, then calls the private `DatabaseExecution`
+entrypoint. The browser never receives the D1 binding or publisher token.
+This is an asynchronous preparation port; automatic Prototype/provider wiring
+is a follow-up. Existing Rune provider callbacks remain synchronous, and this
+port does not mutate or save a workspace automatically.
+
+Each run gets a fresh Dynamic Worker with network access blocked and only a
+restricted SQLite proxy connection. The server permits one SELECT over the
+published `benchmark_data` or `sonia_ois_data` view. Joins, nested queries, CTEs,
+writes, ingestion tables and unapproved functions are rejected by the maintained
+SQLite parser. It enforces 24 statements, 600 rows per result, 2,400 rows per run,
+1 MiB of result data, a 10-second deadline and a configured 1-second child CPU
+limit. The connection is revoked on every exit path. Local workerd tests verify
+query and egress isolation; hosted CPU-limit enforcement requires a deployed check.
+
+Activation is explicit: deploy the private data Worker with migrated views,
+configure `EXECUTION_ALLOWED_GITHUB_IDS` with permitted numeric GitHub IDs, then
+set `CDM_EXAMPLE_EXECUTION_ENABLED=true` in the combined Pages build environment
+and rebuild. The generated Pages configuration then adds the private service
+binding. Defaults deny access and omit that production binding. This is separate
+from the daily data-refresh activation. No public execution route belongs on the
+data Worker. The existing public fixing-import contract below is unchanged.
+
+The generated driver bundle contains Drizzle ORM under Apache-2.0; its license
+is retained in `licenses/Apache-2.0.txt` and embedded in the bundled source.
+
 ## Read and project-import contract
 
 All routes require `GET`; there is no public ingest, SQL or arbitrary R2 route.

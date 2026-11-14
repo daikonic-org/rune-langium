@@ -110,7 +110,7 @@ rmSync(docsRawDist, { recursive: true, force: true });
 // Spec 019 Phase 1: the Pages Functions copied to <repo>/functions/ import
 // workspace packages through their package.json exports. Studio and its
 // Functions also import @rune-langium/instrumentation-core this way. Build
-// both packages before bundling so a fresh CF checkout uses current dist/
+// these packages before bundling so a fresh CF checkout uses current dist/
 // output rather than relying on files left by a previous local build.
 //
 // Building only the workspace packages the functions actually touch keeps
@@ -125,6 +125,11 @@ run(
 run(
   'Building @rune-langium/core (workspace dep imported by Pages Functions)',
   'pnpm --filter @rune-langium/core run build',
+  repoRoot
+);
+run(
+  'Building @rune-langium/worker-core (execution contract imported by Pages Functions)',
+  'pnpm --filter @rune-langium/worker-core run build',
   repoRoot
 );
 
@@ -215,6 +220,17 @@ pages_build_output_dir = "apps/docs/.vitepress/dist"
 [[services]]
 binding = "CURATED_MIRROR"
 service = "rune-curated-mirror-worker"
+
+${
+  process.env.CDM_EXAMPLE_EXECUTION_ENABLED === 'true'
+    ? `
+[[services]]
+binding = "CDM_EXECUTION"
+service = "rune-cdm-example-data"
+entrypoint = "DatabaseExecution"
+`
+    : ''
+}
 ${instrumentationVarsToml}`;
 writeFileSync(repoWranglerToml, wranglerToml);
 console.log(

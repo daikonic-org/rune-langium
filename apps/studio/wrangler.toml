@@ -36,6 +36,11 @@ pages_build_output_dir = "./dist"
 binding = "CURATED_MIRROR"
 service = "rune-curated-mirror-worker"
 
+[[services]]
+binding = "CDM_EXECUTION"
+service = "rune-cdm-example-data"
+entrypoint = "DatabaseExecution"
+
 # Allowlist for LSP session origin gating. This config is LOCAL DEV only
 # (`pnpm dev:pages` against `http://localhost:5173` + `http://localhost:8788`),
 # so we include the dev origins by default. Production binding lives in the

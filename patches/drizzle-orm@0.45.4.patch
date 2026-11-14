@@ -1,0 +1,30 @@
+diff --git a/sqlite-proxy/driver.d.cts b/sqlite-proxy/driver.d.cts
+index 6937f3af0c0cefbfe4191b6ed41278c872cc4744..4ff932d0416d662c09850b49ad52f163b28385a4 100644
+--- a/sqlite-proxy/driver.d.cts
++++ b/sqlite-proxy/driver.d.cts
+@@ -9,9 +9,7 @@ export declare class SqliteRemoteDatabase<TSchema extends Record<string, unknown
+     static readonly [entityKind]: string;
+     batch<U extends BatchItem<'sqlite'>, T extends Readonly<[U, ...U[]]>>(batch: T): Promise<BatchResponse<T>>;
+ }
+-export type AsyncRemoteCallback = (sql: string, params: any[], method: 'run' | 'all' | 'values' | 'get') => Promise<{
+-    rows: any[];
+-}>;
++export type AsyncRemoteCallback = (sql: string, params: any[], method: 'run' | 'all' | 'values' | 'get') => Promise<SqliteRemoteResult>;
+ export type AsyncBatchRemoteCallback = (batch: {
+     sql: string;
+     params: any[];
+diff --git a/sqlite-proxy/driver.d.ts b/sqlite-proxy/driver.d.ts
+index a8bbff2626e73ac4e7e8c90d4fbacef894b5f2ed..9726519e701ebb793d353ae8f89ca660c5f92c7c 100644
+--- a/sqlite-proxy/driver.d.ts
++++ b/sqlite-proxy/driver.d.ts
+@@ -9,9 +9,7 @@ export declare class SqliteRemoteDatabase<TSchema extends Record<string, unknown
+     static readonly [entityKind]: string;
+     batch<U extends BatchItem<'sqlite'>, T extends Readonly<[U, ...U[]]>>(batch: T): Promise<BatchResponse<T>>;
+ }
+-export type AsyncRemoteCallback = (sql: string, params: any[], method: 'run' | 'all' | 'values' | 'get') => Promise<{
+-    rows: any[];
+-}>;
++export type AsyncRemoteCallback = (sql: string, params: any[], method: 'run' | 'all' | 'values' | 'get') => Promise<SqliteRemoteResult>;
+ export type AsyncBatchRemoteCallback = (batch: {
+     sql: string;
+     params: any[];
