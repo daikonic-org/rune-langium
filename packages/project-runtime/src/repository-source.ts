@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { PortableProjectPathSchema } from '@rune-langium/project-config';
+import { readStreamBytes } from './read-stream.js';
 
 export interface RepositoryFile {
   path: string;
@@ -16,30 +17,7 @@ function object(value: unknown): value is Record<string, unknown> {
 async function readBytes(response: Response, limit: number): Promise<Uint8Array<ArrayBuffer>> {
   if (!response.ok) throw new Error(`GitHub source unavailable (${response.status}). Check access or try again later.`);
   if (!response.body) throw new Error('GitHub returned no source body.');
-  const reader = response.body.getReader(),
-    chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const next = await reader.read();
-      if (next.done) break;
-      size += next.value.length;
-      if (size > limit) throw new Error('The repository source exceeds its size limit.');
-      chunks.push(next.value);
-    }
-  } catch (error) {
-    await reader.cancel().catch(() => undefined);
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return bytes;
+  return readStreamBytes(response.body, limit, 'The repository source exceeds its size limit.');
 }
 /** Immutable Git object reader shared by starter copies and reference examples. */
 export async function openGitHubRepository(

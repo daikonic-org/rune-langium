@@ -2595,6 +2595,9 @@
         "requirements": "A supplied clock/native leaf is required; Rune may compose it, but cannot independently observe system time.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/native-utilities.test.ts"
       }
     },
     {
@@ -2659,6 +2662,9 @@
         "requirements": "Single Rune reduction preserves position, duplicates and empty/single lists. Prefix copying is quadratic; large-list optimization remains open.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/rune-implementations.test.ts"
       }
     },
     {
@@ -2968,6 +2974,9 @@
         "requirements": "Clock-value construction and range rejection; assess direct Rune construction before retaining a native leaf.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/native-utilities.test.ts"
       }
     },
     {
@@ -3031,6 +3040,9 @@
         "requirements": "A supplied clock/native leaf is required; UTC date selection can be composed in Rune.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/native-implementations.test.ts"
       }
     },
     {
@@ -4109,6 +4121,9 @@
         "requirements": "Explicit Rune source returns the absent optional value; verified against the pinned signature, generated TypeScript/Python and Prototype.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/rune-implementations.test.ts"
       }
     },
     {
@@ -4153,6 +4168,9 @@
         "requirements": "Explicit Rune source returns an empty collection; verified against the pinned signature, generated TypeScript/Python and Prototype.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/rune-implementations.test.ts"
       }
     },
     {
@@ -5456,6 +5474,9 @@
         "requirements": "Current Rune contains means list membership; substring/UTF-16 semantics need a proper string primitive, not that operator.",
         "upstreamDefaultHasBody": false,
         "variants": []
+      },
+      "regressionSuite": {
+        "path": "packages/codegen/test/implementations/native-utilities.test.ts"
       }
     },
     {

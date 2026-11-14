@@ -332,15 +332,15 @@ describe('Structure document', () => {
     const stage = card(result.container, 'demo.Trade');
     const move = stage.querySelector('header')!;
     fireEvent.keyDown(move, { key: 'ArrowRight' });
-    expect(stage.style.translate).toBe('8px 0px');
+    expect(stage).toHaveStyle({ translate: '8px 0px' });
     fireEvent.keyDown(move, { key: 'ArrowDown', shiftKey: true });
-    expect(stage.style.translate).toBe('8px 32px');
+    expect(stage).toHaveStyle({ translate: '8px 32px' });
     fireEvent.click(screen.getByRole('button', { name: 'Reset layout' }));
-    expect(stage.style.translate).toBe('0px 0px');
+    expect(stage).toHaveStyle({ translate: '0px 0px' });
     expect(screen.getByRole('button', { name: 'Expand buyer' })).toBeInTheDocument();
     fireEvent.keyDown(move, { key: 'ArrowRight' });
     result.rerender(<StructureView focusedTypeId="demo.Address" adapterDoc={doc} />);
-    expect(card(result.container, 'demo.Address').style.translate).toBe('0px 0px');
+    expect(card(result.container, 'demo.Address')).toHaveStyle({ translate: '0px 0px' });
   });
 
   it('retains timed navigation cues across temporary missing data', () => {

@@ -9,7 +9,8 @@ import {
   renderNativeImplementationInventory,
   validateCatalogImplementation,
   handwrittenJavaReferences,
-  nativeSourceBlobHash
+  nativeSourceBlobHash,
+  catalogRegressionSuite
 } from './native-implementation-inventory.mjs';
 
 const sources = [{ model: 'cdm', repository: 'finos/common-domain-model', commit: 'a'.repeat(40), release: '7.9.0' }];
@@ -148,6 +149,66 @@ test('Git blob checksums include the exact UTF-8 byte length and trailing newlin
   assert.equal(nativeSourceBlobHash('hello\n'), 'ce013625030ba8dba906f756967f9e9ca394464a');
   assert.notEqual(nativeSourceBlobHash('hello'), nativeSourceBlobHash('hello\n'));
   assert.equal(nativeSourceBlobHash('😀'), createHash('sha1').update('blob 4\0😀').digest('hex'));
+});
+
+test('links inline execution suites by full declaration identity without claiming fixture case counts', () => {
+  const path = 'packages/codegen/test/implementations/native-utilities.test.ts';
+  const suites = [{ declarations: [symbol], path }];
+  const regressionSuite = catalogRegressionSuite(suites, symbol);
+  assert.deepEqual(regressionSuite, { path });
+  for (const changed of [
+    { ...symbol, model: 'fpml' },
+    { ...symbol, namespace: 'other' },
+    { ...symbol, name: 'Other' },
+    { ...symbol, kind: 'Data' }
+  ])
+    assert.throws(() => catalogRegressionSuite(suites, changed), /Missing regression suite/);
+  const markdown = renderNativeImplementationInventory({
+    sources,
+    functions: [
+      {
+        symbol,
+        source: { path: 'model/functions.rosetta' },
+        implementation: { kind: 'unimplemented' },
+        referenceJava: { implementations: [] },
+        rune: { ...entry, variants: [] },
+        regressionSuite
+      }
+    ]
+  });
+  assert.match(markdown, /Regression suite: \(`packages\/codegen\/test\/implementations\/native-utilities.test.ts`\)/);
+  assert.doesNotMatch(markdown, /undefined|cases|selectors/);
+});
+
+test('counts only the declared function fixture cases and successful body selectors', () => {
+  const cases = [
+    { function: 'Compute', inputs: { basis: 'B' } },
+    { function: 'Compute', selector: 'A' },
+    { function: 'Compute', selector: 'B' },
+    { function: 'Compute', selector: 'Unavailable', expectedError: 'missing context' },
+    { function: 'Other', selector: 'Unrelated' }
+  ];
+  const suite = {
+    declarations: [symbol],
+    path: 'tests/compute.test.ts',
+    casesPath: 'fixtures/cases.json',
+    casesText: JSON.stringify(cases),
+    cases
+  };
+  assert.deepEqual(catalogRegressionSuite([suite], symbol, 'basis'), {
+    path: suite.path,
+    cases: suite.casesPath,
+    casesSha256: createHash('sha256').update(suite.casesText).digest('hex'),
+    selectors: ['A', 'B'],
+    caseCount: 4
+  });
+  assert.throws(() => catalogRegressionSuite([{ ...suite, cases: [] }], symbol), /Missing regression cases/);
+  const inlineCases = [{ inputs: { basis: 'Default' } }];
+  assert.equal(
+    catalogRegressionSuite([{ ...suite, cases: inlineCases, casesText: JSON.stringify(inlineCases) }], symbol)
+      .caseCount,
+    1
+  );
 });
 
 test('keeps pinned handwritten dependency algorithms separate from CDM production implementations', () => {

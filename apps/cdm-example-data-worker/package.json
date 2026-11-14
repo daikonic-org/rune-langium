@@ -1,0 +1,38 @@
+{
+  "name": "@rune-langium/cdm-example-data-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "FSL-1.1-ALv2",
+  "description": "Read-only benchmark catalog API backed by D1 and immutable R2 snapshots",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types --include-runtime false",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
+    "refresh": "node scripts/refresh.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:check": "drizzle-kit check --config drizzle.config.ts"
+  },
+  "dependencies": {
+    "@rune-langium/project-runtime": "workspace:*",
+    "@rune-langium/worker-core": "workspace:*",
+    "zod": "4.6.7",
+    "drizzle-orm": "0.45.4",
+    "@rune-langium/project-config": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261112.1",
+    "@types/node": "^26.6.6",
+    "cloudflare": "7.3.0",
+    "miniflare": "5.20261110.2-beta",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.161.0",
+    "drizzle-kit": "0.31.11"
+  },
+  "engines": {
+    "node": ">=26.13.0"
+  }
+}

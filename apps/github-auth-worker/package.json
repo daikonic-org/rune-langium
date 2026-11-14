@@ -18,10 +18,10 @@
     "pino": "^10.4.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261025.1",
+    "@cloudflare/workers-types": "^5.20261112.1",
     "miniflare": "5.20261001.0-alpha",
-    "vitest": "^5.0.5",
-    "wrangler": "^4.152.0"
+    "vitest": "^5.1.0",
+    "wrangler": "^4.161.0"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

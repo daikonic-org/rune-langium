@@ -57,6 +57,38 @@ export function validateCatalogImplementation(entry) {
   throw new Error('Implementation must be one Rune path, language-specific targets, or unimplemented.');
 }
 
+/** Link executable suites without inventing fixture counts for tests whose cases live in source. */
+export function catalogRegressionSuite(suites, symbol, dispatchAttribute) {
+  const suite = suites.find((suite) =>
+    suite.declarations.some((declaration) =>
+      ['model', 'namespace', 'kind', 'name'].every((key) => declaration[key] === symbol[key])
+    )
+  );
+  const identity = `${symbol.namespace}.${symbol.name}`;
+  if (!suite) throw new Error(`Missing regression suite: ${identity}`);
+  if (!suite.cases) return { path: suite.path };
+  const cases = suite.cases.filter(
+    (entry) => entry.function === symbol.name || (!entry.function && suite.declarations.length === 1)
+  );
+  if (!cases.length) throw new Error(`Missing regression cases: ${identity}`);
+  return {
+    path: suite.path,
+    cases: suite.casesPath,
+    casesSha256: createHash('sha256').update(suite.casesText).digest('hex'),
+    selectors: [
+      ...new Set(
+        cases
+          .filter((entry) => !entry.expectedError)
+          .flatMap((entry) => {
+            const selector = entry.selector ?? entry.inputs?.[dispatchAttribute];
+            return selector === undefined ? [] : [selector];
+          })
+      )
+    ].sort(),
+    caseCount: cases.length
+  };
+}
+
 /** Resolve handwritten Java class inheritance and tests without confusing generated classes or test doubles. */
 export function handwrittenJavaReferences(files, namespace, name) {
   const identities = new Set([`${namespace}.functions.${name}`, `${namespace}.${name}`]);
@@ -218,8 +250,14 @@ export function renderNativeImplementationInventory(inventory) {
       const bodies = rune.variants.filter((variant) => variant.hasRuneBody).length;
       notes += ` Upstream: ${bodies}/${rune.variants.length} selectors have bodies; default ${rune.upstreamDefaultHasBody ? 'has a body' : 'unimplemented'}. Execution evidence is separate.`;
     }
-    if (entry.regressionSuite)
-      notes += ` Regression suite: ${entry.regressionSuite.selectors.length ? entry.regressionSuite.selectors.length + ' body selectors, ' : ''}${entry.regressionSuite.caseCount} cases (\`${entry.regressionSuite.path}\`).`;
+    if (entry.regressionSuite) {
+      const suite = entry.regressionSuite;
+      const counts =
+        suite.caseCount === undefined
+          ? ''
+          : `${suite.selectors.length ? suite.selectors.length + ' body selectors, ' : ''}${suite.caseCount} cases `;
+      notes += ` Regression suite: ${counts}(\`${suite.path}\`).`;
+    }
     lines.push(`| [\`${namespace}.${name}\`](${link}) | ${selected} | ${java} | ${escape(rune.route)} | ${notes} |`);
   }
   lines.push('<!-- native-implementation-inventory:end -->', '');

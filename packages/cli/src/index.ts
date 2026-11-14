@@ -22,6 +22,7 @@ import { runValidate } from './validate.js';
 import { runGenerate } from './generate.js';
 import type { GenerateCommandOptions } from './generate.js';
 import { runBuild, type BuildCommandOptions } from './build.js';
+import { runMarketData, type MarketDataCommandOptions } from './market-data.js';
 
 const program = new Command();
 
@@ -71,6 +72,19 @@ program
   .option('--json', 'Output the build result as JSON')
   .action(async (options: BuildCommandOptions) => {
     process.exitCode = await runBuild(options);
+  });
+
+program
+  .command('market-data')
+  .description('Acquire public SOFR, SONIA and €STR snapshots with a portable Rune observation provider')
+  .requiredOption('--start <date>', 'First observation date (YYYY-MM-DD)')
+  .requiredOption('--end <date>', 'Last observation date (YYYY-MM-DD), up to 366 dates')
+  .requiredOption('--output <directory>', 'New output directory; existing directories are never replaced')
+  .option('--series <names...>', 'Series IDs; defaults to all three rates and their compounded indices')
+  .option('--catalog <origin>', 'Import a pinned selection from the shared catalog instead of acquiring official feeds')
+  .option('--json', 'Output the acquisition receipt as JSON')
+  .action(async (options: MarketDataCommandOptions) => {
+    process.exitCode = await runMarketData(options);
   });
 
 program.parseAsync().catch((failure: unknown) => {

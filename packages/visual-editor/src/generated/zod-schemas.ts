@@ -72,7 +72,7 @@ export const RegulatoryDocumentReferenceSchema = z.looseObject({
 
 export const DocumentRationaleSchema = z.looseObject({
   $type: z.literal('DocumentRationale'),
-  rationale: z.string(),
+  rationale: z.string().optional(),
   rationaleAuthor: z.string().optional()
 });
 
@@ -508,8 +508,8 @@ export const RosettaBooleanLiteralSchema = z.looseObject({
 
 export const RosettaConditionalExpressionSchema = z.looseObject({
   $type: z.literal('RosettaConditionalExpression'),
-  if: z.lazy(() => RosettaExpressionSchema).optional(),
-  ifthen: z.lazy(() => RosettaExpressionSchema).optional(),
+  if: z.lazy(() => RosettaExpressionSchema),
+  ifthen: z.lazy(() => RosettaExpressionSchema),
   full: z.boolean().optional(),
   elsethen: z.lazy(() => RosettaExpressionSchema).optional()
 });

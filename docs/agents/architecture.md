@@ -1140,6 +1140,32 @@ scopes. Unsupported resource generators fail before publication; provider callba
 never enter serialized captures or generated source. Workflow caches include the
 saved project revision so resource/config-only changes cannot retain valid status.
 
+Public benchmark acquisition lives at project-runtime's `/market-data` boundary,
+invoked explicitly by the CLI. One series registry owns official endpoint, CDM
+identity and source-unit mappings for SOFR/SONIA/€STR fixings and compounded
+indices. Snapshots retain exact response text and provenance; checksum/identity
+validation and one decoder derive their observations during acquisition and
+offline replay. Materialization produces an ordinary `override namespace
+impl.cdm.market` provider, preserving the existing CDM observation guards and
+shared target/Prototype execution. Builds and emitters never fetch benchmark data.
+Reference and benchmark HTTP reads share a bounded canceling stream reader.
+CSV decoding uses `csv-parse`'s browser ESM entry; the adapter owns feed-specific
+identity, units and date checks rather than CSV syntax.
+See [benchmark snapshots](../implementations/benchmark-data.md) for admitted
+tenors, missing-data behavior and refresh/install rules.
+The source-available `apps/cdm-example-data-worker` privately owns the CDM
+example's Drizzle SQLite schema, D1/R2 catalog, read API and CI publisher. It is
+not a Studio database and adds no ORM dependency to project-runtime. The main
+repository's `cdm-example-data.yml` owns its gated daily refresh; the Worker is
+read-only. Drizzle generates migrations, Wrangler applies them, and one explicit
+atomic batch exposes a complete staged snapshot. Native SQLite and Miniflare D1
+exercise the same query/schema contract. The portable runtime owns selection
+manifests, canonical capture IDs, bounded explicit downloads and materialization
+through the same Rune provider renderer. A project import saves selected dates,
+captures and source attribution; later catalog updates never change project pins.
+Real Studio projects supply their own providers. See the [catalog specification](../design/market-data-catalog/spec.md)
+and [service operations](../../apps/cdm-example-data-worker/README.md).
+
 Static project initialization stays in project-config/import and consumes only
 opened repository text. The runtime adds explicit catalog artifact-to-release
 mappings; it never interprets Maven versions as tags or loads Java code. The

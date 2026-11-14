@@ -237,6 +237,35 @@ workflow. Do not infer data from a scheme URI, invent a holiday calendar or remo
 a condition to make an example execute. [The resource matrix](../reference-examples/build-resources.md)
 records the current explicit JSON-list boundary.
 
+### Public benchmark data sources
+
+The installed `impl.cdm.market.ReadMarketObservations` contract accepts project
+data. [Explicit benchmark acquisition](benchmark-data.md) now downloads SOFR,
+SONIA and €STR fixings and compounded indices and materializes a portable Rune
+provider from verified saved snapshots. `ReadForwardRateSnapshot` still requires
+a separately supplied forward curve.
+
+The [CDM example catalog](../../apps/cdm-example-data-worker/README.md) implements
+D1/R2 history, pinned imports and a gated daily CI refresh behind those same
+provider seams. It is confined to the example service. The [specification](../design/market-data-catalog/spec.md)
+also covers subsequent curve/term integrations; ordinary Studio projects retain
+their own data providers.
+
+Public sources include:
+
+| Source | Available inputs |
+| --- | --- |
+| [New York Fed Markets API](https://markets.newyorkfed.org/static/docs/markets-api.html) | SOFR fixings, compounded averages and index, plus other US reference rates. |
+| [Bank of England SONIA](https://www.bankofengland.co.uk/markets/sonia-benchmark) | Historical SONIA (`IUDSOIA`) and compounded index (`IUDZOS2`) through the public statistical database, available there by 10am on the business day after first publication. |
+| [ECB €STR](https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_short-term_rate/html/eurostr_overview.en.html) | €STR fixings, compounded averages and index through the Data Portal and MID. The ECB does not charge for these series or license their use. |
+
+Acquisition should retain the source, full index identity, observation date,
+publication/revision information and units, then supply the verified snapshot
+through the existing project binding. Benchmark fixings and backward-looking
+compounded indices do not supply a projected forward curve. The bundled Strata
+[holiday snapshot](business-calendars.md), materialized code-list enums and
+nominal example rates are separate from live market-data acquisition.
+
 Prefer Rune where its semantics are sufficient. The example repository already
 contains a positional, duplicate-preserving Rune implementation of
 `PopOffDateList`, supplied through an explicit declaration override. Upstream's
@@ -261,8 +290,12 @@ writes the table for #646 from the same verified inventory; it does not publish 
 The default check compares source paths/blobs, ownership, signatures, Rune source
 hashes/assessment, exclusive implementation locations and handwritten Java
 references to the committed inventory. It also checks generated owned-source text
-and pinned dispatch slices/legal notices. New declarations and changed/missing
-implementations fail the check. Review changes before regenerating with
+and pinned dispatch slices/legal notices. Every implemented declaration must link
+to an existing executable regression suite. Fixture-backed suites record their
+per-function case counts, successful selectors and fixture hash; suites with
+inline cases record the test path without claiming a fixture count. New
+declarations, missing suites and changed/missing implementations fail the check.
+Review changes before regenerating with
 `node scripts/audit-native-implementations.mjs --write`. Existing unavailable
 entries are an explicit baseline, not a zero-gap success report. CI runs the check
 after the ordinary workspace build. Cached source bytes are verified on every

@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "description": "Portable Rune project configuration and persistence contracts",
   "type": "module",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,14 +28,14 @@
   "dependencies": {
     "@rune-langium/core": "workspace:*",
     "@rune-langium/curated-schema": "workspace:*",
-    "fast-xml-parser": "5.11.2",
+    "fast-xml-parser": "5.12.0",
     "picomatch": "4.0.7",
     "yaml": "2.9.1",
-    "zod": "^4.6.7"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/picomatch": "4.0.3",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }

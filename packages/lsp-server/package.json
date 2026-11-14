@@ -33,16 +33,16 @@
     "@lspeasy/core": "^3.0.1",
     "@lspeasy/server": "^4.2.4",
     "@rune-langium/core": "workspace:*",
-    "langium": "^4.4.0",
+    "@rune-langium/project-runtime": "workspace:*",
+    "langium": "^4.4.2",
     "vscode-languageserver": "~11.0.0",
-    "ws": "^8.22.0",
-    "@rune-langium/project-runtime": "workspace:*"
+    "ws": "^8.22.2"
   },
   "devDependencies": {
     "@lspeasy/client": "^3.1.10",
     "@types/ws": "^8.18.2",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

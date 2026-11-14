@@ -116,6 +116,11 @@ requested date. The overrides preserve requested order and reject missing or
 duplicate observations. Code-list enums can type provider inputs that are
 backed by a list. Dated market observations still require a project data source.
 
+The CLI's [explicit benchmark acquisition](benchmark-data.md) supplies SOFR,
+SONIA and €STR fixings and compounded indices as verified saved snapshots plus
+an ordinary provider override. Publication itself does not fetch or redistribute
+these observations. Forward curves and other provider families remain separate.
+
 The two FRO metadata overrides call `impl.cdm.fro.ReadFloatingRateIndexMatrix`.
 Bind it to a project provider that supplies dated matrix versions for the
 requested index, including versions that lack that index. Each interval starts
