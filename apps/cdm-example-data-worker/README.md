@@ -70,6 +70,13 @@ Only the default branch can publish. Missing activation leaves the job disabled.
 It creates no cloud resources, deploys no Worker and changes no user project.
 Old corrections outside the lookback require a manual reconciliation/backfill.
 
+Manual dispatch with `verify_access=true` instead checks the existing CI token
+against the configured catalog. It reads D1, executes a zero-row update, and
+writes, reads and deletes a uniquely named temporary R2 object. This mode runs
+without publication activation and cannot refresh feeds or deploy the Worker.
+Its report contains operation outcomes and HTTP status codes, never credentials
+or raw error responses. It requires the database to have been migrated already.
+
 A source failure leaves its accepted history intact while other complete
 datasets publish. The aggregate job fails and uploads a sanitized per-dataset
 report. Reports distinguish updated, unchanged, empty and failed acquisitions,

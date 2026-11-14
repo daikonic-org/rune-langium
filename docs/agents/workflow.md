@@ -66,6 +66,8 @@ on the default branch, and acquires six benchmark series and private SONIA OIS c
 reviewed Drizzle migrations through Wrangler and publishes complete D1/R2 snapshots;
 publication reuses the existing `CLOUDFLARE_API_TOKEN` upload secret, which must
 include D1 access for this example's database as well as R2 access.
+Manual `verify_access` dispatch exercises that credential using a zero-row D1
+update and temporary R2 object readback/cleanup, separately from publication.
 It does not deploy a Worker or update project pins. Its read service and ORM live
 only in `apps/cdm-example-data-worker`. Use `db:generate` after schema changes,
 commit SQL and metadata together, and run `db:check`, the package tests, build and
