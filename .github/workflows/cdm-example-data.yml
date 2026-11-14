@@ -1,0 +1,75 @@
+name: CDM Example Market Data
+
+on:
+  schedule:
+    - cron: '17 20 * * *'
+  workflow_dispatch:
+    inputs:
+      start:
+        description: First observation date (YYYY-MM-DD); omit both dates for a seven-day lookback
+        type: string
+      end:
+        description: Last observation date, at most 366 dates per run
+        type: string
+      series:
+        description: Comma-separated series IDs; blank means all six benchmark series
+        type: string
+      dry_run:
+        description: Validate feeds without changing the catalog
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-data-publication
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    # Activation is explicit after D1/R2 setup; no deploy or resource creation in this job.
+    if: ${{ vars.CDM_EXAMPLE_DATA_ENABLED == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.5.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.node-version'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter '@rune-langium/project-runtime...' run build
+      - run: pnpm --filter @rune-langium/cdm-example-data-worker run build
+      - name: Acquire and publish independent benchmark datasets
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CDM_EXAMPLE_DATA_API_TOKEN }}
+          CDM_EXAMPLE_DATA_DATABASE_ID: ${{ vars.CDM_EXAMPLE_DATA_DATABASE_ID }}
+          CDM_EXAMPLE_DATA_BUCKET: ${{ vars.CDM_EXAMPLE_DATA_BUCKET || 'rune-cdm-example-data' }}
+          START_DATE: ${{ inputs.start }}
+          END_DATE: ${{ inputs.end }}
+          SERIES: ${{ inputs.series }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        working-directory: apps/cdm-example-data-worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ -n "$START_DATE" || -n "$END_DATE" ]]; then
+            args+=(--start "$START_DATE" --end "$END_DATE")
+          fi
+          if [[ -n "$SERIES" ]]; then args+=(--series "$SERIES"); fi
+          if [[ "$DRY_RUN" == true ]]; then args+=(--dry-run); fi
+          node scripts/refresh.mjs "${args[@]}"
+      - name: Upload sanitized per-dataset report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: market-data-refresh-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/market-data-refresh/report.json
+          if-no-files-found: error

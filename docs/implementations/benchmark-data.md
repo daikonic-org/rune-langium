@@ -7,10 +7,11 @@ Rune override for `impl.cdm.market.ReadMarketObservations`. The original CDM
 the existing curated implementations. Generated TypeScript, Python and Prototype
 use the same saved Rune source without network access.
 
-The [shared market-data catalog specification](../design/market-data-catalog/spec.md)
-extends this delivery pattern to D1/R2 history, daily CI refresh and future curve
-datasets. It preserves the provider contracts and explicit project pins; shared
-storage and scheduled refresh are proposed, not part of the current CLI.
+The [CDM example catalog](../../apps/cdm-example-data-worker/README.md) adds D1/R2
+history, a read API, pinned project imports and a gated daily CI refresh. It is an
+example provider, not a required Studio service. The [catalog specification](../design/market-data-catalog/spec.md)
+records subsequent curve/term work. No cloud deployment or activation is implied
+by the implementation.
 
 ## Acquire and install
 
@@ -27,6 +28,13 @@ selection must include its `market-observations.rosetta`; default `model/**/*.ro
 selection already does. Keep only one `ReadMarketObservations` override in that
 selection. An existing declaration binding to another provider must also be
 removed or deliberately redirected before using this one.
+
+To use the CDM example's configured catalog instead of acquiring official feeds,
+add `--catalog https://YOUR-CDM-EXAMPLE-DATA-HOST`. The CLI copies `selection.json`,
+verified capture files and a single materialized provider into the new directory.
+The manifest pins the exact capture/date choices across overlapping windows;
+later catalog corrections cannot change this saved provider. Neither the ORM nor
+the database participates in subsequent project execution.
 
 For fewer series, append `--series sofr sonia estr`. To refresh, acquire into a
 new directory outside the selected source tree, review the new responses/provider,

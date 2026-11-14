@@ -26,6 +26,12 @@ before output creation. Generated code and Prototype use the saved provider
 offline. Refresh into a separate directory and review/copy the active provider;
 do not select competing overrides. See [series, installation and limits](../../docs/implementations/benchmark-data.md).
 
+`--catalog <origin>` explicitly copies a pinned selection from a configured
+catalog, including `selection.json`, verified captures and one materialized Rune
+provider. The default remains direct acquisition. The optional
+[CDM example service](../../apps/cdm-example-data-worker/README.md) is not a
+Studio dependency; real projects can supply their own providers.
+
 ## Named project builds
 
 Build saved target configurations explicitly with the native TypeScript toolchain:

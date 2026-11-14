@@ -245,9 +245,11 @@ SONIA and €STR fixings and compounded indices and materializes a portable Rune
 provider from verified saved snapshots. `ReadForwardRateSnapshot` still requires
 a separately supplied forward curve.
 
-The [shared catalog specification](../design/market-data-catalog/spec.md) proposes
-D1/R2 history, daily CI refresh and curve adapters behind the same provider seams.
-It covers the six downloaded fixing/index series as well as future curve data.
+The [CDM example catalog](../../apps/cdm-example-data-worker/README.md) implements
+D1/R2 history, pinned imports and a gated daily CI refresh behind those same
+provider seams. It is confined to the example service. The [specification](../design/market-data-catalog/spec.md)
+also covers subsequent curve/term integrations; ordinary Studio projects retain
+their own data providers.
 
 Public sources include:
 

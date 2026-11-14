@@ -81,6 +81,7 @@ program
   .requiredOption('--end <date>', 'Last observation date (YYYY-MM-DD), up to 366 dates')
   .requiredOption('--output <directory>', 'New output directory; existing directories are never replaced')
   .option('--series <names...>', 'Series IDs; defaults to all three rates and their compounded indices')
+  .option('--catalog <origin>', 'Import a pinned selection from the shared catalog instead of acquiring official feeds')
   .option('--json', 'Output the acquisition receipt as JSON')
   .action(async (options: MarketDataCommandOptions) => {
     process.exitCode = await runMarketData(options);

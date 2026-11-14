@@ -8,11 +8,12 @@ import {
   BenchmarkSeriesSchema,
   fetchBenchmarkSnapshot,
   renderBenchmarkProvider,
+  renderBenchmarkSelection,
   type BenchmarkSeries
 } from '../../packages/project-runtime/src/market-data.js';
 
 /** Publish/install the same pinned model and materialized provider for target and managed-worker checks. */
-export async function createBenchmarkProject(saved?: readonly unknown[]) {
+export async function createBenchmarkProject(saved?: readonly unknown[], selection?: unknown) {
   const snapshots =
     saved ??
     (await Promise.all(
@@ -22,7 +23,10 @@ export async function createBenchmarkProject(saved?: readonly unknown[]) {
     ));
   return createCuratedRuneProject(marketDirectory, {
     uri: 'file:///model/benchmark.rosetta',
-    content: await renderBenchmarkProvider(snapshots)
+    content:
+      selection === undefined
+        ? await renderBenchmarkProvider(snapshots)
+        : await renderBenchmarkSelection(selection, snapshots)
   });
 }
 

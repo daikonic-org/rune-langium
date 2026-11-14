@@ -1,0 +1,377 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "d066fcfd-22e5-4050-a95d-b483b3f18ada",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "benchmark_heads": {
+      "name": "benchmark_heads",
+      "columns": {
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "generation": {
+          "name": "generation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "generation_nonnegative": {
+          "name": "generation_nonnegative",
+          "value": "\"benchmark_heads\".\"generation\" >= 0"
+        }
+      }
+    },
+    "benchmark_observations": {
+      "name": "benchmark_observations",
+      "columns": {
+        "snapshot_id": {
+          "name": "snapshot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_value": {
+          "name": "source_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "benchmark_observation_date": {
+          "name": "benchmark_observation_date",
+          "columns": ["date", "snapshot_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "benchmark_observations_snapshot_id_benchmark_snapshots_id_fk": {
+          "name": "benchmark_observations_snapshot_id_benchmark_snapshots_id_fk",
+          "tableFrom": "benchmark_observations",
+          "tableTo": "benchmark_snapshots",
+          "columnsFrom": ["snapshot_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "benchmark_observations_snapshot_id_date_pk": {
+          "columns": ["snapshot_id", "date"],
+          "name": "benchmark_observations_snapshot_id_date_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "benchmark_publications": {
+      "name": "benchmark_publications",
+      "columns": {
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "generation": {
+          "name": "generation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "snapshot_id": {
+          "name": "snapshot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "benchmark_publications_snapshot_id_unique": {
+          "name": "benchmark_publications_snapshot_id_unique",
+          "columns": ["snapshot_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "benchmark_publications_series_benchmark_heads_series_fk": {
+          "name": "benchmark_publications_series_benchmark_heads_series_fk",
+          "tableFrom": "benchmark_publications",
+          "tableTo": "benchmark_heads",
+          "columnsFrom": ["series"],
+          "columnsTo": ["series"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "benchmark_publications_snapshot_id_benchmark_snapshots_id_fk": {
+          "name": "benchmark_publications_snapshot_id_benchmark_snapshots_id_fk",
+          "tableFrom": "benchmark_publications",
+          "tableTo": "benchmark_snapshots",
+          "columnsFrom": ["snapshot_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "benchmark_publications_series_generation_pk": {
+          "columns": ["series", "generation"],
+          "name": "benchmark_publications_series_generation_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "generation_positive": {
+          "name": "generation_positive",
+          "value": "\"benchmark_publications\".\"generation\" > 0"
+        }
+      }
+    },
+    "benchmark_runs": {
+      "name": "benchmark_runs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "phase": {
+          "name": "phase",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "snapshot_id": {
+          "name": "snapshot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "latest_date": {
+          "name": "latest_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "benchmark_runs_id_series_pk": {
+          "columns": ["id", "series"],
+          "name": "benchmark_runs_id_series_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "run_outcome": {
+          "name": "run_outcome",
+          "value": "\"benchmark_runs\".\"outcome\" IN ('updated','unchanged','empty','failed')"
+        },
+        "run_phase": {
+          "name": "run_phase",
+          "value": "\"benchmark_runs\".\"phase\" IN ('acquire','publish','complete')"
+        }
+      }
+    },
+    "benchmark_snapshots": {
+      "name": "benchmark_snapshots",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "series": {
+          "name": "series",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "derivation": {
+          "name": "derivation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "artifact_key": {
+          "name": "artifact_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_hash": {
+          "name": "source_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "captured_at": {
+          "name": "captured_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ingested_at": {
+          "name": "ingested_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "observation_count": {
+          "name": "observation_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "decoder": {
+          "name": "decoder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "benchmark_snapshots_derivation_unique": {
+          "name": "benchmark_snapshots_derivation_unique",
+          "columns": ["derivation"],
+          "isUnique": true
+        },
+        "benchmark_snapshot_series": {
+          "name": "benchmark_snapshot_series",
+          "columns": ["series", "captured_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "benchmark_snapshots_series_benchmark_heads_series_fk": {
+          "name": "benchmark_snapshots_series_benchmark_heads_series_fk",
+          "tableFrom": "benchmark_snapshots",
+          "tableTo": "benchmark_heads",
+          "columnsFrom": ["series"],
+          "columnsTo": ["series"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "observation_bound": {
+          "name": "observation_bound",
+          "value": "\"benchmark_snapshots\".\"observation_count\" BETWEEN 0 AND 366"
+        },
+        "decoder_version": {
+          "name": "decoder_version",
+          "value": "\"benchmark_snapshots\".\"decoder\" = 'benchmark-v1'"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

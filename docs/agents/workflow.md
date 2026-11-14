@@ -58,6 +58,19 @@ instrumentation lowering pass to accommodate generated model decorators.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
+## CDM example data CI
+
+The CDM example's reference-data workflow is `.github/workflows/cdm-example-data.yml`
+in this repository. It is gated on example-specific setup/activation, runs only
+on the default branch, and acquires six benchmark series independently. It applies
+reviewed Drizzle migrations through Wrangler and publishes complete D1/R2 snapshots;
+it does not deploy a Worker or update project pins. Its read service and ORM live
+only in `apps/cdm-example-data-worker`. Use `db:generate` after schema changes,
+commit SQL and metadata together, and run `db:check`, the package tests, build and
+type checks. These tests use native SQLite and Miniflare matching Wrangler's own
+runtime version; they require no cloud credentials. See the service README for
+manual backfills, offline v1 imports and activation variables.
+
 ## Browser CI Dependencies
 
 Change feedback: run Studio's `change-feedback`, `ChangeFeedbackText`, SourceEditor,

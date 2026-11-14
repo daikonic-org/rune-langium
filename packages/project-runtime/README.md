@@ -10,6 +10,11 @@ and materializes an ordinary Rune observation-provider override for offline
 TypeScript, Python and Prototype execution. Acquisition never runs implicitly
 during a build. See [benchmark data](../../docs/implementations/benchmark-data.md).
 
+That entry also exports `fetchBenchmarkSelection`, `renderBenchmarkSelection`,
+`BenchmarkSelectionSchema` and `benchmarkSnapshotId` for explicit, portable
+capture/date pins across archived windows. The database/ORM stays in the private
+CDM example service; it is not part of this runtime or generated applications.
+
 `serializeProjectData` accepts linked documents and a declared type through its
 data context. Optional `model` and `version` values replace existing wire headers;
 omitting them preserves the payload's original headers. Hosts must supply linked

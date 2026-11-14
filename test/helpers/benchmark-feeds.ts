@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import type { BenchmarkSeries } from '../../packages/project-runtime/src/market-data.js';
+import type { BenchmarkSeries } from '../../packages/project-runtime/src/market-data/registry.js';
 
 // Synthetic data in the official response formats; never downloaded during tests.
 export const benchmarkWindow = { startDate: '2026-11-02', endDate: '2026-11-03' };

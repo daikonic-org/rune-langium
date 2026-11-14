@@ -1,10 +1,22 @@
 # Shared market-data catalog
 
-Status: **proposed**, 2026-11-13. Tracks the provider follow-up in
+Status: **first milestone implemented for local review**, 2026-11-13. Tracks the provider follow-up in
 [#646](https://github.com/daikonic-org/rune-langium/issues/646).
-The six-series acquisition CLI is implemented in
-[#707](https://github.com/daikonic-org/rune-langium/pull/707); the shared catalog,
-curve adapters and scheduled publication described here are not implemented.
+[#707](https://github.com/daikonic-org/rune-langium/pull/707) includes the six-series
+catalog, read API, portable imports and a gated daily CI publisher. Deployment and
+activation have not been performed. Curve adapters, entitled term feeds and
+calendar-aware freshness alerts remain subsequent work.
+
+## Deployment scope
+
+The D1/R2 service is the **CDM example's reference-data provider**, implemented in
+[`apps/cdm-example-data-worker`](../../../apps/cdm-example-data-worker/README.md).
+It is not a Studio database or a required service for real projects. Production
+projects supply their own providers and data sources. CI remains in the main
+rune-langium repository and targets the example's separately configured resources.
+Drizzle owns the example service's typed SQLite schema and routine queries;
+Wrangler applies its generated migrations. No database/ORM dependency enters the
+portable project-runtime layer.
 
 ## Purpose
 
@@ -14,7 +26,7 @@ snapshots. Refresh the shared catalog daily through GitHub Actions. Projects
 continue to calculate from explicitly installed data with no network dependency
 during Build, code generation or Execute.
 
-Use **Cloudflare D1 (managed SQLite)** for the queryable catalog and derived
+Use **Cloudflare D1 (managed SQLite)** for the example's queryable catalog and derived
 records, and **R2** for immutable source responses and portable snapshot artifacts.
 Use the same catalog for the six benchmark series already downloaded and for
 future curve datasets. A local SQLite export supports inspection and offline
@@ -310,4 +322,6 @@ Deliver the catalog, existing snapshot import and six-series daily refresh first
 then add curve adapters in batches sharing readers/conventions. Entitled term
 feeds follow when a specific source and access rights are available. Record
 provider coverage separately from CDM function implementation counts on #646.
-This specification adds no live workflow, infrastructure or subscriptions.
+The daily workflow is implemented but gated on example-service setup and explicit
+activation. No cloud resource, deployment or subscription was created during
+implementation. See the service README for verified behavior and remaining stages.

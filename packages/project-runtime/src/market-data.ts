@@ -5,48 +5,19 @@ import { projectFileRevision } from '@rune-langium/project-config';
 import { readStreamBytes } from './read-stream.js';
 import { benchmarkCsv } from './market-data/csv.js';
 
-export const BenchmarkSeriesSchema = z.enum(['sofr', 'sonia', 'estr', 'sofr-index', 'sonia-index', 'estr-index']);
-export type BenchmarkSeries = z.infer<typeof BenchmarkSeriesSchema>;
-type Definition = { provider: 'ny-fed' | 'boe' | 'ecb'; series: string; cdmCode: string; unit: 'percent' | 'index' };
-/** Exact public series and CDM identities; term, average and vendor variants are deliberately distinct. */
-export const BENCHMARK_SERIES: Readonly<Record<BenchmarkSeries, Readonly<Definition>>> = {
-  sofr: { provider: 'ny-fed', series: 'sofr', cdmCode: 'USD_SOFR', unit: 'percent' },
-  sonia: { provider: 'boe', series: 'IUDSOIA', cdmCode: 'GBP_SONIA', unit: 'percent' },
-  estr: { provider: 'ecb', series: 'B.EU000A2X2A25.WT', cdmCode: 'EUR_EuroSTR', unit: 'percent' },
-  'sofr-index': { provider: 'ny-fed', series: 'sofrai', cdmCode: 'USD_SOFR_Compounded_Index', unit: 'index' },
-  'sonia-index': { provider: 'boe', series: 'IUDZOS2', cdmCode: 'GBP_SONIA_Compounded_Index', unit: 'index' },
-  'estr-index': { provider: 'ecb', series: 'B.EU000A2QQF08.CI', cdmCode: 'EUR_EuroSTR_Compounded_Index', unit: 'index' }
-};
-const MAX_BYTES = 2 * 1024 * 1024;
-const windowSchema = z
-  .strictObject({ startDate: z.iso.date(), endDate: z.iso.date() })
-  .superRefine((window, context) => {
-    const days = (Date.parse(window.endDate) - Date.parse(window.startDate)) / 86400000;
-    if (days < 0 || days > 365)
-      context.addIssue({ code: 'custom', message: 'Choose an ordered window of at most 366 dates.' });
-  });
-export const BenchmarkSnapshotSchema = z.strictObject({
-  schemaVersion: z.literal(1),
-  series: BenchmarkSeriesSchema,
-  window: windowSchema,
-  source: z.strictObject({
-    url: z.url(),
-    retrievedAt: z.iso.datetime(),
-    sha256: z.string().regex(/^[a-f0-9]{64}$/),
-    lastModified: z.string().optional(),
-    etag: z.string().optional()
-  }),
-  content: z.string().max(MAX_BYTES)
-});
-/** Exact saved response bytes represented as UTF-8 text; normalized observations are derived, never duplicated. */
-export type BenchmarkSnapshot = z.infer<typeof BenchmarkSnapshotSchema>;
-export interface BenchmarkObservation {
-  date: string;
-  sourceValue: string;
-  value: number;
-  status?: string;
-  revision?: string;
-}
+import { BENCHMARK_SERIES, BenchmarkSeriesSchema, type BenchmarkSeries } from './market-data/registry.js';
+export { BENCHMARK_SERIES, BenchmarkSeriesSchema, type BenchmarkSeries } from './market-data/registry.js';
+import {
+  MAX_BYTES,
+  windowSchema,
+  BenchmarkSnapshotSchema,
+  type BenchmarkSnapshot,
+  type BenchmarkObservation
+} from './market-data/contracts.js';
+export { BenchmarkSnapshotSchema, type BenchmarkSnapshot, type BenchmarkObservation } from './market-data/contracts.js';
+import { benchmarkTerms } from './market-data/terms.js';
+import { BenchmarkSelectionSchema, benchmarkSnapshotId } from './market-data/selection.js';
+type Definition = (typeof BENCHMARK_SERIES)[BenchmarkSeries];
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function boeDate(date: string): string {
   const [year, month, day] = date.split('-');
@@ -209,9 +180,60 @@ export async function renderBenchmarkProvider(inputs: readonly unknown[]): Promi
   const decoded = await Promise.all(inputs.map(readBenchmarkSnapshot));
   if (!decoded.length || new Set(decoded.map(({ snapshot }) => snapshot.series)).size !== decoded.length)
     throw new Error('Supply one snapshot per benchmark series.');
-  decoded.sort((a, b) => (a.snapshot.series < b.snapshot.series ? -1 : a.snapshot.series > b.snapshot.series ? 1 : 0));
-  const branches = decoded.map(({ snapshot, observations }) => {
-    const definition = BENCHMARK_SERIES[snapshot.series];
+  return renderProvider(
+    decoded.map(({ snapshot, observations }) => ({ series: snapshot.series, observations, sources: [snapshot.source] }))
+  );
+}
+
+type ProviderData = {
+  series: BenchmarkSeries;
+  observations: BenchmarkObservation[];
+  sources: BenchmarkSnapshot['source'][];
+};
+
+/** Resolve only the explicitly pinned dates from verified captures; overlapping windows never imply a revision policy. */
+export async function renderBenchmarkSelection(selection: unknown, inputs: readonly unknown[]): Promise<string> {
+  const manifest = BenchmarkSelectionSchema.parse(selection);
+  if (new Set(manifest.datasets.map((dataset) => dataset.series)).size !== manifest.datasets.length)
+    throw new Error('Duplicate benchmark selection dataset.');
+  const expected = new Set(manifest.datasets.flatMap((dataset) => dataset.snapshots.map((member) => member.id)));
+  if (inputs.length !== expected.size) throw new Error('Supply exactly the selected benchmark snapshots.');
+  const captures = new Map<string, Awaited<ReturnType<typeof readBenchmarkSnapshot>>>();
+  for (const input of inputs) {
+    const decoded = await readBenchmarkSnapshot(input);
+    const id = await benchmarkSnapshotId(decoded.snapshot);
+    if (!expected.has(id) || captures.has(id)) throw new Error('Unexpected or duplicate benchmark snapshot.');
+    captures.set(id, decoded);
+  }
+  const data: ProviderData[] = [];
+  for (const dataset of manifest.datasets) {
+    const observations: BenchmarkObservation[] = [],
+      sources: BenchmarkSnapshot['source'][] = [];
+    const selected = new Set<string>();
+    for (const member of dataset.snapshots) {
+      const capture = captures.get(member.id);
+      if (!capture || capture.snapshot.series !== dataset.series)
+        throw new Error('Benchmark selection identity mismatch.');
+      sources.push(capture.snapshot.source);
+      for (const date of member.dates) {
+        if (selected.has(date) || date < manifest.window.startDate || date > manifest.window.endDate)
+          throw new Error('Duplicate or out-of-window benchmark selection date.');
+        const observation = capture.observations.find((row) => row.date === date);
+        if (!observation) throw new Error('Selected benchmark observation is missing.');
+        observations.push(observation);
+        selected.add(date);
+      }
+    }
+    observations.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    data.push({ series: dataset.series, observations, sources });
+  }
+  return renderProvider(data);
+}
+
+function renderProvider(decoded: ProviderData[]): string {
+  decoded.sort((a, b) => (a.series < b.series ? -1 : a.series > b.series ? 1 : 0));
+  const branches = decoded.map(({ series, observations }) => {
+    const definition = BENCHMARK_SERIES[series];
     const records = observations.map((row) => {
       const [year, month, day] = row.date.split('-').map(Number);
       return `DatedValue { date: date { year: ${year}, month: ${month}, day: ${day} }, value: ${decimalValue(row.sourceValue, definition.unit)} }`;
@@ -219,11 +241,11 @@ export async function renderBenchmarkProvider(inputs: readonly unknown[]): Promi
     return `if code = FloatingRateIndexEnum -> ${definition.cdmCode}\n        then ${records.length ? `[\n            ${records.join(',\n            ')}\n        ]` : 'empty'}`;
   });
   const supported = decoded
-    .map(({ snapshot }) => `code = FloatingRateIndexEnum -> ${BENCHMARK_SERIES[snapshot.series].cdmCode}`)
+    .map(({ series }) => `code = FloatingRateIndexEnum -> ${BENCHMARK_SERIES[series].cdmCode}`)
     .join(' or ');
   return `// SPDX-License-Identifier: MIT
 // Generated benchmark provider; snapshot responses retain their source terms.
-${decoded.map(({ snapshot }) => `// ${snapshot.series}: ${snapshot.source.url}\n// Retrieved ${snapshot.source.retrievedAt}; SHA-256 ${snapshot.source.sha256}`).join('\n')}
+${decoded.map(({ series, sources }) => `// ${benchmarkTerms(series).attribution}\n// Terms: ${benchmarkTerms(series).url}\n${sources.map((source) => `// ${series}: ${source.url}\n// Retrieved ${source.retrievedAt}; SHA-256 ${source.sha256}`).join('\n')}`).join('\n')}
 override namespace impl.cdm.market
 version "1.0.0"
 import cdm.base.math.DatedValue
@@ -249,3 +271,14 @@ func ReadMarketObservations:
         (${branches.join('\n        else ')}\n        else empty) filter [dates contains (item -> date)]
 `;
 }
+
+export {
+  BenchmarkSelectionSchema,
+  benchmarkSnapshotId,
+  CatalogSnapshotId,
+  CatalogWindow,
+  BENCHMARK_DECODER,
+  type BenchmarkSelection
+} from './market-data/selection.js';
+export { benchmarkTerms } from './market-data/terms.js';
+export { fetchBenchmarkSelection } from './market-data/catalog-client.js';
