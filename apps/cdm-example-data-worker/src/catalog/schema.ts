@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { sqliteTable, text, integer, check, index, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, sqliteView, text, integer, check, index, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const heads = sqliteTable(
@@ -188,3 +188,40 @@ export const curveRuns = sqliteTable(
     check('curve_run_phase', sql`${t.phase} IN ('acquire','publish','complete')`)
   ]
 );
+
+// Only accepted publications appear in execution connections, including historical vintages.
+export const benchmarkData = sqliteView('benchmark_data', {
+  series: text().notNull(),
+  snapshot_id: text().notNull(),
+  generation: integer().notNull(),
+  date: text().notNull(),
+  source_value: text().notNull(),
+  value: text().notNull(),
+  captured_at: text().notNull(),
+  confirmed_at: text().notNull()
+}).as(sql`SELECT s.series, o.snapshot_id, p.generation, o.date, o.source_value, o.value,
+  s.captured_at, COALESCE(c.last_seen_at,s.captured_at) AS confirmed_at
+  FROM benchmark_observations o JOIN benchmark_snapshots s ON s.id=o.snapshot_id
+  JOIN benchmark_publications p ON p.snapshot_id=s.id
+  JOIN benchmark_heads h ON h.series=p.series AND p.generation<=h.generation
+  LEFT JOIN benchmark_confirmations c ON c.snapshot_id=s.id`);
+
+export const soniaOisData = sqliteView('sonia_ois_data', {
+  snapshot_id: text().notNull(),
+  generation: integer().notNull(),
+  date: text().notNull(),
+  kind: text().notNull(),
+  grid: text().notNull(),
+  maturity_months: integer().notNull(),
+  maturity_years: text().notNull(),
+  source_value: text().notNull(),
+  value: text().notNull(),
+  captured_at: text().notNull(),
+  confirmed_at: text().notNull()
+}).as(sql`SELECT o.snapshot_id, p.generation, o.date, o.kind, o.grid, o.maturity_months,
+  o.maturity_years, o.source_value, o.value, s.captured_at,
+  COALESCE(c.last_seen_at,s.captured_at) AS confirmed_at
+  FROM curve_points o JOIN curve_snapshots s ON s.id=o.snapshot_id
+  JOIN curve_publications p ON p.snapshot_id=s.id
+  JOIN curve_heads h ON h.series=p.series AND p.generation<=h.generation
+  LEFT JOIN curve_confirmations c ON c.snapshot_id=s.id`);

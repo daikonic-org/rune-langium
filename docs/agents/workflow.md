@@ -54,11 +54,21 @@ instrumentation lowering pass to accommodate generated model decorators.
 - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses hooks; report skipped verification when relevant.
 - After codegen render changes, run `pnpm --filter @rune-langium/codegen run build` so consumers receive updated dist output.
 - After switching stacked branches, force affected TypeScript builds with `pnpm --filter <package> exec tsc -b --force` before testing consumers. For Codegen, follow a forced compiler run with its package `build` to reapply explicit decorator lowering. Incremental build caches can leave `dist` from the previous branch; source-only tests do not verify those exports.
-- The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core` and `@rune-langium/core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
+- The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core`, `@rune-langium/core` and `@rune-langium/worker-core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
 ## CDM example data CI
+
+Hosted preparation changes: generate the client driver with
+`node apps/cdm-example-data-worker/scripts/build-driver.mjs` (never edit its JSON
+bundle), run `check:driver`, regenerate Wrangler types after binding changes, and
+run the data-worker, worker-core execution and Studio preparation gateway/client
+tests. The data-worker suite exercises real Miniflare D1, Worker Loader, private
+RPC and network denial, with the same example queries on native SQLite.
+Keep its numeric GitHub-ID allowlist closed by default. The combined Pages build
+adds the private execution binding only when `CDM_EXAMPLE_EXECUTION_ENABLED=true`;
+the default build must work before the private Worker has been deployed.
 
 The CDM example's reference-data workflow is `.github/workflows/cdm-example-data.yml`
 in this repository. It is gated on example-specific setup/activation, runs only
@@ -152,6 +162,14 @@ TypeScript project and is outside workspace package type-checks.
 Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 31 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
+
+`drizzle-orm@0.45.4` has a declaration-only patch for its SQLite proxy callback.
+It reuses the package's existing `SqliteRemoteResult` so an absent `.get()` row
+is permitted, matching `mapGetResult` at runtime. Both ESM and CommonJS
+declarations are patched; runtime JavaScript is unchanged. The catalog and hosted
+read connection share `sqliteProxyResult`, preserving `undefined` for a missing
+row and arrays for `.all()`/`.values()`. Remove the patch when upstream callback
+types accept the absent-row case; retain native SQLite and isolated D1 regressions.
 
 `@xyflow/react@12.12.1` has a narrow ESM measurement patch in
 `patches/@xyflow__react@12.12.1.patch`. Both browser and Node ESM entries defer
