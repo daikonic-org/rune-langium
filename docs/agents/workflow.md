@@ -163,6 +163,14 @@ Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor f
 
 ## Dependency Compatibility and Audit Exceptions
 
+`drizzle-orm@0.45.4` has a declaration-only patch for its SQLite proxy callback.
+It reuses the package's existing `SqliteRemoteResult` so an absent `.get()` row
+is permitted, matching `mapGetResult` at runtime. Both ESM and CommonJS
+declarations are patched; runtime JavaScript is unchanged. The catalog and hosted
+read connection share `sqliteProxyResult`, preserving `undefined` for a missing
+row and arrays for `.all()`/`.values()`. Remove the patch when upstream callback
+types accept the absent-row case; retain native SQLite and isolated D1 regressions.
+
 `@xyflow/react@12.12.1` has a narrow ESM measurement patch in
 `patches/@xyflow__react@12.12.1.patch`. Both browser and Node ESM entries defer
 the internal ResizeObserver update, coalesce changes by node identity and cancel

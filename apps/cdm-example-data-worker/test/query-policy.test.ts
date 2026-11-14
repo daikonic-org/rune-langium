@@ -3,6 +3,7 @@
 import { expect, it } from 'vitest';
 import { drizzle, eq, benchmarkData } from '../src/driver.js';
 import { admittedSelect, createReadConnection } from '../src/query-policy.js';
+import { catalogOrm } from '../src/catalog/orm.js';
 import { publishBenchmarkSnapshot } from '../src/catalog/catalog.js';
 import { nativeBenchmarkCatalog } from './helpers/catalog.js';
 import { fetchBenchmarkSnapshot } from '@rune-langium/project-runtime/market-data';
@@ -29,6 +30,19 @@ it('runs ordinary Drizzle queries over accepted data and preserves column semant
     expect((await connection.query('SELECT date FROM benchmark_data ORDER BY date', [], 'get')).rows).toEqual([
       '2026-11-02'
     ]);
+    const select = () => db.select({ value: benchmarkData.value }).from(benchmarkData);
+    expect(await select().where(eq(benchmarkData.date, '2026-11-02')).get()).toEqual({ value: '0.0433' });
+    expect(await select().where(eq(benchmarkData.date, '2099-01-01')).get()).toBeUndefined();
+    expect(await select().where(eq(benchmarkData.generation, 999)).get()).toBeUndefined();
+    expect(await select().where(eq(benchmarkData.date, '2099-01-01')).all()).toEqual([]);
+    expect(await select().where(eq(benchmarkData.date, '2099-01-01')).values()).toEqual([]);
+    expect(
+      await catalogOrm(store.db)
+        .select({ value: benchmarkData.value })
+        .from(benchmarkData)
+        .where(eq(benchmarkData.date, '2099-01-01'))
+        .get()
+    ).toBeUndefined();
     connection.close();
     await expect(connection.query('SELECT * FROM benchmark_data', [], 'all')).rejects.toThrow('expired');
   } finally {

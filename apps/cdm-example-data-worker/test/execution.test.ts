@@ -123,6 +123,31 @@ it('executes normal Drizzle query code in a real isolated Worker against private
     ]
   });
 });
+it('preserves present and missing Drizzle rows through the isolated connection', async () => {
+  const code = `
+import { drizzle, eq, benchmarkData, sql } from './driver.js';
+export default async function(connection) {
+  const db = drizzle((sql, params, method) => connection.query(sql, params, method));
+  const select = () => db.select({ value: benchmarkData.value }).from(benchmarkData);
+  return {
+    present: await select().where(eq(benchmarkData.date, '2026-11-02')).get(),
+    missingDate: (await select().where(eq(benchmarkData.date, '2099-01-01')).get()) === undefined,
+    missingGeneration: (await select().where(eq(benchmarkData.generation, 999)).get()) === undefined,
+    emptyAll: await select().where(eq(benchmarkData.date, '2099-01-01')).all(),
+    emptyValues: await select().where(eq(benchmarkData.date, '2099-01-01')).values(),
+    nullField: await db.select({ value: sql\`NULL\` }).from(benchmarkData).get()
+  };
+}`;
+  const result = await service.execute(request(code), identity);
+  expect(result.value).toEqual({
+    present: { value: '0.0433' },
+    missingDate: true,
+    missingGeneration: true,
+    emptyAll: [],
+    emptyValues: [],
+    nullField: { value: null }
+  });
+});
 it('runs the browser preparation transport through authenticated Pages and the private binding', async () => {
   const fetcher: typeof fetch = async (url, init) =>
     handleDatabasePreparation(

@@ -4,6 +4,7 @@ import sqliteParser from 'node-sql-parser/build/sqlite.js';
 import { z } from 'zod';
 import { EXECUTION_LIMITS } from '@rune-langium/worker-core/execution';
 import type { CatalogDatabase } from './catalog/catalog-schema.js';
+import { sqliteProxyResult } from './catalog/orm.js';
 
 const parser = new sqliteParser.Parser();
 const scalar = z.union([z.string().max(2048), z.number().finite(), z.null()]);
@@ -120,7 +121,7 @@ export function createReadConnection(db: Pick<CatalogDatabase, 'values'>, option
         closed = true;
         throw new Error('Database result budget exceeded.');
       }
-      return { rows: method === 'get' ? (rows[0] ?? []) : rows };
+      return sqliteProxyResult(rows, method);
     }
   };
 }

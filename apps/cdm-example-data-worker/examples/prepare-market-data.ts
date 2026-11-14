@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { drizzle, and, eq, gte, lte, benchmarkData, soniaOisData } from '../src/driver.js';
+import { drizzle, and, eq, gte, lte, benchmarkData, soniaOisData, type SqliteRemoteResult } from '../src/driver.js';
 
 interface Input {
   series: string;
@@ -11,7 +11,7 @@ interface Input {
   curveGeneration: number;
 }
 interface Connection {
-  query(sql: string, params: unknown[], method: string): Promise<{ rows: unknown[] | unknown[][] }>;
+  query(sql: string, params: unknown[], method: string): Promise<SqliteRemoteResult>;
 }
 
 /** The same ordinary Drizzle queries work with a standalone or hosted connection. */

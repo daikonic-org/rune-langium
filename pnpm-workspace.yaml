@@ -99,5 +99,7 @@ patchedDependencies:
   '@xyflow/react@12.12.1': patches/@xyflow__react@12.12.1.patch
   # GHSA-vfj7-8cjw-p6xm: structural guards backported from micromatch/braces#82.
   braces@3.0.3: patches/braces@3.0.3.patch
+  # Match SQLite proxy callback types to the runtime's absent .get() result.
+  drizzle-orm@0.45.4: patches/drizzle-orm@0.45.4.patch
   # Preserve contained-node union setters until langium-zod publishes support.
   langium-zod@0.12.2: patches/langium-zod@0.12.2.patch
