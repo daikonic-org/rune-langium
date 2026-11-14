@@ -60,7 +60,7 @@ The daily workflow is in the **main rune-langium repository** at
 | `CDM_EXAMPLE_DATA_ENABLED=true` | Repository variable | Enable this example-only scheduled job after setup |
 | `CDM_EXAMPLE_DATA_DATABASE_ID` | Repository variable | The example's D1 UUID |
 | `CDM_EXAMPLE_DATA_BUCKET` | Repository variable | Optional; defaults to `rune-cdm-example-data` |
-| `CDM_EXAMPLE_DATA_API_TOKEN` | Repository secret | D1/R2 publication permissions for the configured account |
+| `CLOUDFLARE_API_TOKEN` | Existing repository secret | Reuses the curated R2 upload token; it also needs D1 publication permissions for this account |
 | `CLOUDFLARE_ACCOUNT_ID` | Existing repository secret | Account owning those resources |
 
 The job runs at **20:17 UTC daily**, checks the last seven calendar days, and
@@ -206,7 +206,8 @@ The refresh job still requires explicit activation and default-branch execution.
 Provisioning on 2026-11-14 created the private `rune-cdm-example-data` D1 database
 and R2 bucket; the database ID is recorded in `wrangler.jsonc`. No Worker route or
 public service was deployed. Scheduled publication still requires the repository
-activation variable and scoped CI API secret.
+activation/database variables and the existing `CLOUDFLARE_API_TOKEN`, with D1/R2
+publication access.
 
 The first verified curve import selected November 2–13, 2026. It accepted
 **1,980 points over nine published dates, November 2–12**; November 13 was not
@@ -218,5 +219,6 @@ The six previously saved fixing/index captures were also imported through the
 unchanged v1 snapshot publisher: 36 observations in total, six per series, for
 November 2–9. Their original retrieval times, source bytes and snapshot identities
 are retained. This initial backfill does not enable the daily job. The repository
-still needs `CDM_EXAMPLE_DATA_API_TOKEN` and its activation/database variables;
-existing personal OAuth credentials were not copied into CI.
+reuses the existing `CLOUDFLARE_API_TOKEN` upload secret and still needs its
+activation/database variables. D1 access must be included in that token's scope;
+the live backfill used personal OAuth, which was not copied into CI.

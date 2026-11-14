@@ -102,10 +102,11 @@ export async function soniaOisSnapshotId(snapshot: SoniaOisSnapshot): Promise<st
 export async function readSoniaOisAcquisition(input: unknown) {
   const { snapshot: supplied, archiveBase64 } = SoniaOisAcquisition.parse(input);
   const snapshot = readSoniaOisSnapshot(supplied);
-  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(archiveBase64))
+  if (archiveBase64.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(archiveBase64))
     throw new Error('Invalid curve archive encoding.');
-  const bytes = Uint8Array.from(atob(archiveBase64), (character) => character.charCodeAt(0));
-  if (bytes.length > 16 * 1024 * 1024) throw new Error('Curve archive too large.');
+  const decoded = atob(archiveBase64);
+  if (decoded.length > 16 * 1024 * 1024) throw new Error('Curve archive too large.');
+  const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
   const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]
     .map((value) => value.toString(16).padStart(2, '0'))
     .join('');

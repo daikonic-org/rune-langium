@@ -8,6 +8,30 @@ import { readSoniaOisAcquisition, readSoniaOisSnapshot, soniaOisSnapshotId } fro
 import type { CatalogDatabase } from '../src/catalog/catalog-schema.js';
 
 const query = { date: '2026-11-06', kind: 'spot', grid: 'monthly' };
+it.each([4_000_000, 16 * 1024 * 1024])(
+  'validates a %i-byte archive without overflowing the regex stack',
+  async (size) => {
+    const data = await acquisition('a'.repeat(size));
+    expect(await readSoniaOisAcquisition(data)).toEqual(data);
+  }
+);
+it.each(['Zg', 'Zg=', 'Zg===', '=Zg=', 'Z=g=', 'Zg==\n', 'Zg==AAAA', 'Zg--', 'Zg__'])(
+  'rejects malformed base64 archive encoding %j',
+  async (archiveBase64) => {
+    await expect(readSoniaOisAcquisition({ ...(await acquisition()), archiveBase64 })).rejects.toThrow(
+      'Invalid curve archive encoding.'
+    );
+  }
+);
+it.each(['f', 'fo', 'foo'])('accepts the base64 padding for %j', async (raw) => {
+  const data = await acquisition(raw);
+  expect(await readSoniaOisAcquisition(data)).toEqual(data);
+});
+it('rejects an archive larger than the decoded byte limit', async () => {
+  await expect(readSoniaOisAcquisition(await acquisition('a'.repeat(16 * 1024 * 1024 + 1)))).rejects.toThrow(
+    'Curve archive too large.'
+  );
+});
 it('publishes private fitted curves with exact source text, normalized units and explicit grids', async () => {
   const store = nativeBenchmarkCatalog();
   try {

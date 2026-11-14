@@ -71,7 +71,7 @@ jobs:
       - name: Acquire and publish independent fixing and curve datasets
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CDM_EXAMPLE_DATA_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CDM_EXAMPLE_DATA_DATABASE_ID: ${{ vars.CDM_EXAMPLE_DATA_DATABASE_ID }}
           CDM_EXAMPLE_DATA_BUCKET: ${{ vars.CDM_EXAMPLE_DATA_BUCKET || 'rune-cdm-example-data' }}
           START_DATE: ${{ inputs.start }}
