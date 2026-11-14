@@ -18,7 +18,7 @@ export const snapshots = sqliteTable(
     series: text()
       .notNull()
       .references(() => heads.series),
-    derivation: text().notNull().unique(),
+    derivation: text().notNull(),
     artifact_key: text().notNull(),
     source_hash: text().notNull(),
     captured_at: text().notNull(),
@@ -34,6 +34,12 @@ export const snapshots = sqliteTable(
     index('benchmark_snapshot_series').on(t.series, t.captured_at)
   ]
 );
+export const confirmations = sqliteTable('benchmark_confirmations', {
+  snapshot_id: text()
+    .primaryKey()
+    .references(() => snapshots.id),
+  last_seen_at: text().notNull()
+});
 export const observations = sqliteTable(
   'benchmark_observations',
   {

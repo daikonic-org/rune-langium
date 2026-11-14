@@ -8,6 +8,13 @@
       "when": 1794613142956,
       "tag": "0000_benchmark_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794624851633,
+      "tag": "0001_capture_confirmations",
+      "breakpoints": true
     }
   ]
 }

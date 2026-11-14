@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { afterEach, expect, it } from 'vitest';
 import { projectFileRevision } from '@rune-langium/project-config';
-import { fetchBenchmarkSnapshot, renderBenchmarkSelection } from '@rune-langium/project-runtime/market-data';
+import {
+  fetchBenchmarkSnapshot,
+  renderBenchmarkSelection,
+  type BenchmarkSnapshot
+} from '@rune-langium/project-runtime/market-data';
 import {
   publishBenchmarkSnapshot,
   queryBenchmarkObservations,
@@ -33,6 +37,13 @@ async function capture() {
     now: () => '2026-11-13T12:00:00.000Z'
   });
 }
+async function recapture(snapshot: BenchmarkSnapshot, retrievedAt: string, content = snapshot.content) {
+  return {
+    ...snapshot,
+    content,
+    source: { ...snapshot.source, retrievedAt, sha256: await projectFileRevision(content) }
+  };
+}
 const now = '2026-11-14T13:00:00.000Z';
 
 it('imports existing snapshots offline, deduplicates unchanged content, and retains original provenance', async () => {
@@ -52,6 +63,174 @@ it('imports existing snapshots offline, deduplicates unchanged content, and reta
     0.0433, 0.0432
   ]);
   expect(c.files.get(`market-data/raw/${snapshot.source.sha256}.txt`)).toBe(snapshot.content);
+});
+
+it('publishes A after an intervening B, retaining old pins and deduplicating subsequent unchanged polls', async () => {
+  const c = await setup(),
+    snapshot = await capture();
+  const first = await publishBenchmarkSnapshot(c.db, c.artifacts, snapshot, { now });
+  const firstPin = await createBenchmarkSelection(c.db, ['sofr'], benchmarkWindow);
+  const correction = await recapture(snapshot, '2026-11-13T13:00:00.000Z', snapshot.content.replace('4.33', '4.55'));
+  const second = await publishBenchmarkSnapshot(c.db, c.artifacts, correction, { now });
+  const secondPin = await createBenchmarkSelection(c.db, ['sofr'], benchmarkWindow);
+  const recurrence = await recapture(snapshot, '2026-11-13T14:00:00.000Z');
+  const third = await publishBenchmarkSnapshot(c.db, c.artifacts, recurrence, { now });
+  expect(third).toMatchObject({ generation: 3, outcome: 'updated' });
+  expect(third.snapshotId).not.toBe(first.snapshotId);
+  expect((await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).observations.map((x) => x.value)).toEqual([
+    0.0433, 0.0432
+  ]);
+  expect((await createBenchmarkSelection(c.db, ['sofr'], benchmarkWindow)).datasets[0]?.snapshots).toEqual([
+    { id: third.snapshotId, dates: ['2026-11-02', '2026-11-03'] }
+  ]);
+  expect(await readCatalogSnapshot(c.db, c.artifacts, third.snapshotId)).toEqual(recurrence);
+  expect(await renderBenchmarkSelection(firstPin, [snapshot])).toContain('0.0433');
+  expect(await renderBenchmarkSelection(secondPin, [correction])).toContain('0.0455');
+  expect(
+    (await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow, { generation: 1 })).observations[0]
+  ).toMatchObject({
+    snapshot_id: first.snapshotId,
+    value: 0.0433
+  });
+  expect(
+    (await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow, { generation: 2 })).observations[0]
+  ).toMatchObject({
+    snapshot_id: second.snapshotId,
+    value: 0.0455
+  });
+  expect(await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, now), { now })).toEqual({
+    ...third,
+    outcome: 'unchanged'
+  });
+  expect(await publishBenchmarkSnapshot(c.db, c.artifacts, snapshot, { now })).toEqual({
+    ...first,
+    outcome: 'unchanged'
+  });
+  expect((await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).observations[0]?.snapshot_id).toBe(
+    third.snapshotId
+  );
+  expect(await listBenchmarkSnapshots(c.db, 'sofr')).toHaveLength(3);
+  expect([...c.files.keys()].filter((key) => key.startsWith('market-data/raw/'))).toHaveLength(2);
+});
+
+it('keeps an unchanged confirmation ahead of a later imported older capture without changing provenance or pins', async () => {
+  const c = await setup(),
+    snapshot = await capture();
+  const first = await publishBenchmarkSnapshot(c.db, c.artifacts, snapshot, { now });
+  expect(
+    await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, '2026-11-13T14:00:00.000Z'), { now })
+  ).toEqual({ ...first, outcome: 'unchanged' });
+  const backfill = await recapture(snapshot, '2026-11-13T13:00:00.000Z', snapshot.content.replace('4.33', '4.55'));
+  await publishBenchmarkSnapshot(c.db, c.artifacts, backfill, { now });
+  const pinned = await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow);
+  expect(pinned.generation).toBe(2);
+  expect(pinned.observations[0]).toMatchObject({ snapshot_id: first.snapshotId, value: 0.0433 });
+  // Delayed confirmations must not move a capture's last-seen time backwards.
+  await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, '2026-11-13T12:30:00.000Z'), { now });
+  expect(await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).toEqual(pinned);
+  await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(backfill, now), { now });
+  expect((await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).observations[0]?.value).toBe(0.0455);
+  expect(await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow, { generation: pinned.generation })).toEqual(
+    pinned
+  );
+  expect(await readCatalogSnapshot(c.db, c.artifacts, first.snapshotId)).toEqual(snapshot);
+});
+
+it('detects intervening overlapping windows while ignoring disjoint windows and other series', async () => {
+  const c = await setup(),
+    snapshot = await capture();
+  const first = await publishBenchmarkSnapshot(c.db, c.artifacts, snapshot, { now });
+  const disjoint = await fetchBenchmarkSnapshot(
+    'sofr',
+    { startDate: '2026-11-04', endDate: '2026-11-05' },
+    {
+      fetcher: async () =>
+        new Response(snapshot.content.replaceAll('2026-11-02', '2026-11-04').replaceAll('2026-11-03', '2026-11-05')),
+      now: () => '2026-11-13T12:30:00.000Z'
+    }
+  );
+  await publishBenchmarkSnapshot(c.db, c.artifacts, disjoint, { now });
+  await publishBenchmarkSnapshot(
+    c.db,
+    c.artifacts,
+    await fetchBenchmarkSnapshot('estr', benchmarkWindow, {
+      fetcher: benchmarkFetch,
+      now: () => '2026-11-13T12:30:00.000Z'
+    }),
+    { now }
+  );
+  expect(
+    await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, '2026-11-13T13:00:00.000Z'), { now })
+  ).toEqual({ ...first, outcome: 'unchanged' });
+  const partial = await fetchBenchmarkSnapshot(
+    'sofr',
+    { startDate: '2026-11-02', endDate: '2026-11-02' },
+    {
+      fetcher: async () =>
+        new Response(
+          JSON.stringify({
+            refRates: [{ effectiveDate: '2026-11-02', type: 'SOFR', percentRate: 4.55, revisionIndicator: 'R' }]
+          })
+        ),
+      now: () => '2026-11-13T14:00:00.000Z'
+    }
+  );
+  await publishBenchmarkSnapshot(c.db, c.artifacts, partial, { now });
+  const previous = await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow);
+  expect(previous.observations.map((x) => x.value)).toEqual([0.0455, 0.0432]);
+  const next = await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, now), { now });
+  expect(next).toMatchObject({ generation: 4, outcome: 'updated' });
+  expect((await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).observations.map((x) => x.value)).toEqual([
+    0.0433, 0.0432
+  ]);
+  expect(await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow, { generation: previous.generation })).toEqual(
+    previous
+  );
+});
+
+it('refuses an unchanged confirmation if another capture publishes after its generation check', async () => {
+  const c = await setup(),
+    snapshot = await capture();
+  await publishBenchmarkSnapshot(c.db, c.artifacts, snapshot, { now });
+  const correction = await recapture(snapshot, now, snapshot.content.replace('4.33', '4.55'));
+  const db: CatalogDatabase = {
+    ...c.db,
+    async batch(statements) {
+      await publishBenchmarkSnapshot(c.db, c.artifacts, correction, { now });
+      await c.db.batch(statements);
+    }
+  };
+  await expect(
+    publishBenchmarkSnapshot(db, c.artifacts, await recapture(snapshot, '2026-11-13T14:00:00.000Z'), { now })
+  ).rejects.toThrow('generation changed');
+  expect((await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).observations[0]?.value).toBe(0.0455);
+});
+
+it('reads pre-migration snapshots without confirmation rows and refuses deduplication of a corrupt stored capture', async () => {
+  const c = await setup(),
+    snapshot = await capture();
+  const first = await publishBenchmarkSnapshot(c.db, c.artifacts, snapshot, { now });
+  await publishBenchmarkSnapshot(
+    c.db,
+    c.artifacts,
+    await recapture(snapshot, '2026-11-13T11:00:00.000Z', snapshot.content.replace('4.33', '4.55')),
+    { now }
+  );
+  c.sqlite.exec('DELETE FROM benchmark_confirmations');
+  const pinned = await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow);
+  expect(pinned.observations[0]?.snapshot_id).toBe(first.snapshotId);
+  expect(
+    await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, '2026-11-13T10:00:00.000Z'), { now })
+  ).toEqual({ ...first, outcome: 'unchanged' });
+  expect(await queryBenchmarkObservations(c.db, 'sofr', benchmarkWindow)).toEqual(pinned);
+  expect(
+    await publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, '2026-11-13T13:00:00.000Z'), { now })
+  ).toEqual({ ...first, outcome: 'unchanged' });
+  c.files.set(`market-data/snapshots/${first.snapshotId}.json`, JSON.stringify(await recapture(snapshot, now)));
+  await expect(publishBenchmarkSnapshot(c.db, c.artifacts, await recapture(snapshot, now), { now })).rejects.toThrow(
+    'integrity mismatch'
+  );
+  expect(await listBenchmarkSnapshots(c.db, 'sofr')).toHaveLength(2);
 });
 
 it('keeps pinned revisions, refuses stale publication, and recovers staged rows on retry', async () => {

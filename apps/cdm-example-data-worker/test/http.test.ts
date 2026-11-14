@@ -5,6 +5,7 @@ import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { fileURLToPath, URL as NodeURL } from 'node:url';
 import { z } from 'zod';
+import { projectFileRevision } from '@rune-langium/project-config';
 import { handleBenchmarkRead } from '../src/index.js';
 import { d1BenchmarkDatabase, r2BenchmarkArtifacts } from '../src/storage.js';
 import { publishBenchmarkSnapshot } from '../src/catalog/catalog.js';
@@ -39,7 +40,10 @@ beforeAll(async () => {
   }))
     await env.DB.batch(migration.sql.map((sql) => env.DB.prepare(sql)));
   for (const series of BenchmarkSeriesSchema.options) {
-    const snapshot = await fetchBenchmarkSnapshot(series, benchmarkWindow, { fetcher: benchmarkFetch });
+    const snapshot = await fetchBenchmarkSnapshot(series, benchmarkWindow, {
+      fetcher: benchmarkFetch,
+      now: () => '2026-11-13T12:00:00.000Z'
+    });
     await publishBenchmarkSnapshot(d1BenchmarkDatabase(env.DB), r2BenchmarkArtifacts(env.ARTIFACTS), snapshot);
   }
 });
@@ -90,4 +94,71 @@ it('rejects writes, unknown datasets, invalid windows and arbitrary object keys'
   expect((await request('/market-data/series/sofr/observations?start=2026-02-29&end=2026-03-01')).status).toBe(400);
   expect((await request('/market-data/raw/arbitrary')).status).toBe(404);
   expect((await request(`/market-data/snapshots/${'a'.repeat(64)}`)).status).toBe(404);
+});
+
+it('retains recurrence, confirmations and pinned generations through real D1/R2 and the read API', async () => {
+  const db = d1BenchmarkDatabase(env.DB),
+    artifacts = r2BenchmarkArtifacts(env.ARTIFACTS);
+  const now = '2026-11-14T13:00:00.000Z';
+  const snapshot = await fetchBenchmarkSnapshot('sofr-index', benchmarkWindow, {
+    fetcher: benchmarkFetch,
+    now: () => '2026-11-13T12:00:00.000Z'
+  });
+  const content = snapshot.content.replace('1.12345678', '1.22345678');
+  const correction = {
+    ...snapshot,
+    content,
+    source: { ...snapshot.source, retrievedAt: '2026-11-13T13:00:00.000Z', sha256: await projectFileRevision(content) }
+  };
+  await publishBenchmarkSnapshot(db, artifacts, correction, { now });
+  const recurrence = await publishBenchmarkSnapshot(
+    db,
+    artifacts,
+    {
+      ...snapshot,
+      source: { ...snapshot.source, retrievedAt: '2026-11-13T14:00:00.000Z' }
+    },
+    { now }
+  );
+  expect(recurrence).toMatchObject({ generation: 3, outcome: 'updated' });
+  expect(
+    await publishBenchmarkSnapshot(
+      db,
+      artifacts,
+      {
+        ...snapshot,
+        source: { ...snapshot.source, retrievedAt: now }
+      },
+      { now }
+    )
+  ).toEqual({ ...recurrence, outcome: 'unchanged' });
+  await publishBenchmarkSnapshot(
+    db,
+    artifacts,
+    {
+      ...correction,
+      source: { ...correction.source, retrievedAt: '2026-11-13T15:00:00.000Z' }
+    },
+    { now }
+  );
+  const response = await request('/market-data/series/sofr-index/observations?start=2026-11-02&end=2026-11-03');
+  expect(response.status).toBe(200);
+  const observations = z
+    .object({ generation: z.number(), observations: z.array(z.object({ snapshot_id: z.string(), value: z.number() })) })
+    .parse(await response.json());
+  expect(observations.generation).toBe(4);
+  expect(observations.observations[0]).toMatchObject({ snapshot_id: recurrence.snapshotId, value: 1.12345678 });
+  const pinned = z
+    .object({ observations: z.array(z.object({ value: z.number() })) })
+    .parse(
+      await (
+        await request('/market-data/series/sofr-index/observations?start=2026-11-02&end=2026-11-03&generation=2')
+      ).json()
+    );
+  expect(pinned.observations[0]?.value).toBe(1.22345678);
+  const selected = await fetchBenchmarkSelection('https://example.test', ['sofr-index'], benchmarkWindow, {
+    fetcher: async (input) => handleBenchmarkRead(new Request(String(input)), env)
+  });
+  expect(selected.selection.datasets[0]?.snapshots[0]?.id).toBe(recurrence.snapshotId);
+  expect(selected.source).toContain('1.12345678');
 });

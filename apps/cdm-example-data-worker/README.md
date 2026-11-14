@@ -23,8 +23,9 @@ pnpm --filter @rune-langium/cdm-example-data-worker run db:check
 pnpm --filter @rune-langium/cdm-example-data-worker run type-check
 ```
 
-The tests use Node's native SQLite and Miniflare D1/R2. They cover revision pins,
-staging visibility, interrupted publication, stale-generation refusal, offline
+The tests use Node's native SQLite and Miniflare D1/R2. They cover recurring
+responses, unchanged confirmations, revision pins, staging visibility,
+interrupted publication, stale-generation refusal, offline
 imports, source failure isolation, the read API and sanitized CI reports. The
 Miniflare dependency matches Wrangler's tested runtime version rather than the
 older standalone alpha used elsewhere in this workspace.
@@ -103,8 +104,13 @@ term feeds and curve datasets are not accepted through this API.
 | `/market-data/snapshots/<sha256>` | An accepted immutable v1 snapshot; prepared artifacts remain inaccessible |
 | `/market-data/runs?limit=20` | Recent sanitized acquisition outcomes |
 
-For revisions, the newest retained capture of a date wins within the selected
-generation. An old capture imported later cannot replace a newer correction.
+For revisions, the newest retained capture or unchanged confirmation of a date
+wins within the selected generation. Unchanged polls reuse a snapshot only when
+it is the latest overlapping capture; a response returning to A after B creates
+a new capture and generation, even when A's raw bytes were retained previously.
+Confirmation times are separate from immutable capture provenance. They never
+move backwards or change the values selected by an existing generation pin.
+An old capture imported later cannot replace data confirmed more recently.
 The manifest records every constituent capture; it is not a historical
 publication-vintage guarantee. Capture and download time are not publication
 time. Snapshot identity binds provenance as well as raw content.

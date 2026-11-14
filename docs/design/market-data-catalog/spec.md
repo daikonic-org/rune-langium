@@ -169,8 +169,12 @@ using the current decoder's numeric profile at execution boundaries. SQL floatin
 point storage must not become a second source of numeric truth.
 
 Retain successive revisions as new snapshots. Deduplicate content-addressed raw
-artifacts and idempotent publication retries; an unchanged acquisition can record
-another successful check without replacing the accepted snapshot. A decoder or
+artifacts and idempotent publication retries. An unchanged acquisition reuses the
+latest overlapping accepted capture and records its confirmation time separately
+from immutable provenance. A response returning to A after an intervening B is
+a new capture and generation; finding historical A bytes is not sufficient to
+deduplicate it. Confirmation times cannot decrease, let late backfills displace
+freshly confirmed observations, or alter existing generation pins. A decoder or
 convention change produces a distinguishable derivation even for identical raw
 data. Snapshot IDs must bind the complete manifest, including the first capture's
 provenance, rather than only its observation values.
@@ -296,7 +300,9 @@ and version/check date; it does not invent a blanket “non-commercial” exempt
    observations and generated TypeScript/Python/Prototype results.
 2. **History and revisions:** publish a correction and query either immutable
    version; old project pins still return the old values. Repeated unchanged
-   runs and retries do not duplicate accepted generations.
+   runs and retries do not duplicate accepted generations. Exercise A → B → A,
+   overlapping windows, late historical imports after unchanged checks, and
+   concurrent publication during a confirmation.
 3. **Failure isolation:** fail one source while others succeed; successful
    datasets become selectable and the failed source retains its last good data
    with a visible failure/staleness report.

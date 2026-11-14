@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { z } from 'zod';
-import { eq, and, lt, desc, asc, getTableColumns } from 'drizzle-orm';
+import { eq, and, lt, lte, gte, desc, asc, sql, getTableColumns } from 'drizzle-orm';
 import { catalogOrm, catalogStatement } from './orm.js';
-import { heads, snapshots, observations as storedObservations, publications, runs } from './schema.js';
+import { heads, snapshots, confirmations, observations as storedObservations, publications, runs } from './schema.js';
 import { projectFileRevision } from '@rune-langium/project-config';
 import {
   BENCHMARK_SERIES,
@@ -53,6 +53,17 @@ const headSchema = z.object({ generation: z.number().int().nonnegative() });
 const statement = (sql: string, params: CatalogStatement['params'] = []): CatalogStatement => ({ sql, params });
 export class CatalogConflictError extends Error {}
 
+function confirmationStatement(snapshotId: string, capturedAt: string, expected: number): CatalogStatement {
+  return statement(
+    `INSERT INTO benchmark_confirmations(snapshot_id,last_seen_at)
+    SELECT p.snapshot_id,MAX(s.captured_at,?) FROM benchmark_publications p
+    JOIN benchmark_snapshots s ON s.id=p.snapshot_id JOIN benchmark_heads h ON h.series=p.series
+    WHERE p.snapshot_id=? AND h.generation=?
+    ON CONFLICT(snapshot_id) DO UPDATE SET last_seen_at=MAX(benchmark_confirmations.last_seen_at,excluded.last_seen_at)`,
+    [capturedAt, snapshotId, expected]
+  );
+}
+
 export function benchmarkDatasetCatalog() {
   return BenchmarkSeriesSchema.options.map((series) => {
     const { series: sourceSeries, ...definition } = BENCHMARK_SERIES[series];
@@ -91,10 +102,24 @@ export async function publishBenchmarkSnapshot(
   input: unknown,
   options: { now?: string; expectedGeneration?: number } = {}
 ): Promise<{ snapshotId: string; generation: number; outcome: 'updated' | 'unchanged' | 'empty' }> {
-  let decoded = await readBenchmarkSnapshot(input);
+  const decoded = await readBenchmarkSnapshot(input);
   const now = iso.parse(options.now ?? new Date().toISOString());
   if (Date.parse(decoded.snapshot.source.retrievedAt) > Date.parse(now))
     throw new Error('Benchmark capture time is in the future.');
+  const { snapshot, observations } = decoded;
+  const snapshotId = await benchmarkSnapshotId(snapshot);
+  const capturedAt = new Date(snapshot.source.retrievedAt).toISOString();
+  // An exact replay retains its original publication; it cannot reactivate an old capture.
+  const acceptedReplay = await catalogOrm(db)
+    .select({ generation: publications.generation })
+    .from(publications)
+    .where(eq(publications.snapshot_id, snapshotId));
+  if (acceptedReplay.length) {
+    await readCatalogSnapshot(db, artifacts, snapshotId);
+    return { snapshotId, generation: headSchema.parse(acceptedReplay[0]).generation, outcome: 'unchanged' };
+  }
+  const expected = options.expectedGeneration ?? (await head(db, snapshot.series));
+  z.number().int().nonnegative().parse(expected);
   const derivation = await projectFileRevision(
     JSON.stringify({
       decoder: BENCHMARK_DECODER,
@@ -103,27 +128,32 @@ export async function publishBenchmarkSnapshot(
       source: decoded.snapshot.source.sha256
     })
   );
-  const found = await catalogOrm(db).select().from(snapshots).where(eq(snapshots.derivation, derivation));
+  const found = await catalogOrm(db)
+    .select({ ...getTableColumns(snapshots), generation: publications.generation })
+    .from(snapshots)
+    .innerJoin(publications, eq(publications.snapshot_id, snapshots.id))
+    .leftJoin(confirmations, eq(confirmations.snapshot_id, snapshots.id))
+    .where(
+      and(
+        eq(snapshots.series, snapshot.series),
+        lte(publications.generation, expected),
+        lte(snapshots.start_date, snapshot.window.endDate),
+        gte(snapshots.end_date, snapshot.window.startDate)
+      )
+    )
+    .orderBy(desc(sql`COALESCE(${confirmations.last_seen_at},${snapshots.captured_at})`), desc(publications.generation))
+    .limit(1);
   if (found.length) {
-    const previous = metadata.parse(found[0]);
-    const content = await artifacts.get(previous.artifact_key);
-    if (content === undefined) throw new Error('Staged benchmark artifact is unavailable.');
-    decoded = await readBenchmarkSnapshot(JSON.parse(content));
-    if ((await benchmarkSnapshotId(decoded.snapshot)) !== previous.id)
-      throw new Error('Staged benchmark artifact integrity mismatch.');
-    const accepted = await catalogOrm(db)
-      .select({ generation: publications.generation })
-      .from(publications)
-      .where(eq(publications.snapshot_id, previous.id));
-    if (accepted.length)
-      return {
-        snapshotId: previous.id,
-        generation: headSchema.parse(accepted[0]).generation,
-        outcome: 'unchanged'
-      };
+    const previous = publishedMetadata.parse(found[0]);
+    if (previous.derivation === derivation) {
+      await readCatalogSnapshot(db, artifacts, previous.id);
+      // Keep unchanged rechecks newer than late backfills without rewriting immutable provenance.
+      await db.batch([confirmationStatement(previous.id, capturedAt, expected)]);
+      if ((await head(db, snapshot.series)) !== expected)
+        throw new CatalogConflictError('Catalog generation changed; retry publication.');
+      return { snapshotId: previous.id, generation: previous.generation, outcome: 'unchanged' };
+    }
   }
-  const { snapshot, observations } = decoded;
-  const snapshotId = await benchmarkSnapshotId(snapshot);
   const artifactKey = `market-data/snapshots/${snapshotId}.json`;
   const content = JSON.stringify(snapshot);
   const rawKey = `market-data/raw/${snapshot.source.sha256}.txt`;
@@ -138,8 +168,6 @@ export async function publishBenchmarkSnapshot(
     if ((await artifacts.get(key)) !== body) throw new Error('Benchmark artifact readback failed.');
   }
   await catalogOrm(db).insert(heads).values({ series: snapshot.series }).onConflictDoNothing().run();
-  const expected = options.expectedGeneration ?? (await head(db, snapshot.series));
-  z.number().int().nonnegative().parse(expected);
   await catalogOrm(db)
     .insert(snapshots)
     .values({
@@ -148,7 +176,7 @@ export async function publishBenchmarkSnapshot(
       derivation,
       artifact_key: artifactKey,
       source_hash: snapshot.source.sha256,
-      captured_at: new Date(snapshot.source.retrievedAt).toISOString(),
+      captured_at: capturedAt,
       ingested_at: new Date(now).toISOString(),
       start_date: snapshot.window.startDate,
       end_date: snapshot.window.endDate,
@@ -185,6 +213,7 @@ export async function publishBenchmarkSnapshot(
       (SELECT count(*) FROM benchmark_observations WHERE snapshot_id=s.id)`,
       [snapshot.series, expected, snapshotId]
     ),
+    confirmationStatement(snapshotId, capturedAt, expected),
     statement(
       `UPDATE benchmark_heads SET generation=? WHERE series=? AND generation=?
       AND EXISTS(SELECT 1 FROM benchmark_publications WHERE snapshot_id=? AND generation=?)`,
@@ -224,7 +253,7 @@ export async function listBenchmarkSnapshots(
   return publishedMetadata.array().parse(rows);
 }
 
-/** A generation pins the candidate set; capture time orders revisions, so old backfills cannot replace newer captures. */
+/** A generation pins candidates; capture/confirmation time keeps late historical imports behind fresh observations. */
 export async function queryBenchmarkObservations(
   db: CatalogDatabase,
   series: BenchmarkSeries,
@@ -249,9 +278,11 @@ export async function queryBenchmarkObservations(
   if (options.after !== undefined) date.parse(options.after);
   const rows = await db.query(
     statement(
-      `WITH candidates AS (SELECT o.*, ROW_NUMBER() OVER (PARTITION BY o.date ORDER BY s.captured_at DESC,p.generation DESC) choice
+      `WITH candidates AS (SELECT o.*, ROW_NUMBER() OVER (PARTITION BY o.date
+      ORDER BY COALESCE(c.last_seen_at,s.captured_at) DESC,p.generation DESC) choice
       FROM benchmark_observations o JOIN benchmark_snapshots s ON s.id=o.snapshot_id
       JOIN benchmark_publications p ON p.snapshot_id=s.id
+      LEFT JOIN benchmark_confirmations c ON c.snapshot_id=s.id
       WHERE s.series=? AND p.generation<=? AND o.date>=? AND o.date<=?)
       SELECT snapshot_id,date,source_value,value,status,revision FROM candidates
       WHERE choice=1 AND date>? ORDER BY date LIMIT ?`,
