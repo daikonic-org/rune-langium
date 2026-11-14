@@ -6,6 +6,7 @@ import { SymbolIdentitySchema } from './config-schema.js';
 import { readExamples } from './examples.js';
 import { readPortableRecords } from './portable-records.js';
 import type { ProjectSnapshot } from './types.js';
+import { WorkflowPreparationSchema } from './preparation.js';
 const text = z.string().min(1);
 export const WorkflowBindingSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('example'), exampleId: text }),
@@ -17,10 +18,25 @@ export const WorkflowDescriptorSchema = z.strictObject({
   id: text.max(200),
   name: text,
   function: SymbolIdentitySchema.optional(),
+  preparation: WorkflowPreparationSchema.optional(),
   inputs: z.record(text, WorkflowBindingSchema),
   outputs: z.record(text, z.strictObject({ name: text, type: SymbolIdentitySchema.optional() }))
 });
 export type WorkflowDescriptor = z.infer<typeof WorkflowDescriptorSchema>;
+/** Shared by project revision capture and editor overlays; use the same descriptor parser. */
+export function workflowPreparationInputPaths(snapshot: Pick<ProjectSnapshot, 'files' | 'project'>): string[] {
+  const { documents } = readPortableRecords(snapshot, {
+    root: 'workflows',
+    extension: '.workflow.json',
+    prefix: 'WORKFLOW',
+    parse: (value) => WorkflowDescriptorSchema.parse(value)
+  });
+  return [
+    ...new Set(
+      documents.flatMap(({ value }) => (value.preparation ? [value.preparation.module, value.preparation.driver] : []))
+    )
+  ];
+}
 export function readWorkflows(snapshot: ProjectSnapshot, knownSymbols?: ReadonlySet<string>) {
   const read = readPortableRecords(snapshot, {
     root: 'workflows',

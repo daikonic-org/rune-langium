@@ -10,6 +10,7 @@ import {
 } from '@rune-langium/worker-core/execution';
 import { createReadConnection } from './query-policy.js';
 import { d1BenchmarkDatabase } from './storage.js';
+import { projectFileRevision } from '@rune-langium/project-config';
 import driver from './generated/driver-source.json' with { type: 'json' };
 
 class DatabaseConnection extends RpcTarget {
@@ -52,6 +53,8 @@ export class DatabaseExecution extends WorkerEntrypoint<Env> {
     if (!allowed.includes(String(identity.id))) throw new Error('Database preparation is not authorized.');
     assertExecutionJson(input);
     const request = PreparationRequest.parse(input);
+    if (request.driverRevision !== undefined && request.driverRevision !== (await projectFileRevision(driver.source)))
+      throw new Error('The example database driver version is unavailable.');
     const connection = createReadConnection(d1BenchmarkDatabase(this.env.DB));
     const executionId = crypto.randomUUID();
     let timer: ReturnType<typeof setTimeout> | undefined;

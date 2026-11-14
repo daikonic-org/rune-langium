@@ -111,9 +111,13 @@ Studio's `prepareHostedDatabase` transport sends the module and its input revisi
 to `/api/database-preparation`. The Pages gateway validates the
 existing GitHub bearer credential, then calls the private `DatabaseExecution`
 entrypoint. The browser never receives the D1 binding or publisher token.
-This is an asynchronous preparation port; automatic Prototype/provider wiring
-is a follow-up. Existing Rune provider callbacks remain synchronous, and this
-port does not mutate or save a workspace automatically.
+Configured Prototype recipes use this asynchronous port before calculating.
+The module returns exactly its declared Rune provider source files. Studio runs
+their draft in a disposable preview worker; Review prepared data and an explicit
+Save persist those sources and an execution receipt for offline reuse. The
+module/driver are project revision inputs, and the server verifies the driver's
+exact content identity. Rune callbacks remain synchronous. Preparation does not
+mutate or save the editable workspace automatically.
 
 Each run gets a fresh Dynamic Worker with network access blocked and only a
 restricted SQLite proxy connection. The server permits one SELECT over the

@@ -7,6 +7,7 @@ import { usePreviewSessionFactory } from '../shell/providers/preview-session-con
 import { useProject } from '../shell/providers/project-context.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import { withInstrumentation } from './instrumentation/core.js';
+import { workflowContextVersion } from './workflow-context-version.js';
 
 export const useWorkflowSchema = withInstrumentation(
   function useWorkflowSchema(target: string | undefined): {
@@ -14,9 +15,8 @@ export const useWorkflowSchema = withInstrumentation(
     error?: string;
     retry(): void;
   } {
-    const factory = usePreviewSessionFactory(),
-      models = useWorkspaceOptional()?.models;
-    const projectRevision = useProject().snapshot?.revision;
+    const factory = usePreviewSessionFactory();
+    const { models, projectRevision } = workflowContextVersion(useProject(), useWorkspaceOptional()?.models);
     const [attempt, setAttempt] = useState(0);
     const retry = useCallback(() => setAttempt((value) => value + 1), []);
     const [result, setResult] = useState<{

@@ -229,9 +229,16 @@ network-disabled Dynamic Worker. Only a revocable, budgeted read connection to
 accepted-publication views crosses into the module. No publisher token, raw D1/R2
 binding or SQL HTTP endpoint is exposed. Shared transport contracts/bounds live
 in worker-core `/execution`; the example owns ORM/schema and SQL admission.
+Configured Prototype recipes prepare declared Rune provider sources before
+execution. Each run compiles an immutable draft in a disposable preview worker,
+using the same project resolution, generation and validation as normal previews.
 The existing browser `new Function` path is not a security sandbox and receives
-no privileged connection. Prepared data does not change synchronous Rune callback
-semantics or bypass explicit workspace Save/import. Production activation is
+no privileged connection. Module and driver files are semantic project inputs.
+Schema/validation hooks key managed requests by the captured receipt, not the
+identity of republished read-only Explorer models. Review/Save prepared data uses
+the normal project transaction and a unique execution receipt; preparation cannot
+mutate workspace files automatically. It does not change synchronous Rune callback
+semantics. Production activation is
 separate from daily acquisition and remains closed until configured. See the
 [specification](../design/studio-database-proxy/spec.md).
 
@@ -1268,6 +1275,9 @@ only the active perspective mounts the canonical inspector form. Its controlled
 React Flow instance has separate positions, selection and viewport state from the
 type graph. Palette/camera changes do not write Rune. Per-function leaf drafts
 survive nested navigation while the workspace remains mounted.
+Retained composition diagnostics use the source captured with their facts, even
+when reference publication temporarily removes the current file. This invariant
+also applies while the kept-alive Composer is hidden behind another perspective.
 Core's `describeFunctionComposition` matches the directly resolved
 `rune.studio.composition` annotation and projects acyclic aliases, calls, scoped
 `extract` calls and one whole-output set. It returns original UTF-16 regions and

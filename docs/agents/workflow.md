@@ -66,6 +66,11 @@ bundle), run `check:driver`, regenerate Wrangler types after binding changes, an
 run the data-worker, worker-core execution and Studio preparation gateway/client
 tests. The data-worker suite exercises real Miniflare D1, Worker Loader, private
 RPC and network denial, with the same example queries on native SQLite.
+Prototype changes also require project-config preparation/revision tests,
+Studio preparation/Save/session tests and the optimized `prepared-workflow.spec.ts`
+journey, which verifies isolated calculation and explicit offline persistence.
+Run J29 when changing schema/validation lifetimes; reference-view publication must
+not restart an unchanged captured-project operation.
 Keep its numeric GitHub-ID allowlist closed by default. The combined Pages build
 adds the private execution binding only when `CDM_EXAMPLE_EXECUTION_ENABLED=true`;
 the default build must work before the private Worker has been deployed.

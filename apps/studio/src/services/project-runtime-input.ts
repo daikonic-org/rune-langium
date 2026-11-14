@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { URI } from 'langium';
-import { createProjectDraftSnapshot, projectSourcePaths, type ProjectSnapshot } from '@rune-langium/project-config';
+import {
+  createProjectDraftSnapshot,
+  projectSourcePaths,
+  workflowPreparationInputPaths,
+  type ProjectSnapshot
+} from '@rune-langium/project-config';
 import {
   createProjectResolutionContext,
   projectSourceUri,
@@ -13,10 +18,13 @@ import type { WorkspaceFile } from './workspace.js';
 import { withInstrumentation } from './instrumentation/core.js';
 /** One writable-source selection for capture identity and draft overlays. */
 export const projectRuntimeSources = withInstrumentation(
-  function projectRuntimeSources(files: readonly WorkspaceFile[]) {
+  function projectRuntimeSources(files: readonly WorkspaceFile[], snapshot?: ProjectSnapshot) {
+    const preparations = new Set(snapshot ? workflowPreparationInputPaths(snapshot) : []);
     return new Map(
       files
-        .filter((file) => !file.readOnly && !file.refOnly && file.path.endsWith('.rosetta'))
+        .filter(
+          (file) => !file.readOnly && !file.refOnly && (file.path.endsWith('.rosetta') || preparations.has(file.path))
+        )
         .map((file) => [file.path, file.content])
     );
   },
@@ -29,7 +37,7 @@ export const captureProjectRuntimeInput = withInstrumentation(
     files: readonly WorkspaceFile[],
     referenceDocuments: readonly ReferenceDocument[]
   ) {
-    const local = projectRuntimeSources(files);
+    const local = projectRuntimeSources(files, saved);
     const edits = new Map<string, string | null>();
     for (const path of projectSourcePaths(saved.files, saved.project.build.sources))
       if (!local.has(path)) edits.set(path, null);

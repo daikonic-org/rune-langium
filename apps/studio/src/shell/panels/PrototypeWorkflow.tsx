@@ -68,6 +68,8 @@ import './prototype-workflow.css';
 import { retainedWorkflowFields } from '../../services/workflow-input-compatibility.js';
 import { generateUlid } from '../../services/ulid.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import { useWorkflowPreparation } from '../../services/use-workflow-preparation.js';
+import { PreparedWorkflowPanel } from '../../components/PreparedWorkflowPanel.js';
 
 const EMPTY: FunctionSessionState = {
   functionFqn: null,
@@ -209,6 +211,7 @@ export const PrototypeWorkflow = withInstrumentation(
     const openingGeneration = useRef(0);
     const [opening, setOpening] = useState(false);
     const [workflowOutputs, setWorkflowOutputs] = useState<WorkflowDescriptor['outputs']>({});
+    const [preparation, setPreparation] = useState<WorkflowDescriptor['preparation']>();
     useEffect(() => {
       if (!factory) return;
       const next = createFunctionSession(factory());
@@ -224,6 +227,7 @@ export const PrototypeWorkflow = withInstrumentation(
       (listener) => session?.subscribe(listener) ?? (() => {}),
       () => session?.getState() ?? EMPTY
     );
+    const preparedRun = useWorkflowPreparation(preparation, state);
     const instances = useInstanceStore((s) => s.instances);
     const prepare = useInstanceStore((s) => s.prepareInstance);
     const view = usePrototypeViewStore((s) => s.state);
@@ -248,6 +252,7 @@ export const PrototypeWorkflow = withInstrumentation(
       setSources({});
       setSourceIds({});
       setWorkflowOutputs({});
+      setPreparation(undefined);
       setOpening(false);
       seenInstance.current = {};
     }, [workspace?.workspaceId]);
@@ -423,6 +428,7 @@ export const PrototypeWorkflow = withInstrumentation(
         setOpening(false);
         if (!session) return;
         if (!option) {
+          setPreparation(undefined);
           const field =
             objectFields.find((f) => f.path === state.boundParameter) ??
             (objectFields.length === 1 ? objectFields[0] : undefined);
@@ -446,6 +452,7 @@ export const PrototypeWorkflow = withInstrumentation(
           return;
         }
         const refresh = qualifiedNameFromNodeId(option.value) === state.functionFqn;
+        if (!refresh) setPreparation(undefined);
         previousInputs.current = state.schema
           ? { schema: state.schema, refresh, inputs: state.inputs, sources, sourceIds }
           : undefined;
@@ -491,6 +498,7 @@ export const PrototypeWorkflow = withInstrumentation(
       setDraft(undefined);
       setSources({});
       setSourceIds({});
+      setPreparation(undefined);
       void session.selectFunction(record.typeFqn.split('#')[0]!, record.typeFqn);
     }, [record, mode, project.status, session, workspace, bindingRequestId, view.bindingSurface, prepare]);
     const sourceRevision = useMemo(() => {
@@ -499,7 +507,8 @@ export const PrototypeWorkflow = withInstrumentation(
       if (managedProject)
         return canonicalProjectJson([
           projectRevision,
-          Object.fromEntries(projectRuntimeSources(workspace?.files ?? []))
+          Object.fromEntries(projectRuntimeSources(workspace?.files ?? [], project.snapshot)),
+          project.runtime?.input?.snapshot.revision
         ]);
       return JSON.stringify([
         projectRevision,
@@ -510,7 +519,13 @@ export const PrototypeWorkflow = withInstrumentation(
           )
         ].sort()
       ]);
-    }, [workspace?.files, projectRevision, managedProject]);
+    }, [
+      workspace?.files,
+      projectRevision,
+      managedProject,
+      project.snapshot,
+      project.runtime?.input?.snapshot.revision
+    ]);
     const lastSourceRevision = useRef(sourceRevision);
     useEffect(() => {
       if (mode !== 'flow' || lastSourceRevision.current === sourceRevision) return;
@@ -711,20 +726,23 @@ export const PrototypeWorkflow = withInstrumentation(
             : undefined
         : undefined;
       const outputPath = resultField?.path ?? 'output';
-      return captureWorkflowRecipe({
-        id,
-        name,
-        ...(functionIdentity ? { function: functionIdentity } : {}),
-        inputs: functionIdentity ? state.inputs : draft ? { input: draft.values } : {},
-        sourceIds: functionIdentity ? sourceIds : draft?.sourceId ? { input: draft.sourceId } : {},
-        records: instances,
-        outputs: {
-          [outputPath]: {
-            name: workflowOutputs[outputPath]?.name ?? outputPath,
-            ...(outputType ? { type: outputType } : {})
+      return {
+        ...captureWorkflowRecipe({
+          id,
+          name,
+          ...(functionIdentity ? { function: functionIdentity } : {}),
+          inputs: functionIdentity ? state.inputs : draft ? { input: draft.values } : {},
+          sourceIds: functionIdentity ? sourceIds : draft?.sourceId ? { input: draft.sourceId } : {},
+          records: instances,
+          outputs: {
+            [outputPath]: {
+              name: workflowOutputs[outputPath]?.name ?? outputPath,
+              ...(outputType ? { type: outputType } : {})
+            }
           }
-        }
-      });
+        }),
+        ...(preparation ? { preparation } : {})
+      };
     };
     const openRecipe = async (workflow: WorkflowDescriptor) => {
       if (!factory || !workspace) throw new Error('The workflow runtime is not available yet.');
@@ -789,6 +807,7 @@ export const PrototypeWorkflow = withInstrumentation(
         setSourceIds(restoredIds);
         setDraft(nextDraft);
         setWorkflowOutputs(workflow.outputs);
+        setPreparation(workflow.preparation);
         sessionRef.current?.dispose();
         sessionRef.current = next;
         setSession(next);
@@ -896,6 +915,7 @@ export const PrototypeWorkflow = withInstrumentation(
               setSources({});
               setSourceIds({});
               setWorkflowOutputs({});
+              setPreparation(undefined);
               setPreviousResult(undefined);
               setBinding(undefined);
               void session?.selectFunction(null);
@@ -987,17 +1007,40 @@ export const PrototypeWorkflow = withInstrumentation(
                           !session ||
                           state.status === 'running' ||
                           state.schemaStatus === 'unavailable' ||
-                          aggregateValidation.state !== 'valid' ||
-                          !!state.schema?.executionUnavailable
+                          (aggregateValidation.state !== 'valid' &&
+                            !(preparation && aggregateValidation.state === 'unavailable')) ||
+                          (!!state.schema?.executionUnavailable && !preparation)
                         }
-                        onClick={() => void session?.run()}
+                        onClick={() => void session?.run(preparation ? preparedRun.execute : undefined)}
                       >
-                        {state.status === 'running' ? 'Executing…' : 'Execute'}
+                        {state.status === 'running'
+                          ? preparedRun.phase === 'preparing'
+                            ? 'Preparing data…'
+                            : 'Executing…'
+                          : 'Execute'}
                       </Button>
                     ) : null
                   }
                 >
                   <div className="workflow-node__body space-y-2">
+                    {preparation ? (
+                      <p className="text-xs text-muted-foreground">
+                        Prepare data before calculation · {preparation.module}
+                      </p>
+                    ) : null}
+                    {state.status === 'running' && state.schemaStatus === 'ready' ? (
+                      <Button variant="outline" size="xs" onClick={() => session?.cancel()}>
+                        Cancel execution
+                      </Button>
+                    ) : null}
+                    {preparedRun.prepared ? (
+                      <PreparedWorkflowPanel
+                        data={preparedRun.prepared}
+                        saving={preparedRun.saving}
+                        error={preparedRun.error}
+                        onSave={preparedRun.save}
+                      />
+                    ) : null}
                     <WorkspaceTypePicker
                       label="Choose a function"
                       appearance="chip"

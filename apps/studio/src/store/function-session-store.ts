@@ -27,7 +27,8 @@ export interface FunctionSession {
   setInput(name: string, value: unknown): void;
   setInputs(inputs: Record<string, unknown>): void;
   bindInstance(parameter: string, record: InstanceRecord): void;
-  run(): Promise<void>;
+  run(execute?: PreviewSessionClient['execute']): Promise<void>;
+  cancel(): void;
   dispose(): void;
 }
 
@@ -138,10 +139,10 @@ export const createFunctionSession = withInstrumentation(
           error: state.schemaStatus === 'unavailable' ? state.error : undefined
         });
       },
-      async run() {
+      async run(execute) {
         if (!state.functionFqn || state.status === 'running' || state.schemaStatus === 'unavailable' || loadingSchema)
           return;
-        if (state.schema?.executionUnavailable) {
+        if (state.schema?.executionUnavailable && !execute) {
           patch({ status: 'failed', result: undefined, error: state.schema.executionUnavailable });
           return;
         }
@@ -153,7 +154,7 @@ export const createFunctionSession = withInstrumentation(
         const inputs = structuredClone(state.inputs);
         patch({ status: 'running', result: undefined, error: undefined });
         try {
-          const result = await client.execute(state.functionFqn, inputs, controller.signal);
+          const result = await (execute ?? client.execute.bind(client))(state.functionFqn, inputs, controller.signal);
           if (disposed || version !== selectionVersion || execution !== executionVersion) return;
           patch({ result, status: 'succeeded' });
         } catch (error) {
@@ -161,6 +162,12 @@ export const createFunctionSession = withInstrumentation(
             return;
           patch({ status: 'failed', error: error instanceof Error ? error.message : String(error) });
         }
+      },
+      cancel() {
+        if (loadingSchema || disposed) return;
+        ++executionVersion;
+        activeController?.abort();
+        patch({ status: state.schemaStatus === 'unavailable' ? 'failed' : 'idle', result: undefined });
       },
       dispose() {
         if (disposed) return;

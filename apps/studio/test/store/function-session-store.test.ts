@@ -7,6 +7,35 @@ import type { PreviewSessionClient } from '../../src/services/preview-session-cl
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 
 describe('createFunctionSession', () => {
+  it('cancels an async preparation executor and ignores its late calculation result', async () => {
+    const client: PreviewSessionClient = {
+      schema: vi.fn(async () => ({
+        schemaVersion: 1,
+        targetId: 'test.Run',
+        title: 'Run',
+        status: 'ready',
+        fields: []
+      })),
+      validate: vi.fn(async () => []),
+      execute: vi.fn(async () => 'ordinary'),
+      project: vi.fn(),
+      dispose: vi.fn()
+    };
+    const session = createFunctionSession(client);
+    await session.selectFunction('test.Run');
+    const pending = Promise.withResolvers<unknown>();
+    const execute = vi.fn<PreviewSessionClient['execute']>().mockReturnValue(pending.promise);
+    const running = session.run(execute);
+    session.cancel();
+    expect(execute.mock.calls[0]?.[2].aborted).toBe(true);
+    pending.resolve('late');
+    await running;
+    expect(session.getState()).toMatchObject({ status: 'idle', result: undefined });
+    await session.run(async () => 'prepared');
+    expect(session.getState()).toMatchObject({ status: 'succeeded', result: 'prepared' });
+    expect(client.execute).not.toHaveBeenCalled();
+    session.dispose();
+  });
   it('drops a stale result after selecting another function', async () => {
     let resolveFirst!: (value: unknown) => void;
     const client: PreviewSessionClient = {

@@ -1149,7 +1149,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                       </p>
                       {presented?.reasons.map((reason, index) => (
                         <p key={index}>
-                          Line {file!.content.slice(0, reason.region.from).split('\n').length}: {reason.message}
+                          Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
                         </p>
                       ))}
                     </div>
