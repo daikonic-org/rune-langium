@@ -12,6 +12,7 @@
     {
       "binding": "DB",
       "database_name": "rune-cdm-example-data",
+      "database_id": "37b42f1a-7101-4ccd-936c-0f70ca4d682c",
       "migrations_dir": "migrations"
     }
   ],

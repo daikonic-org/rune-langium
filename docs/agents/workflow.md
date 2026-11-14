@@ -62,7 +62,7 @@ instrumentation lowering pass to accommodate generated model decorators.
 
 The CDM example's reference-data workflow is `.github/workflows/cdm-example-data.yml`
 in this repository. It is gated on example-specific setup/activation, runs only
-on the default branch, and acquires six benchmark series independently. It applies
+on the default branch, and acquires six benchmark series and private SONIA OIS curve captures independently. It applies
 reviewed Drizzle migrations through Wrangler and publishes complete D1/R2 snapshots;
 it does not deploy a Worker or update project pins. Its read service and ORM live
 only in `apps/cdm-example-data-worker`. Use `db:generate` after schema changes,

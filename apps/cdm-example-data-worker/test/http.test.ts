@@ -9,6 +9,8 @@ import { projectFileRevision } from '@rune-langium/project-config';
 import { handleBenchmarkRead } from '../src/index.js';
 import { d1BenchmarkDatabase, r2BenchmarkArtifacts } from '../src/storage.js';
 import { publishBenchmarkSnapshot } from '../src/catalog/catalog.js';
+import { publishSoniaOisSnapshot } from '../src/catalog/curves.js';
+import { acquisition } from './helpers/curves.js';
 import {
   fetchBenchmarkSelection,
   fetchBenchmarkSnapshot,
@@ -161,4 +163,16 @@ it('retains recurrence, confirmations and pinned generations through real D1/R2 
   });
   expect(selected.selection.datasets[0]?.snapshots[0]?.id).toBe(recurrence.snapshotId);
   expect(selected.source).toContain('1.12345678');
+});
+
+// Curve source terms differ from the admitted public fixing datasets.
+it('never exposes private curve points or artifacts through public fixing routes', async () => {
+  const added = await publishSoniaOisSnapshot(
+    d1BenchmarkDatabase(env.DB),
+    r2BenchmarkArtifacts(env.ARTIFACTS),
+    await acquisition()
+  );
+  expect((await request(`/market-data/snapshots/${added.snapshotId}`)).status).toBe(404);
+  expect((await request('/market-data/series/sonia-ois/snapshots')).status).toBe(400);
+  expect((await request('/market-data/curves/snapshots/' + added.snapshotId + '.json')).status).toBe(404);
 });

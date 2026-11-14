@@ -19,6 +19,7 @@ import {
   type BenchmarkSelection
 } from '@rune-langium/project-runtime/market-data';
 import type { CatalogArtifacts, CatalogDatabase, CatalogStatement } from './catalog-schema.js';
+import { putImmutableCatalogArtifact } from './artifacts.js';
 
 export type { CatalogArtifacts, CatalogDatabase, CatalogStatement } from './catalog-schema.js';
 export { refreshBenchmarkCatalog } from './refresh.js';
@@ -162,10 +163,7 @@ export async function publishBenchmarkSnapshot(
     [artifactKey, content]
   ]) {
     if (!key || body === undefined) throw new Error('Invalid benchmark artifact.');
-    const existing = await artifacts.get(key);
-    if (existing !== undefined && existing !== body) throw new Error('Immutable benchmark artifact differs.');
-    if (existing === undefined) await artifacts.put(key, body);
-    if ((await artifacts.get(key)) !== body) throw new Error('Benchmark artifact readback failed.');
+    await putImmutableCatalogArtifact(artifacts, key, body);
   }
   await catalogOrm(db).insert(heads).values({ series: snapshot.series }).onConflictDoNothing().run();
   await catalogOrm(db)
