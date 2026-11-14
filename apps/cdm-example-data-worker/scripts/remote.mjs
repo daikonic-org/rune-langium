@@ -51,7 +51,11 @@ export function remoteBenchmarkCatalog(env = process.env, options = {}) {
     }
   };
   const transfer = async (action, key, content) => {
-    if (!/^market-data\/(raw\/[a-f0-9]{64}\.txt|snapshots\/[a-f0-9]{64}\.json)$/.test(key))
+    if (
+      !/^market-data\/(raw\/[a-f0-9]{64}\.txt|snapshots\/[a-f0-9]{64}\.json|curves\/(?:raw|snapshots)\/[a-f0-9]{64}\.json)$/.test(
+        key
+      )
+    )
       throw new Error('Invalid benchmark object key.');
     const directory = await mkdtemp(join(tmpdir(), 'rune-cdm-example-data-'));
     const path = join(directory, 'object');
@@ -68,7 +72,8 @@ export function remoteBenchmarkCatalog(env = process.env, options = {}) {
         }
       );
       if (action === 'get') {
-        if ((await stat(path)).size > 16 * 1024 * 1024) throw new Error('Benchmark object exceeds its size limit.');
+        if ((await stat(path)).size > (key.startsWith('market-data/curves/') ? 40 : 16) * 1024 * 1024)
+          throw new Error('Benchmark object exceeds its size limit.');
         return await readFile(path, 'utf8');
       }
     } catch (error) {

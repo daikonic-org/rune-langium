@@ -88,3 +88,103 @@ export const runs = sqliteTable(
     check('run_phase', sql`${t.phase} IN ('acquire','publish','complete')`)
   ]
 );
+
+// Curves have a separate observation grain and private source rights; fixing APIs cannot select these rows.
+export const curveHeads = sqliteTable(
+  'curve_heads',
+  {
+    series: text().primaryKey(),
+    generation: integer().notNull().default(0)
+  },
+  (t) => [check('curve_generation_nonnegative', sql`${t.generation} >= 0`)]
+);
+export const curveSnapshots = sqliteTable(
+  'curve_snapshots',
+  {
+    id: text().primaryKey(),
+    series: text()
+      .notNull()
+      .references(() => curveHeads.series),
+    derivation: text().notNull(),
+    artifact_key: text().notNull(),
+    raw_key: text().notNull(),
+    source_hash: text().notNull(),
+    captured_at: text().notNull(),
+    ingested_at: text().notNull(),
+    start_date: text().notNull(),
+    end_date: text().notNull(),
+    point_count: integer().notNull(),
+    decoder: text().notNull(),
+    access_scope: text().notNull(),
+    metadata: text().notNull()
+  },
+  (t) => [
+    check('curve_point_bound', sql`${t.point_count} BETWEEN 1 AND 100000`),
+    check('curve_decoder', sql`${t.decoder} = 'boe-ois-xlsx-v1'`),
+    check('curve_access', sql`${t.access_scope} = 'internal-noncommercial'`),
+    index('curve_snapshot_series').on(t.series, t.captured_at)
+  ]
+);
+export const curveConfirmations = sqliteTable('curve_confirmations', {
+  snapshot_id: text()
+    .primaryKey()
+    .references(() => curveSnapshots.id),
+  last_seen_at: text().notNull()
+});
+export const curvePoints = sqliteTable(
+  'curve_points',
+  {
+    snapshot_id: text()
+      .notNull()
+      .references(() => curveSnapshots.id),
+    date: text().notNull(),
+    kind: text().notNull(),
+    grid: text().notNull(),
+    maturity_months: integer().notNull(),
+    maturity_years: text().notNull(),
+    source_value: text().notNull(),
+    value: text().notNull(),
+    workbook: text().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.snapshot_id, t.date, t.kind, t.grid, t.maturity_months] }),
+    check('curve_kind', sql`${t.kind} IN ('spot','instantaneous-forward')`),
+    check('curve_grid', sql`${t.grid} IN ('monthly','semiannual')`),
+    index('curve_date').on(t.date, t.snapshot_id)
+  ]
+);
+export const curvePublications = sqliteTable(
+  'curve_publications',
+  {
+    series: text()
+      .notNull()
+      .references(() => curveHeads.series),
+    generation: integer().notNull(),
+    snapshot_id: text()
+      .notNull()
+      .unique()
+      .references(() => curveSnapshots.id)
+  },
+  (t) => [
+    primaryKey({ columns: [t.series, t.generation] }),
+    check('curve_generation_positive', sql`${t.generation} > 0`)
+  ]
+);
+export const curveRuns = sqliteTable(
+  'curve_runs',
+  {
+    id: text().notNull(),
+    series: text().notNull(),
+    checked_at: text().notNull(),
+    outcome: text().notNull(),
+    phase: text().notNull(),
+    snapshot_id: text(),
+    latest_date: text(),
+    point_count: integer().notNull().default(0)
+  },
+  (t) => [
+    primaryKey({ columns: [t.id, t.series] }),
+    check('curve_run_outcome', sql`${t.outcome} IN ('updated','unchanged','empty','failed')`),
+    check('curve_run_phase', sql`${t.phase} IN ('acquire','publish','complete')`)
+  ]
+);

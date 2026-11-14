@@ -30,7 +30,8 @@ export function r2BenchmarkArtifacts(bucket: R2Bucket): CatalogArtifacts {
       const object = await bucket.get(key);
       if (!object) return undefined;
       // A v1 JSON snapshot can expand its bounded 2 MiB text through JSON escaping.
-      if (object.size > 16 * 1024 * 1024) throw new Error('Benchmark artifact exceeds its size limit.');
+      if (object.size > (key.startsWith('market-data/curves/') ? 40 : 16) * 1024 * 1024)
+        throw new Error('Benchmark artifact exceeds its size limit.');
       return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await object.arrayBuffer());
     },
     async put(key, content) {

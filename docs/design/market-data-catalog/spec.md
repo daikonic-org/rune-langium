@@ -3,9 +3,11 @@
 Status: **first milestone implemented for local review**, 2026-11-13. Tracks the provider follow-up in
 [#646](https://github.com/daikonic-org/rune-langium/issues/646).
 [#707](https://github.com/daikonic-org/rune-langium/pull/707) includes the six-series
-catalog, read API, portable imports and a gated daily CI publisher. Deployment and
-activation have not been performed. Curve adapters, entitled term feeds and
-calendar-aware freshness alerts remain subsequent work.
+catalog, read API, portable imports and a gated daily CI publisher. Public read-service deployment and scheduled
+activation have not been performed. A private SONIA OIS fitted-curve adapter now covers the BoE monthly/archive XLSX
+grids. Other curve adapters, entitled term feeds and calendar-aware freshness
+alerts remain subsequent work. The example D1/R2 store is provisioned; public
+service deployment and scheduled activation remain separate.
 
 ## Deployment scope
 
@@ -86,7 +88,9 @@ their source URL, retrieval timestamp, raw response or checksum. Record catalog
 ingestion time separately. Exact observation dates, units and CDM identities
 remain governed by `@rune-langium/project-runtime/market-data`.
 
-Subsequent curve adapters use the same artifact/catalog model, with separate
+The SONIA OIS adapter stores private fitted spot/instantaneous-forward grids with
+continuous compounding and ACT/365 conventions; it does not label fitted points
+as par instrument quotes. Other curve adapters use the same artifact/catalog model, with separate
 profiles for each source's quote conventions and availability:
 
 | Candidate source | Available material | Admission requirement |

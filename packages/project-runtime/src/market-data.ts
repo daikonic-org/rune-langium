@@ -66,6 +66,9 @@ function decimalValue(text: string, unit: Definition['unit']): string {
   const padded = whole.padStart(3, '0');
   return unit === 'percent' ? `${sign}${padded.slice(0, -2)}.${padded.slice(-2)}${fraction}` : text;
 }
+/** Shared exact percent/index normalization for catalog adapters; preserves decimal text. */
+export { decimalValue as marketDecimalValue };
+
 const nyFed = z.object({
   refRates: z.array(
     z.object({

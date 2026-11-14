@@ -62,9 +62,13 @@ instrumentation lowering pass to accommodate generated model decorators.
 
 The CDM example's reference-data workflow is `.github/workflows/cdm-example-data.yml`
 in this repository. It is gated on example-specific setup/activation, runs only
-on the default branch, and acquires six benchmark series independently. It applies
+on the default branch, and acquires six benchmark series and private SONIA OIS curve captures independently. It applies
 reviewed Drizzle migrations through Wrangler and publishes complete D1/R2 snapshots;
-it does not deploy a Worker or update project pins. Its read service and ORM live
+publication reuses the existing `CLOUDFLARE_API_TOKEN` upload secret, which must
+include D1 access for this example's database as well as R2 access.
+Manual `verify_access` dispatch exercises that credential using a zero-row D1
+update and temporary R2 object readback/cleanup, separately from publication.
+It does not deploy a Worker or update project pins. Its read service and ORM live
 only in `apps/cdm-example-data-worker`. Use `db:generate` after schema changes,
 commit SQL and metadata together, and run `db:check`, the package tests, build and
 type checks. These tests use native SQLite and Miniflare matching Wrangler's own
