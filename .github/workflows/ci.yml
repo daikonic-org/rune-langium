@@ -444,6 +444,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify the example database driver bundle
+        run: pnpm --filter @rune-langium/cdm-example-data-worker run check:driver
+
       - name: Regenerate Zod schemas from Langium grammar
         run: pnpm --filter @rune-langium/visual-editor generate:schemas
 

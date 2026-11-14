@@ -2,11 +2,15 @@
   "name": "@rune-langium/worker-core",
   "version": "0.1.0",
   "private": true,
-  "description": "Shared Cloudflare Worker infrastructure: structured logging and redaction (./log), origin allowlist matching (./origin), and JSON/CORS responses (./http).",
+  "description": "Shared Cloudflare Worker infrastructure: logging/redaction, origin matching, JSON/CORS responses and bounded private execution contracts.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./execution": {
+      "types": "./dist/execution.d.ts",
+      "import": "./dist/execution.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -36,7 +40,8 @@
   },
   "dependencies": {
     "@pinojs/redact": "^0.4.0",
-    "pino": "^10.4.0"
+    "pino": "^10.4.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "vitest": "^5.1.0"

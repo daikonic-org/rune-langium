@@ -220,6 +220,21 @@ acknowledgement; superseded generations are discarded.
 
 ## Studio Runtime
 
+Hosted database preparation is a separate asynchronous port. Example query code
+uses ordinary Drizzle/SQLite with a host-supplied connection; it does not call a
+Rune-branded data service. Studio's authenticated Pages gateway uses a private
+service binding to the CDM example's `DatabaseExecution` entrypoint. That host
+checks an explicit GitHub numeric-ID allowlist and runs each module in a fresh,
+network-disabled Dynamic Worker. Only a revocable, budgeted read connection to
+accepted-publication views crosses into the module. No publisher token, raw D1/R2
+binding or SQL HTTP endpoint is exposed. Shared transport contracts/bounds live
+in worker-core `/execution`; the example owns ORM/schema and SQL admission.
+The existing browser `new Function` path is not a security sandbox and receives
+no privileged connection. Prepared data does not change synchronous Rune callback
+semantics or bypass explicit workspace Save/import. Production activation is
+separate from daily acquisition and remains closed until configured. See the
+[specification](../design/studio-database-proxy/spec.md).
+
 Studio's [product context](../../apps/studio/PRODUCT.md) records established users,
 workflows and product principles for interface work. Impeccable's local live-mode
 configuration names the Vite SPA entry; it does not inject a helper by default or

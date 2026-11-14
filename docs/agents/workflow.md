@@ -54,11 +54,21 @@ instrumentation lowering pass to accommodate generated model decorators.
 - `SKIP_SIMPLE_GIT_HOOKS=1` bypasses hooks; report skipped verification when relevant.
 - After codegen render changes, run `pnpm --filter @rune-langium/codegen run build` so consumers receive updated dist output.
 - After switching stacked branches, force affected TypeScript builds with `pnpm --filter <package> exec tsc -b --force` before testing consumers. For Codegen, follow a forced compiler run with its package `build` to reapply explicit decorator lowering. Incremental build caches can leave `dist` from the previous branch; source-only tests do not verify those exports.
-- The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core` and `@rune-langium/core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
+- The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core`, `@rune-langium/core` and `@rune-langium/worker-core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
 ## CDM example data CI
+
+Hosted preparation changes: generate the client driver with
+`node apps/cdm-example-data-worker/scripts/build-driver.mjs` (never edit its JSON
+bundle), run `check:driver`, regenerate Wrangler types after binding changes, and
+run the data-worker, worker-core execution and Studio preparation gateway/client
+tests. The data-worker suite exercises real Miniflare D1, Worker Loader, private
+RPC and network denial, with the same example queries on native SQLite.
+Keep its numeric GitHub-ID allowlist closed by default. The combined Pages build
+adds the private execution binding only when `CDM_EXAMPLE_EXECUTION_ENABLED=true`;
+the default build must work before the private Worker has been deployed.
 
 The CDM example's reference-data workflow is `.github/workflows/cdm-example-data.yml`
 in this repository. It is gated on example-specific setup/activation, runs only
