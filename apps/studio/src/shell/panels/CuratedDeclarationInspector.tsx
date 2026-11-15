@@ -2,15 +2,14 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { useEffect, useState, type ReactNode, type ComponentProps } from 'react';
-import { EditorFormPanel, type EditorFormActions, type TypeGraphNode } from '@rune-langium/visual-editor';
-import type { CuratedCacheSeed } from '../../services/curated-cache-seeds.js';
-import { loadCuratedDeclarations } from '../../services/curated-declaration.js';
+import { EditorFormPanel, useLatestRef, type EditorFormActions, type TypeGraphNode } from '@rune-langium/visual-editor';
+import { loadCuratedDeclarations, type CuratedDeclarationSource } from '../../services/curated-declaration.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 /** An explicitly incomplete, read-only view; the caller owns full semantic readiness. */
 export const CuratedDeclarationInspector = withInstrumentation(
   function CuratedDeclarationInspector({
-    seed,
+    source,
     nodeId,
     scope,
     isHydrating,
@@ -21,7 +20,7 @@ export const CuratedDeclarationInspector = withInstrumentation(
     headerActions,
     children
   }: {
-    seed?: CuratedCacheSeed;
+    source?: CuratedDeclarationSource;
     nodeId: string | null;
     scope: string;
     isHydrating: boolean;
@@ -30,28 +29,33 @@ export const CuratedDeclarationInspector = withInstrumentation(
   } & Partial<
     Pick<ComponentProps<typeof EditorFormPanel>, 'availableTypes' | 'allNodes' | 'nodeRepository' | 'headerActions'>
   >) {
-    const key = JSON.stringify([scope, seed?.key, seed?.bundleId, seed?.version, seed?.namespace]);
-    const [result, setResult] = useState<{ key: string; nodes: TypeGraphNode[] }>();
+    const key =
+      source &&
+      ('documents' in source
+        ? source
+        : JSON.stringify([source.key, source.bundleId, source.version, source.namespace]));
+    const sourceRef = useLatestRef(source);
+    const [result, setResult] = useState<{ key: typeof key; scope: string; nodes: TypeGraphNode[] }>();
     const hasSelection = Boolean(nodeId);
-    const artifactKey = seed?.key;
-    const bundleId = seed?.bundleId;
-    const version = seed?.version;
-    const namespace = seed?.namespace;
     useEffect(() => {
-      if (!hasSelection || !artifactKey || !bundleId || !version || !namespace) return;
+      const currentSource = sourceRef.current;
+      if (!hasSelection || !currentSource) return;
       const controller = new AbortController();
-      void loadCuratedDeclarations({ key: artifactKey, bundleId, version, namespace }, controller.signal)
+      void loadCuratedDeclarations(currentSource, controller.signal)
         .then((nodes) => {
-          if (nodes.length && !controller.signal.aborted) setResult({ key, nodes });
+          if (nodes.length && !controller.signal.aborted) setResult({ key, scope, nodes });
         })
         .catch(() => {
           // The authoritative hydration still owns retry/error presentation.
         });
       return () => controller.abort();
-    }, [key, hasSelection, artifactKey, bundleId, version, namespace]);
+    }, [key, scope, hasSelection, sourceRef]);
 
-    const node = result?.key === key ? result.nodes.find((candidate) => candidate.id === nodeId) : undefined;
-    if (!seed || !node) return children;
+    const node =
+      result?.key === key && result?.scope === scope
+        ? result.nodes.find((candidate) => candidate.id === nodeId)
+        : undefined;
+    if (!source || !node) return children;
     return (
       <div className="flex flex-col min-h-0 h-full" data-inspector-readiness="declaration">
         <p role="status" className="shrink-0 px-3 py-2 text-xs text-muted-foreground border-b">

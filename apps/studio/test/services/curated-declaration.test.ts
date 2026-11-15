@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { afterEach, expect, it, vi } from 'vitest';
-import { loadCuratedDeclarations } from '../../src/services/curated-declaration.js';
+import { capturedDeclarationSource, loadCuratedDeclarations } from '../../src/services/curated-declaration.js';
+import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
+import { readLspModelMetadata } from '@rune-langium/core';
+import { inspectCuratedNamespace } from '../../src/services/workspace.js';
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
 
 const mocks = vi.hoisted(() => ({
@@ -19,13 +22,13 @@ vi.mock('../../src/services/curated-cache-client.js', () => ({
   curatedCacheClient: { foreground: () => mocks.release }
 }));
 vi.mock('../../src/services/workspace.js', () => ({
-  inspectCuratedNamespace: async (documents: Array<{ uri: string; serializedModel: string }>) => {
+  inspectCuratedNamespace: vi.fn(async (documents: Array<{ uri: string; serializedModel: string }>) => {
     const { dispatchWorkerRequest } = await import('../../src/workers/parser-worker.js');
     const result = await dispatchWorkerRequest({ type: 'inspectNamespace', id: 'inspect', documents });
     if (result.type !== 'inspectNamespaceResult') throw new Error('Wrong response');
     if (result.error) throw new Error(result.error);
     return result.models;
-  }
+  })
 }));
 const seed = {
   key: JSON.stringify(['cdm', 'artifacts/2026-10-18-aaaaaaaaaaaa/ns/example.selected.json.gz']),
@@ -34,6 +37,44 @@ const seed = {
   namespace: 'example.selected'
 };
 afterEach(() => vi.resetAllMocks());
+
+it('reads the managed namespace from its capture without consulting or fetching legacy artifacts', async () => {
+  // The authoritative parser may still be linking local dependencies.
+  vi.mocked(inspectCuratedNamespace).mockReturnValueOnce(new Promise(() => {}));
+  const selected = (await declarationDocuments())[1]!;
+  const file: ReferenceDocument = {
+    uri: selected.uri,
+    content: '',
+    lsp: { metadata: readLspModelMetadata(selected.serializedModel), compact: '{}' },
+    serialized: selected.serializedModel
+  };
+  const source = capturedDeclarationSource(
+    [file, { ...file, lsp: undefined, serialized: '{invalid' }],
+    selected.namespace
+  );
+  if (!source) throw new Error('Expected the verified capture');
+  const nodes = await loadCuratedDeclarations(source, new AbortController().signal);
+  expect(nodes[0]?.data).toMatchObject({ name: 'Selected', attributes: [{ name: 'own' }] });
+  expect(mocks.documents).not.toHaveBeenCalled();
+  expect(inspectCuratedNamespace).not.toHaveBeenCalled();
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  expect(mocks.seed).not.toHaveBeenCalled();
+  expect(mocks.release).toHaveBeenCalledOnce();
+  expect(capturedDeclarationSource([{ ...file, serialized: undefined }], selected.namespace)).toBeUndefined();
+  expect(
+    capturedDeclarationSource([{ ...file, serialized: 'x'.repeat(2_000_001) }], selected.namespace)
+  ).toBeUndefined();
+  expect(capturedDeclarationSource([file], 'other.namespace')).toBeUndefined();
+});
+
+it('does not project a captured declaration after cancellation', async () => {
+  const abort = new AbortController();
+  abort.abort();
+  await expect(loadCuratedDeclarations({ namespace: seed.namespace, documents: [] }, abort.signal)).rejects.toThrow();
+  expect(mocks.documents).not.toHaveBeenCalled();
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  expect(mocks.release).toHaveBeenCalledOnce();
+});
 
 it('projects every declaration in the exact cached namespace without a network request', async () => {
   const selected = (await declarationDocuments())[1]!;

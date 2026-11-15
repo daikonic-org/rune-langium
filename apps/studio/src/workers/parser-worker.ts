@@ -13,6 +13,7 @@
 import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
 import type { ProjectDiagnostic } from '@rune-langium/project-config';
 import { prepareReferenceArtifact } from '../services/reference-artifact-decoder.js';
+import { readCuratedDeclarationModels } from '../services/curated-declaration-models.js';
 import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { isRecord } from '../services/message-guards.js';
 import {
@@ -856,24 +857,10 @@ async function handleExpressionScope(
 const handleInspectNamespace = withInstrumentation(
   async function handleInspectNamespace(req: InspectNamespaceRequest): Promise<InspectNamespaceResponse> {
     try {
-      // A separate document set prevents failed dependency lookups in this early
-      // read from poisoning lazy references in the authoritative workspace.
-      const services = createRuneDslServices(EmptyFileSystem);
-      const entries = hydrateModelDocuments(
-        services,
-        req.documents.map((doc) => ({ uri: doc.uri, json: doc.serializedModel }))
-      );
-      if (entries.some(({ model }) => !isRosettaModel(model))) throw new Error('Expected a serialized RosettaModel');
-      await services.shared.workspace.DocumentBuilder.build(
-        entries.map(({ document }) => document),
-        { eagerLinking: false, validation: false }
-      );
       return {
         type: 'inspectNamespaceResult',
         id: req.id,
-        models: entries.map(({ model }) =>
-          JSON.parse(serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, model))
-        )
+        models: await readCuratedDeclarationModels(req.documents)
       };
     } catch (error) {
       return { type: 'inspectNamespaceResult', id: req.id, models: [], error: (error as Error).message };

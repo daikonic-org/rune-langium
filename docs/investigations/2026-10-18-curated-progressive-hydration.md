@@ -101,6 +101,45 @@ LSP or production UX sign-off.
 
 ## Regression coverage and remaining acceptance
 
+### Managed reference captures (2026-11-15)
+
+J05 on PR #711 reported first content at 4,378 ms and linked content at 4,409 ms.
+Managed references intentionally have no legacy cache seeds, so that route never
+started the declaration-first read. Simply passing captured documents to the
+worker did not help: a browser message probe showed the inspection queued behind
+the initial local-dependency link, which returned 136 models in that run.
+
+The managed path now supplies its verified namespace documents to the same
+isolated Core reader directly in the UI host. The worker delegates its legacy
+inspection request to that shared implementation. Reads are limited to two
+million serialized characters; large namespaces or captures without namespace
+metadata keep ordinary loading. Canonical hydration, lazy scopes, serialization
+and the existing model adapter remain authoritative. No temporary nodes enter
+the workspace, Graph, Preview or codegen state.
+
+The source follows the captured reference-document array, so publishing the full
+semantic file view does not restart an unchanged declaration read. Source and
+workspace identity still reject late results. Legacy requests retain their
+immutable cache identity even if a caller reconstructs an equivalent seed object.
+
+Local optimized-candidate samples using the unchanged J05 journey:
+
+| Mode | Samples | First populated fields (ms) | Fully linked (ms) |
+| --- | ---: | ---: | ---: |
+| Before | 1 | 1,745 | 1,749 |
+| Captured declaration read | 4 | 177–210 (median 181) | 1,817–2,134 |
+
+These are cold browser contexts on one development machine using public hosted
+APIs, not a controlled CI or p95 comparison. First content improved by about 90%
+in this sample; full completion was 68–385 ms slower. This targets time to useful
+read-only content, not faster dependency linking. J05's 3-second first-content
+budget and independent linked-readiness assertion remain unchanged.
+
+Evidence is under ignored `dist/reference-progress-work/j05-comparison.json`
+and the corresponding `j05-*-report/run-manifest.json` files. Regression checks
+cover direct captured reads while the parser request remains pending, no legacy
+artifact fetch, oversized/missing captures, capture replacement and cancellation.
+
 - Worker tests use actual canonical artifacts, require own fields without the
   dependency namespace, and verify that isolated reads do not replace the active
   worker's documents. Malformed reads do not poison later requests.

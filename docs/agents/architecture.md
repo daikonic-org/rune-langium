@@ -595,8 +595,8 @@ records the fixed-corpus replay and its production verification limits.
 
 The workspace provider also carries the current parse result's pinned namespace
 seed metadata. A selected deferred type can read its namespace independently of
-the full closure and render a read-only declaration-first Inspector. The parser
-worker uses isolated services, canonical `hydrateModelDocuments` and a lazy
+the full closure and render a read-only declaration-first Inspector. The shared
+reader uses isolated services, canonical `hydrateModelDocuments` and a lazy
 Langium build for this view. Its snapshots never enter semantic/graph/preview
 stores. Selection, activation scope and artifact identity guard late results;
 the Inspector retains one projection for its active pinned namespace. Changing
@@ -605,6 +605,16 @@ instead of queuing another worker build. A different scope, cohort or namespace
 invalidates that read; full linking replaces the temporary view. A visible
 loading notice and separate readiness markers prevent treating declared fields
 as resolved dependencies.
+Managed references supply the same reader with their already-verified serialized
+namespace documents, rather than requiring legacy cache seeds or another fetch.
+Captures with namespace metadata and at most two million serialized characters
+read directly in the UI host, avoiding the parser worker's serialized linking
+queue. Larger or older captures retain ordinary loading. Legacy cache reads use
+that same isolated Core implementation through the worker.
+The temporary result belongs to that capture and workspace scope; changing either
+discards it immediately. Capture identity follows the reference-document array,
+so publishing a semantic view does not restart an unchanged namespace read.
+This view never publishes into the authoritative stores.
 Older servers without metadata retain normal loading. See the
 [progressive hydration investigation](../investigations/2026-10-18-curated-progressive-hydration.md).
 

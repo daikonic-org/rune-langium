@@ -34,6 +34,7 @@ import { useChangeFeedback } from '../hooks/useChangeFeedback.js';
 import { diagramFeedbackItems, inspectorFeedbackItems } from '../services/feedback-items.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
+import { capturedDeclarationSource } from '../services/curated-declaration.js';
 import { projectDeclarationDestination } from '../services/local-declaration.js';
 import { projectSourcePaths } from '@rune-langium/project-config';
 import { kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
@@ -490,6 +491,7 @@ export const ExplorePerspective = withInstrumentation(
       project.runtime?.status === 'loading' ||
       project.referenceView?.status === 'loading';
     const pinnedView = Boolean(project.runtime?.managed);
+    const referenceDocuments = project.runtime?.input?.referenceDocuments;
     const pinnedViewRef = useLatestRef(pinnedView);
     const { models, parsedModels, files } = workspace;
     const deferredExports: DeferredExportEntry[] = workspace.deferredExports ?? EMPTY_DEFERRED_EXPORTS;
@@ -886,13 +888,23 @@ export const ExplorePerspective = withInstrumentation(
       () => Boolean(selectedNodeMeta?.deferred && pendingHydrationNamespaces.includes(selectedNodeMeta.namespace)),
       [selectedNodeMeta, pendingHydrationNamespaces]
     );
-    const declarationSeed = useMemo(() => {
+    const declarationSource = useMemo(() => {
       if (!selectedNodeMeta?.deferred) return undefined;
+      if (pinnedView)
+        return referenceDocuments
+          ? capturedDeclarationSource(referenceDocuments, selectedNodeMeta.namespace)
+          : undefined;
       const matches = parseCuratedCacheSeeds(workspace.curatedCacheSeeds).filter(
         (seed) => seed.namespace === selectedNodeMeta.namespace
       );
       return new Set(matches.map((seed) => seed.key)).size === 1 ? matches[0] : undefined;
-    }, [workspace.curatedCacheSeeds, selectedNodeMeta]);
+    }, [
+      workspace.curatedCacheSeeds,
+      selectedNodeMeta?.namespace,
+      selectedNodeMeta?.deferred,
+      referenceDocuments,
+      pinnedView
+    ]);
 
     const previewTargets: FormPreviewTarget[] = useMemo(() => {
       const sourceByTargetId = new Map<string, Pick<FormPreviewTarget, 'sourceUri' | 'sourceIndex' | 'sourceRange'>>();
@@ -2801,7 +2813,7 @@ export const ExplorePerspective = withInstrumentation(
         >
           {inspectorNavigation.menu}
           <CuratedDeclarationInspector
-            seed={declarationSeed}
+            source={declarationSource}
             headerActions={declarationHeaderActions}
             nodeId={selectedNodeId}
             scope={inspectorScope}
@@ -2849,7 +2861,7 @@ export const ExplorePerspective = withInstrumentation(
         inspectorArrivalNodeId,
         inspectorNavigation,
         declarationHeaderActions,
-        declarationSeed,
+        declarationSource,
         metadataActions,
         inspectorScope,
         storeParseEpoch,

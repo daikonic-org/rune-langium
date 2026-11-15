@@ -8,20 +8,57 @@ import { curatedCacheClient } from './curated-cache-client.js';
 import { curatedHydrationDocuments, parseCuratedCacheSeeds, type CuratedCacheSeed } from './curated-cache-seeds.js';
 import { fetchCuratedNamespace } from './curated-fetch.js';
 import { inspectCuratedNamespace } from './workspace.js';
+import { projectReferenceUri } from '@rune-langium/project-runtime/context';
+import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
+import { readCuratedDeclarationModels } from './curated-declaration-models.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
-/** Read one pinned namespace without publishing any partial workspace state. */
+export type CuratedDeclarationSource =
+  | CuratedCacheSeed
+  | { namespace: string; documents: Parameters<typeof inspectCuratedNamespace>[0] };
+
+// Bound foreground work; large namespaces retain the ordinary worker/linking path.
+const MAX_CAPTURED_DECLARATION_CHARACTERS = 2_000_000;
+
+/** Read only the verified documents already owned by the managed reference capture. */
+export const capturedDeclarationSource = withInstrumentation(
+  function capturedDeclarationSource(
+    references: readonly ReferenceDocument[],
+    namespace: string
+  ): CuratedDeclarationSource | undefined {
+    const selected = references.filter((document) => document.lsp?.metadata.namespace === namespace);
+    if (
+      selected.reduce((total, document) => total + (document.serialized?.length ?? 0), 0) >
+      MAX_CAPTURED_DECLARATION_CHARACTERS
+    )
+      return undefined;
+    const documents = selected.flatMap((document) =>
+      document.serialized ? [{ uri: projectReferenceUri(document.uri), serializedModel: document.serialized }] : []
+    );
+    return documents.length && documents.length === selected.length ? { namespace, documents } : undefined;
+  },
+  { op: 'capturedDeclarationSource', capture: 0 }
+);
+
+/** Read one namespace without publishing any partial workspace state. */
 export const loadCuratedDeclarations = withInstrumentation(
-  async function loadCuratedDeclarations(seed: CuratedCacheSeed, signal: AbortSignal): Promise<TypeGraphNode[]> {
-    if (parseCuratedCacheSeeds([seed]).length !== 1) return [];
+  async function loadCuratedDeclarations(
+    source: CuratedDeclarationSource,
+    signal: AbortSignal
+  ): Promise<TypeGraphNode[]> {
+    if (!('documents' in source) && parseCuratedCacheSeeds([source]).length !== 1) return [];
     const release = curatedCacheClient.foreground();
     try {
       const project = async (documents: Parameters<typeof inspectCuratedNamespace>[0]) => {
         signal.throwIfAborted();
-        const models = await inspectCuratedNamespace(documents);
+        const models = await ('documents' in source
+          ? readCuratedDeclarationModels(documents)
+          : inspectCuratedNamespace(documents));
         signal.throwIfAborted();
-        return astToModel(models.filter((model) => model.name === seed.namespace)).nodes;
+        return astToModel(models.filter((model) => model.name === source.namespace)).nodes;
       };
+      if ('documents' in source) return await project(source.documents);
+      const seed = source;
       const stored = await curatedArtifactCache.documents(seed.key);
       if (stored?.every((doc) => doc.bundleId === seed.bundleId && doc.namespace === seed.namespace)) {
         try {

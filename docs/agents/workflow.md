@@ -310,6 +310,12 @@ publication must remain separate from semantic readiness; cover requests queued
 while linking, cancellation and workspace changes. J20 retains its 10-second
 source-open budget, exact source comparison and no-artifact-refetch assertion.
 
+Inspector latency changes also run the `curated-declaration` service/worker and
+`CuratedDeclarationInspector` unit suites, then optimized J05 and J28. Cover managed
+capture reads without legacy artifact fetches, capture replacement and cancellation.
+J05 measures populated declared fields separately from fully linked readiness;
+retain its existing 3-second first-content budget.
+
 J23–J28 cover workspace YAML in both themes, named Export targets and retained
 outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed
 example repair, and blank workspaces returning from reference review to Explore.
