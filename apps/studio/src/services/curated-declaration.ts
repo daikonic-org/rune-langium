@@ -10,14 +10,14 @@ import { fetchCuratedNamespace } from './curated-fetch.js';
 import { inspectCuratedNamespace } from './workspace.js';
 import { projectReferenceUri } from '@rune-langium/project-runtime/context';
 import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
-import { readCuratedDeclarationModels } from './curated-declaration-models.js';
+import { inspectCapturedDeclarations } from './curated-declaration-client.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
 export type CuratedDeclarationSource =
   | CuratedCacheSeed
   | { namespace: string; documents: Parameters<typeof inspectCuratedNamespace>[0] };
 
-// Bound foreground work; large namespaces retain the ordinary worker/linking path.
+// Bound speculative work; large namespaces retain the ordinary linking path.
 const MAX_CAPTURED_DECLARATION_CHARACTERS = 2_000_000;
 
 /** Read only the verified documents already owned by the managed reference capture. */
@@ -52,7 +52,7 @@ export const loadCuratedDeclarations = withInstrumentation(
       const project = async (documents: Parameters<typeof inspectCuratedNamespace>[0]) => {
         signal.throwIfAborted();
         const models = await ('documents' in source
-          ? readCuratedDeclarationModels(documents)
+          ? inspectCapturedDeclarations(documents, signal)
           : inspectCuratedNamespace(documents));
         signal.throwIfAborted();
         return astToModel(models.filter((model) => model.name === source.namespace)).nodes;

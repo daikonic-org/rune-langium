@@ -608,9 +608,13 @@ as resolved dependencies.
 Managed references supply the same reader with their already-verified serialized
 namespace documents, rather than requiring legacy cache seeds or another fetch.
 Captures with namespace metadata and at most two million serialized characters
-read directly in the UI host, avoiding the parser worker's serialized linking
-queue. Larger or older captures retain ordinary loading. Legacy cache reads use
-that same isolated Core implementation through the worker.
+use a dedicated, short-lived worker, avoiding both the parser worker's serialized
+linking queue and another Core build on the UI thread. Success, errors, selection
+cancellation and the shared deadline release that worker. Larger or older captures
+retain ordinary loading. Legacy cache reads use that same isolated Core
+implementation through the parser worker. Only Data, Choice and Enum declarations
+use this partial form; functions retain the complete Studio implementation and
+projection editor rather than replacing it with a signature-only Inspector.
 The temporary result belongs to that capture and workspace scope; changing either
 discards it immediately. Capture identity follows the reference-document array,
 so publishing a semantic view does not restart an unchanged namespace read.

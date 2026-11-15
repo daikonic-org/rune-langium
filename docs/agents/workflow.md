@@ -310,9 +310,11 @@ publication must remain separate from semantic readiness; cover requests queued
 while linking, cancellation and workspace changes. J20 retains its 10-second
 source-open budget, exact source comparison and no-artifact-refetch assertion.
 
-Inspector latency changes also run the `curated-declaration` service/worker and
-`CuratedDeclarationInspector` unit suites, then optimized J05 and J28. Cover managed
-capture reads without legacy artifact fetches, capture replacement and cancellation.
+Inspector latency changes also run the `curated-declaration` service/worker,
+`curated-declaration-client` and `CuratedDeclarationInspector` unit suites, then
+optimized J04c, J05, J9, J19 curated-readonly and J28. Cover managed capture reads
+without legacy artifact fetches, capture replacement, worker cleanup and
+cancellation. Function selection must retain Studio's full implementation editor.
 J05 measures populated declared fields separately from fully linked readiness;
 retain its existing 3-second first-content budget.
 

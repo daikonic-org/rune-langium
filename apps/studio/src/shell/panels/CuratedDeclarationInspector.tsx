@@ -3,6 +3,7 @@
 
 import { useEffect, useState, type ReactNode, type ComponentProps } from 'react';
 import { EditorFormPanel, useLatestRef, type EditorFormActions, type TypeGraphNode } from '@rune-langium/visual-editor';
+import { kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import { loadCuratedDeclarations, type CuratedDeclarationSource } from '../../services/curated-declaration.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
@@ -36,7 +37,9 @@ export const CuratedDeclarationInspector = withInstrumentation(
         : JSON.stringify([source.key, source.bundleId, source.version, source.namespace]));
     const sourceRef = useLatestRef(source);
     const [result, setResult] = useState<{ key: typeof key; scope: string; nodes: TypeGraphNode[] }>();
-    const hasSelection = Boolean(nodeId);
+    // Function bodies and projections require Studio's complete editor slots.
+    const kind = nodeId ? kindFromNodeId(nodeId) : undefined;
+    const hasSelection = kind === 'Data' || kind === 'Choice' || kind === 'RosettaEnumeration';
     useEffect(() => {
       const currentSource = sourceRef.current;
       if (!hasSelection || !currentSource) return;
@@ -55,7 +58,7 @@ export const CuratedDeclarationInspector = withInstrumentation(
       result?.key === key && result?.scope === scope
         ? result.nodes.find((candidate) => candidate.id === nodeId)
         : undefined;
-    if (!source || !node) return children;
+    if (!hasSelection || !source || !node) return children;
     return (
       <div className="flex flex-col min-h-0 h-full" data-inspector-readiness="declaration">
         <p role="status" className="shrink-0 px-3 py-2 text-xs text-muted-foreground border-b">

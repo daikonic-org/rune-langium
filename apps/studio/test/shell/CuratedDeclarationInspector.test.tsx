@@ -54,6 +54,22 @@ it('shows actual own fields read-only while full semantic content remains unavai
   expect(screen.queryByText('Full workspace loading')).toBeNull();
 });
 
+it('keeps function implementation slots and cancels a pending type read when selecting a function', () => {
+  vi.mocked(loadCuratedDeclarations).mockReturnValue(new Promise(() => {}));
+  const { rerender } = render(view());
+  const signal = vi.mocked(loadCuratedDeclarations).mock.calls[0]![1];
+  rerender(view('workspace-a', seed, 'example.selected.Function#RosettaFunction'));
+  expect(screen.getByText('Full workspace loading')).toBeVisible();
+  expect(signal.aborted).toBe(true);
+  expect(loadCuratedDeclarations).toHaveBeenCalledOnce();
+});
+
+it('does not start a declaration read for a function', () => {
+  render(view('workspace-a', seed, 'example.selected.Function#RosettaFunction'));
+  expect(screen.getByText('Full workspace loading')).toBeVisible();
+  expect(loadCuratedDeclarations).not.toHaveBeenCalled();
+});
+
 it('shows captured declarations before linking and drops them immediately when the capture changes', async () => {
   const source = {
     namespace: seed.namespace,

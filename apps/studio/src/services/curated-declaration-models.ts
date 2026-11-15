@@ -9,7 +9,7 @@ import {
   type RosettaModel
 } from '@rune-langium/core';
 import { EmptyFileSystem } from 'langium';
-import type { InspectNamespaceRequest } from '../workers/parser-worker.js';
+import type { InspectNamespaceRequest, InspectNamespaceResponse } from '../workers/parser-worker.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
 /** Isolated declaration snapshots; never mutate the authoritative parser's documents or references. */
@@ -32,4 +32,25 @@ export const readCuratedDeclarationModels = withInstrumentation(
     );
   },
   { op: 'readCuratedDeclarationModels', capture: 0 }
+);
+
+/** Both worker transports return the same isolated snapshot and contained errors. */
+export const handleInspectNamespace = withInstrumentation(
+  async function handleInspectNamespace(req: InspectNamespaceRequest): Promise<InspectNamespaceResponse> {
+    try {
+      return {
+        type: 'inspectNamespaceResult',
+        id: req.id,
+        models: await readCuratedDeclarationModels(req.documents)
+      };
+    } catch (error) {
+      return {
+        type: 'inspectNamespaceResult',
+        id: req.id,
+        models: [],
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  },
+  { op: 'inspectCuratedDeclaration', capture: 0 }
 );

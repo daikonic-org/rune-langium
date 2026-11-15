@@ -109,10 +109,10 @@ started the declaration-first read. Simply passing captured documents to the
 worker did not help: a browser message probe showed the inspection queued behind
 the initial local-dependency link, which returned 136 models in that run.
 
-The managed path now supplies its verified namespace documents to the same
-isolated Core reader directly in the UI host. The worker delegates its legacy
-inspection request to that shared implementation. Reads are limited to two
-million serialized characters; large namespaces or captures without namespace
+The managed path supplies its verified namespace documents to the same
+isolated Core reader in a dedicated, short-lived worker. The parser worker
+delegates its legacy inspection request to that shared implementation. Reads are
+limited to two million serialized characters; large namespaces or captures without namespace
 metadata keep ordinary loading. Canonical hydration, lazy scopes, serialization
 and the existing model adapter remain authoritative. No temporary nodes enter
 the workspace, Graph, Preview or codegen state.
@@ -127,7 +127,7 @@ Local optimized-candidate samples using the unchanged J05 journey:
 | Mode | Samples | First populated fields (ms) | Fully linked (ms) |
 | --- | ---: | ---: | ---: |
 | Before | 1 | 1,745 | 1,749 |
-| Captured declaration read | 4 | 177–210 (median 181) | 1,817–2,134 |
+| Initial UI-host captured read | 4 | 177–210 (median 181) | 1,817–2,134 |
 
 These are cold browser contexts on one development machine using public hosted
 APIs, not a controlled CI or p95 comparison. First content improved by about 90%
@@ -139,6 +139,33 @@ Evidence is under ignored `dist/reference-progress-work/j05-comparison.json`
 and the corresponding `j05-*-report/run-manifest.json` files. Regression checks
 cover direct captured reads while the parser request remains pending, no legacy
 artifact fetch, oversized/missing captures, capture replacement and cancellation.
+
+#### Regression follow-up
+
+The first PR #712 CI run failed J04c Graph hydration and J19's curated function
+editor; J9's curated form exceeded its 5-second budget. These remain acceptance
+failures even though both the merge base and initial candidate passed the same
+four journeys locally. The temporary function form omitted Studio's custom
+implementation/projection slots, and a speculative Core read on the UI thread
+could compete with full hydration. The follow-up keeps functions on the full
+Inspector path and moves captured declaration reads into an abortable dedicated
+worker. Both worker transports share one request handler and Core reader.
+
+The local comparison used optimized builds from merge base `cf0c263` and initial
+head `57a68db`, with source overlays rather than changing the active checkout.
+The worker follow-up retained the same test inputs and budgets:
+
+| Measurement | Merge base (ms) | Initial UI-host read (ms) | Dedicated worker (ms) |
+| --- | ---: | ---: | ---: |
+| J05 first populated fields | 2,018 | 170 | 225 |
+| J05 fully linked | 2,022 | 1,932 | 1,743 |
+| J9 curated form | 2,561 | 2,298 | 2,419 |
+
+These single local samples do not establish CI performance or attribute every
+failure to the same cause. The original UI-host CI result is not waived. Worker
+tests additionally cover cancellation, late replies, timeouts, transport failures
+and release after synchronous posting errors. Evidence is under ignored
+`dist/reference-progress-work/regression-{baseline,head,fixed}-report`.
 
 - Worker tests use actual canonical artifacts, require own fields without the
   dependency namespace, and verify that isolated reads do not replace the active

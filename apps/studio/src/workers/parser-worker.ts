@@ -13,7 +13,7 @@
 import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
 import type { ProjectDiagnostic } from '@rune-langium/project-config';
 import { prepareReferenceArtifact } from '../services/reference-artifact-decoder.js';
-import { readCuratedDeclarationModels } from '../services/curated-declaration-models.js';
+import { handleInspectNamespace } from '../services/curated-declaration-models.js';
 import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { isRecord } from '../services/message-guards.js';
 import {
@@ -853,21 +853,6 @@ async function handleExpressionScope(
 // ---------------------------------------------------------------------------
 // Exported dispatcher — testable in Node without spinning up a Web Worker
 // ---------------------------------------------------------------------------
-
-const handleInspectNamespace = withInstrumentation(
-  async function handleInspectNamespace(req: InspectNamespaceRequest): Promise<InspectNamespaceResponse> {
-    try {
-      return {
-        type: 'inspectNamespaceResult',
-        id: req.id,
-        models: await readCuratedDeclarationModels(req.documents)
-      };
-    } catch (error) {
-      return { type: 'inspectNamespaceResult', id: req.id, models: [], error: (error as Error).message };
-    }
-  },
-  { op: 'inspectCuratedDeclaration', capture: 0 }
-);
 
 // Langium's document/index services are mutable. A complete request, including
 // scope's parse/link/read sequence, must own them until its response is captured.

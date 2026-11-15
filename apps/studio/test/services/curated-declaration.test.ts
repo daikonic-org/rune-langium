@@ -21,6 +21,12 @@ vi.mock('../../src/services/curated-fetch.js', () => ({ fetchCuratedNamespace: m
 vi.mock('../../src/services/curated-cache-client.js', () => ({
   curatedCacheClient: { foreground: () => mocks.release }
 }));
+vi.mock('../../src/services/curated-declaration-client.js', () => ({
+  inspectCapturedDeclarations: async (documents: Parameters<typeof inspectCuratedNamespace>[0]) => {
+    const { readCuratedDeclarationModels } = await import('../../src/services/curated-declaration-models.js');
+    return readCuratedDeclarationModels(documents);
+  }
+}));
 vi.mock('../../src/services/workspace.js', () => ({
   inspectCuratedNamespace: vi.fn(async (documents: Array<{ uri: string; serializedModel: string }>) => {
     const { dispatchWorkerRequest } = await import('../../src/workers/parser-worker.js');
