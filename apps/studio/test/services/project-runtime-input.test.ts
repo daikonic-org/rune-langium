@@ -60,3 +60,35 @@ it('captures deleted source files and ignores sources outside configured scopes'
   expect(input.snapshot.files.has('model/deleted.rosetta')).toBe(false);
   expect(Object.keys(input.resolution.models)).toEqual([URI.parse(pathToUri('model/added.rosetta')).toString()]);
 });
+it('includes unsaved preparation edits in the same authoritative project revision', async () => {
+  const workflow = {
+    schemaVersion: 1,
+    id: 'data',
+    name: 'Data',
+    inputs: {},
+    outputs: {},
+    preparation: { module: 'scripts/prepare.ts', driver: 'scripts/driver.js', outputs: ['model/a.rosetta'] }
+  };
+  const saved = await createProjectSnapshot(
+    'p',
+    new Map([
+      ['workflows/data.workflow.json', JSON.stringify(workflow)],
+      ['scripts/prepare.ts', 'before'],
+      ['scripts/driver.js', 'driver'],
+      ['model/a.rosetta', 'namespace test']
+    ]),
+    () => []
+  );
+  const input = await captureProjectRuntimeInput(
+    saved,
+    [
+      { path: 'model/a.rosetta', name: 'a.rosetta', content: 'namespace test', dirty: false },
+      { path: 'scripts/prepare.ts', name: 'prepare.ts', content: 'after', dirty: true }
+    ],
+    []
+  );
+  expect(input.snapshot.files.get('scripts/prepare.ts')).toBe('after');
+  expect(input.snapshot.files.get('scripts/driver.js')).toBe('driver');
+  expect(input.receipt.revision).not.toBe(saved.revision);
+  expect(saved.files.get('scripts/prepare.ts')).toBe('before');
+});

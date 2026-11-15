@@ -11,6 +11,7 @@ import {
 } from './project-files.js';
 import { normalizeProject } from './rune-compat.js';
 import { readExamples } from './examples.js';
+import { workflowPreparationInputPaths } from './workflows.js';
 import type { ProjectDiagnostic, ProjectFiles, ProjectSnapshot, TargetValidator } from './types.js';
 
 export class ProjectSnapshotError extends Error {
@@ -80,6 +81,7 @@ export async function createProjectSnapshot(
   const ownedFiles = new Map([...files.keys()].sort().map((path) => [path, files.get(path)!]));
   const exactInputs = new Set([
     ...sources,
+    ...workflowPreparationInputPaths({ files, project }),
     ...expectedPaths,
     project.build.runeConfig,
     ...(project.build.importReport ? [project.build.importReport] : []),

@@ -60,7 +60,8 @@ export default defineConfig({
         'e2e/inspector-local-declaration.spec.ts',
         'e2e/project-overrides.spec.ts',
         'e2e/native-builtin-mappings.spec.ts',
-        'e2e/native-implementations.spec.ts'
+        'e2e/native-implementations.spec.ts',
+        'e2e/prepared-workflow.spec.ts'
       ]
     }
   ]

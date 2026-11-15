@@ -1,6 +1,6 @@
 # Studio-hosted database preparation
 
-Status: candidate preparation implementation, 2026-11-14. Follows the catalog in #707/#708
+Status: transport merged in #709; Prototype integration candidate, 2026-11-14. Follows the catalog in #707/#708
 and market-backed examples in rune-cdm-example #5.
 
 ## Contract
@@ -85,6 +85,59 @@ provider selection. Installation of prepared Rune overrides uses the existing
 explicit Save/import path rather than a second persistence mechanism.
 
 ## Delivery and verification
+
+### Prototype integration
+
+A saved function recipe can declare a preparation module, the adjacent pinned
+`driver.js`, parameters, and one to eight Rune output paths:
+
+```json
+{
+  "preparation": {
+    "module": "scripts/market-data/prepare.ts",
+    "driver": "scripts/market-data/driver.js",
+    "parameters": { "date": "2026-11-02", "generation": 1 },
+    "outputs": ["model/benchmark-data/market-observations.rosetta"]
+  }
+}
+```
+
+The module imports ordinary database helpers from `./driver.js` and exports
+`async (connection, { inputs, parameters })`. Its result is
+`{ schemaVersion: 1, sources: { "declared/path.rosetta": "Rune source" } }`.
+All declared paths must match the project's selected Rune sources. Extra paths,
+missing paths, private storage and generated outputs are rejected. The host
+verifies that the workspace driver hash matches its exact bundled module.
+Both module and driver are project revision inputs; editor drafts use the same
+descriptor parser and path selection as saved projects. Editing either file
+recaptures the runtime without reloading unchanged references.
+
+Execute prepares data, creates an immutable project draft with those provider
+overrides and runs the existing preview protocol in a separate disposable
+browser worker. The worker uses the canonical resolution context, validation,
+code generation and synchronous provider implementation. Base-provider validation
+cannot block preparation: the isolated worker validates inputs and conditions
+against the prepared providers before calculating. A current successful prepared
+run publishes its output independently of the base-provider validation status.
+It receives no database connection or credential. Other sessions and the editable
+project remain on their original provider generation. Input edits, source/configuration changes,
+selection, cancellation and workspace replacement invalidate the pending run.
+
+After success, Review prepared data displays the exact source files. Save
+prepared data uses the existing project transaction to compare source/config
+revisions and the repository file list, save the sources and add a uniquely
+named execution receipt. It cannot overwrite another receipt. The receipt binds
+the run revision, driver/module and output hashes, and contains no credential.
+Saving makes the ordinary Rune overrides available offline; it does not create
+another provider registry or an implicit Git push. Preparation itself remains a
+Studio execution step; headless builds consume explicitly saved provider data.
+
+Managed schema and validation requests use the captured project and await its
+applied worker receipt independently of Explorer hydration and read-only model
+publication. The same boundary keeps restored examples and an in-flight preparation
+on their actual semantic revision.
+
+### Transport checks
 
 - Add the two read views through Drizzle generation, with SQL and metadata.
 - Implement SQL admission and a normal Drizzle driver against native SQLite and

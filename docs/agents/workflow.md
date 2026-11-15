@@ -58,6 +58,22 @@ instrumentation lowering pass to accommodate generated model decorators.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
+## React lifecycle checks
+
+For Studio React changes, run `pnpm run doctor:ci --base <base-sha>` alongside
+focused lifecycle tests. The PR lint job fetches the merge commit's parents,
+verifies the exact base ancestor and blocks newly introduced React Doctor errors; existing findings are compared
+against the same base rather than silently waived. Unsafe assertions on fallible
+lookup results are errors. This scan uses the installed tool without its remote
+score or dependency service.
+
+Use the shared `useLatestRef` for callbacks that need the latest committed value;
+do not update such refs during render. Test transitions from ready to pending
+and back, replacement during asynchronous work, cancellation and kept-alive hidden
+views. The shared browser fixture rejects page crashes, uncaught client exceptions
+and Studio's render-error screen. Static checks do not prove snapshot/source
+ownership or replace these runtime checks.
+
 ## CDM example data CI
 
 Hosted preparation changes: generate the client driver with
@@ -66,6 +82,13 @@ bundle), run `check:driver`, regenerate Wrangler types after binding changes, an
 run the data-worker, worker-core execution and Studio preparation gateway/client
 tests. The data-worker suite exercises real Miniflare D1, Worker Loader, private
 RPC and network denial, with the same example queries on native SQLite.
+Prototype changes also require project-config preparation/revision tests,
+Studio preparation/Save/session tests and the optimized `prepared-workflow.spec.ts`
+journey, which verifies isolated calculation and explicit offline persistence.
+It covers valid, invalid and unavailable base-provider checks, plus rejection of
+invalid prepared data. Runtime-capture tests cover unsaved module and driver edits.
+Run J29 when changing schema/validation lifetimes; reference-view publication must
+not restart an unchanged captured-project operation.
 Keep its numeric GitHub-ID allowlist closed by default. The combined Pages build
 adds the private execution binding only when `CDM_EXAMPLE_EXECUTION_ENABLED=true`;
 the default build must work before the private Worker has been deployed.

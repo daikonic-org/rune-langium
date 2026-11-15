@@ -23,6 +23,8 @@ import { prepareHostedDatabase } from '../../studio/src/services/database-prepar
 import prepareMarketData from '../examples/prepare-market-data.js';
 import { nativeBenchmarkCatalog } from './helpers/catalog.js';
 import { createReadConnection } from '../src/query-policy.js';
+import { projectFileRevision } from '@rune-langium/project-config';
+import bundledDriver from '../src/generated/driver-source.json' with { type: 'json' };
 
 let mf: Miniflare;
 let service: PreparationService;
@@ -122,6 +124,14 @@ it('executes normal Drizzle query code in a real isolated Worker against private
       { date: '2026-11-03', value: '0.0432' }
     ]
   });
+});
+it('requires a supplied driver identity to match the exact hosted module', async () => {
+  await expect(service.execute({ ...request(queryCode), driverRevision: '0'.repeat(64) }, identity)).rejects.toThrow();
+  const result = await service.execute(
+    { ...request(queryCode), driverRevision: await projectFileRevision(bundledDriver.source) },
+    identity
+  );
+  expect(result.value).toHaveLength(2);
 });
 it('preserves present and missing Drizzle rows through the isolated connection', async () => {
   const code = `

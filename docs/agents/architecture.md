@@ -229,9 +229,16 @@ network-disabled Dynamic Worker. Only a revocable, budgeted read connection to
 accepted-publication views crosses into the module. No publisher token, raw D1/R2
 binding or SQL HTTP endpoint is exposed. Shared transport contracts/bounds live
 in worker-core `/execution`; the example owns ORM/schema and SQL admission.
+Configured Prototype recipes prepare declared Rune provider sources before
+execution. Each run compiles an immutable draft in a disposable preview worker,
+using the same project resolution, generation and validation as normal previews.
 The existing browser `new Function` path is not a security sandbox and receives
-no privileged connection. Prepared data does not change synchronous Rune callback
-semantics or bypass explicit workspace Save/import. Production activation is
+no privileged connection. Module and driver files are semantic project inputs.
+Schema/validation hooks key managed requests by the captured receipt, not the
+identity of republished read-only Explorer models. Review/Save prepared data uses
+the normal project transaction and a unique execution receipt; preparation cannot
+mutate workspace files automatically. It does not change synchronous Rune callback
+semantics. Production activation is
 separate from daily acquisition and remains closed until configured. See the
 [specification](../design/studio-database-proxy/spec.md).
 
@@ -515,8 +522,11 @@ import belongs to the grid, and single-input import belongs to each node.
 `useWorkflowValidation` requests canonical worker validation on a separate session
 channel. Input identity, request cancellation, factory identity and model snapshots
 fence obsolete replies. Per-input type diagnostics and whole-function checks gate
-Execute together. Validation status popovers can retry failed requests without
-editing inputs; the function status retries all unavailable checks together.
+ordinary Execute together. A saved preparation recipe instead validates against
+its isolated prepared worker before calculation; base-provider checks cannot
+block that run or hide its current successful result. Validation status popovers
+can retry failed requests without editing inputs; the function status retries all
+unavailable checks together.
 `typescript.inputChecks` emits opt-in precondition-only exports
 through the same aliases/precondition emitter and dispatch selector used by actual
 execution. These exports never run assignments or postconditions. Ordinary exports
@@ -1268,6 +1278,9 @@ only the active perspective mounts the canonical inspector form. Its controlled
 React Flow instance has separate positions, selection and viewport state from the
 type graph. Palette/camera changes do not write Rune. Per-function leaf drafts
 survive nested navigation while the workspace remains mounted.
+Retained composition diagnostics use the source captured with their facts, even
+when reference publication temporarily removes the current file. This invariant
+also applies while the kept-alive Composer is hidden behind another perspective.
 Core's `describeFunctionComposition` matches the directly resolved
 `rune.studio.composition` annotation and projects acyclic aliases, calls, scoped
 `extract` calls and one whole-output set. It returns original UTF-16 regions and
@@ -1416,7 +1429,9 @@ editor files. Readiness tracks writable-file identity as well as parsed/input
 identity, so an edit immediately marks the retained semantic view pending.
 View readiness is separate from
 semantic capture and each host's applied-receipt barrier. Complete serialized
-definitions are excluded from legacy namespace-hydration requests. Workspace
+definitions are excluded from legacy namespace-hydration requests. Managed
+schema/validation requests await capture and the worker receipt directly; the
+captured reference closure does not depend on Explorer hydration. Workspace
 identity and abort guards discard late view completion; failed loads expose
 retry without editing configuration or falling back to latest artifacts.
 

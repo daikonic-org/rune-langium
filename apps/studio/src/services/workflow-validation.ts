@@ -8,6 +8,7 @@ import { useProject } from '../shell/providers/project-context.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
 import { usePreviewSessionFactory } from '../shell/providers/preview-session-context.js';
 import { withInstrumentation } from './instrumentation/core.js';
+import { workflowContextVersion } from './workflow-context-version.js';
 
 export interface WorkflowValidation {
   state: 'pending' | 'valid' | 'invalid' | 'unavailable' | 'unchecked';
@@ -33,8 +34,7 @@ export const useWorkflowValidation = withInstrumentation(
     functionInputs = false
   ): WorkflowValidation {
     const factory = usePreviewSessionFactory();
-    const models = useWorkspaceOptional()?.models;
-    const projectRevision = useProject().snapshot?.revision;
+    const { models, projectRevision } = workflowContextVersion(useProject(), useWorkspaceOptional()?.models);
     const [attempt, setAttempt] = useState(0);
     const retry = useCallback(() => setAttempt((value) => value + 1), []);
     const [result, setResult] = useState<{

@@ -183,7 +183,7 @@ func SourceOnly:
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
 });
 
-async function openComposition(page: Page, content: string, name: string) {
+async function openComposition(page: Page, content: string, name?: string) {
   await page.goto('./');
   await page
     .locator('input[type="file"][accept=".rosetta"]')
@@ -198,10 +198,27 @@ async function openComposition(page: Page, content: string, name: string) {
   });
   await page.getByTestId('rail-compose').click();
   const composer = page.getByTestId('function-composer');
-  await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
+  if (name) await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
   await dismissLocalTransportNotices(page);
   return composer;
 }
+
+test('enters Compose before selecting a function and switches between ordinary function definitions', async ({
+  page
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const composer = await openComposition(page, source);
+  await expect(composer).toBeVisible();
+  for (const name of ['Double', 'OptionalTotal', 'Double']) {
+    await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
+    await expect(composer.locator('.function-composer__header > strong')).toHaveText(name);
+    await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+    await composer.getByRole('button', { name: 'Signature & details', exact: true }).click();
+    await expect(composer).toBeVisible();
+  }
+  expect(errors).toEqual([]);
+});
 
 for (const theme of ['daikonic', 'light'])
   test(`keeps long composition names and variable tags within the workbench (${theme})`, async ({ page }, info) => {

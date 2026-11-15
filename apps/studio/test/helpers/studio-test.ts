@@ -1,11 +1,38 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { test as base } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
 import { fetchCiGitHubSource } from './ci-github-source.js';
 
 /** Candidate runs substitute built static assets while retaining real hosted endpoints. */
-export const test = base.extend({
+export const test = base.extend<{ runtimeHealth: void }>({
+  runtimeHealth: [
+    async ({ page }, use, info) => {
+      let crashed = false;
+      const errors: string[] = [];
+      const onCrash = () => {
+        crashed = true;
+      };
+      const onError = (error: Error) => errors.push(error.name);
+      page.on('crash', onCrash);
+      page.on('pageerror', onError);
+      try {
+        await use();
+        if (info.status === 'skipped') return;
+        expect(crashed, 'Studio browser page crashed.').toBe(false);
+        expect(errors, 'Unexpected Studio client exceptions; inspect the sanitized trace for details.').toEqual([]);
+        if (!page.isClosed())
+          await expect(
+            page.getByRole('heading', { name: 'Studio couldn’t display this view', exact: true }),
+            'Studio entered its render-error screen.'
+          ).toHaveCount(0);
+      } finally {
+        page.off('crash', onCrash);
+        page.off('pageerror', onError);
+      }
+    },
+    { auto: true }
+  ],
   context: async ({ context, baseURL }, use) => {
     const assetOrigin = process.env.PROD_UX_ASSET_ORIGIN;
     const abort = new AbortController();

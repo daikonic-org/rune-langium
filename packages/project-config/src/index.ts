@@ -16,5 +16,6 @@ export * from './import/report.js';
 export * from './examples.js';
 export * from './portable-records.js';
 export * from './workflows.js';
+export * from './preparation.js';
 export * from './presentation.js';
 export * from './execution-descriptors.js';

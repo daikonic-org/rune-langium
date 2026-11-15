@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { withInstrumentation } from '../../services/instrumentation/core.js';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useLatestRef } from '@rune-langium/visual-editor';
 import { canonicalProjectJson, ProjectSnapshotError, type ProjectDiagnostic } from '@rune-langium/project-config';
 import type { ReferenceDocument } from '@rune-langium/project-runtime/references';
 import {
@@ -36,12 +37,10 @@ export const useProjectRuntime = withInstrumentation(
     const referenceKey = managed && saved && project.status === 'ready' ? projectReferenceKey(saved) : undefined;
     const sourceKey =
       managed && project.status === 'ready'
-        ? canonicalProjectJson(Object.fromEntries(projectRuntimeSources(files)))
+        ? canonicalProjectJson(Object.fromEntries(projectRuntimeSources(files, saved)))
         : undefined;
-    const filesRef = useRef(files);
-    filesRef.current = files;
-    const savedRef = useRef(saved);
-    savedRef.current = saved;
+    const filesRef = useLatestRef(files);
+    const savedRef = useLatestRef(saved);
     const [references, setReferences] = useState<{
       key?: string;
       documents?: readonly ReferenceDocument[];
@@ -94,7 +93,7 @@ export const useProjectRuntime = withInstrumentation(
         cancelled = true;
         abort.abort();
       };
-    }, [referenceKey, attempt]);
+    }, [referenceKey, attempt, savedRef, filesRef]);
     const revision = saved?.revision;
     const documents = references.key === referenceKey ? references.documents : undefined;
     useEffect(() => {
@@ -122,7 +121,7 @@ export const useProjectRuntime = withInstrumentation(
       return () => {
         cancelled = true;
       };
-    }, [project.workspaceId, revision, referenceKey, documents, references.diagnostics, sourceKey]);
+    }, [project.workspaceId, revision, referenceKey, documents, references.diagnostics, sourceKey, savedRef, filesRef]);
     if (project.status === 'unavailable') return { managed: false, status: 'legacy', diagnostics: [] };
     if (project.status === 'loading') return { managed, status: 'loading', diagnostics: [] };
     if (project.status === 'invalid') return { managed, status: 'unavailable', diagnostics: project.diagnostics };

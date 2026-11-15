@@ -11,13 +11,16 @@ export const PortableProjectPathSchema = z
     'Use a portable repository-relative path outside private storage.'
   );
 export type PortableRecordRoot = 'examples' | 'workflows' | 'layouts';
-export function portableRecordRoot(snapshot: ProjectSnapshot, kind: PortableRecordRoot): string | undefined {
+export function portableRecordRoot(
+  snapshot: Pick<ProjectSnapshot, 'project'>,
+  kind: PortableRecordRoot
+): string | undefined {
   const root = normalizeProjectPath(snapshot.project.studio[kind]);
   return root && PortableProjectPathSchema.safeParse(root).success ? root : undefined;
 }
 /** Typed files only; malformed records are diagnosed while their original files remain intact. */
 export function readPortableRecords<T>(
-  snapshot: ProjectSnapshot,
+  snapshot: Pick<ProjectSnapshot, 'files' | 'project'>,
   options: {
     root: PortableRecordRoot;
     extension: string;

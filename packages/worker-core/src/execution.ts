@@ -17,6 +17,10 @@ export const EXECUTION_LIMITS = {
 export const PreparationRequest = z.strictObject({
   schemaVersion: z.literal(1),
   projectRevision: z.string().regex(/^[a-f0-9]{64}$/),
+  driverRevision: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   code: z.string().min(1).max(EXECUTION_LIMITS.sourceCharacters),
   input: z.json()
 });
