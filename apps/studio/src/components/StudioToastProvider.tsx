@@ -13,6 +13,7 @@ import {
   useToastManager
 } from '@rune-langium/design-system/ui/toast';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
+import { Progress } from '@rune-langium/design-system/ui/progress';
 import { addInstrumentationSink, withInstrumentation, type TelemetryRecord } from '../services/instrumentation/core.js';
 import { isFailureRecord } from '../services/instrumentation/record-status.js';
 
@@ -133,18 +134,18 @@ function StudioToastInner({ children }: { children: ReactNode }) {
       <ToastViewport aria-label="Studio notifications">
         {toasts.map((t) => (
           <Toast key={t.id} toast={t} variant={t.type as StudioToastVariant}>
-            <div className="flex items-start gap-2">
-              {t.type === 'loading' && <Spinner className="size-4 shrink-0 mt-0.5" />}
-              <div className="grid min-w-0 flex-1 gap-1">
+            <div className="flex min-w-0 flex-1 items-start gap-2">
+              {t.type === 'loading' && <Spinner className="size-4 shrink-0 mt-0.5 motion-reduce:animate-none" />}
+              <div className="grid min-w-0 flex-1 gap-1 [overflow-wrap:anywhere]">
                 <ToastTitle className={t.title ? undefined : 'sr-only'}>{t.title ?? t.description}</ToastTitle>
                 <ToastDescription>{t.description}</ToastDescription>
                 {t.type === 'loading' && t.data?.progress && t.data.progress.total > 0 ? (
                   <div className="grid gap-1 pt-1">
-                    <progress
+                    <Progress
                       aria-label={t.data.progress.label}
+                      aria-valuetext={`${t.data.progress.completed} of ${t.data.progress.total} ${t.data.progress.label}`}
                       value={Math.max(0, Math.min(t.data.progress.completed, t.data.progress.total))}
                       max={t.data.progress.total}
-                      className="h-1.5 w-full accent-primary"
                     />
                     <span className="text-xs tabular-nums text-muted-foreground">
                       {t.data.progress.completed} of {t.data.progress.total} {t.data.progress.label}

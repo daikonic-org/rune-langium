@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { Progress } from '@rune-langium/design-system/ui/progress';
 import { getModelRegistry, createCustomModelSource } from '../services/model-registry.js';
 import { useModelStore } from '../store/model-store.js';
 import type { ModelSource, LoadProgress } from '../types/model-types.js';
@@ -44,8 +45,6 @@ function mapToCategory(code: string | undefined): ErrorCategory {
 
 function ProgressBar({ progress, sourceId }: { progress: LoadProgress; sourceId: string }) {
   const cancel = useModelStore((s) => s.cancel);
-  const pct = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
-
   const phaseLabel =
     progress.phase === 'fetching'
       ? 'Cloning repository...'
@@ -55,16 +54,13 @@ function ProgressBar({ progress, sourceId }: { progress: LoadProgress; sourceId:
 
   return (
     <div className="w-full" data-testid="model-load-progress">
-      <div className="w-full bg-muted rounded-full h-2 mb-2 overflow-hidden">
-        <div
-          className="w-full h-2 rounded-full bg-primary origin-left transition-transform"
-          style={{ transform: `scaleX(${pct / 100})` }}
-          role="progressbar"
-          aria-valuenow={progress.current}
-          aria-valuemin={0}
-          aria-valuemax={progress.total}
-        />
-      </div>
+      <Progress
+        aria-label="Model files"
+        aria-valuetext={phaseLabel}
+        value={progress.total > 0 ? progress.current : null}
+        max={progress.total > 0 ? progress.total : undefined}
+        className="mb-2 h-2"
+      />
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{phaseLabel}</p>
         <Button variant="ghost" size="sm" onClick={() => cancel(sourceId)}>

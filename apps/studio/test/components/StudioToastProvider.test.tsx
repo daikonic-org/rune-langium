@@ -94,12 +94,13 @@ describe('StudioToastProvider', () => {
     );
     screen.getByText('start').click();
     const bar = await screen.findByRole('progressbar', { name: 'namespaces' });
-    expect(bar).toHaveAttribute('max', '3');
-    expect(bar).toHaveAttribute('value', '0');
+    expect(bar).toHaveAttribute('aria-valuemax', '3');
+    expect(bar).toHaveAttribute('aria-valuenow', '0');
     expect(screen.getByText('0 of 3 namespaces')).toBeVisible();
     screen.getByText('advance').click();
     await screen.findByText('1 of 3 namespaces');
-    expect(bar).toHaveAttribute('value', '1');
+    expect(bar).toHaveAttribute('aria-valuenow', '1');
+    expect(bar).toHaveAttribute('aria-valuetext', '1 of 3 namespaces');
     expect(screen.getAllByRole('progressbar')).toHaveLength(1);
     screen.getByText('finish').click();
     expect(await screen.findByText('finish')).toBeVisible();

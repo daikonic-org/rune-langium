@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
+import { Progress } from '@rune-langium/design-system/ui/progress';
 import type { WorkspaceFile, WorkspaceLoadProgress } from '../services/workspace.js';
 import { createBlankWorkspaceFile, readFileList } from '../services/workspace.js';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -157,18 +158,15 @@ export const FileLoader = withInstrumentation(
           )}
           {loadProgress ? (
             <div className="w-full" data-testid="load-progress">
-              <div className="w-full bg-muted rounded-full h-2 mb-2 overflow-hidden">
-                <div
-                  className="w-full h-2 rounded-full bg-primary origin-left transition-transform"
-                  style={{
-                    transform: `scaleX(${loadProgress.total > 0 ? loadProgress.loaded / loadProgress.total : 0})`
-                  }}
-                  role="progressbar"
-                  aria-valuenow={loadProgress.loaded}
-                  aria-valuemin={0}
-                  aria-valuemax={loadProgress.total}
-                />
-              </div>
+              <Progress
+                aria-label="Workspace files"
+                aria-valuetext={
+                  loadProgress.total > 0 ? `${loadProgress.loaded} of ${loadProgress.total} files` : undefined
+                }
+                value={loadProgress.total > 0 ? loadProgress.loaded : null}
+                max={loadProgress.total > 0 ? loadProgress.total : undefined}
+                className="mb-2 h-2"
+              />
               <p className="text-sm text-muted-foreground">
                 {loadProgress.phase === 'reading'
                   ? `Loading ${loadProgress.loaded}/${loadProgress.total} files...`

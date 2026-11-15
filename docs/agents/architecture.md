@@ -27,6 +27,11 @@ and CLI/codegen/LSP → core. CLI project builds use project-runtime; core/codeg
 
 ## Portable project state
 
+Loading bars use design-system `Progress` (Base UI), including reference namespace
+toasts and model/file loaders. Counts describe completed work in the caller's units;
+unknown totals remain indeterminate. Progress presentation never changes semantic
+readiness or creates an additional activity/logging path.
+
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
 canonical rendered item snapshots after accepted authored input/model revisions;
 source positions and background reference hydration do not create edit events.
