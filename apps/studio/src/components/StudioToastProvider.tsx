@@ -13,6 +13,7 @@ import {
   useToastManager
 } from '@rune-langium/design-system/ui/toast';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
+import { Progress } from '@rune-langium/design-system/ui/progress';
 import { addInstrumentationSink, withInstrumentation, type TelemetryRecord } from '../services/instrumentation/core.js';
 import { isFailureRecord } from '../services/instrumentation/record-status.js';
 
@@ -28,17 +29,14 @@ interface StudioToastInput {
 interface StudioLoadingToastInput {
   title?: string;
   description: string;
+  progress?: { completed: number; total: number; label: string };
 }
 
 interface StudioToastContextValue {
   showToast: (toast: StudioToastInput) => void;
-  /**
-   * Shows a spinner toast for a background process (e.g. on-demand curated
-   * namespace hydration) that has no natural "done" moment of its own to key
-   * a UI state off — the toast stays open (no auto-dismiss timeout) until
-   * the caller explicitly dismisses it via the returned id.
-   */
+  /** Keep a background notification open until dismissed; progress reports known work only. */
   showLoadingToast: (toast: StudioLoadingToastInput) => string;
+  updateLoadingToast: (id: string, toast: StudioLoadingToastInput) => void;
   /** Dismisses a toast by id (e.g. one returned by `showLoadingToast`). */
   dismissToast: (id: string) => void;
   /**
@@ -64,7 +62,7 @@ export const StudioToastProvider = withInstrumentation(
 );
 
 function StudioToastInner({ children }: { children: ReactNode }) {
-  const { toasts, add, close } = useToastManager();
+  const { toasts, add, close, update } = useToastManager<{ progress?: StudioLoadingToastInput['progress'] }>();
   const showToast = useCallback(
     (input: StudioToastInput) => {
       add({
@@ -83,6 +81,7 @@ function StudioToastInner({ children }: { children: ReactNode }) {
         title: input.title,
         description: input.description,
         type: 'loading',
+        data: { progress: input.progress },
         // No auto-dismiss timeout — a background process has no fixed
         // duration; the caller dismisses it explicitly when done.
         timeout: 0
@@ -90,6 +89,13 @@ function StudioToastInner({ children }: { children: ReactNode }) {
       return id;
     },
     [add]
+  );
+
+  const updateLoadingToast = useCallback(
+    (id: string, input: StudioLoadingToastInput) => {
+      update(id, { title: input.title, description: input.description, data: { progress: input.progress } });
+    },
+    [update]
   );
 
   const dismissToast = useCallback(
@@ -118,8 +124,8 @@ function StudioToastInner({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const contextValue = useMemo<StudioToastContextValue>(
-    () => ({ showToast, showLoadingToast, dismissToast, notify }),
-    [showToast, showLoadingToast, dismissToast, notify]
+    () => ({ showToast, showLoadingToast, updateLoadingToast, dismissToast, notify }),
+    [showToast, showLoadingToast, updateLoadingToast, dismissToast, notify]
   );
 
   return (
@@ -128,11 +134,24 @@ function StudioToastInner({ children }: { children: ReactNode }) {
       <ToastViewport aria-label="Studio notifications">
         {toasts.map((t) => (
           <Toast key={t.id} toast={t} variant={t.type as StudioToastVariant}>
-            <div className="flex items-start gap-2">
-              {t.type === 'loading' && <Spinner className="size-4 shrink-0 mt-0.5" />}
-              <div className="grid gap-1">
+            <div className="flex min-w-0 flex-1 items-start gap-2">
+              {t.type === 'loading' && <Spinner className="size-4 shrink-0 mt-0.5 motion-reduce:animate-none" />}
+              <div className="grid min-w-0 flex-1 gap-1 [overflow-wrap:anywhere]">
                 <ToastTitle className={t.title ? undefined : 'sr-only'}>{t.title ?? t.description}</ToastTitle>
                 <ToastDescription>{t.description}</ToastDescription>
+                {t.type === 'loading' && t.data?.progress && t.data.progress.total > 0 ? (
+                  <div className="grid gap-1 pt-1">
+                    <Progress
+                      aria-label={t.data.progress.label}
+                      aria-valuetext={`${t.data.progress.completed} of ${t.data.progress.total} ${t.data.progress.label}`}
+                      value={Math.max(0, Math.min(t.data.progress.completed, t.data.progress.total))}
+                      max={t.data.progress.total}
+                    />
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {t.data.progress.completed} of {t.data.progress.total} {t.data.progress.label}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             </div>
             <ToastClose aria-label="Dismiss notification" />
@@ -146,6 +165,7 @@ function StudioToastInner({ children }: { children: ReactNode }) {
 const NOOP_TOAST: StudioToastContextValue = {
   showToast: () => {},
   showLoadingToast: () => '',
+  updateLoadingToast: () => {},
   dismissToast: () => {},
   notify: () => {}
 };

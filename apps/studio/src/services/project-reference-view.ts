@@ -17,6 +17,8 @@ import { pathToUri } from '../utils/uri.js';
 import { withInstrumentation } from './instrumentation/core.js';
 import { linkDocument, type WorkspaceFile } from './workspace.js';
 
+export type ProjectReferenceInventory = Pick<WorkspaceState, 'files' | 'deferredExports' | 'curatedCacheSeeds'>;
+
 /** A reconstructed graph must have its own scopes before UI consumers read lazy references. */
 async function hydrateReferenceView(entries: ReadonlyArray<{ uri: string; json: string }>, signal?: AbortSignal) {
   signal?.throwIfAborted();
@@ -47,7 +49,8 @@ export const prepareProjectReferenceView = withInstrumentation(
     state: WorkspaceState,
     install: (documents: HydrateRequest['documents']) => Promise<void>,
     signal: AbortSignal,
-    link: typeof linkDocument = linkDocument
+    link: typeof linkDocument = linkDocument,
+    onInventory?: (inventory: ProjectReferenceInventory) => void
   ): Promise<WorkspaceState> {
     const sources = new Set(projectSourcePaths(input.snapshot.files, input.snapshot.project.build.sources));
     const references: WorkspaceFile[] = [];
@@ -134,6 +137,8 @@ export const prepareProjectReferenceView = withInstrumentation(
       })),
       curatedCacheSeeds: []
     };
+    // Verified text and declaration ownership do not require the local dependency graph to be linked.
+    onInventory?.({ files: view.files, deferredExports: view.deferredExports, curatedCacheSeeds: [] });
     // Concrete local models are published as ready. Their inherited members and
     // type references must therefore share a linked graph with their dependencies.
     if (fallback.length === entries.length) return view;

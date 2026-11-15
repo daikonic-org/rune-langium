@@ -300,8 +300,15 @@ share a pane name. Reuse these helpers in local and production tests.
 `pnpm --filter @rune-langium/studio run test:prod-ux` exercises the deployed Studio.
 Smoke and UX suites share `loadCurrentCdm` in `test/helpers/workspace-launcher.ts`:
 select a release, review its closure, Save, and wait for a visible reference type.
-The project-reference flow publishes linked references before Explore; deferred
-legacy-loader spinner assumptions do not apply to that flow.
+The project-reference flow publishes verified source/index inventory before
+semantic linking finishes; legacy-loader spinner assumptions do not apply to
+that flow. Semantic readiness remains separate from source visibility.
+
+Reference startup changes: run `project-reference-view`, `use-project-reference-view`
+and `StudioToastProvider` unit suites, then optimized J20/J29. Verified source/index
+publication must remain separate from semantic readiness; cover requests queued
+while linking, cancellation and workspace changes. J20 retains its 10-second
+source-open budget, exact source comparison and no-artifact-refetch assertion.
 
 J23–J28 cover workspace YAML in both themes, named Export targets and retained
 outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed

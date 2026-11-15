@@ -61,6 +61,7 @@ Project: "Daikonic Studio Components" (`projectId` in config.json). Package shap
 - `AlertDescription` is a CSS grid: wrap inline text + `<code>` in a `<p>` or each inline piece becomes a row.
 - `Form` = react-hook-form `FormProvider` only (no FormField/FormItem) — compose `useForm` + `Controller` + `Field*`.
 - `ToastViewport` is `fixed bottom-0`; previews pass `className="top-0 bottom-auto"`; toasts seeded via `useToastManager().add({timeout:0})` inside `ToastProvider`.
+- `Progress` is the shared Base UI task indicator used by namespace toasts and model/file loaders. Pass counts with their actual `max`, a descriptive accessible name and count text; pass `value={null}` until the total is known. `Progress` and `Toast` previews include the namespace-linking state. Reduced motion disables bar transitions and the preview's spinner.
 - `Command` uses Base UI Combobox: supply grouped `items` and `onItemSelect`; `CommandGroup` takes an `id` and a render-function child, and `CommandItem.value` is the entry object. Static cmdk children are incompatible.
 - Never put `${...}` inside template-literal code samples in previews (ReferenceError at capture).
 - Select stories use default `item-aligned`; `position="popper"` sets the list to `h-(--anchor-height)` (only ~1 row visible) — DS bug, unfixed, needs base-ui investigation.

@@ -55,6 +55,52 @@ const runtime: ProjectRuntimeState = {
 };
 const reference = { ...file('[cdm]/model.rosetta', 'namespace pinned'), readOnly: true, refOnly: true };
 
+it('exposes verified source and declaration inventory while semantic preparation is still pending', async () => {
+  const state = stateFor([]);
+  const ready = {
+    ...state,
+    files: [reference],
+    deferredExports: [{ filePath: reference.path, namespace: 'pinned', exports: [{ name: 'Payment', type: 'Data' }] }]
+  };
+  const linking = Promise.withResolvers<WorkspaceState>();
+  vi.mocked(prepareProjectReferenceView).mockImplementation(
+    async (_input, _state, _install, _signal, _link, onInventory) => {
+      onInventory?.(ready);
+      return linking.promise;
+    }
+  );
+  const activeRuntime = { ...runtime, input: { ...runtime.input!, referenceDocuments: [] } };
+  const { result } = renderHook(() => useProjectReferenceView(activeRuntime, state));
+  await waitFor(() => expect(result.current.state.files).toContain(reference));
+  expect(result.current.state.deferredExports).toEqual(ready.deferredExports);
+  expect(result.current.referenceView?.status).toBe('loading');
+  expect(result.current.state.models).toBe(state.models);
+  act(() => useEditorStore.getState().requestNamespaceHydration('pinned'));
+  await act(async () => linking.resolve(ready));
+  await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
+  expect(useEditorStore.getState().pendingHydrationNamespaces).toContain('pinned');
+});
+
+it('ignores an obsolete inventory callback after switching workspaces', async () => {
+  const callbacks: NonNullable<Parameters<typeof prepareProjectReferenceView>[5]>[] = [];
+  vi.mocked(prepareProjectReferenceView).mockImplementation((_input, _state, _install, _signal, _link, publish) => {
+    if (publish) callbacks.push(publish);
+    return new Promise(() => {});
+  });
+  const first = stateFor([]),
+    second = stateFor([], 'second');
+  const { result, rerender } = renderHook(({ state }) => useProjectReferenceView(runtime, state), {
+    initialProps: { state: first }
+  });
+  rerender({ state: second });
+  await act(async () => callbacks[0]?.({ files: [reference], deferredExports: [] }));
+  expect(result.current.state.workspaceId).toBe('second');
+  expect(result.current.state.files).not.toContain(reference);
+  await act(async () => callbacks[1]?.({ files: [reference], deferredExports: [] }));
+  expect(result.current.state.files).toContain(reference);
+  expect(result.current.referenceView?.status).toBe('loading');
+});
+
 it.each([
   { failure: false, ambiguous: false },
   { failure: true, ambiguous: false },
@@ -107,9 +153,10 @@ it.each([
     const { result } = renderHook(() => useProjectReferenceView(runtime, state));
     await waitFor(() => expect(result.current.referenceView?.status).toBe('ready'));
     let work!: Promise<void>;
+    const progress = vi.fn();
     let settled = false;
     await act(async () => {
-      work = hydrateProjectNamespaces('editing', ['pinned'])!;
+      work = hydrateProjectNamespaces('editing', ['pinned'], progress)!;
       void work.then(
         () => {
           settled = true;
@@ -128,6 +175,7 @@ it.each([
     expect(linkDocument).toHaveBeenNthCalledWith(1, `file:///[cdm]/${ambiguous ? 'functions' : 'types'}.rosetta`, true);
     expect(linkDocument).toHaveBeenNthCalledWith(2, `file:///[cdm]/${ambiguous ? 'types' : 'functions'}.rosetta`, true);
     expect(settled).toBe(false);
+    expect(progress).toHaveBeenLastCalledWith({ completed: 0, total: 1 });
     await act(async () => {
       remaining.resolve(
         failure
@@ -145,6 +193,14 @@ it.each([
           : [entries[1]!.path, entries[0]!.path]
     );
     expect(result.current.referenceView?.status).toBe('ready');
+    expect(progress).toHaveBeenLastCalledWith({ completed: failure ? 0 : 1, total: 1 });
+    if (!failure) {
+      await act(async () => {
+        await hydrateProjectNamespaces('editing', ['pinned'], progress);
+      });
+      expect(linkDocument).toHaveBeenCalledTimes(2);
+      expect(progress).toHaveBeenLastCalledWith({ completed: 1, total: 1 });
+    }
   }
 );
 

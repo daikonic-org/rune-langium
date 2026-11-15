@@ -33,6 +33,7 @@
     "./ui/number-chiclet": "./src/ui/number-chiclet.tsx",
     "./ui/picker": "./src/ui/picker.tsx",
     "./ui/popover": "./src/ui/popover.tsx",
+    "./ui/progress": "./src/ui/progress.tsx",
     "./ui/radio-group": "./src/ui/radio-group.tsx",
     "./ui/resizable": "./src/ui/resizable.tsx",
     "./ui/row-glyph": "./src/ui/row-glyph.tsx",

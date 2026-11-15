@@ -24,6 +24,7 @@ export * from './label.js';
 export * from './number-chiclet.js';
 export * from './picker.js';
 export * from './popover.js';
+export * from './progress.js';
 export * from './radio-group.js';
 export * from './resizable.js';
 export * from './row-glyph.js';

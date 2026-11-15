@@ -489,7 +489,7 @@ export const ExplorePerspective = withInstrumentation(
       project.status === 'loading' ||
       project.runtime?.status === 'loading' ||
       project.referenceView?.status === 'loading';
-    const pinnedView = Boolean(project.runtime?.managed && project.referenceView?.status === 'ready');
+    const pinnedView = Boolean(project.runtime?.managed);
     const pinnedViewRef = useLatestRef(pinnedView);
     const { models, parsedModels, files } = workspace;
     const deferredExports: DeferredExportEntry[] = workspace.deferredExports ?? EMPTY_DEFERRED_EXPORTS;
