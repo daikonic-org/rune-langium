@@ -58,6 +58,22 @@ instrumentation lowering pass to accommodate generated model decorators.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
 
+## React lifecycle checks
+
+For Studio React changes, run `pnpm run doctor:ci --base <base-sha>` alongside
+focused lifecycle tests. The PR lint job fetches the merge commit's parents,
+verifies the exact base ancestor and blocks newly introduced React Doctor errors; existing findings are compared
+against the same base rather than silently waived. Unsafe assertions on fallible
+lookup results are errors. This scan uses the installed tool without its remote
+score or dependency service.
+
+Use the shared `useLatestRef` for callbacks that need the latest committed value;
+do not update such refs during render. Test transitions from ready to pending
+and back, replacement during asynchronous work, cancellation and kept-alive hidden
+views. The shared browser fixture rejects page crashes, uncaught client exceptions
+and Studio's render-error screen. Static checks do not prove snapshot/source
+ownership or replace these runtime checks.
+
 ## CDM example data CI
 
 Hosted preparation changes: generate the client driver with

@@ -27,6 +27,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Include the PR merge commit's parents for React Doctor's merge-base.
+          fetch-depth: 2
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -118,6 +121,15 @@ jobs:
       - name: Lint
         if: matrix.check == 'lint-and-test'
         run: pnpm run lint
+
+      - name: Check introduced React lifecycle errors
+        if: matrix.check == 'lint-and-test' && github.event_name == 'pull_request'
+        env:
+          RUNE_DOCTOR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$RUNE_DOCTOR_BASE"
+          git merge-base --is-ancestor "$RUNE_DOCTOR_BASE" HEAD
+          pnpm run doctor:ci --base "$RUNE_DOCTOR_BASE"
 
       - name: Format check
         if: matrix.check == 'lint-and-test'

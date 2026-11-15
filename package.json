@@ -74,6 +74,7 @@
     "verify:prod:ui": "pnpm --filter @rune-langium/studio run test:prod-smoke",
     "verify:prod:all": "pnpm run verify:prod && pnpm run verify:prod:ui",
     "doctor": "react-doctor",
+    "doctor:ci": "react-doctor apps/studio --scope changed --no-telemetry --no-supply-chain --verbose --blocking error",
     "audit:comments": "node scripts/audit-comments.mjs",
     "test:comment-audit": "ast-grep test --filter comment-audit --skip-snapshot-tests && node --test scripts/audit-comments.test.mjs",
     "audit:source": "oxlint --config oxlint.audit.config.ts --disable-nested-config apps packages",

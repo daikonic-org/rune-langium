@@ -19,6 +19,7 @@ import {
   computeGraphPositions,
   selectNodeRepository,
   useEditorStore,
+  useLatestRef,
   ExpressionBuilder,
   makeNodeId,
   qualifiedNameFromNodeId,
@@ -221,8 +222,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   const project = useProject();
   const flow = useReactFlow<ComposerNode>();
   const nodesInitialized = useNodesInitialized();
-  const current = useRef(editor);
-  current.current = editor;
+  const current = useLatestRef(editor);
   const identity = editor?.nodeId ?? '';
   const recipe = project.snapshot
     ? readWorkflows(project.snapshot).workflows.find(

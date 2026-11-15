@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useRef, useState } from 'react';
+import { useLatestRef } from '@rune-langium/visual-editor';
 import { canonicalProjectJson, type WorkflowPreparation } from '@rune-langium/project-config';
 import { useProject } from '../shell/providers/project-context.js';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
@@ -28,8 +29,7 @@ export const useWorkflowPreparation = withInstrumentation(
           Object.fromEntries(projectRuntimeSources(workspace?.files ?? [], project.snapshot))
         ])
       : undefined;
-    const live = useRef({ fingerprint, project, workspace, preparation });
-    live.current = { fingerprint, project, workspace, preparation };
+    const live = useLatestRef({ fingerprint, project, workspace, preparation });
     const [accepted, setAccepted] = useState<{ data: PreparedWorkflowData; isCurrent(): boolean }>();
     const [phase, setPhase] = useState<'preparing' | 'calculating'>();
     const [saving, setSaving] = useState(false);
