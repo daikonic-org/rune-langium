@@ -85,6 +85,8 @@ RPC and network denial, with the same example queries on native SQLite.
 Prototype changes also require project-config preparation/revision tests,
 Studio preparation/Save/session tests and the optimized `prepared-workflow.spec.ts`
 journey, which verifies isolated calculation and explicit offline persistence.
+It covers valid, invalid and unavailable base-provider checks, plus rejection of
+invalid prepared data. Runtime-capture tests cover unsaved module and driver edits.
 Run J29 when changing schema/validation lifetimes; reference-view publication must
 not restart an unchanged captured-project operation.
 Keep its numeric GitHub-ID allowlist closed by default. The combined Pages build

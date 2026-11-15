@@ -109,14 +109,18 @@ All declared paths must match the project's selected Rune sources. Extra paths,
 missing paths, private storage and generated outputs are rejected. The host
 verifies that the workspace driver hash matches its exact bundled module.
 Both module and driver are project revision inputs; editor drafts use the same
-descriptor parser and path selection as saved projects.
+descriptor parser and path selection as saved projects. Editing either file
+recaptures the runtime without reloading unchanged references.
 
 Execute prepares data, creates an immutable project draft with those provider
 overrides and runs the existing preview protocol in a separate disposable
 browser worker. The worker uses the canonical resolution context, validation,
-code generation and synchronous provider implementation. It receives no database
-connection or credential. Other sessions and the editable project remain on
-their original provider generation. Input edits, source/configuration changes,
+code generation and synchronous provider implementation. Base-provider validation
+cannot block preparation: the isolated worker validates inputs and conditions
+against the prepared providers before calculating. A current successful prepared
+run publishes its output independently of the base-provider validation status.
+It receives no database connection or credential. Other sessions and the editable
+project remain on their original provider generation. Input edits, source/configuration changes,
 selection, cancellation and workspace replacement invalidate the pending run.
 
 After success, Review prepared data displays the exact source files. Save
@@ -128,9 +132,10 @@ Saving makes the ordinary Rune overrides available offline; it does not create
 another provider registry or an implicit Git push. Preparation itself remains a
 Studio execution step; headless builds consume explicitly saved provider data.
 
-Managed schema and validation requests use the captured project receipt,
-independently of read-only Explorer model publication. The same boundary keeps
-restored examples and an in-flight preparation on their actual semantic revision.
+Managed schema and validation requests use the captured project and await its
+applied worker receipt independently of Explorer hydration and read-only model
+publication. The same boundary keeps restored examples and an in-flight preparation
+on their actual semantic revision.
 
 ### Transport checks
 

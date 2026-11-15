@@ -353,7 +353,7 @@ export const PrototypeWorkflow = withInstrumentation(
     );
     const functionSelected = mode === 'flow' && state.functionFqn !== null;
     const ready = functionSelected
-      ? state.status === 'succeeded' && aggregateValidation.state === 'valid'
+      ? state.status === 'succeeded' && (preparation ? !!preparedRun.prepared : aggregateValidation.state === 'valid')
       : !!draft && standaloneValidation.state === 'valid';
     const payload = functionSelected ? state.result : draft?.values;
     // History is presentation only: never restore a stale result to the executable session or payload graph.
@@ -889,7 +889,7 @@ export const PrototypeWorkflow = withInstrumentation(
                 ? (state.error ??
                   (state.status === 'running'
                     ? 'Preparing function…'
-                    : aggregateValidation.state === 'invalid'
+                    : !preparation && aggregateValidation.state === 'invalid'
                       ? 'Resolve input checks before executing.'
                       : 'Execute to generate an output.'))
                 : draft
@@ -1007,8 +1007,9 @@ export const PrototypeWorkflow = withInstrumentation(
                           !session ||
                           state.status === 'running' ||
                           state.schemaStatus === 'unavailable' ||
-                          (aggregateValidation.state !== 'valid' &&
-                            !(preparation && aggregateValidation.state === 'unavailable')) ||
+                          (preparation
+                            ? project.runtime?.status !== 'captured'
+                            : aggregateValidation.state !== 'valid') ||
                           (!!state.schema?.executionUnavailable && !preparation)
                         }
                         onClick={() => void session?.run(preparation ? preparedRun.execute : undefined)}

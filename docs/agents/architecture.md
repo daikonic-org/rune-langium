@@ -522,8 +522,11 @@ import belongs to the grid, and single-input import belongs to each node.
 `useWorkflowValidation` requests canonical worker validation on a separate session
 channel. Input identity, request cancellation, factory identity and model snapshots
 fence obsolete replies. Per-input type diagnostics and whole-function checks gate
-Execute together. Validation status popovers can retry failed requests without
-editing inputs; the function status retries all unavailable checks together.
+ordinary Execute together. A saved preparation recipe instead validates against
+its isolated prepared worker before calculation; base-provider checks cannot
+block that run or hide its current successful result. Validation status popovers
+can retry failed requests without editing inputs; the function status retries all
+unavailable checks together.
 `typescript.inputChecks` emits opt-in precondition-only exports
 through the same aliases/precondition emitter and dispatch selector used by actual
 execution. These exports never run assignments or postconditions. Ordinary exports
@@ -1426,7 +1429,9 @@ editor files. Readiness tracks writable-file identity as well as parsed/input
 identity, so an edit immediately marks the retained semantic view pending.
 View readiness is separate from
 semantic capture and each host's applied-receipt barrier. Complete serialized
-definitions are excluded from legacy namespace-hydration requests. Workspace
+definitions are excluded from legacy namespace-hydration requests. Managed
+schema/validation requests await capture and the worker receipt directly; the
+captured reference closure does not depend on Explorer hydration. Workspace
 identity and abort guards discard late view completion; failed loads expose
 retry without editing configuration or falling back to latest artifacts.
 

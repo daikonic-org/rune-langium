@@ -151,6 +151,11 @@ export const CodegenProvider = withInstrumentation(
     const hydrationNonce = useEditorStore((state) => state.hydrationNonce);
     const filesRef = useRef(files);
     const deferredExportsRef = useRef(deferredExports);
+    // Captured projects supply their complete reference closure independently of Explorer hydration.
+    const previewDeferredExports = useCallback(() => {
+      const runtime = projectRuntimeRef.current;
+      return runtime && runtime.status !== 'legacy' ? [] : deferredExportsRef.current;
+    }, []);
     const workspaceEpochRef = useRef(0);
     const committedFilesVersionRef = useRef(0);
     const committedHydratedNamespacesRef = useRef(new Set<string>());
@@ -509,10 +514,10 @@ export const CodegenProvider = withInstrumentation(
       setWorkerRef(codegenWorker);
       const readiness = createInstanceReadiness({
         findNamespaces: (typeFqn) =>
-          findNamespacesForType(curatedDeferredExports(deferredExportsRef.current, filesRef.current), typeFqn),
+          findNamespacesForType(curatedDeferredExports(previewDeferredExports(), filesRef.current), typeFqn),
         findNamespacesForUnresolved: (names) =>
           findUnhydratedNamespacesForUnresolved(
-            deferredExportsRef.current,
+            previewDeferredExports(),
             filesRef.current,
             names,
             useEditorStore.getState().hydratedNamespaces
@@ -577,7 +582,7 @@ export const CodegenProvider = withInstrumentation(
         if (isInstanceGenerateSchemaResultMessage(msg)) {
           if (isPrototypeSessionRequest(msg.requestId)) return;
           const unresolvedNamespaces = findUnhydratedNamespacesForUnresolved(
-            deferredExportsRef.current,
+            previewDeferredExports(),
             filesRef.current,
             extractUnresolvedNames(msg.schema.unsupportedFeatures),
             useEditorStore.getState().hydratedNamespaces
@@ -759,7 +764,8 @@ export const CodegenProvider = withInstrumentation(
       setWorkerRef,
       hydrateNamespaceForInstance,
       syncWorkerFiles,
-      prepareWorkerFiles
+      prepareWorkerFiles,
+      previewDeferredExports
     ]);
 
     // ---------------------------------------------------------------------------
