@@ -167,6 +167,36 @@ tests additionally cover cancellation, late replies, timeouts, transport failure
 and release after synchronous posting errors. Evidence is under ignored
 `dist/reference-progress-work/regression-{baseline,head,fixed}-report`.
 
+The dedicated-worker commit `c5b7b47` still failed those same CI gates: Graph and
+function readiness exceeded their assertions, and J9 recorded 7,280 ms. Moving
+the speculative read was insufficient to address full preparation latency.
+
+Further stage profiling found two independent costs. The parser worker serialized
+136 full AST snapshots only for the UI to read their document identities and
+reconstruct them from its existing 41 MB of verified JSON. Managed view requests
+now use an identity-only closure reply; the same linking walk and canonical UI
+reconstruction remain in place. Ordinary functions also enumerated local and
+workspace dispatch candidates on every scope lookup, although the canonical
+signature rule returns an ordinary function unchanged. Scope construction now
+returns that effective ordinary function before enumerating dispatch candidates.
+Actual dispatch variants retain their complete resolution path.
+
+A CPU-profiled replay of the captured 470-document project recorded about
+4,050 ms before the scope fast path and 2,581 ms afterward, with zero diagnostics
+in both runs. Full linking and validation were retained. This is a single local
+profiled replay, excluding input loading, rather than a CI or p95 measurement.
+
+| Local optimized measurement | Dedicated worker | Identity-only closure + scope fast path |
+| --- | ---: | ---: |
+| J05 first populated fields | 225 ms | 228 ms |
+| J05 fully linked | 1,743 ms | 1,011 ms |
+| J9 curated form | 2,419 ms | 1,509 ms |
+
+The unchanged journey assertions and timing budgets remain the acceptance gate.
+Replay and browser evidence is under ignored `dist/reference-progress-work/`
+(`profile-effective-before-summary.json`, `profile-effective-after-summary.json`
+and `scoped-report/run-manifest.json`).
+
 - Worker tests use actual canonical artifacts, require own fields without the
   dependency namespace, and verify that isolated reads do not replace the active
   worker's documents. Malformed reads do not poison later requests.

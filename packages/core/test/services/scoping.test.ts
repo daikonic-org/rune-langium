@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   parse,
   parseWorkspace,
   isRosettaFunction,
   isRosettaSymbolReference,
+  isRosettaModel,
   getFunctionSignature,
   getFunctionOutput,
   createRuneDslServices
 } from '../../src/index.js';
 import type { Data, RosettaFunction, RosettaEnumeration, RosettaModel } from '../../src/index.js';
-import { URI } from 'langium';
+import { AstUtils, URI } from 'langium';
 import type { Diagnostic } from 'langium';
 
 /**
@@ -81,6 +82,38 @@ func Read:
       }
     ]);
     expect(results.flatMap((result) => result.errors)).toEqual([]);
+  });
+
+  it('links ordinary parameters and outputs without enumerating dispatch candidates', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const document = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString(
+      `namespace ordinary
+basicType int
+func Compute:
+ inputs: amount int (1..1)
+ output: result int (1..1)
+ set result: amount + 1`,
+      URI.parse('inmemory:///ordinary.rosetta')
+    );
+    const candidates = vi.spyOn(RuneDsl.shared.workspace.IndexManager, 'allElements');
+    try {
+      await RuneDsl.shared.workspace.DocumentBuilder.build([document], { validation: true, eagerLinking: true });
+      expect(document.diagnostics?.filter((diagnostic) => diagnostic.severity === 1) ?? []).toEqual([]);
+      const model = document.parseResult.value;
+      if (!isRosettaModel(model)) throw new Error('Expected a model');
+      const func = model.elements.find(isRosettaFunction);
+      if (!func) throw new Error('Expected Compute');
+      expect(func.operations[0]?.assignRoot.ref).toBe(func.output);
+      expect(
+        AstUtils.streamAst(func)
+          .filter(isRosettaSymbolReference)
+          .map((node) => node.symbol.ref)
+          .toArray()
+      ).toEqual([func.inputs[0]]);
+      expect(candidates.mock.calls.filter(([kind]) => kind === 'RosettaFunction')).toEqual([]);
+    } finally {
+      candidates.mockRestore();
+    }
   });
 
   it.each([false, true])('links split dispatch signatures within their namespace (reverse=%s)', async (reverse) => {

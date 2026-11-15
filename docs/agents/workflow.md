@@ -315,6 +315,10 @@ Inspector latency changes also run the `curated-declaration` service/worker,
 optimized J04c, J05, J9, J19 curated-readonly and J28. Cover managed capture reads
 without legacy artifact fetches, capture replacement, worker cleanup and
 cancellation. Function selection must retain Studio's full implementation editor.
+Closure publication changes also run `parser-worker-closure`, `project-reference-view`
+and `use-project-reference-view` tests: identity-only replies must contain the
+complete linked closure, preserve local inheritance and overrides, leave unrelated
+documents deferred, and reject identities outside the verified capture.
 J05 measures populated declared fields separately from fully linked readiness;
 retain its existing 3-second first-content budget.
 

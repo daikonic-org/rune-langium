@@ -172,8 +172,16 @@ it.each([
         ambiguous ? [] : [entries[1]!.path]
       )
     );
-    expect(linkDocument).toHaveBeenNthCalledWith(1, `file:///[cdm]/${ambiguous ? 'functions' : 'types'}.rosetta`, true);
-    expect(linkDocument).toHaveBeenNthCalledWith(2, `file:///[cdm]/${ambiguous ? 'types' : 'functions'}.rosetta`, true);
+    expect(linkDocument).toHaveBeenNthCalledWith(
+      1,
+      `file:///[cdm]/${ambiguous ? 'functions' : 'types'}.rosetta`,
+      'uris'
+    );
+    expect(linkDocument).toHaveBeenNthCalledWith(
+      2,
+      `file:///[cdm]/${ambiguous ? 'types' : 'functions'}.rosetta`,
+      'uris'
+    );
     expect(settled).toBe(false);
     expect(progress).toHaveBeenLastCalledWith({ completed: 0, total: 1 });
     await act(async () => {
@@ -300,7 +308,7 @@ it('routes managed namespace demand to the pinned parser and unregisters on work
   await act(async () => {
     await hydrateProjectNamespaces('editing', ['pinned']);
   });
-  expect(linkDocument).toHaveBeenCalledWith('file:///[cdm]/model.rosetta', true);
+  expect(linkDocument).toHaveBeenCalledWith('file:///[cdm]/model.rosetta', 'uris');
   expect(result.current.state.models).toEqual([expect.objectContaining({ name: 'pinned' })]);
   unmount();
   expect(hydrateProjectNamespaces('editing', ['pinned'])).toBeUndefined();

@@ -1265,9 +1265,9 @@ async function requestFunctionContext(
 export const linkDocument = withInstrumentation(
   async function linkDocument(
     uri: string,
-    snapshot = false,
+    snapshot: LinkDocumentRequest['snapshot'] = false,
     additionalUris: readonly string[] = []
-  ): Promise<{ linked: boolean; errors: string[]; newModels: RosettaModel[] }> {
+  ): Promise<Pick<LinkDocumentResponse, 'linked' | 'errors' | 'newModels' | 'materializedUris'>> {
     try {
       const id = String(++requestId);
       const recovery = curatedLinkRecovery;
@@ -1310,7 +1310,12 @@ export const linkDocument = withInstrumentation(
         }
       }
       if (isLinkDocumentResponse(response)) {
-        return { linked: response.linked, errors: response.errors, newModels: response.newModels };
+        return {
+          linked: response.linked,
+          errors: response.errors,
+          newModels: response.newModels,
+          ...(response.materializedUris ? { materializedUris: response.materializedUris } : {})
+        };
       }
       return { linked: false, errors: ['Unexpected response'], newModels: [] };
     } catch (error) {

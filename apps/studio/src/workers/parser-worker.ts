@@ -89,8 +89,8 @@ export interface LinkDocumentRequest {
   uri: string;
   /** Additional roots share one scope build and dependency snapshot. */
   additionalUris?: readonly string[];
-  /** Return the roots and their linked closure, including already materialized dependencies. */
-  snapshot?: boolean;
+  /** Return the complete linked closure as models, or only identities for an already captured view. */
+  snapshot?: boolean | 'uris';
 }
 
 export interface LinkDocumentResponse {
@@ -100,6 +100,8 @@ export interface LinkDocumentResponse {
   errors: string[];
   /** Newly linked corpus models, or the complete linked closure when snapshot was requested. */
   newModels: RosettaModel[];
+  /** Complete linked closure identities when snapshot is 'uris'; model snapshots are omitted. */
+  materializedUris?: string[];
   /** Immutable artifacts whose deferred models failed to materialize. */
   invalidArtifactKeys?: string[];
 }
@@ -670,7 +672,10 @@ const handleLinkDocument = withInstrumentation(
         id: req.id,
         linked: true,
         errors,
-        newModels: [...snapshots].map((model) => modelSnapshot(model))
+        newModels: req.snapshot === 'uris' ? [] : [...snapshots].map((model) => modelSnapshot(model)),
+        ...(req.snapshot === 'uris'
+          ? { materializedUris: [...snapshots].map((model) => AstUtils.getDocument(model).uri.toString()) }
+          : {})
       };
     } catch (error) {
       if (targetArtifactKey) invalidArtifactKeys.add(targetArtifactKey);
@@ -932,7 +937,9 @@ export const isLinkDocumentResponse = withInstrumentation(
       typeof value.linked === 'boolean' &&
       Array.isArray(value.errors) &&
       value.errors.every((e) => typeof e === 'string') &&
-      Array.isArray(value.newModels)
+      Array.isArray(value.newModels) &&
+      (value.materializedUris === undefined ||
+        (Array.isArray(value.materializedUris) && value.materializedUris.every((uri) => typeof uri === 'string')))
     );
   },
   {

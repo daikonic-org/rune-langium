@@ -225,6 +225,13 @@ it('publishes the complete index before materializing references and links selec
   expect(materialized.models).toHaveLength(1);
   expect(materialized.models[0]!.elements[0]!.$container).toBe(materialized.models[0]);
   expect(await materializeProjectReferenceView(materialized, linked.newModels)).toBe(materialized);
+  const byIdentity = await materializeProjectReferenceView(view, ['file:///[cdm]/model.rosetta']);
+  expect(byIdentity.models.map((model) => model.name)).toEqual(materialized.models.map((model) => model.name));
+  expect(byIdentity.models[0]!.elements[0]!.$container).toBe(byIdentity.models[0]);
+  expect(await materializeProjectReferenceView(byIdentity, ['file:///[cdm]/model.rosetta'])).toBe(byIdentity);
+  await expect(materializeProjectReferenceView(view, ['file:///outside.rosetta'])).rejects.toThrow(
+    'not in the current verified view'
+  );
 });
 
 it('revives an immutable cross-document cycle without forcing name resolution or loading unrelated documents', async () => {
@@ -411,8 +418,10 @@ it.each(
       expect((peerModel.elements[0] as Data).superType?.ref).toBe(parent);
       expect(view.models.map((model) => model.name).sort()).toEqual([namespace, namespace, 'pinned'].sort());
       expect(link).toHaveBeenCalledTimes(round + 1);
-      expect(link).toHaveBeenLastCalledWith(pathToUri(file.path), true, [pathToUri(peerFile.path)]);
-      expect(new Set((await link.mock.results[round]!.value).newModels).size).toBe(view.models.length);
+      expect(link).toHaveBeenLastCalledWith(pathToUri(file.path), 'uris', [pathToUri(peerFile.path)]);
+      const linked = await link.mock.results[round]!.value;
+      expect(linked.newModels).toEqual([]);
+      expect(new Set(linked.materializedUris).size).toBe(view.models.length);
       expect(_testInternals().deferredModelJson.size).toBe(1); // The unrelated support model stays deferred.
     }
     expect(warn.mock.calls.filter(([message]) => String(message).includes('ComputedScopes state'))).toEqual([]);
