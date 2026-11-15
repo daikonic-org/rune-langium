@@ -221,7 +221,7 @@ function AppContent() {
   const loadedModelsRef = useRef<Map<string, LoadedModel>>(new Map());
   // Declared selections survive failed loads until the model is observed loaded.
   const unavailableCuratedBindingsRef = useRef(new Map<string, CuratedModelBinding>());
-  const { showToast, showLoadingToast, dismissToast } = useStudioToast();
+  const { showToast, showLoadingToast, updateLoadingToast, dismissToast } = useStudioToast();
 
   const reportWorkspaceError = useCallback(
     (message: string, error: unknown, operation?: { tag: string; metadata: AddActivityMeta }) => {
@@ -402,7 +402,10 @@ function AppContent() {
     const startedAt = performance.now();
     const hydrationOpId = recordOperation('curated', `Loading ${label}…`);
     const toastId = showLoadingToast({ description: `Loading ${label}…` });
-    const managed = hydrateProjectNamespaces(restoredWorkspace?.id, requested);
+    const managed = hydrateProjectNamespaces(restoredWorkspace?.id, requested, (progress) => {
+      if (cancelled || epoch !== workspaceEpochRef.current) return;
+      updateLoadingToast(toastId, { description: `Linking ${label}…`, progress: { ...progress, label: 'namespaces' } });
+    });
     void (
       managed
         ? managed.then(() => undefined)
@@ -456,6 +459,7 @@ function AppContent() {
     applyParseResult,
     reportWorkspaceError,
     showLoadingToast,
+    updateLoadingToast,
     dismissToast
   ]);
 

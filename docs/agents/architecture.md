@@ -1044,6 +1044,10 @@ their own naming policy.
 Notification presentation does not own logging. Operation owners record their
 Activity/Output events, optionally displaying a toast; dismissing a toast creates
 no operation or history entry. `recordOperation` supplies the shared correlation ID.
+Loading notifications can update one toast with an accessible progress bar and
+counter. Namespace progress counts completed requested namespaces, including reuse
+within the current capture; unknown phases keep a spinner rather than estimating
+completion. Progress updates create no additional Activity/Output records.
 Workspace failure owners use that helper once, including storage error details;
 the workspace error notification effect does not add history records.
 Hydration rejections pass their original curated operation ID and duration to
@@ -1913,12 +1917,18 @@ and cross-document cycles. The deferred linker reuses roots registered by that
 batch. Only editable source snapshots rebuild authored references through the
 live scope/link boundary; immutable dependencies are not re-resolved by name
 before their scopes exist.
-Concrete local source models publish only after their reference dependencies have
+Verified reference text and declaration ownership publish before local linking,
+so opening source does not wait for the complete semantic graph. The view remains
+loading until semantic preparation completes; obsolete inventory callbacks cannot
+publish into another workspace. Managed navigation keeps its pinned routing while
+that graph is pending. Concrete local source models publish only after their reference dependencies have
 been linked and included in that same Core hydration batch. Repeated worker
 snapshot requests return the complete linked closure, including dependencies
 already materialized by a previous consumer. Reference activation links configured
 local roots in one worker request, traversing and serializing their union once;
 shared dependencies never require a separate snapshot transfer per implementation.
+Namespace requests reuse files already materialized in this capture; the existing
+publication queue still awaits the complete requested namespace before readiness.
 Inventory-only placeholders are an
 intentional deferral and do not count as stripped concrete models in the graph's
 degraded-reparse guard; concrete source peers retain that corruption protection.

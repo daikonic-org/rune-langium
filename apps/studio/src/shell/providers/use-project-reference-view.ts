@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEditorStore } from '@rune-langium/visual-editor';
-import { makeNodeId } from '@rune-langium/visual-editor/identifiers';
-import { pathToUri } from '../../utils/uri.js';
 import { registerProjectNamespaceHydrator } from '../../services/project-namespace-hydration.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ProjectRuntimeInput } from '../../services/project-runtime-input.js';
@@ -12,9 +10,10 @@ import type { WorkspaceState } from './workspace-context.js';
 import {
   mergeProjectReferenceFiles,
   prepareProjectReferenceView,
-  materializeProjectReferenceView
+  type ProjectReferenceInventory
 } from '../../services/project-reference-view.js';
-import { installProjectParserDocuments, linkDocument } from '../../services/workspace.js';
+import { installProjectParserDocuments } from '../../services/workspace.js';
+import { createProjectReferenceHydrator } from '../../services/project-reference-hydrator.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 export const useProjectReferenceView = withInstrumentation(
@@ -29,6 +28,8 @@ export const useProjectReferenceView = withInstrumentation(
       parsed: WorkspaceState['parsedModels'];
       files: WorkspaceState['files'];
       view?: WorkspaceState;
+      inventory?: ProjectReferenceInventory;
+      preparing?: boolean;
       error?: string;
     }>();
     useEffect(() => {
@@ -41,18 +42,37 @@ export const useProjectReferenceView = withInstrumentation(
             })
           : undefined;
       const abort = new AbortController();
-      const work = prepareProjectReferenceView(input, state, installProjectParserDocuments, abort.signal);
+      const sameReferenceCapture = referenceDocuments.current === input.referenceDocuments;
+      if (!sameReferenceCapture) {
+        // Reset before publishing inventory so new selections queued during linking survive.
+        useEditorStore.getState().resetHydration();
+        referenceDocuments.current = input.referenceDocuments;
+        latestView.current = undefined;
+      }
+      const work = prepareProjectReferenceView(
+        input,
+        state,
+        installProjectParserDocuments,
+        abort.signal,
+        undefined,
+        (inventory) => {
+          if (abort.signal.aborted) return;
+          setPublished((previous) => ({
+            workspaceId: state.workspaceId,
+            input,
+            parsed: state.parsedModels,
+            files: state.files,
+            view: previous && previous.workspaceId === state.workspaceId ? previous.view : undefined,
+            inventory,
+            preparing: true
+          }));
+        }
+      );
       let currentView: WorkspaceState | undefined;
-      let materialization = Promise.resolve();
       void work
         .then((view) => {
           currentView = view;
           if (!abort.signal.aborted) {
-            const sameReferenceCapture = referenceDocuments.current === input.referenceDocuments;
-            if (!sameReferenceCapture) {
-              useEditorStore.getState().resetHydration();
-              referenceDocuments.current = input.referenceDocuments;
-            }
             const previous = latestView.current;
             const retained =
               sameReferenceCapture && previous && previous.workspaceId === state.workspaceId
@@ -91,61 +111,22 @@ export const useProjectReferenceView = withInstrumentation(
             }));
         });
       const unregister = state.workspaceId
-        ? registerProjectNamespaceHydrator(state.workspaceId, async (namespaces) => {
-            const view = currentView ?? (await work);
-            abort.signal.throwIfAborted();
-            const requested = new Set(namespaces);
-            const targets = view.files.filter((file) => file.refOnly && requested.has(file.namespace ?? ''));
-            if ([...requested].some((namespace) => !view.files.some((file) => file.namespace === namespace)))
-              throw new Error('Requested namespace is absent from the current verified reference inventory');
-            const publish = (results: Awaited<ReturnType<typeof linkDocument>>[]) => {
-              // Each graph rebuild awaits scope computation. Serialize publication
-              // so concurrent namespace requests retain each other's additions.
-              const next = materialization.then(async () => {
-                abort.signal.throwIfAborted();
-                if (results.some((result) => !result.linked || result.errors.length))
-                  throw new Error(
-                    results.flatMap((result) => result.errors).join('\n') || 'Reference namespace is unavailable'
-                  );
-                // Fail through the request's error channel, outside React's updater.
-                const materialized = await materializeProjectReferenceView(
-                  currentView ?? view,
-                  results.flatMap((result) => result.newModels),
-                  abort.signal
-                );
-                abort.signal.throwIfAborted();
+        ? registerProjectNamespaceHydrator(
+            state.workspaceId,
+            createProjectReferenceHydrator({
+              ready: work,
+              current: () => currentView,
+              selected: () => useEditorStore.getState().selectedNodeId,
+              signal: abort.signal,
+              publish: (materialized) => {
                 currentView = materialized;
                 latestView.current = materialized;
                 setPublished((previous) =>
                   previous?.input === input ? { ...previous, view: materialized } : previous
                 );
-              });
-              // A rejected request must not poison later retries on this capture.
-              materialization = next.catch(() => undefined);
-              return next;
-            };
-            // The verified per-document declaration index identifies the selected
-            // owner, including kind. Do not make its Inspector wait for unrelated
-            // functions in the same namespace and their larger dependency closures.
-            const selected = useEditorStore.getState().selectedNodeId;
-            const owners = new Set(
-              view.deferredExports
-                .filter((entry) =>
-                  entry.exports.some(
-                    (entryExport) => makeNodeId(entry.namespace, entryExport.name, entryExport.type) === selected
-                  )
-                )
-                .map((entry) => entry.filePath)
-            );
-            const priority = owners.size === 1 ? targets.find((file) => owners.has(file.path)) : undefined;
-            if (priority && targets.length > 1) {
-              await publish([await linkDocument(pathToUri(priority.path), true)]);
-            }
-            const remaining = priority && targets.length > 1 ? targets.filter((file) => file !== priority) : targets;
-            await publish(await Promise.all(remaining.map((file) => linkDocument(pathToUri(file.path), true))));
-            // The namespace promise resolves only after every file is linked.
-            // App owns marking the whole namespace hydrated at that boundary.
-          })
+              }
+            })
+          )
         : undefined;
       return () => {
         abort.abort();
@@ -153,29 +134,33 @@ export const useProjectReferenceView = withInstrumentation(
       };
     }, [runtime.managed, runtime.input, state.files, state.parsedModels, attempt]);
     const view = runtime.managed && published?.workspaceId === state.workspaceId ? published?.view : undefined;
-    const files = useMemo(
-      () => (view ? mergeProjectReferenceFiles(state.files, view.files) : state.files),
-      [state.files, view?.files]
-    );
-    if (!runtime.managed) return { state, referenceView: undefined };
     const current =
       published?.workspaceId === state.workspaceId &&
       published?.input === runtime.input &&
       published?.parsed === state.parsedModels &&
       published?.files === state.files;
+    const inventory = current ? published?.inventory : undefined;
+    const referenceFiles = inventory?.files ?? view?.files;
+    const files = useMemo(
+      () => (referenceFiles ? mergeProjectReferenceFiles(state.files, referenceFiles) : state.files),
+      [state.files, referenceFiles]
+    );
+    if (!runtime.managed) return { state, referenceView: undefined };
     const error = current ? published?.error : undefined;
-    const pending = !current || !runtime.input || error?.startsWith('Waiting for the parser snapshot');
+    const pending =
+      !current || !runtime.input || published?.preparing || error?.startsWith('Waiting for the parser snapshot');
     return {
-      state: view
-        ? {
-            ...state,
-            files,
-            models: view.models,
-            parsedModels: view.parsedModels,
-            deferredExports: view.deferredExports,
-            curatedCacheSeeds: view.curatedCacheSeeds
-          }
-        : state,
+      state:
+        view || inventory
+          ? {
+              ...state,
+              files,
+              models: view?.models ?? state.models,
+              parsedModels: view?.parsedModels ?? state.parsedModels,
+              deferredExports: inventory?.deferredExports ?? view?.deferredExports ?? state.deferredExports,
+              curatedCacheSeeds: inventory?.curatedCacheSeeds ?? view?.curatedCacheSeeds ?? state.curatedCacheSeeds
+            }
+          : state,
       referenceView: {
         status: pending ? ('loading' as const) : error ? ('unavailable' as const) : ('ready' as const),
         diagnostics:

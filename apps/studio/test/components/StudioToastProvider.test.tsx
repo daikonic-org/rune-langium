@@ -10,6 +10,7 @@
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { useState } from 'react';
 import { StudioToastProvider, useStudioToast } from '../../src/components/StudioToastProvider.js';
 import { useOutputStore } from '../../src/store/output-store.js';
 import { useActivityStore } from '../../src/store/activity-store.js';
@@ -45,6 +46,38 @@ function ShowToastHarness() {
   return <button onClick={() => showToast({ description: 'Plain notification', variant: 'destructive' })}>show</button>;
 }
 
+function ProgressHarness() {
+  const { showLoadingToast, updateLoadingToast, dismissToast } = useStudioToast();
+  const [id, setId] = useState('');
+  return (
+    <>
+      <button
+        onClick={() =>
+          setId(
+            showLoadingToast({
+              description: 'Linking references',
+              progress: { completed: 0, total: 3, label: 'namespaces' }
+            })
+          )
+        }
+      >
+        start
+      </button>
+      <button
+        onClick={() =>
+          updateLoadingToast(id, {
+            description: 'Linking references',
+            progress: { completed: 1, total: 3, label: 'namespaces' }
+          })
+        }
+      >
+        advance
+      </button>
+      <button onClick={() => dismissToast(id)}>finish</button>
+    </>
+  );
+}
+
 function NotifyHarness() {
   const { notify } = useStudioToast();
   return (
@@ -53,6 +86,25 @@ function NotifyHarness() {
 }
 
 describe('StudioToastProvider', () => {
+  it('updates a single loading toast with a real counter and accessible progress', async () => {
+    render(
+      <StudioToastProvider>
+        <ProgressHarness />
+      </StudioToastProvider>
+    );
+    screen.getByText('start').click();
+    const bar = await screen.findByRole('progressbar', { name: 'namespaces' });
+    expect(bar).toHaveAttribute('max', '3');
+    expect(bar).toHaveAttribute('value', '0');
+    expect(screen.getByText('0 of 3 namespaces')).toBeVisible();
+    screen.getByText('advance').click();
+    await screen.findByText('1 of 3 namespaces');
+    expect(bar).toHaveAttribute('value', '1');
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
+    screen.getByText('finish').click();
+    expect(await screen.findByText('finish')).toBeVisible();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
   it('showLoadingToast renders a spinner and stays open (no auto-dismiss)', async () => {
     render(
       <StudioToastProvider>
