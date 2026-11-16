@@ -163,3 +163,46 @@ requests through Cloudflare BOS. First-byte times were 3.28–5.83 seconds and t
 times 5.28–9.17 seconds. This used curl's uncompressed response transport and is
 not directly comparable with the browser trace. It did not reproduce the
 45-second tail, establish a regional cause, or justify relaxing a timing budget.
+
+## React Doctor, Impeccable and adversarial recovery review
+
+The user-authorized failed-job retry of CI 43932219239 reproduced both Inspector
+hot-reload setup failures on `77b55d7a`; each waited for Person navigation before
+the schema mutation. The failure is not a proven hot-reload latency problem.
+
+Adversarial local review reproduced two lifecycle regressions. Retaining Explore
+mounts its namespace tree before workspace declarations arrive; the one-time
+expansion initializer left those namespaces collapsed. The tree now derives
+default expansion from the current shallow inventory and stores only explicit
+navigation choices, retaining manually folded branches. Separately, restoring
+saved files could finish after the user selected Settings and replace that
+selection with Explore. Initial selection now precedes the file read. Both
+regression tests failed before the fixes and passed afterward.
+
+React Doctor 0.9.23 is both the installed and current registry version. Complete
+changed-scope Studio and visual-editor scans use the PR base
+`cf0c26317e9ab2f863897218b8350a8097daf82c`. No new correctness errors were reported;
+complexity warnings remain observations, not evidence of a runtime failure.
+Studio's design-only changed scan reported no diagnostics. The full Studio scan
+reported 28 errors and 224 warnings across 832 files, including render-time ref
+updates, cleanup analysis and two non-null assertions. These are scanner
+diagnostics needing occurrence-level triage, not 252 confirmed defects. The
+`entries.find` assertion in the reference view is protected by construction:
+the document loop creates every URI from that same entries array. No numeric
+health score is reported because telemetry/scoring was disabled.
+
+Impeccable's source detector found no findings in the reviewed shell/palette.
+Rendered Inspector review used the optimized local build at 1280×720 in light
+and Daikonic themes; the namespace appeared and the viewport did not overflow.
+The existing control/picker browser checks cover both themes, keyboard focus,
+spacing, and Axe assertions, including 800px and 390px where applicable.
+This is Chromium evidence, not physical-device or deployed-production approval.
+
+The first optimized review replay passed all 14 cases: both J23 Settings themes,
+four compact form-spacing cases, four specialized picker cases, stalled-restore
+navigation/cancellation, nested Compose edits, ordinary function selection, and
+HD namespace search beyond the virtual viewport. Inspector hot reload passed
+locally at 97ms and 1,192ms with its unchanged two-second budget. Final validation
+after the expansion-state refinement is recorded in the review session/artifacts.
+Evidence is under ignored `dist/pr712-review/`; no source/token payloads are
+included in this document. CI remains required before merge.

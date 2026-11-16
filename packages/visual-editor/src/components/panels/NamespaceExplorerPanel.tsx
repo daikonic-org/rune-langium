@@ -45,7 +45,7 @@ import type { FlatTreeRow } from '../../utils/namespace-tree.js';
 import type { SegmentNode } from '../../utils/namespace-tree.js';
 import { selectionState, toggleVisible } from '../../utils/explorer-selection.js';
 import type { ExplorerSelection } from '../../utils/explorer-selection.js';
-import { useNamespaceScope } from '../../hooks/useNamespaceScope.js';
+import { useNamespaceExpansion, useNamespaceScope } from '../../hooks/useNamespaceScope.js';
 import { useVirtualTree } from '../../hooks/useVirtualTree.js';
 import { TYPE_REF_PAYLOAD_MIME, typeRefMimeForKind } from '../../types/structure-view.js';
 import type { TypeRefPayload, TypeRefKind } from '../../types/structure-view.js';
@@ -254,7 +254,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
 
   // Default expansion: expand all depth-0 and depth-1 segments so the tree is
   // usable on first render without collapsing all the way to bare root segments.
-  const [treeExpanded, setTreeExpanded] = useState<Set<string>>(() => {
+  const defaultExpanded = useMemo(() => {
     const initial = new Set<string>();
     for (const root of uncompressedRoots) {
       initial.add(root.fullPath);
@@ -263,7 +263,8 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
       }
     }
     return initial;
-  });
+  }, [uncompressedRoots]);
+  const [treeExpanded, setTreeExpanded] = useNamespaceExpansion(defaultExpanded);
 
   // Compute effective tree expansion (auto-expand all ancestor paths when searching).
   const effectiveTreeExpanded = useMemo(() => {
@@ -397,7 +398,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
         return next;
       });
     },
-    [segmentedRoots]
+    [segmentedRoots, setTreeExpanded]
   );
 
   const allNodes = nodeRepository.all();

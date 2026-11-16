@@ -210,6 +210,24 @@ describe('App workspace restore on mount (T027/US2)', () => {
     expect(screen.getByText(/Open your work or start with an example project/i)).toBeVisible();
   });
 
+  it('preserves Settings selected while saved workspace files are still being read', async () => {
+    const workspaceFiles = await import('../../src/workspace/workspace-files.js');
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof workspaceFiles.loadWorkspaceFiles>>>();
+    await saveWorkspace(makeWorkspace('ws-reading', 'Reading Project'));
+    const read = vi.spyOn(workspaceFiles, 'loadWorkspaceFiles').mockReturnValueOnce(pending.promise);
+    render(<App />);
+    await waitFor(() => expect(read).toHaveBeenCalled());
+    act(() => screen.getByRole('button', { name: 'Settings', exact: true }).click());
+    expect(usePerspectiveStore.getState().activePerspective).toBe('settings');
+    await act(async () =>
+      pending.resolve([
+        { name: 'reading.rosetta', path: 'reading.rosetta', content: 'namespace reading\n', dirty: false }
+      ])
+    );
+    await waitFor(() => expect(document.body).toHaveAttribute('data-workspace-active', 'true'));
+    expect(usePerspectiveStore.getState().activePerspective).toBe('settings');
+  });
+
   it('falls back to start page if loadWorkspace returns nothing for the recent', async () => {
     // Persist a recents row without a corresponding workspace record by
     // mocking loadWorkspace → undefined (simulating an OPFS root that's gone

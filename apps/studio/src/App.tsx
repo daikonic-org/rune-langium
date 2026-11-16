@@ -628,6 +628,9 @@ function AppContent() {
     async (workspace: WorkspaceRecord): Promise<'restored' | 'empty' | 'superseded'> => {
       const activationEpoch = await clearWorkspaceState();
       if (activationEpoch === null) return 'superseded';
+      // Choose the initial destination before file reads expose navigation.
+      // Later completion must preserve any destination chosen during the wait.
+      usePerspectiveStore.getState().setActivePerspective('explore');
       setBootState('restoring');
       reconcileWorkspaceModels(workspace.curatedModels ?? []);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
@@ -664,9 +667,6 @@ function AppContent() {
       setCuratedSyncedWorkspaceId(null);
       restoredWorkspaceRef.current = nextWorkspace;
       setRestoredWorkspace(nextWorkspace);
-      // Choose the initial destination before asynchronous preparation. Later
-      // completion must not override navigation made while the workspace loads.
-      usePerspectiveStore.getState().setActivePerspective('explore');
       try {
         await syncWorkspaceToEditor(restoredFiles);
         if (restoredWorkspaceRef.current?.id !== nextWorkspace.id) return 'superseded';
@@ -899,6 +899,7 @@ function AppContent() {
       const launcherModels = restoredWorkspaceRef.current ? new Map<string, LoadedModel>() : loadedModelsRef.current;
       const activationEpoch = await clearWorkspaceState();
       if (activationEpoch === null) return;
+      usePerspectiveStore.getState().setActivePerspective('explore');
       setBootState('start');
       setLoading(true);
       try {
@@ -923,7 +924,6 @@ function AppContent() {
         reconcileWorkspaceModels(workspace.curatedModels ?? []);
         restoredWorkspaceRef.current = workspace;
         setRestoredWorkspace(workspace);
-        usePerspectiveStore.getState().setActivePerspective('explore');
         await saveWorkspaceFiles(workspace.id, loadedFiles);
         if (activationEpoch !== workspaceEpochRef.current) return;
         await syncWorkspaceToEditor(loadedFiles);

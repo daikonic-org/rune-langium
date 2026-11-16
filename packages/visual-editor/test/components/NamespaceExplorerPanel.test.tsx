@@ -105,6 +105,17 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof NamespaceExp
 }
 
 describe('NamespaceExplorerPanel', () => {
+  it('opens newly arriving shallow namespaces without reopening a user-folded branch', () => {
+    const { rerender, props } = renderPanel({ nodeRepository: repoFrom([]) });
+    rerender(<NamespaceExplorerPanel {...props} nodeRepository={defaultRepo} />);
+    expect(screen.getByTestId('ns-type-nav-com.model.Trade')).toBeInTheDocument();
+    fireEvent.click(within(screen.getByTestId('ns-seg-com')).getByRole('button', { name: 'com', exact: true }));
+    const updated = repoFrom([...defaultNodes, makeNode('fresh.model', 'Arrival')]);
+    rerender(<NamespaceExplorerPanel {...props} nodeRepository={updated} />);
+    expect(screen.queryByTestId('ns-type-nav-com.model.Trade')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ns-type-nav-fresh.model.Arrival')).toBeInTheDocument();
+  });
+
   it('uses a host heading without losing counts or search controls', () => {
     renderPanel({ showHeading: false });
     expect(screen.queryByText('Type explorer')).not.toBeInTheDocument();

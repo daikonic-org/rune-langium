@@ -43,6 +43,11 @@ Pending editing content remains measurable (`visibility: hidden` and `inert`)
 so Dockview never initializes its layout at zero width. Switching or closing a
 workspace aborts its active synchronization request; cancellation skips network
 fallback parsing for that abandoned workspace.
+The initial Explore destination is selected before saved file reads, so early
+Settings/Workspaces navigation survives restoration too. Namespace expansion is
+derived from the current shallow inventory plus explicit fold/open choices;
+late-arriving declarations use the normal defaults without reopening manually
+folded branches or resetting the retained explorer.
 
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
 canonical rendered item snapshots after accepted authored input/model revisions;
