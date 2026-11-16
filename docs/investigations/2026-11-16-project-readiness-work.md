@@ -206,3 +206,31 @@ locally at 97ms and 1,192ms with its unchanged two-second budget. Final validati
 after the expansion-state refinement is recorded in the review session/artifacts.
 Evidence is under ignored `dist/pr712-review/`; no source/token payloads are
 included in this document. CI remains required before merge.
+
+## AFB fixture bootstrap on `b0b161f0`
+
+CI 43964382779 passed Inspector hot reload and candidate shards 2 and 4. Shard 3
+passed 39 cases and failed the desktop AFB case before calculation: its temporary
+one-line namespace upload still had an outstanding `/api/parse` request when the
+default five-second visibility assertion expired. The screenshot reports
+“Parsing files…”; the trace has no completed response, exception or evidence of
+a stuck post-parse visibility gate. This is not an AFB calculation failure.
+
+The implementation-project helper immediately unloads that temporary workspace
+and installs the complete fixture. Its bootstrap barrier now verifies the exact
+persisted file bytes within the same five-second deadline instead of waiting for
+a semantic parse that will be discarded. The ordinary full-project restore,
+published implementation resolution, Execute readiness and numerical output
+assertions remain unchanged. No parser or calculation timeout was raised.
+
+The desktop AFB case deliberately holds only the bootstrap request, observes the
+honest pending status, and verifies automatic cancellation when fixture seeding
+unloads the app. The real restored project still executes and returns the
+expected 0.9972677595 fraction; its requests are not fulfilled with mocked parse
+or calculation responses. This adversarial case failed at the original setup
+barrier before the change and passed afterward. Evidence is under ignored
+`dist/pr712-afb/`. The hosted request's latency remains a separate unresolved
+service/performance question, not something this fixture fix claims to improve.
+All 31 optimized native-implementation browser cases passed after the correction,
+including the held-request desktop AFB case, ordinary mobile AFB, calendars,
+schedule/frequency adapters, market observations, overrides and decimal rounding.

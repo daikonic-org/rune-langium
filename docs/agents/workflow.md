@@ -776,6 +776,11 @@ existing local marker preservation and source-pattern exclusion.
 
 Browser fixtures that replace a complete project configuration use
 `seedProjectBackingFiles` with Studio unloaded, then restore the same workspace.
+If a disposable namespace file creates the backing first, wait for its exact
+persisted bytes before seeding, not for its semantic parse. Unloading cancels
+that disposable request; the restored full fixture must still pass ordinary
+project readiness and real execution assertions. Keep the bootstrap persistence
+deadline bounded independently of the hosted parser's deadline.
 Writing a new configuration piecemeal into a running app exposes empty files and
 Chromium swap entries to background snapshot capture. Live external-edit tests
 still use `projectBackingFiles`; preserve conflict/validation errors there. The
