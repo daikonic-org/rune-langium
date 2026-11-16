@@ -72,6 +72,7 @@ const restoredCuratedKeys = new Set<string>();
 let curatedCacheEpoch = 0;
 let routedParseRevision = 0;
 interface CuratedParseOptions {
+  signal?: AbortSignal;
   curatedBundles?: Array<{ id: string; version: string }>;
   hydrateNamespaces?: string[];
   requireCuratedHydration?: boolean;
@@ -756,7 +757,7 @@ export const collectRawWorkspaceSources = withInstrumentation(
 export const parseWorkspaceFiles = withInstrumentation(
   async function parseWorkspaceFiles(
     files: WorkspaceFile[],
-    options: { hydrateNamespaces?: string[]; requireCuratedHydration?: boolean } = {}
+    options: { hydrateNamespaces?: string[]; requireCuratedHydration?: boolean; signal?: AbortSignal } = {}
   ): Promise<ParseWorkspaceFilesResult> {
     invalidateCuratedCacheRecovery();
     const capturedFiles = files.map((file) => ({ ...file }));
@@ -779,11 +780,15 @@ export const parseWorkspaceFiles = withInstrumentation(
     try {
       const response = await parseWorkspaceViaRouter(userFiles, {
         curatedBundles,
+        signal: options.signal,
         hydrateNamespaces: options.hydrateNamespaces,
         requireCuratedHydration: options.requireCuratedHydration
       });
       return routedWorkspaceResult(response);
     } catch (error) {
+      // Leaving a workspace cancels its work; it must not start another
+      // parse on the main thread through the ordinary network fallback.
+      if (options.signal?.aborted) throw error;
       // Browser-only parsing cannot supply a requested curated namespace.
       // Let App dequeue the failed hydration instead of marking it hydrated
       // from a user-file-only fallback result.
@@ -862,6 +867,7 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       invalidateCuratedCacheRecovery();
       const revision = routedParseRevision;
       const assertCurrentRecovery = () => {
+        options.signal?.throwIfAborted();
         if (!retryCachedHydration && (revision !== routedParseRevision || cacheEpoch !== curatedCacheEpoch)) {
           throw new Error('Curated cache recovery was superseded by a newer workspace parse');
         }
@@ -880,7 +886,7 @@ export const parseWorkspaceViaRouter = withInstrumentation(
               hydrateNamespaces: options.hydrateNamespaces ?? [],
               knownCuratedArtifacts
             }),
-            signal
+            signal: options.signal ? AbortSignal.any([options.signal, signal]) : signal
           });
           if (!response.ok) throw new ParseRouterHttpError(response.status);
           return response.json();

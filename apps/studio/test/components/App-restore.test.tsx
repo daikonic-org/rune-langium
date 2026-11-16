@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 
 import { App } from '../../src/App.js';
 import { usePerspectiveStore } from '../../src/store/perspective-store.js';
@@ -106,6 +106,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   setWorkspaceFilesDeps({
     getOpfsRoot: async () => {
       throw new Error('test opfs root not configured');
@@ -159,8 +160,8 @@ describe('App workspace restore on mount (T027/US2)', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('1 file(s)').length).toBeGreaterThan(0);
+      expect(document.body).toHaveAttribute('data-workspace-active', 'true');
     });
-    expect(document.body).toHaveAttribute('data-workspace-active', 'true');
     expect(screen.queryByText(/Open your work or start with an example project/i)).not.toBeInTheDocument();
   });
 
@@ -187,6 +188,26 @@ describe('App workspace restore on mount (T027/US2)', () => {
       expect(usePerspectiveStore.getState().activePerspective).toBe('workspaces');
     });
     expect(screen.getByText(/Open your work or start with an example project/i)).toBeInTheDocument();
+  });
+
+  it('keeps navigation available during a stalled restore and preserves the user destination on completion', async () => {
+    const workspace = await import('../../src/services/workspace.js');
+    const pending = Promise.withResolvers<Awaited<ReturnType<typeof workspace.parseWorkspaceFiles>>>();
+    const parse = vi.spyOn(workspace, 'parseWorkspaceFiles').mockReturnValueOnce(pending.promise);
+    await saveWorkspace(makeWorkspace('ws-pending', 'Pending Project'));
+    await saveWorkspaceFiles('ws-pending', [
+      { name: 'pending.rosetta', path: 'pending.rosetta', content: 'namespace pending\n', dirty: false }
+    ]);
+    render(<App />);
+    await waitFor(() => expect(parse).toHaveBeenCalled());
+    expect(screen.getByText('Restoring workspace…')).toBeVisible();
+    act(() => screen.getByRole('button', { name: 'Workspaces', exact: true }).click());
+    expect(screen.getByText(/Open your work or start with an example project/i)).toBeVisible();
+    expect(document.body).not.toHaveAttribute('data-workspace-active', 'true');
+    await act(async () => pending.resolve({ models: [], parsedModels: [], errors: new Map(), parseMode: 'router' }));
+    await waitFor(() => expect(document.body).toHaveAttribute('data-workspace-active', 'true'));
+    expect(usePerspectiveStore.getState().activePerspective).toBe('workspaces');
+    expect(screen.getByText(/Open your work or start with an example project/i)).toBeVisible();
   });
 
   it('falls back to start page if loadWorkspace returns nothing for the recent', async () => {

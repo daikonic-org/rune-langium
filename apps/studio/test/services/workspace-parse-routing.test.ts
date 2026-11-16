@@ -24,6 +24,30 @@ describe('parseWorkspace routing', () => {
     vi.useRealTimers();
   });
 
+  it('cancels an abandoned workspace request without starting browser fallback parsing', async () => {
+    const controller = new AbortController();
+    const requested = Promise.withResolvers<AbortSignal>();
+    global.fetch = vi.fn(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) throw new Error('Missing request cancellation signal');
+          requested.resolve(signal);
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        })
+    );
+    const result = parseWorkspaceFiles(
+      [{ name: 'abandoned.rosetta', path: 'abandoned.rosetta', content: 'namespace abandoned\n', dirty: false }],
+      { signal: controller.signal }
+    );
+    const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+    const signal = await requested.promise;
+    controller.abort();
+    await rejected;
+    expect(signal.aborted).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('reuses a browser-held curated artifact while preserving the worker document set', async () => {
     const key = JSON.stringify(['cdm', 'cohort-1/cdm.base.math.json.gz']);
     const document = {

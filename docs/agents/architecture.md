@@ -32,6 +32,18 @@ toasts and model/file loaders. Counts describe completed work in the caller's un
 unknown totals remain indeterminate. Progress presentation never changes semantic
 readiness or creates an additional activity/logging path.
 
+Workspace restoration and parsing keep the activity rail and perspective host
+mounted. Pending preparation hides workspace editing surfaces while Workspaces
+and Settings remain reachable; the shared spinner/status reports ongoing work.
+Opening a workspace chooses Explore before preparation starts. Completion does
+not replace navigation made during the wait, and existing workspace-epoch guards
+reject results from a workspace the user has left. Pending source data is not
+advertised as an editable or semantically ready view.
+Pending editing content remains measurable (`visibility: hidden` and `inert`)
+so Dockview never initializes its layout at zero width. Switching or closing a
+workspace aborts its active synchronization request; cancellation skips network
+fallback parsing for that abandoned workspace.
+
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
 canonical rendered item snapshots after accepted authored input/model revisions;
 source positions and background reference hydration do not create edit events.

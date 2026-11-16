@@ -35,6 +35,24 @@ describe('PerspectiveHost', () => {
     usePerspectiveStore.setState({ activePerspective: 'explore' });
   });
 
+  it('blocks workspace editing while preparation is pending, retains Explore, and permits Workspaces and Settings', () => {
+    const { rerender } = render(<PerspectiveHost hasWorkspace hasExploreContent loadingMessage="Parsing files…" />);
+    const editor = screen.getByTestId('explore-probe');
+    expect(editor).not.toBeVisible();
+    expect(editor.closest('[inert]')).not.toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Parsing files…');
+    act(() => usePerspectiveStore.getState().setActivePerspective('workspaces'));
+    expect(screen.getByTestId('workspaces-perspective')).toBeVisible();
+    act(() => usePerspectiveStore.getState().setActivePerspective('settings'));
+    expect(screen.getByTestId('settings-perspective')).toBeVisible();
+    act(() => usePerspectiveStore.getState().setActivePerspective('explore'));
+    rerender(<PerspectiveHost hasWorkspace hasExploreContent />);
+    expect(screen.getByTestId('explore-probe')).toBe(editor);
+    expect(editor).toBeVisible();
+    expect(editor.closest('[inert]')).toBeNull();
+    expect(exploreMounts.count).toBe(1);
+  });
+
   it('keeps Explore mounted (never remounts) across a switch away and back', () => {
     render(<PerspectiveHost hasWorkspace hasExploreContent />);
     const slot = () => screen.getByTestId('explore-probe').closest('[data-perspective-slot="explore"]') as HTMLElement;

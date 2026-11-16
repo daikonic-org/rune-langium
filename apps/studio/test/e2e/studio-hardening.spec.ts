@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Daikonic contributors
 
 import AxeBuilder from '@axe-core/playwright';
-import { expect } from '@playwright/test';
+import { expect, type Route } from '@playwright/test';
 import { test } from '../helpers/studio-test.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
@@ -22,6 +22,40 @@ type BusinessCenters:
  commodityBusinessCalendar CommodityBusinessCalendarEnum (0..*)
  businessCentersReference BusinessCentersReference (0..1)
 `;
+
+test('navigation remains available during a stalled restore while opening another workspace', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'first.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace navigation.initial\ntype InitialRecord:\n value string (1..1)\n')
+  });
+  await page.getByTestId('namespace-search').fill('InitialRecord');
+  await expect(typeNavigationButton(page, 'navigation.initial.InitialRecord')).toBeVisible();
+  let held: Route | undefined;
+  await page.route('**/api/parse', async (route) => {
+    if (!held) {
+      held = route;
+      return;
+    }
+    await route.continue();
+  });
+  await page.reload();
+  await expect.poll(() => Boolean(held)).toBe(true);
+  await page.getByRole('button', { name: 'Workspaces', exact: true }).click();
+  await expect(page.getByTestId('workspaces-perspective')).toBeVisible();
+  const cancelled = page.waitForEvent('requestfailed', { predicate: (request) => request === held?.request() });
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'second.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace navigation.replacement\ntype NextRecord:\n value number (1..1)\n')
+  });
+  await cancelled;
+  await page.getByTestId('namespace-search').fill('NextRecord');
+  await expect(typeNavigationButton(page, 'navigation.replacement.NextRecord')).toBeVisible();
+  await page.getByTestId('namespace-search').fill('InitialRecord');
+  await expect(typeNavigationButton(page, 'navigation.initial.InitialRecord')).toHaveCount(0);
+});
 
 for (const theme of ['daikonic', 'light'])
   for (const width of [1280, 1920, 390]) {

@@ -213,6 +213,7 @@ function AppContent() {
   // `files` initial state) and is kept in sync via the effect below.
   const filesRef = useRef<WorkspaceFile[]>([]);
   const workspaceEpochRef = useRef(0);
+  const workspaceParseAbortRef = useRef<AbortController | null>(null);
   const pendingGitHubProjects = useRef(new Set<string>());
   const workspaceTransitionRef = useRef(0);
   // Tracks the latest loaded reference models so syncWorkspaceToEditor can
@@ -464,6 +465,8 @@ function AppContent() {
   ]);
 
   const invalidateWorkspaceParses = useCallback(() => {
+    workspaceParseAbortRef.current?.abort();
+    workspaceParseAbortRef.current = new AbortController();
     invalidateCuratedCacheRecovery();
     workspaceEpochRef.current += 1;
     editParseTokenRef.current += 1;
@@ -559,7 +562,8 @@ function AppContent() {
         // and ref-only files). App only sets the files here.
 
         const result = await parseWorkspaceFiles(mergedFiles, {
-          hydrateNamespaces: useEditorStore.getState().activeHydrationNamespaces()
+          hydrateNamespaces: useEditorStore.getState().activeHydrationNamespaces(),
+          signal: workspaceParseAbortRef.current?.signal
         });
         if (epoch !== workspaceEpochRef.current) return;
         applyParseResult(result);
@@ -660,6 +664,9 @@ function AppContent() {
       setCuratedSyncedWorkspaceId(null);
       restoredWorkspaceRef.current = nextWorkspace;
       setRestoredWorkspace(nextWorkspace);
+      // Choose the initial destination before asynchronous preparation. Later
+      // completion must not override navigation made while the workspace loads.
+      usePerspectiveStore.getState().setActivePerspective('explore');
       try {
         await syncWorkspaceToEditor(restoredFiles);
         if (restoredWorkspaceRef.current?.id !== nextWorkspace.id) return 'superseded';
@@ -742,9 +749,6 @@ function AppContent() {
           return;
         }
         setBootState('restored');
-        // A restored workspace has user files, so
-        // userFiles.length > 0 here — jump straight to the explore perspective.
-        usePerspectiveStore.getState().setActivePerspective('explore');
       } catch (err) {
         if (cancelled) return;
         reportWorkspaceError('Workspace restore failed; showing the start page instead', err);
@@ -879,6 +883,7 @@ function AppContent() {
   // Cleanup reparse timer on unmount
   useEffect(() => {
     return () => {
+      workspaceParseAbortRef.current?.abort();
       if (reparseTimerRef.current) clearTimeout(reparseTimerRef.current);
     };
   }, []);
@@ -918,13 +923,13 @@ function AppContent() {
         reconcileWorkspaceModels(workspace.curatedModels ?? []);
         restoredWorkspaceRef.current = workspace;
         setRestoredWorkspace(workspace);
+        usePerspectiveStore.getState().setActivePerspective('explore');
         await saveWorkspaceFiles(workspace.id, loadedFiles);
         if (activationEpoch !== workspaceEpochRef.current) return;
         await syncWorkspaceToEditor(loadedFiles);
         if (restoredWorkspaceRef.current?.id !== workspace.id) return;
         setCuratedSyncedWorkspaceId(workspace.id);
         setBootState('restored');
-        usePerspectiveStore.getState().setActivePerspective('explore');
       } catch (error) {
         if (activationEpoch === workspaceEpochRef.current) {
           setLoading(false);
@@ -1037,8 +1042,6 @@ function AppContent() {
         setBootState('restored');
         setWorkspaceError(null);
         setWorkspaceNotice(null);
-        // Workspace has files — move to the explore perspective.
-        usePerspectiveStore.getState().setActivePerspective('explore');
       } catch (err) {
         reportWorkspaceError('Failed to switch workspaces', err);
       }
@@ -1466,24 +1469,17 @@ function AppContent() {
         <AppHeader hasWorkspace={hasWorkspace} hasExploreContent={hasExploreContent} />
 
         <main className="flex-1 overflow-hidden relative">
-          {(bootState === 'checking' || bootState === 'restoring') && (
+          {bootState === 'checking' && (
             <div
               className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground text-md"
               data-testid="boot-spinner"
             >
               <Spinner className="size-8 text-primary" />
-              <p>{bootState === 'restoring' ? 'Restoring workspace…' : 'Loading…'}</p>
+              <p>Loading…</p>
             </div>
           )}
 
-          {bootState !== 'checking' && bootState !== 'restoring' && loading && (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground text-md">
-              <Spinner className="size-8 text-primary" />
-              <p>Parsing files…</p>
-            </div>
-          )}
-
-          {/* Single app shell — rendered whenever past boot/restoring,
+          {/* Single app shell — retained after initial metadata checking,
            * regardless of whether a workspace is loaded. ActivityBar +
            * PerspectiveHost are always reachable so the Workspaces launcher
            * (WorkspacesPerspective) is available from the rail. PerspectiveHost
@@ -1493,7 +1489,7 @@ function AppContent() {
            * WorkspacesPerspective. Workspace data flows to ExplorePerspective
            * and the perspectives via context (useWorkspace / useLsp /
            * useWorkspaceActions) — all provided by StudioProviders. */}
-          {bootState !== 'checking' && bootState !== 'restoring' && !loading && (
+          {bootState !== 'checking' && (
             <div className="flex h-full w-full min-h-0">
               <ActivityBar hasWorkspace={hasWorkspace} hasExploreContent={hasExploreContent} />
               <PerspectiveHost
@@ -1502,6 +1498,9 @@ function AppContent() {
                 workspaceId={restoredWorkspace?.id}
                 workspaceKind={restoredWorkspace?.kind}
                 files={files}
+                loadingMessage={
+                  bootState === 'restoring' ? 'Restoring workspace…' : loading ? 'Parsing files…' : undefined
+                }
               />
             </div>
           )}

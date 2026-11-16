@@ -109,3 +109,57 @@ transfer work, not a cold-start latency gain.
 
 Current-head CI, including complete candidate evidence verification, is still
 required before merge. No timing thresholds or CI retry policies were changed.
+
+## CI restore timeout on `68d38c80`
+
+[CI 43914006715](https://github.com/daikonic-org/rune-langium/actions/runs/43914006715)
+still failed J9's form budget (6,237/5,000 ms), J20's warm source budget
+(10,408/10,000 ms), and J11's 120-second overall timeout. Code review found no
+issues; that does not establish runtime readiness.
+
+J11 verified its curated download at 63.76 seconds, then reloaded. Its restored
+workspace submitted 53 local source files in a 305,543-byte request to `/api/parse`,
+without curated bundles. The trace console records the existing 45-second router
+timeout followed by browser parsing. The Workspaces button appeared roughly two
+seconds after that fallback began; its locator had waited about 47 seconds. The
+remaining overall test budget expired during the next scratch workspace parse.
+The final screenshot showed “Parsing files…” rather than a crash screen.
+
+A read-only replay of the exact request from the development machine succeeded
+in 6.00 seconds (4.59 seconds to first byte), returning about 13.6 million
+serialized-model characters. This is one replay, not a regional comparison. The
+CI runner was hosted in Azure West US 2. A contemporaneous LSP invocation reached
+Cloudflare PDX with a recorded TCP RTT of 9 ms; this measures a different endpoint
+and cannot establish the parse request's latency. Cloudflare telemetry returned
+no Pages parse events for the failure window. Server execution, response delivery
+and regional variability remain unseparated.
+
+The source confirmed a definite availability issue: App removed both the rail
+and perspective host while restoring or parsing. Preparation now retains the
+shell, blocks workspace editing surfaces while pending, and permits Workspaces
+and Settings navigation. Initial Explore selection happens before asynchronous
+preparation so completion preserves subsequent user navigation. Pending editing
+content uses visibility and inertness to retain Dockview's measurements; hiding
+its parent with `display: none` caused a zero-width layout in an initial local
+implementation, caught by J11 before push. Workspace synchronization now owns an
+abort signal, so switching/closing cancels its HTTP request and skips unnecessary
+browser fallback parsing. Existing parse timeouts, semantic readiness and
+stale-workspace guards remain in force. This
+addresses the blocked navigation; it does not claim to fix the remote timeout or
+the outstanding J9/J20 CI performance failures.
+
+Recovery validation: Studio passed 2,758 tests (2 skipped), with types, lint,
+format, build, React Doctor and design-contract checks passing. The optimized
+J9/J11/J20 journeys passed without retries or budget overruns; J9 form rendering
+was 1,543 ms, J11 completed in 40 seconds, and J20's warm source opened in 3,778 ms.
+The final J11 replay completed in 38 seconds. A separate controlled browser case
+passed in 3.5 seconds while its restore request was deliberately held: navigation
+remained reachable, opening a replacement workspace aborted the request, and the
+replacement type appeared without the old workspace's type. These are local
+checks; current-head CI remains required.
+
+An isolated four-request replay after browser testing returned HTTP 200 for all
+requests through Cloudflare BOS. First-byte times were 3.28–5.83 seconds and total
+times 5.28–9.17 seconds. This used curl's uncompressed response transport and is
+not directly comparable with the browser trace. It did not reproduce the
+45-second tail, establish a regional cause, or justify relaxing a timing budget.
