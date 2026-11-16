@@ -129,8 +129,13 @@ The creation-only popup evolves into this surface.
 Use the following regions at HD 1280×720 and Full HD 1920×1080:
 
 - **Left: palette**, with one search across Functions and Primitives. Functions
-  come from the current project and loaded libraries, including nested
-  compositions. A compact two-column primitive palette groups Expression, Branch
+  come from the current project and loaded libraries, including deferred curated
+  declarations and nested compositions. A compact, height-bounded Type Explorer
+  groups functions by namespace with its existing expansion, focus, breadcrumbs
+  and virtualized rows. Search includes names, namespaces and loaded signatures
+  and documentation; there is no 100-function cutoff. Names open definitions,
+  while Add and row dragging place calls. Compatible call suggestions remain
+  above the tree. A compact two-column primitive palette groups Expression, Branch
   and Fallback; For each, Filter, Sort, Distinct and Flatten; Reduce, Count and Sum;
   and the existing Output. Icons and short descriptions distinguish operations.
   Click or drag a starter, edit its Rune expression, then Apply; selecting Output

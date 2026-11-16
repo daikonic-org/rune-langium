@@ -244,8 +244,13 @@ function buildSegmentsFromEntries(nsMap: Map<string, NamespaceTypeEntry[]>): Seg
  * The function does NOT mutate the input tree.
  *
  * Returns the full tree unmodified when `query.trim()` is empty.
+ * `searchText` adds host-specific leaf text without changing namespace matching.
  */
-export function filterSegmentedTree(roots: SegmentNode[], query: string): SegmentNode[] {
+export function filterSegmentedTree(
+  roots: SegmentNode[],
+  query: string,
+  searchText?: ReadonlyMap<string, string>
+): SegmentNode[] {
   if (!query.trim()) return roots;
 
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -258,7 +263,7 @@ export function filterSegmentedTree(roots: SegmentNode[], query: string): Segmen
     }
 
     // Filter direct types by name.
-    const matchingTypes = node.types.filter((t) => regex.test(t.name));
+    const matchingTypes = node.types.filter((t) => regex.test(t.name) || regex.test(searchText?.get(t.nodeId) ?? ''));
 
     // Recurse into children.
     const matchingChildren: SegmentNode[] = [];
@@ -344,38 +349,23 @@ export function filterSegmentedTreeByKind(roots: SegmentNode[], activeKinds: Rea
  * node's own `fullPath`, so the matched node's types/children are revealed
  * in the explorer (not just the ancestors above it).
  */
-export function ancestorPathsForMatches(roots: SegmentNode[], query: string): Set<string> {
+export function ancestorPathsForMatches(
+  roots: SegmentNode[],
+  query: string,
+  searchText?: ReadonlyMap<string, string>
+): Set<string> {
   if (!query.trim()) return new Set();
-
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(escapedQuery, 'i');
   const ancestorPaths = new Set<string>();
-
-  function visitNode(node: SegmentNode, ancestors: string[]): boolean {
-    // Check if this node's fullPath itself matches (include all children visible)
-    const selfMatch = regex.test(node.fullPath);
-
-    let subtreeHasMatch = selfMatch || node.types.some((t) => regex.test(t.name));
-
+  function visitNode(node: SegmentNode): void {
+    ancestorPaths.add(node.fullPath);
     for (const child of node.children) {
-      if (visitNode(child, [...ancestors, node.fullPath])) {
-        subtreeHasMatch = true;
-      }
+      visitNode(child);
     }
-
-    if (subtreeHasMatch) {
-      for (const ancestor of ancestors) {
-        ancestorPaths.add(ancestor);
-      }
-      // Also include this node's fullPath so its types/children are revealed.
-      ancestorPaths.add(node.fullPath);
-    }
-
-    return subtreeHasMatch;
   }
-
-  for (const root of roots) {
-    visitNode(root, []);
+  // Use the same match/pruning rules as the visible tree, including full
+  // namespace matches and host-provided signature/documentation search text.
+  for (const root of filterSegmentedTree(roots, query, searchText)) {
+    visitNode(root);
   }
 
   return ancestorPaths;

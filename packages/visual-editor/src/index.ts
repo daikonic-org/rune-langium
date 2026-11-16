@@ -35,7 +35,10 @@ export type { OtherFormProps } from './components/panels/OtherForm.js';
 export { EditorFormPanel } from './components/panels/EditorFormPanel.js';
 export type { EditorFormPanelProps } from './components/panels/EditorFormPanel.js';
 export { NamespaceExplorerPanel } from './components/panels/NamespaceExplorerPanel.js';
-export type { NamespaceExplorerPanelProps } from './components/panels/NamespaceExplorerPanel.js';
+export type {
+  NamespaceExplorerPanelProps,
+  ExplorerNodePresentation
+} from './components/panels/NamespaceExplorerPanel.js';
 export { selectionState, toggleVisible } from './utils/explorer-selection.js';
 export type { ExplorerSelection, ExplorerSelectionAction } from './utils/explorer-selection.js';
 

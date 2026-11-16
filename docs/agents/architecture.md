@@ -1313,6 +1313,12 @@ serialized parse/link context transaction, without a UI resolver or evaluator. C
 context requests signatures through the same ScopeProvider enumeration as the
 expression builder. Exact resolved type identity and cardinality containment
 prioritize suggestions; this never blocks other calls or replaces validation.
+The function palette embeds `NamespaceExplorerPanel` in compact mode over the
+repository's function index, including deferred exports. Host-owned search and
+leaf actions reuse the explorer's namespace focus, breadcrumbs, expansion and
+virtualization. Signature/documentation search uses the same tree matcher and
+ancestor expansion. Tree rendering uses metadata without hydrating function
+bodies; the existing callable-signature discovery remains lazy.
 Node arguments use the existing function-preview schemas for their skeleton;
 ordinary bindings live on the node and a bottom variable tag tray supplies inputs,
 locals and outputs. Designer variables remain Rune aliases. Reference-only aliases

@@ -4,8 +4,8 @@
 /**
  * NamespaceExplorerPanel — Tree-based namespace navigation panel.
  *
- * Renders a collapsible tree grouped by namespace. Expanding/collapsing
- * a namespace correlates with showing/hiding its types on the graph canvas.
+ * Renders a collapsible tree grouped by namespace. Local expansion and focus
+ * are independent of graph visibility or host-specific leaf actions.
  *
  * Uses @tanstack/react-virtual for virtualized rendering of large trees
  * and shadcn/ui primitives with lucide-react icons.
@@ -13,7 +13,7 @@
 
 import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
 import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
-import type { JSX, DragEvent, MouseEvent, KeyboardEvent } from 'react';
+import type { JSX, DragEvent, MouseEvent, KeyboardEvent, ReactNode } from 'react';
 import { ArrowUpRight, ChevronRight, ChevronDown, Link } from 'lucide-react';
 import { SearchInput } from '@rune-langium/design-system/ui/input';
 import { Button } from '@rune-langium/design-system/ui/button';
@@ -54,6 +54,15 @@ import type { TypeRefPayload, TypeRefKind } from '../../types/structure-view.js'
 // Props
 // ---------------------------------------------------------------------------
 
+/** Host-specific actions; namespace navigation and row identities stay shared. */
+export interface ExplorerNodePresentation {
+  title?: string;
+  accessibleName?: string;
+  actions?: ReactNode;
+  draggable?: boolean;
+  onDragStart?: (event: DragEvent<HTMLDivElement>) => void;
+}
+
 export interface NamespaceExplorerPanelProps {
   /** Repository over all graph nodes (full set, including hidden ones). */
   nodeRepository: NodeRepository;
@@ -75,6 +84,12 @@ export interface NamespaceExplorerPanelProps {
   className?: string;
   /** Omit the repeated heading when a host already supplies the panel title. */
   showHeading?: boolean;
+  /** Compact embedded tree: omit the heading, kind filters and footer. */
+  compact?: boolean;
+  /** Host-owned search box, with optional signature/documentation search text. */
+  search?: { query: string; textByNode?: ReadonlyMap<string, string> };
+  /** Customize leaf actions without duplicating the explorer's tree behavior. */
+  getNodePresentation?: (nodeId: string) => ExplorerNodePresentation;
   /** Total edge count for cross-namespace reference detection. */
   hiddenRefCounts?: Map<string, number>;
   /**
@@ -188,6 +203,9 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   onSelectNode,
   className,
   showHeading = true,
+  compact = false,
+  search,
+  getNodePresentation,
   hiddenRefCounts,
   dragSourceId,
   onSetDragSource,
@@ -197,7 +215,9 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   // below) — same no-op pass-through pattern as `_onToggleNamespace` above.
   onClearDragSource: _onClearDragSource
 }: NamespaceExplorerPanelProps): JSX.Element {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [localQuery, setSearchQuery] = useState('');
+  const searchQuery = search?.query ?? localQuery;
+  const searchText = search?.textByNode;
   // Local explorer kind filter (independent of graph visibility / GraphFilterMenu).
   // All-on by default; toggling a pill off prunes that kind from the tree.
   const [activeKinds, setActiveKinds] = useState<Set<TypeKind>>(() => new Set(EXPLORER_FILTER_KINDS));
@@ -248,10 +268,10 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   // Compute effective tree expansion (auto-expand all ancestor paths when searching).
   const effectiveTreeExpanded = useMemo(() => {
     if (searchQuery.trim()) {
-      return ancestorPathsForMatches(segmentedRoots, searchQuery);
+      return ancestorPathsForMatches(segmentedRoots, searchQuery, searchText);
     }
     return treeExpanded;
-  }, [searchQuery, treeExpanded, segmentedRoots]);
+  }, [searchQuery, treeExpanded, segmentedRoots, searchText]);
 
   const { activeFocus, scopedRoots, focusNamespace } = useNamespaceScope(
     segmentedRoots,
@@ -267,8 +287,8 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   // Apply search filter to the segmented tree.
   const filteredRoots = useMemo(() => {
     if (!searchQuery.trim()) return scopedRoots;
-    return filterSegmentedTree(scopedRoots, searchQuery);
-  }, [scopedRoots, searchQuery]);
+    return filterSegmentedTree(scopedRoots, searchQuery, searchText);
+  }, [scopedRoots, searchQuery, searchText]);
 
   // Flatten for virtualization.
   const flatRows = useMemo((): FlatTreeRow[] => {
@@ -399,30 +419,34 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
     // (dense, frequently-hovered UI) — preserve that pre-existing behavior
     // against the shared TooltipProvider's now-nonzero default (tooltip.tsx).
     <TooltipProvider delayDuration={0}>
-      <div className={`flex flex-col h-full bg-card ${className ?? ''}`} data-testid="namespace-explorer">
+      <div className={`flex min-h-0 flex-col h-full bg-card ${className ?? ''}`} data-testid="namespace-explorer">
         {/* Header */}
-        <div className="px-3 py-2 border-b">
-          {showHeading && <span className="block text-sm font-semibold">Type explorer</span>}
-          <p className={`${showHeading ? 'mt-1 ' : ''}text-2xs text-muted-foreground`}>
-            {selection
-              ? 'Click a row to include or exclude it. Use the arrow to open.'
-              : 'Click name or arrow to open. Drag a row to a type field.'}
-          </p>
-        </div>
+        {!compact && (
+          <div className="px-3 py-2 border-b">
+            {showHeading && <span className="block text-sm font-semibold">Type explorer</span>}
+            <p className={`${showHeading ? 'mt-1 ' : ''}text-2xs text-muted-foreground`}>
+              {selection
+                ? 'Click a row to include or exclude it. Use the arrow to open.'
+                : 'Click name or arrow to open. Drag a row to a type field.'}
+            </p>
+          </div>
+        )}
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 border-b px-3 py-2">
-          <SearchInput
-            type="text"
-            placeholder="Filter types or namespaces..."
-            aria-label="Filter types or namespaces"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7"
-            wrapperClassName="flex-1"
-            data-testid="namespace-search"
-          />
-        </div>
+        {!search && (
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <SearchInput
+              type="text"
+              placeholder="Filter types or namespaces..."
+              aria-label="Filter types or namespaces"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-7"
+              wrapperClassName="flex-1"
+              data-testid="namespace-search"
+            />
+          </div>
+        )}
 
         {selection !== undefined && (
           <div className="flex items-center gap-2 border-b px-3 py-1.5">
@@ -451,37 +475,39 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
         {/* Kind filter pills — a LOCAL explorer filter (independent of graph
             visibility / GraphFilterMenu). All-on by default; toggling a pill off
             prunes that kind from the tree and prunes now-empty namespaces. */}
-        <div
-          className="flex flex-wrap items-center gap-1 border-b px-3 py-1.5"
-          role="group"
-          aria-label="Filter types by kind"
-          data-testid="kind-filter-pills"
-        >
-          {EXPLORER_FILTER_KINDS.map((kind) => {
-            const active = activeKinds.has(kind);
-            return (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => toggleKind(kind)}
-                aria-pressed={active}
-                data-testid={`kind-filter-${kind}`}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium transition-colors ${
-                  active
-                    ? 'border-border bg-accent/60 text-foreground'
-                    : 'border-border/50 bg-transparent text-muted-foreground hover:text-muted-foreground'
-                }`}
-              >
-                <span
-                  className={`inline-block size-2 shrink-0 rounded-full ${KIND_DOT_CLASS[kind]} ${active ? '' : 'opacity-40'}`}
-                  aria-hidden="true"
-                />
-                {KIND_LABEL[kind]}
-                <span className="text-muted-foreground tabular-nums">{kindCounts[kind]}</span>
-              </button>
-            );
-          })}
-        </div>
+        {!compact && (
+          <div
+            className="flex flex-wrap items-center gap-1 border-b px-3 py-1.5"
+            role="group"
+            aria-label="Filter types by kind"
+            data-testid="kind-filter-pills"
+          >
+            {EXPLORER_FILTER_KINDS.map((kind) => {
+              const active = activeKinds.has(kind);
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => toggleKind(kind)}
+                  aria-pressed={active}
+                  data-testid={`kind-filter-${kind}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium transition-colors ${
+                    active
+                      ? 'border-border bg-accent/60 text-foreground'
+                      : 'border-border/50 bg-transparent text-muted-foreground hover:text-muted-foreground'
+                  }`}
+                >
+                  <span
+                    className={`inline-block size-2 shrink-0 rounded-full ${KIND_DOT_CLASS[kind]} ${active ? '' : 'opacity-40'}`}
+                    aria-hidden="true"
+                  />
+                  {KIND_LABEL[kind]}
+                  <span className="text-muted-foreground tabular-nums">{kindCounts[kind]}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <NamespaceBreadcrumb path={activeFocus} onFocus={focusNamespace} />
 
@@ -495,7 +521,13 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
         <div ref={scrollRef} className="studio-scroll min-h-0 flex-1 overflow-auto py-1" data-testid="namespace-tree">
           {flatRows.length === 0 && (
             <p className="px-3 py-4 text-xs text-center text-muted-foreground">
-              {searchQuery ? 'No matching types or namespaces' : 'No types loaded'}
+              {searchQuery
+                ? compact
+                  ? 'No matching declarations'
+                  : 'No matching types or namespaces'
+                : compact
+                  ? 'No declarations loaded'
+                  : 'No types loaded'}
             </p>
           )}
           {flatRows.length > 0 && (
@@ -554,6 +586,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                         onSetDragSource={onSetDragSource}
                         selection={selection}
                         selectionId={selectionIds.byNode.get(row.nodeId)}
+                        presentation={getNodePresentation?.(row.nodeId)}
                         // onClearDragSource is intentionally NOT forwarded — the TypeItemRow
                         // no longer uses it. The panel-level prop is kept for back-compat only.
                       />
@@ -564,9 +597,11 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
             </div>
           )}
         </div>
-        <footer aria-label="Available types" className="shrink-0 border-t px-3 py-2">
-          <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
-        </footer>
+        {!compact && (
+          <footer aria-label="Available types" className="shrink-0 border-t px-3 py-2">
+            <NumberChiclet data-testid="namespace-explorer-count">{totalTypes} available</NumberChiclet>
+          </footer>
+        )}
       </div>
     </TooltipProvider>
   );
@@ -709,6 +744,7 @@ interface TypeItemRowProps {
   onSetDragSource?: (payload: TypeRefPayload) => void;
   selection?: ExplorerSelection;
   selectionId?: string;
+  presentation?: ExplorerNodePresentation;
   // onClearDragSource is intentionally omitted — the TypeItemRow no longer
   // needs it. The panel-level prop is kept for interface back-compat only.
 }
@@ -729,7 +765,8 @@ function TypeItemRow({
   isDragSource: _isDragSource,
   onSetDragSource: _onSetDragSource,
   selection,
-  selectionId
+  selectionId,
+  presentation
 }: TypeItemRowProps): JSX.Element {
   // Every kind maps to a payload kind, so every row is a drag source. That
   // avoids the WebKit fallback where a non-draggable row text/region-selects on
@@ -753,6 +790,7 @@ function TypeItemRow({
     e.dataTransfer.setData(TYPE_REF_PAYLOAD_MIME, JSON.stringify(payload));
     e.dataTransfer.setData(typeRefMimeForKind(payload.kind), '');
     e.dataTransfer.effectAllowed = 'link';
+    presentation?.onDragStart?.(e);
   };
 
   // Row dragging and inclusion are independent of name/arrow navigation.
@@ -811,7 +849,7 @@ function TypeItemRow({
         aria-current={highlight ? 'true' : undefined}
         data-testid={`ns-type-${row.nodeId}`}
         onContextMenu={(event) => navigation.open(event, row.nodeId)}
-        draggable
+        draggable={presentation?.draggable ?? true}
         onDragStart={handleDragStart}
         onClick={selection ? toggleSelection : undefined}
       >
@@ -846,8 +884,8 @@ function TypeItemRow({
         <button
           type="button"
           className="min-w-0 flex-1 truncate text-left underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
-          title={label?.fullLabel ?? `${row.namespace}.${row.name}`}
-          aria-label={label?.qualifier ? `${row.name} ${label.qualifier}` : row.name}
+          title={presentation?.title ?? label?.fullLabel ?? `${row.namespace}.${row.name}`}
+          aria-label={presentation?.accessibleName ?? (label?.qualifier ? `${row.name} ${label.qualifier}` : row.name)}
           data-testid={`ns-type-link-${row.nodeId}`}
           onClick={
             selection
@@ -882,20 +920,22 @@ function TypeItemRow({
           </Tooltip>
         )}
 
-        {/* The arrow uses the same navigation action as the name. */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={handleNavClick}
-          onKeyDown={handleNavKeyDown}
-          aria-label={`Navigate to ${row.name}`}
-          data-testid={`ns-type-nav-${row.nodeId}`}
-          className="ml-auto size-6 border border-border/60 opacity-40 transition-opacity hover:border-border hover:!opacity-100 focus:opacity-100 group-hover:opacity-80"
-          tabIndex={0}
-        >
-          <ArrowUpRight className="size-3.5" />
-        </Button>
+        {/* Hosts can supply call actions; the default arrow opens the definition. */}
+        {presentation?.actions ?? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            onClick={handleNavClick}
+            onKeyDown={handleNavKeyDown}
+            aria-label={`Navigate to ${row.name}`}
+            data-testid={`ns-type-nav-${row.nodeId}`}
+            className="ml-auto size-6 border border-border/60 opacity-40 transition-opacity hover:border-border hover:!opacity-100 focus:opacity-100 group-hover:opacity-80"
+            tabIndex={0}
+          >
+            <ArrowUpRight className="size-3.5" />
+          </Button>
+        )}
       </div>
       {navigation.menu}
     </>
