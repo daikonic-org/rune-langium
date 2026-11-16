@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, act } from '@testing-library/react';
 import { useState } from 'react';
 
@@ -25,6 +25,11 @@ class FakeWorker {
     this.terminated = true;
   }
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 beforeEach(() => {
   FakeWorker.instances = [];
@@ -51,6 +56,7 @@ import { WorkspaceStateContext, type WorkspaceState } from '../../../src/shell/p
 import { useInstanceStore } from '../../../src/store/instance-store.js';
 import { usePreviewStore } from '../../../src/store/preview-store.js';
 import { useOutputStore } from '../../../src/store/output-store.js';
+import { getLastStartedOpId, getPerfLogSnapshot } from '../../../src/services/perf-log.js';
 import { useEditorStore } from '@rune-langium/visual-editor';
 
 function wsState(id: string): WorkspaceState {
@@ -1134,7 +1140,11 @@ it.each(['manifest publication', 'workspace switch'] as const)(
         deferredExports: manifest('curated.current')
       })
     );
-    const request = worker.posted.filter((message) => message.type === 'preview:generate').at(-1)!;
+    // File installation also refreshes the selected preview with its own ID.
+    // A workspace switch must not accept the prior workspace's response ID.
+    const request = worker.posted
+      .filter((message) => message.type === 'preview:generate' || message.type === 'preview:setFiles')
+      .at(-1)!;
     await act(async () => {
       for (const listener of worker.listeners.message ?? [])
         listener({
@@ -1181,7 +1191,9 @@ it.each(['manifest publication', 'workspace switch'] as const)(
   }
 );
 
-it('sends captured reference AST bytes once, while retaining reference identity in preview file metadata', async () => {
+it('applies and validates one captured generation across hydration updates, then installs changed revisions and workspaces', async () => {
+  vi.useFakeTimers();
+  const before = getLastStartedOpId('previewPrepareProject') ?? 0;
   const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
   const state = wsState('managed-reference');
   const serialized = JSON.stringify({ $type: 'RosettaModel', name: 'reference', elements: [] });
@@ -1206,13 +1218,14 @@ it('sends captured reference AST bytes once, while retaining reference identity 
       }
     ]
   } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
-  render(
-    <WorkspaceStateContext.Provider value={state}>
+  const revalidate = vi.spyOn(useInstanceStore.getState(), 'revalidateInstances');
+  const host = (workspace: WorkspaceState, captured = input) => (
+    <WorkspaceStateContext.Provider value={workspace}>
       <ProjectContext.Provider
         value={{
           status: 'ready',
           diagnostics: [],
-          runtime: { managed: true, status: 'captured', input, diagnostics: [] }
+          runtime: { managed: true, status: 'captured', input: captured, diagnostics: [] }
         }}
       >
         <CodegenProvider>
@@ -1221,7 +1234,21 @@ it('sends captured reference AST bytes once, while retaining reference identity 
       </ProjectContext.Provider>
     </WorkspaceStateContext.Provider>
   );
-  const message = FakeWorker.instances[0]!.posted.filter((entry) => entry.type === 'preview:setFiles').at(-1)!;
+  const { rerender } = render(host(state));
+  const worker = FakeWorker.instances[0]!;
+  const installs = () => worker.posted.filter((entry) => entry.type === 'preview:setFiles');
+  const acknowledge = (message = installs().at(-1)!) => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:files-ready',
+          requestId: message.requestId,
+          filesRevision: message.filesRevision,
+          projectReceipt: message.project?.receipt ?? message.projectReceipt
+        }
+      });
+  };
+  const message = installs().at(-1)!;
   expect(message.project).toEqual({
     ...input,
     referenceDocuments: [{ uri: 'cdm/types.rosetta', content: 'namespace reference', serialized }]
@@ -1230,6 +1257,67 @@ it('sends captured reference AST bytes once, while retaining reference identity 
   const reference = message.files.find((entry: { uri: string }) => entry.uri.includes('cdm'));
   expect(reference).toMatchObject({ content: 'namespace reference', refOnly: true });
   expect(reference.serializedModelJson).toBeUndefined();
+  // Changes to Explorer's hydrated view do not change the captured program.
+  const hydratedState = {
+    ...state,
+    files: state.files.map((file) => ({
+      ...file,
+      sourceLoaded: true,
+      content: file.readOnly ? `${file.content}\n// original source` : file.content
+    }))
+  };
+  rerender(host(hydratedState, { ...input }));
+  expect(installs()).toHaveLength(2);
+  expect(installs().filter((message) => message.project)).toHaveLength(1);
+  expect(installs().at(-1)).toMatchObject({
+    projectReceipt: input.receipt,
+    files: expect.arrayContaining([expect.objectContaining({ content: 'namespace reference\n// original source' })])
+  });
+  expect(revalidate).not.toHaveBeenCalled();
+  await act(async () => {
+    acknowledge(message);
+    acknowledge();
+  });
+  expect(revalidate).toHaveBeenCalledTimes(1);
+  rerender(host(hydratedState, { ...input }));
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(installs()).toHaveLength(2);
+  expect(revalidate).toHaveBeenCalledTimes(1);
+  const next = { ...input, receipt: { ...input.receipt, revision: '4'.repeat(64) } };
+  rerender(host(hydratedState, next));
+  expect(installs()).toHaveLength(3);
+  await act(async () => acknowledge());
+  expect(revalidate).toHaveBeenCalledTimes(2);
+  rerender(host({ ...hydratedState, workspaceId: 'another-workspace' }, next));
+  expect(installs()).toHaveLength(4);
+  await act(async () => acknowledge());
+  expect(revalidate).toHaveBeenCalledTimes(3);
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const stalled = { ...next, receipt: { ...next.receipt, revision: '5'.repeat(64) } };
+  const anotherWorkspace = { ...hydratedState, workspaceId: 'another-workspace' };
+  rerender(host(anotherWorkspace, stalled));
+  expect(installs()).toHaveLength(5);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(30_001);
+  });
+  await act(async () => acknowledge());
+  expect(revalidate).toHaveBeenCalledTimes(3);
+  rerender(host({ ...anotherWorkspace, files: [...state.files] }, stalled));
+  expect(installs()).toHaveLength(6);
+  await act(async () => acknowledge());
+  expect(revalidate).toHaveBeenCalledTimes(4);
+  act(() => {
+    for (const listener of worker.listeners.messageerror ?? []) listener(new MessageEvent('messageerror'));
+  });
+  rerender(host({ ...anotherWorkspace, files: [...state.files] }, stalled));
+  expect(installs()).toHaveLength(6);
+  expect(
+    getPerfLogSnapshot()
+      .filter((entry) => entry.op === 'previewPrepareProject' && entry.opId > before)
+      .map((entry) => entry.ok)
+  ).toEqual([true, true, true, false, true]);
 });
 
 it('requires the current applied project receipt before a Prototype session can fetch its schema', async () => {
@@ -1261,11 +1349,18 @@ it('requires the current applied project receipt before a Prototype session can 
     project: input
   });
   const client = factory!();
+  const cancelled = new AbortController();
+  const abandoned = client.schema('a.Other', cancelled.signal);
+  const aborted = expect(abandoned).rejects.toThrow(/cancel/i);
   const result = client.schema('a.Type', new AbortController().signal);
   const rejected = expect(result).rejects.toThrow(/receipt|project/i);
-  await vi.waitFor(() =>
-    expect(worker.posted.filter((message) => message.type === 'preview:setFiles').length).toBeGreaterThan(1)
-  );
+  await act(async () => {
+    await Promise.resolve();
+  });
+  cancelled.abort();
+  await aborted;
+  expect(worker.posted.filter((message) => message.type === 'preview:setFiles')).toHaveLength(1);
+  expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
   const install = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
   act(() => {
     for (const listener of worker.listeners.message ?? [])
@@ -1280,6 +1375,41 @@ it('requires the current applied project receipt before a Prototype session can 
   });
   await rejected;
   expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
+  // A failed acknowledgement must be evicted, so retry can install and validate
+  // the current generation instead of returning a retained rejection forever.
+  const retried = client.schema('a.Type', new AbortController().signal);
+  await vi.waitFor(() =>
+    expect(worker.posted.filter((message) => message.type === 'preview:setFiles')).toHaveLength(2)
+  );
+  const retryInstall = worker.posted.filter((message) => message.type === 'preview:setFiles').at(-1)!;
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'preview:files-ready',
+          requestId: retryInstall.requestId,
+          filesRevision: retryInstall.filesRevision,
+          projectReceipt: receipt
+        }
+      });
+  });
+  await vi.waitFor(() =>
+    expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(true)
+  );
+  const request = worker.posted.find((message) => message.type === 'instance:generateSchema')!;
+  const schema = { schemaVersion: 1, targetId: 'a.Type', title: 'Type', status: 'ready', fields: [] };
+  act(() => {
+    for (const listener of worker.listeners.message ?? [])
+      listener({
+        data: {
+          type: 'instance:generateSchemaResult',
+          requestId: request.requestId,
+          schema,
+          projectReceipt: receipt
+        }
+      });
+  });
+  await expect(retried).resolves.toEqual(schema);
   client.dispose();
 });
 
@@ -1376,9 +1506,7 @@ it.each([false, true])(
     expect(worker.posted.some((message) => message.type === 'instance:generateSchema')).toBe(false);
     act(() => document.querySelector('button')!.click());
     await vi.waitFor(() =>
-      expect(
-        worker.posted.filter((message) => message.type === 'preview:setFiles' && message.project).length
-      ).toBeGreaterThan(1)
+      expect(worker.posted.filter((message) => message.type === 'preview:setFiles' && message.project).length).toBe(1)
     );
     act(() => {
       for (const install of worker.posted.filter((message) => message.type === 'preview:setFiles' && message.project))

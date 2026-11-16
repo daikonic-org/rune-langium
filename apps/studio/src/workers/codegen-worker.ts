@@ -1349,6 +1349,19 @@ async function serializeInstance(message: InstanceSerializeMessage): Promise<voi
 // definition — the unguarded `self.addEventListener` would re-create the
 // same `TypeError: Cannot read properties of undefined (reading 'type')`
 // crash that PR #214 fixed for parser-worker.
+function previewFilesReady(
+  message: Extract<WorkerInboundMessage, { type: 'preview:setFiles' }>,
+  result: { projectReceipt?: ProjectResolutionReceipt; projectError?: string }
+): void {
+  if (!message.requestId) return;
+  self.postMessage({
+    type: 'preview:files-ready',
+    requestId: message.requestId,
+    filesRevision: message.filesRevision,
+    ...result
+  });
+}
+
 if (isWorkerGlobalScope()) {
   (self as unknown as DedicatedWorkerGlobalScope).addEventListener(
     'message',
@@ -1380,6 +1393,23 @@ if (isWorkerGlobalScope()) {
         }
         runCodegen(lastTarget, lastCodegenRequestId, msg.selection, msg.regenerate).catch(console.error);
       } else if (msg.type === 'preview:setFiles') {
+        const previousProject = projectGeneration;
+        const requestedReceipt = msg.project?.receipt ?? msg.projectReceipt;
+        const reuse =
+          requestedReceipt &&
+          previousProject?.receipt &&
+          projectReceiptMatches(previousProject.receipt, requestedReceipt)
+            ? previousProject
+            : undefined;
+        if (
+          (msg.project && msg.projectReceipt && !projectReceiptMatches(msg.project.receipt, msg.projectReceipt)) ||
+          (!msg.project && msg.projectReceipt && !reuse)
+        ) {
+          previewFilesReady(msg, {
+            projectError: 'The captured project is not installed for this source-view revision.'
+          });
+          return;
+        }
         const changed =
           msg.files.length !== currentPreviewFiles.length ||
           msg.files.some((file, index) => {
@@ -1392,20 +1422,15 @@ if (isWorkerGlobalScope()) {
               previous.serializedModelJson !== file.serializedModelJson
             );
           });
-        const previousProject = projectGeneration;
-        const reuse =
-          msg.project &&
-          previousProject?.receipt &&
-          projectReceiptMatches(previousProject.receipt, msg.project.receipt);
         const ready = reuse
-          ? previousProject.ready
+          ? reuse.ready
           : msg.project
             ? applyEffectiveProject(msg.project)
             : msg.projectUnavailable
               ? Promise.reject<EffectiveProject>(new Error(msg.projectUnavailable))
               : undefined;
         const generation = reuse
-          ? previousProject
+          ? reuse
           : ready
             ? { ready, ...(msg.project ? { receipt: { ...msg.project.receipt } } : {}) }
             : undefined;
@@ -1426,22 +1451,10 @@ if (isWorkerGlobalScope()) {
         const requestId = msg.requestId ?? lastPreviewRequestId;
         const acknowledge = (projectError?: string) => {
           if (generation !== projectGeneration) {
-            if (msg.requestId)
-              (self as unknown as DedicatedWorkerGlobalScope).postMessage({
-                type: 'preview:files-ready',
-                requestId: msg.requestId,
-                filesRevision: msg.filesRevision,
-                projectError: 'The project changed before this revision could be applied.'
-              });
+            previewFilesReady(msg, { projectError: 'The project changed before this revision could be applied.' });
             return;
           }
-          if (msg.requestId)
-            (self as unknown as DedicatedWorkerGlobalScope).postMessage({
-              type: 'preview:files-ready',
-              requestId: msg.requestId,
-              filesRevision: msg.filesRevision,
-              ...(projectError ? { projectError } : generation?.receipt ? { projectReceipt: generation.receipt } : {})
-            });
+          previewFilesReady(msg, projectError ? { projectError } : { projectReceipt: generation?.receipt });
           if (!projectError && lastPreviewTargetId && requestId)
             previewStages.generateSchema(lastPreviewTargetId, requestId).catch(console.error);
         };

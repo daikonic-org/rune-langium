@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { afterEach, it, expect, vi } from 'vitest';
+import { getLastStartedOpId } from '../../src/services/perf-log.js';
 import { parse, createRuneDslServices, serializeRuneModel, hydrateModelDocuments, type Data } from '@rune-langium/core';
 import { EmptyFileSystem, URI } from 'langium';
 import {
@@ -28,6 +29,42 @@ import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '.
 import { createOpfsRoot, writeBytes } from '../setup/opfs-mock.js';
 
 afterEach(() => vi.restoreAllMocks());
+
+const readMetadata = vi.hoisted(() => vi.fn());
+vi.mock('@rune-langium/core', async (original) => {
+  const actual = await original<typeof import('@rune-langium/core')>();
+  readMetadata.mockImplementation(actual.readLspModelMetadata);
+  return { ...actual, readLspModelMetadata: readMetadata };
+});
+
+it('reuses an already materialized canonical view without rescanning serialized AST metadata', async () => {
+  const content = 'namespace local\ntype Type:\n value string (1..1)';
+  const parsed = await parse(content);
+  const services = createRuneDslServices(EmptyFileSystem);
+  const file = { path: 'main.rosetta', name: 'main.rosetta', content, dirty: false };
+  const view = {
+    workspaceId: 'canonical-view',
+    fileCount: 1,
+    files: [file],
+    models: [parsed.value!],
+    parsedModels: [
+      {
+        filePath: file.path,
+        model: parsed.value!,
+        source: content,
+        serializedModelJson: serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, parsed.value!)
+      }
+    ],
+    deferredExports: [],
+    parseErrors: new Map()
+  };
+  readMetadata.mockClear();
+  const lastMaterialization = getLastStartedOpId('referenceMaterialize');
+  const materialized = await materializeProjectReferenceView(view, [pathToUri(file.path)]);
+  expect(materialized).toBe(view);
+  expect(readMetadata).not.toHaveBeenCalled();
+  expect(getLastStartedOpId('referenceMaterialize')).toBe(lastMaterialization);
+});
 
 it('projects exact locked ASTs into Explorer and parser hydration without a latest-model request', async () => {
   const fixture = await createReferenceArtifacts(undefined, undefined, {

@@ -99,6 +99,22 @@ finishing after project disposal cannot write through the guarded adapter.
 Binary generator output is persisted as bytes. Preview/download retain the exact
 captured ZIP and become stale on semantic input or configuration errors.
 
+The preview worker's captured program is reused by worker, workspace epoch and
+canonical receipt. Explorer hydration and original-source loading still refresh
+the worker's source-view files with a separate revision and acknowledgement,
+using the receipt instead of retransmitting the captured reference ASTs. A
+receipt-only update requires a matching prepared or in-flight program. Source
+projections retain their exact byte/revision checks; instance revalidation runs
+once per acknowledged program in each workspace. Identical pending/ready file
+syncs share their acknowledgement. Consumers abort their own waits;
+acknowledgement failure, deadline, worker failure, workspace switches and changed
+receipts invalidate the retained preparation. A missing acknowledgement expires
+at the shared readiness deadline and remains retryable; a late reply cannot
+complete it. The bounded perf log records `previewPrepareProject` for full
+preparation, `previewSyncView` for source-view updates, and `referenceMaterialize`
+when a new closure is adopted by the UI, with no model/source payloads, alongside
+the unchanged end-to-end form timing.
+
 Export settings and generated output share one expandable Dockview panel with
 mounted tabs, preserving target drafts when switching views. Generation diagnostics
 open from a counted disclosure instead of displacing source. Artifact files carry

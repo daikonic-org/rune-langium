@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { checkout as test, expect, loadCdm, authorScratchType, authorScratchFunction, readOpLog } from '../fixtures.js';
+import {
+  checkout as test,
+  expect,
+  loadCdm,
+  authorScratchType,
+  authorScratchFunction,
+  readOpLog,
+  readCombinedOpLog
+} from '../fixtures.js';
 import { typeNavigationButton } from '../../helpers/type-navigation.js';
 import { ANCHOR_DATA, ANCHOR_FUNCTION } from '../anchors.js';
 
@@ -25,6 +33,13 @@ test.describe('J9 — Form preview & function execution', () => {
       await expect(formPanel.getByText('Generating preview', { exact: false })).toHaveCount(0);
       const curatedFormRenderMs = Date.now() - curatedFormStartedAt;
       evidence.recordTiming('formRender', ANCHOR_DATA, curatedFormRenderMs);
+      // Keep the applied-project stage in CI evidence so a slow form can be
+      // distinguished from preparation/transfer work without enabling trace logs.
+      const preparationOps = await readCombinedOpLog(page);
+      evidence.recordOpLog(preparationOps);
+      expect(preparationOps.some((entry) => entry.op === 'previewPrepareProject' && entry.level === 'success')).toBe(
+        true
+      );
       await evidence.checkpoint('curated-form-preview');
 
       // Generated Zod accepts empty strings; a fractional int is structurally invalid.
@@ -33,6 +48,7 @@ test.describe('J9 — Form preview & function execution', () => {
         namespace: 'scratch.j9form',
         attributes: [{ name: 'quantity', typeName: 'int', cardinality: '(1..1)' }]
       });
+      evidence.markNavigation();
       const scratchFormStartedAt = Date.now();
       await typeNavigationButton(page, 'scratch.j9form.ScratchWidget').click();
       const quantityField = formPanel.getByLabel('Quantity', { exact: true });
