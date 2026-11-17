@@ -1376,7 +1376,13 @@ owner into its own activity-rail surface. It shares the selected declaration,
 canonical inspector, `ExpressionDocument`, save barrier and source update path;
 only the active perspective mounts the canonical inspector form. Its controlled
 React Flow instance has separate positions, selection and viewport state from the
-type graph. Palette/camera changes do not write Rune. Per-function leaf drafts
+type graph. `CompositionCanvas` owns pointer-rate positions, dimensions and camera
+updates; these never invalidate the Composer, palette or canonical inspector.
+Memoized custom nodes retain stable semantic data and binding context during drag.
+Only a completed draft drag reports its final position to the authoring state.
+Measured relayout and automatic camera fitting pause during drag/connection gestures
+so a source selection cannot move its target under the pointer.
+Palette/camera changes do not write Rune. Per-function leaf drafts
 survive nested navigation while the workspace remains mounted.
 Retained composition diagnostics use the source captured with their facts, even
 when reference publication temporarily removes the current file. This invariant
@@ -1403,6 +1409,12 @@ share one producer node, and output rebinding replaces a definition without rena
 its consumers. Core supplies exact dependencies and source blocks. Private candidate
 analysis through the same serialized parser queue restores the captured workspace
 in a finally block, including on failure; canonical validation runs before commit.
+Named argument and collection connectors reuse the node binding actions and their
+cycle/scope guards. Core's expression parser locates the collection operand so
+rebinding preserves the operator and lambda. Draft edges are a visual overlay;
+Apply commits the same captured Rune edit, and Discard removes the overlay.
+Expression ellipsis buttons open the shared leaf ExpressionBuilder in the standard
+design-system dialog; closing retains the draft without publishing it.
 Stable topological source-block ordering retains comments and condition placement.
 The canvas remains mounted but inert while source reparses, preserving camera state.
 Core retains the outer AST `expressionType` in composition facts. Studio's shared

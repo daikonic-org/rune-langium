@@ -696,3 +696,115 @@ test('creates in Compose, opens Prototype on its first visit and executes reusab
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByTestId('instance-payload-output')).toContainText('16');
 });
+
+test('drags a draft freely and binds connectors through guarded node drafts and the shared expression editor', async ({
+  page
+}, testInfo) => {
+  test.setTimeout(120000);
+  page.setDefaultTimeout(15000);
+  await page.setViewportSize({ width: 1426, height: 985 });
+  const content =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+    `
+func Pair:
+ inputs:
+  left number (1..1)
+  right number (1..1)
+ output: result number (1..1)
+ set result: left + right
+func Wiring:
+ [composition]
+ inputs:
+  values number (1..*)
+  extra number (1..*)
+  value number (1..1)
+ output: result number (1..*)
+ alias scaled: Pair(value, 1)
+ alias consumed: Pair(scaled, 1)
+ set result: values
+`;
+  const composer = await openComposition(page, content, 'Wiring');
+  const node = (id: string) => composer.locator(`[data-composition-step="${id}"]`);
+  const port = (id: string, handle: string) => node(id).locator(`[data-handleid="${handle}"]`);
+  const connect = async (sourceId: string, targetId: string, handle: string) => {
+    // Retained nodes are inert until the exact edited source has linked again.
+    await expect(port(sourceId, 'output')).toHaveClass(/\bconnectable\b/);
+    await expect(port(targetId, handle)).toHaveClass(/\bconnectable\b/);
+    await composer.getByRole('button', { name: 'Fit View', exact: true }).click();
+    // Selection and node measurements can legitimately fit the camera once.
+    let previous = '';
+    await expect
+      .poll(async () => {
+        const next = JSON.stringify([
+          await port(sourceId, 'output').boundingBox(),
+          await port(targetId, handle).boundingBox()
+        ]);
+        const stable = previous === next;
+        previous = next;
+        return stable;
+      })
+      .toBe(true);
+    const from = await port(sourceId, 'output').boundingBox();
+    const to = await port(targetId, handle).boundingBox();
+    expect(from).not.toBeNull();
+    expect(to).not.toBeNull();
+    await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, { steps: 12 });
+    await page.mouse.up();
+  };
+  await composer.getByRole('button', { name: 'Sort', exact: true }).click();
+  await composer.getByRole('button', { name: 'Signature & details', exact: true }).click();
+  const draft = node('draft:new');
+  await expect(draft).toBeVisible();
+  const heading = (await draft.locator('.composition-node__heading').boundingBox())!;
+  const before = (await draft.boundingBox())!;
+  await page.mouse.move(heading.x + 65, heading.y + heading.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(heading.x + 165, heading.y + heading.height / 2 + 55, { steps: 24 });
+  const during = (await draft.boundingBox())!;
+  expect(during.x - before.x).toBeGreaterThan(80);
+  expect(during.y - before.y).toBeGreaterThan(40);
+  await page.mouse.up();
+  await expect.poll(async () => (await draft.boundingBox())?.x).toBeCloseTo(during.x, 0);
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+
+  await connect('input:extra', 'draft:new', 'input');
+  await expect(draft.getByRole('textbox', { name: 'step1 expression', exact: true })).toHaveValue('extra sort');
+  await connect('draft:new', 'return', 'input');
+  await expect(draft.getByRole('combobox', { name: 'Bind output of step1', exact: true })).toHaveValue('return');
+  await expect(composer.locator('.react-flow__edge')).toHaveCount(4);
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await draft.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  const bound = content.replace('\n set result: values\n', '\n set result: extra sort\n');
+  await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(bound);
+
+  await composer.getByRole('combobox', { name: 'Selected composition step', exact: true }).selectOption('alias:scaled');
+  const scaled = node('alias:scaled');
+  await connect('input:value', 'alias:scaled', 'argument:1');
+  await expect(scaled.getByRole('combobox', { name: 'scaled argument right', exact: true })).toHaveValue('input:value');
+  await scaled.getByRole('combobox', { name: 'scaled right binding mode', exact: true }).selectOption('value');
+  await scaled.getByRole('button', { name: 'Edit scaled right expression', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit scaled right expression', exact: true });
+  await expect(dialog.getByText('Changes stay in the node draft until you choose Apply.')).toBeVisible();
+  // Text mode uses the same CodeMirror editor and captured argument scope as the builder.
+  const textToggle = dialog.getByRole('button', { name: 'Text', exact: true });
+  if (await textToggle.isVisible()) await textToggle.click();
+  const editor = dialog.getByRole('textbox', { name: 'Rune source editor', exact: true });
+  await editor.fill('value + 2');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(scaled.getByRole('textbox', { name: 'scaled argument right', exact: true })).toHaveValue('value + 2');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(bound);
+  await scaled.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(bound.replace('Pair(value, 1)', 'Pair(value, value + 2)'));
+
+  await connect('alias:consumed', 'alias:scaled', 'argument:0');
+  await expect(composer.getByRole('alert')).toContainText('cycle');
+  await expect(scaled.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('compose-wired-nodes.png') });
+});

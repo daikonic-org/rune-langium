@@ -10,6 +10,7 @@ import {
 import { ExpressionDocument } from '../../src/services/expression-document.js';
 import {
   compositionReference,
+  compositionInputText,
   compositionAliasEdit,
   compositionExpressionEdit,
   compositionArgumentsText,
@@ -18,6 +19,27 @@ import {
   reorderCompositionVariables,
   compositionBindingCycle
 } from '../../src/services/composition-edit.js';
+
+it.each([
+  ['empty sort', 'values sort'],
+  ['[1, 2] /* keep */ sort [item]', 'values /* keep */ sort [item]'],
+  ['([1, 2] filter [item > 0]) sort [item]', 'values sort [item]'],
+  ['empty extract [item * 2]', 'values extract [item * 2]'],
+  ['empty filter [item exists]', 'values filter [item exists]'],
+  ['empty reduce a, b [a + b]', 'values reduce a, b [a + b]'],
+  ['empty sum', 'values sum'],
+  ['empty count', 'values count'],
+  ['empty distinct', 'values distinct'],
+  ['empty flatten', 'values flatten'],
+  ['empty default 7', 'values default 7'],
+  ['before', 'values']
+])('binds a connector without removing the operator in %s', (expression, expected) => {
+  expect(compositionInputText(expression, 'values')).toBe(expected);
+});
+
+it('refuses a connector edit against an incomplete expression', () => {
+  expect(() => compositionInputText('values +', 'other')).toThrow('Complete the expression');
+});
 
 it.each(['\n', '\r\n'])(
   'preserves comments, metadata, conditions, neighbors and newline bytes (%j)',

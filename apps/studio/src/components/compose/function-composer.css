@@ -329,9 +329,37 @@
   overflow: auto;
 }
 .composition-node__argument, .composition-node__output {
+  position: relative;
   display: grid;
   min-width: 0;
   gap: var(--space-1);
+}
+.composition-node__expression-control {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-1);
+}
+.composition-node__expression-control > input,
+.composition-node__expression-control > .composition-node__bound-value {
+  min-width: 0;
+  flex: 1;
+}
+.composition-node__argument-handle.react-flow__handle {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: 2;
+  flex-shrink: 0;
+  transform: none;
+}
+.composition-expression-dialog {
+  max-width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+}
+.composition-expression-dialog .expression-code-editor {
+  min-height: 16rem;
 }
 .composition-node__argument-label {
   color: var(--muted-foreground);
