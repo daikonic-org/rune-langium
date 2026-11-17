@@ -80,6 +80,10 @@ test('generated code gains reading height while its selection and editor stay in
     await page.getByTestId('rail-settings').click();
     await page.getByTestId('settings-perspective').getByLabel('Theme', { exact: true }).selectOption('light');
     await expect.poll(() => workerHeld).toBe(true);
+    const retained = page.locator('[data-perspective-slot="explore"]');
+    await expect(retained).toBeHidden();
+    await expect(retained).toHaveAttribute('inert');
+    await expect.poll(async () => (await retained.boundingBox())?.width ?? 0).toBeGreaterThan(1000);
   } finally {
     workerLoad.resolve();
   }

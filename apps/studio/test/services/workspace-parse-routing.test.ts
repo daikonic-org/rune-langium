@@ -591,11 +591,12 @@ describe('parseWorkspace routing', () => {
         {
           name: 'owner.rosetta',
           content:
-            'namespace demo.owner\nimport scope.selected.*\ntype Owner:\n  name string (1..1) [marking scheme "scheme"="ISIN"]\n'
+            'namespace demo.owner\nimport scope.selected.*\ntype Owner extends Base:\n  name string (1..1) [marking scheme "scheme"="ISIN"]\n'
         },
         {
           name: 'selected.rosetta',
-          content: 'namespace scope.selected\nannotation marking:\n  scheme string (1..1)\n'
+          content:
+            'namespace scope.selected\nannotation marking:\n  scheme string (1..1)\ntype Base:\n  id string (1..1)\n'
         },
         {
           name: 'foreign.rosetta',
@@ -632,6 +633,12 @@ describe('parseWorkspace routing', () => {
         .find((model) => model.name === 'demo.owner')
         ?.elements.find((node) => node.$type === 'Data');
       expect(owner).toBeDefined();
+      if (owner?.$type !== 'Data') throw new Error('Missing fixture owner');
+      const selected = result.models.find((model) => model.name === 'scope.selected')!;
+      expect(owner.superType?.ref).toBe(selected.elements.find((node) => node.$type === 'Data'));
+      expect(owner.attributes[0]!.annotations[0]!.annotation.ref).toBe(
+        selected.elements.find((node) => node.$type === 'Annotation')
+      );
       expect(getAnnotationDefinitions(owner!)).toEqual({ marking: { name: 'marking', namespace: 'scope.selected' } });
     }
   );

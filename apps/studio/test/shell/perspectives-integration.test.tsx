@@ -101,7 +101,9 @@ describe('perspectives rail↔host integration', () => {
     render(<PerspectiveHost hasWorkspace={false} hasExploreContent={false} />);
     expect(screen.getByTestId('workspaces-perspective')).toBeTruthy();
     const exploreSlot = document.querySelector('[data-perspective-slot="explore"]') as HTMLElement;
-    expect(exploreSlot.style.display).toBe('none');
+    expect(exploreSlot).not.toBeVisible();
+    expect(exploreSlot).toHaveAttribute('inert');
+    expect(exploreSlot.style.display).not.toBe('none');
   });
 
   it('falls back to Workspaces from git/export without a workspace', () => {

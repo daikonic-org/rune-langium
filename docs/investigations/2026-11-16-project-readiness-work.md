@@ -287,3 +287,45 @@ deployed or CI performance. React Doctor reported no new errors and the existing
 PerspectiveHost complexity warning. No timing budgets or retries were changed.
 Final verification also passed all 2,768 Studio tests (two skipped), types, scoped
 lint/format and both Inspector hot-reload cases within the two-second bound.
+
+## Follow-up on `b53ee760` CI and review
+
+CI 44003089331 passed lint/test, coverage, accessibility/hot reload, generated
+output, Python projections, fixture diff and license checks. Candidate shards
+1–3 failed on curated read-only function readiness, gas-example validation after
+reload, and the Code tab after an early Settings visit. J09 also exceeded its
+unchanged five-second form budget (6,226ms). The page traces reported no client
+exceptions. These remain failures, even where a local replay passes.
+
+Review identified two transport identity defects. Hosted user documents now
+hydrate under the URI encoded in their serialized model, retaining cross-file
+annotation and inheritance pointers. Small-worker diagnostics map back to the
+captured workspace paths. Regression tests check actual reference identity in
+both document orders and syntax errors on relative, nested and absolute paths.
+
+Ignoring hidden measurements alone did not protect Dockview's own geometry.
+Inactive Explore now retains a measurable absolute slot, hidden and inert;
+automatic Preview yielding excludes visibility-hidden perspectives. The
+held-worker regression asserts those dimensions before returning from Settings.
+
+The async cache also allowed duplicate compilation while the first request was
+pending: a regression test reproduced two validator compilations for concurrent
+requests. Computations now share a promise for the same target, semantic version
+and variant, while data and diagnostics remain per request. Export selections
+and concrete input types remain distinct. Rejected work is evicted, explicit
+regeneration detaches pending work, and older versions cannot overwrite newer
+results. Managed source-view arrivals retain program caches without relaxing
+source-byte or projection-revision guards; changed program captures replace them.
+
+The first complete Studio verification passed 2,775 tests, with two skipped.
+Types, scoped lint/format and the optimized build passed. Mechanical Impeccable
+detection found no issues in the changed React layout files. The complete
+optimized candidate replay passed all 166 browser cases without retries or timing
+overruns (21.7 minutes), including all previously failed cases. J09 took 1,469ms
+locally for the curated form and 142ms for scratch; these are local measurements,
+not evidence that CI's 6,226ms tail is resolved. The new Code-reading capture
+retains the expanded Preview panel after Settings. Evidence lives under ignored
+`dist/pr712-b53/`; fresh current-head CI and review remain the merge gate.
+Both Inspector hot-reload checks passed within the unchanged two-second bound
+(1,116ms for the delayed case), without reloading the document. No budgets or
+retries were increased.

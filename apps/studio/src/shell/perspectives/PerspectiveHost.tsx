@@ -4,7 +4,7 @@
 /**
  * PerspectiveHost — renders the active perspective in the shell content slot.
  * Explore (the `ExplorePerspective` DockShell workbench) is ALWAYS mounted and
- * hidden via `display:none` when inactive — keep-alive preserves the dockview
+ * hidden in a measurable inert slot when inactive — keep-alive preserves the dockview
  * layout, open files, unsaved edits, and the LSP worker. Prototype stays mounted
  * after its first visit in the current workspace to retain input drafts. Other screens mount on demand.
  */
@@ -98,18 +98,20 @@ export const PerspectiveHost = withInstrumentation(
           {/* Dockview needs real dimensions during preparation. Inert hidden
            * content retains geometry without exposing editing controls. */}
           <div
-            className="min-h-0 min-w-0 flex-1"
+            className="relative min-h-0 min-w-0 flex-1"
             style={{ visibility: contentPending ? 'hidden' : undefined }}
             inert={contentPending}
             aria-hidden={contentPending || undefined}
           >
-            {/* Explore: kept alive — hidden via display:none, NEVER unmounted. */}
+            {/* Dockview must retain real dimensions while another perspective is active. */}
             <div
               data-perspective-slot="explore"
               // `studio-perspective-enter` replays its fade-in each time the class
               // is re-added (i.e. every time Explore becomes active again).
               className={effective === 'explore' ? 'h-full studio-perspective-enter' : 'h-full'}
-              style={{ display: effective === 'explore' ? undefined : 'none' }}
+              style={effective === 'explore' ? undefined : { position: 'absolute', inset: 0, visibility: 'hidden' }}
+              inert={effective !== 'explore'}
+              aria-hidden={effective !== 'explore' || undefined}
             >
               <ExplorePerspective />
             </div>

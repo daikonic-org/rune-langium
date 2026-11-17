@@ -39,8 +39,10 @@ Opening a workspace chooses Explore before preparation starts. Completion does
 not replace navigation made during the wait, and existing workspace-epoch guards
 reject results from a workspace the user has left. Pending source data is not
 advertised as an editable or semantically ready view.
-Pending editing content remains measurable (`visibility: hidden` and `inert`)
-so Dockview never initializes its layout at zero width. Switching or closing a
+Pending editing content and the inactive Explore workbench remain measurable
+(`visibility: hidden` and `inert`). Inactive Explore occupies an absolute slot,
+so Dockview retains its dimensions without displacing the active perspective.
+Switching or closing a
 workspace aborts its active synchronization request; cancellation skips network
 fallback parsing for that abandoned workspace.
 The initial Explore destination is selected before saved file reads, so early
@@ -60,7 +62,9 @@ serialized and explicitly hydrated inputs retain the hosted parser. Worker
 failure can use the hosted path, while cancellation rejects the current wait
 without fallback. Both paths hydrate serialized user models through Core's batch
 helper, retaining containers, cross-file references, canonical URIs and exact
-source ownership. The local worker reuses the shared namespace dependency-graph
+source ownership. Hosted hydration uses the document identity embedded in the
+serialized model; worker diagnostics map back to captured workspace paths.
+The local worker reuses the shared namespace dependency-graph
 collector/closure, so downloads retain their ordinary dependency selection.
 
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
@@ -145,6 +149,11 @@ complete it. The bounded perf log records `previewPrepareProject` for full
 preparation, `previewSyncView` for source-view updates, and `referenceMaterialize`
 when a new closure is adopted by the UI, with no model/source payloads, alongside
 the unchanged end-to-end form timing.
+Managed schema, validator and generated-module caches follow the program receipt,
+while source-view updates advance the independent projection revision. Identical
+in-flight computations share one promise only for the same version and variant
+(export selection or concrete input types). Rejected work is evicted; explicit
+regeneration detaches pending work, and old versions cannot overwrite newer results.
 
 Export settings and generated output share one expandable Dockview panel with
 mounted tabs, preserving target drafts when switching views. Generation diagnostics

@@ -58,19 +58,24 @@ describe('PerspectiveHost', () => {
     const slot = () => screen.getByTestId('explore-probe').closest('[data-perspective-slot="explore"]') as HTMLElement;
     const editor = screen.getByTestId('explore-probe');
     expect(exploreMounts.count).toBe(1);
-    expect(slot().style.display).not.toBe('none'); // visible when active
+    expect(editor).toBeVisible();
 
     act(() => usePerspectiveStore.getState().setActivePerspective('settings'));
     // Explore probe still in the DOM (kept alive), just hidden — NOT remounted
     expect(exploreMounts.count).toBe(1);
     expect(screen.getByTestId('explore-probe')).toBeTruthy();
-    expect(slot().style.display).toBe('none');
+    expect(editor).not.toBeVisible();
+    expect(slot()).toHaveAttribute('inert');
+    expect(slot()).toHaveAttribute('aria-hidden', 'true');
+    expect(slot().style.display).not.toBe('none');
+    expect(slot().style.position).toBe('absolute');
     expect(screen.getByTestId('settings-perspective')).toBeTruthy(); // the active screen renders
 
     act(() => usePerspectiveStore.getState().setActivePerspective('explore'));
     expect(exploreMounts.count).toBe(1); // STILL 1 — definitive: no remount
     expect(screen.getByTestId('explore-probe')).toBe(editor);
-    expect(slot().style.display).not.toBe('none');
+    expect(editor).toBeVisible();
+    expect(slot()).not.toHaveAttribute('inert');
   });
 
   it('git/export fall back to the Workspaces launcher without a workspace (no blank pane, Codex P2 #238)', () => {

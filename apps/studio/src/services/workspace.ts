@@ -15,6 +15,7 @@ import {
   parseWorkspace,
   createRuneDslServices,
   hydrateModelDocuments,
+  getModelSourceUri,
   serializeRuneModel,
   type RosettaModel
 } from '@rune-langium/core';
@@ -820,6 +821,9 @@ export const parseWorkspaceFiles = withInstrumentation(
         return {
           ...routedWorkspaceResult(response),
           parseMode: 'worker',
+          errors: new Map(
+            Object.entries(response.errors).map(([uri, errors]) => [sources.get(uri)?.name ?? uri, errors])
+          ),
           models: documents.map((document) => document.model),
           parsedModels: response.parsedModels.map((model, index) => {
             const source = sources.get(model.filePath);
@@ -1070,7 +1074,10 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       // deserialization loses cross-file targets (including imported annotations).
       const models = hydrateModelDocuments(
         createRuneDslServices(EmptyFileSystem),
-        userDocuments.map((doc) => ({ uri: doc.uri, json: doc.serializedModel }))
+        userDocuments.map((doc) => ({
+          uri: getModelSourceUri(JSON.parse(doc.serializedModel)) ?? doc.uri,
+          json: doc.serializedModel
+        }))
       ).map((entry) => entry.model);
       const userModelsByUri = new Map(userDocuments.map((doc, index) => [doc.uri, models[index]!]));
       const parsedModels: ParsedWorkspaceModel[] = [];

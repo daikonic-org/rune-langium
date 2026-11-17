@@ -15,6 +15,69 @@ async function waitForMessage(scope: WorkerScope, type: string): Promise<void> {
   });
 }
 
+it('retains a captured schema across source-view refreshes and replaces it for a changed program', async () => {
+  const { createProjectSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content = 'namespace view\ntype Quote:\n amount number (1..1)\n';
+  const snapshot = await createProjectSnapshot(
+    'view',
+    new Map([
+      ['rune-config.yml', 'model: {name: View}'],
+      ['build-config.yml', 'schemaVersion: 1\nsources: ["model/**/*.rosetta"]\n']
+    ]),
+    () => []
+  );
+  const capture = async (source: string) =>
+    captureProjectRuntimeInput(
+      snapshot,
+      [{ name: 'quotes.rosetta', path: 'model/quotes.rosetta', content: source, dirty: false }],
+      []
+    );
+  const project = await capture(content);
+  const { scope, dispatch } = await loadRealWorker();
+  const uri = pathToUri('model/quotes.rosetta');
+  const schema = async (requestId: string, receipt = project.receipt) => {
+    dispatch({ type: 'instance:generateSchema', typeFqn: 'view.Quote#Data', projectReceipt: receipt, requestId });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'instance:generateSchemaResult', requestId })
+      )
+    );
+    return scope.postMessage.mock.calls.find(([message]) => message.requestId === requestId)![0].schema;
+  };
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 1,
+    files: [{ uri, content: '' }],
+    project,
+    requestId: 'cache:install'
+  });
+  await waitForMessage(scope, 'preview:files-ready');
+  const first = await schema('cache:first');
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 2,
+    files: [{ uri, content }],
+    projectReceipt: project.receipt,
+    requestId: 'cache:source'
+  });
+  const refreshed = await schema('cache:refreshed');
+  expect(refreshed.fields).toBe(first.fields);
+  const changed = await capture(content + ' currency string (1..1)\n');
+  expect(changed.receipt.revision).not.toBe(project.receipt.revision);
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 3,
+    files: [{ uri, content: content + ' currency string (1..1)\n' }],
+    project: changed,
+    requestId: 'cache:changed'
+  });
+  const updated = await schema('cache:updated', changed.receipt);
+  expect(updated.fields).not.toBe(first.fields);
+  expect(updated.fields).toContainEqual(expect.objectContaining({ path: 'currency' }));
+  vi.unstubAllGlobals();
+});
+
 it.each(['typescript', 'python'] as const)(
   'refreshes original-source %s projections against one captured program, including in-flight preparation',
   async (language) => {
