@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
@@ -21,6 +21,8 @@ export function InspectorDetailsPane({
 }: InspectorDetailsPaneProps) {
   const id = useId();
   const element = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const revealFrame = useRef<number | undefined>(undefined);
   const [collapsed, setCollapsed] = useState(!targetName);
   const [size, setSize] = useState(220);
   const [max, setMax] = useState(400);
@@ -41,6 +43,42 @@ export function InspectorDetailsPane({
     return () => observer.disconnect();
   }, []);
   const height = Math.min(max, Math.max(96, size));
+  // Resizing a focused field must retain its label, not just the control's caret.
+  const revealFocusedLabel = useCallback(() => {
+    const viewport = content.current;
+    const active = document.activeElement;
+    if (
+      collapsed ||
+      !viewport ||
+      !(
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement
+      ) ||
+      !viewport.contains(active)
+    )
+      return;
+    const label = active.labels?.[0] ?? active.closest('[data-slot="field"]')?.querySelector('label');
+    if (!label || !viewport.contains(label)) return;
+    const top = viewport.getBoundingClientRect().top;
+    const labelTop = label.getBoundingClientRect().top;
+    if (labelTop < top) viewport.scrollTop -= top - labelTop;
+  }, [collapsed]);
+  const scheduleFocusedLabel = useCallback(() => {
+    if (revealFrame.current !== undefined) cancelAnimationFrame(revealFrame.current);
+    // Let native caret scrolling and content-sized controls settle first.
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = undefined;
+      revealFocusedLabel();
+    });
+  }, [revealFocusedLabel]);
+  useLayoutEffect(scheduleFocusedLabel, [height, scheduleFocusedLabel]);
+  useEffect(
+    () => () => {
+      if (revealFrame.current !== undefined) cancelAnimationFrame(revealFrame.current);
+    },
+    []
+  );
   const move = (value: number) => setSize(Math.min(max, Math.max(96, value)));
   const heading = `${elementLabel} Detail${targetName ? `: ${targetName}` : ''}`;
   return (
@@ -134,6 +172,9 @@ export function InspectorDetailsPane({
       </div>
       <div
         id={id}
+        ref={content}
+        onFocusCapture={scheduleFocusedLabel}
+        onInputCapture={scheduleFocusedLabel}
         role="region"
         aria-label={targetName ? `Details: ${targetName}` : 'Item details'}
         hidden={collapsed}

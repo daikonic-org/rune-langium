@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { createHash } from 'node:crypto';
-import { test, expect } from '@playwright/test';
+import { test } from '../helpers/studio-test.js';
+import { expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { CURATED_MIRROR_BASE } from '@rune-langium/curated-schema';
 import { createReferenceArtifacts } from '../../../../test/helpers/project-reference-artifacts.js';
@@ -112,6 +113,19 @@ for (const catalog of [false, true])
           contentType: 'application/json'
         });
       });
+      await context.route('https://raw.githubusercontent.com/org/cdm/**', (route) => {
+        const file = blobs.find((entry) =>
+          route
+            .request()
+            .url()
+            .endsWith('/' + entry.path)
+        );
+        return route.fulfill({
+          body: file ? entries.get(file.path) : '',
+          status: file ? 200 : 404,
+          contentType: 'application/json'
+        });
+      });
       await page.setViewportSize({ width, height: 960 });
       await page.goto('./');
       await page.getByRole('button', { name: 'New workspace', exact: true }).click();
@@ -124,7 +138,9 @@ for (const catalog of [false, true])
       await picker.getByRole('button', { name: /^(Add|Update) reference$/ }).click();
       await picker.getByRole('button', { name: 'Save reference change' }).click();
       await expect(picker.getByRole('heading', { name: 'Review reference change', exact: true })).toHaveCount(0);
+      if (width === 390) await picker.getByRole('button', { name: 'Back to reference models', exact: true }).click();
       await expect(picker.getByRole('button', { name: /CDM \(Common/ })).toContainText('1.0');
+      if (width === 390) await picker.getByRole('button', { name: /CDM \(Common/ }).click();
       await expect(picker.getByRole('button', { name: /^(Add|Update) reference$/ })).toBeDisabled();
       await page.getByTestId('rail-prototype').click();
       if (width === 390) await page.getByRole('tab', { name: 'Examples', exact: true }).click();
@@ -160,9 +176,10 @@ for (const catalog of [false, true])
         format: 'RUNE_JSON'
       });
       await dismissLocalTransportNotices(page);
-      if (width === 390) await page.getByRole('tab', { name: 'Workflow', exact: true }).click();
+      if (width === 390 && !catalog) await page.getByRole('tab', { name: 'Workflow', exact: true }).click();
       if (catalog) {
         await row.click();
+        if (width === 390) await page.getByRole('tab', { name: 'Workflow', exact: true }).click();
       } else {
         await page.getByRole('button', { name: /Choose a function/ }).click();
         await page.getByRole('option', { name: /Double/ }).click();
@@ -179,7 +196,11 @@ for (const catalog of [false, true])
       const amount = page
         .getByRole('region', { name: 'payment fields', exact: true })
         .getByRole('spinbutton', { name: 'Amount', exact: true });
-      await expect(page.getByRole('region', { name: 'payment fields', exact: true })).toContainText('gas-trade');
+      await expect(
+        page
+          .getByRole('region', { name: 'payment fields', exact: true })
+          .getByRole('textbox', { name: 'Assigned Identifier 1 Identifier', exact: true })
+      ).toHaveValue('gas-trade');
       await expect(amount).toHaveValue('21');
       await amount.fill('22');
       await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
@@ -192,6 +213,7 @@ for (const catalog of [false, true])
       await expect(row).toContainText('saved');
       if (catalog) {
         await row.click();
+        if (width === 390) await page.getByRole('tab', { name: 'Workflow', exact: true }).click();
         await expect(
           page
             .getByRole('region', { name: 'payment fields', exact: true })

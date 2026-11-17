@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUpRight, LoaderCircle, GitFork } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, LoaderCircle, GitFork, FolderCode } from 'lucide-react';
+import { ListCard } from '@rune-langium/design-system/ui/list-card';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { listStarterProjects, type StarterProject } from '../services/starter-registry.js';
@@ -126,9 +127,13 @@ export const StarterWorkspacePicker = withInstrumentation(
                       setError(undefined);
                     }}
                   >
-                    <strong>{entry.name}</strong>
-                    <span>{entry.description}</span>
-                    {entry.status !== 'available' && <small>Not published</small>}
+                    <ListCard
+                      variant="detailed"
+                      icon={<FolderCode />}
+                      name={entry.name}
+                      description={entry.description}
+                      detail={entry.status !== 'available' ? 'Not published' : undefined}
+                    />
                   </button>
                 </li>
               ))}

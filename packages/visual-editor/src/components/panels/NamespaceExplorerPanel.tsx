@@ -12,7 +12,8 @@
  */
 
 import { useTypeNavigationMenu } from '../TypeNavigationMenu.js';
-import { useState, useMemo, useCallback, useEffect, useRef, memo } from 'react';
+import { ListCard } from '@rune-langium/design-system/ui/list-card';
+import { useState, useMemo, useCallback, useEffect, useRef, useId, memo } from 'react';
 import type { JSX, DragEvent, MouseEvent, KeyboardEvent, ReactNode } from 'react';
 import { ArrowUpRight, ChevronRight, ChevronDown, Link } from 'lucide-react';
 import { SearchInput } from '@rune-langium/design-system/ui/input';
@@ -57,6 +58,7 @@ import type { TypeRefPayload, TypeRefKind } from '../../types/structure-view.js'
 /** Host-specific actions; namespace navigation and row identities stay shared. */
 export interface ExplorerNodePresentation {
   title?: string;
+  description?: string;
   accessibleName?: string;
   actions?: ReactNode;
   draggable?: boolean;
@@ -86,6 +88,8 @@ export interface NamespaceExplorerPanelProps {
   showHeading?: boolean;
   /** Compact embedded tree: omit the heading, kind filters and footer. */
   compact?: boolean;
+  /** Shrink an embedded tree to its visible rows, bounded by its host's max-height. */
+  fitContent?: boolean;
   /** Host-owned search box, with optional signature/documentation search text. */
   search?: { query: string; textByNode?: ReadonlyMap<string, string> };
   /** Customize leaf actions without duplicating the explorer's tree behavior. */
@@ -204,6 +208,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   className,
   showHeading = true,
   compact = false,
+  fitContent = false,
   search,
   getNodePresentation,
   hiddenRefCounts,
@@ -300,11 +305,15 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
       // metadata too so virtualization reserves only the header's height.
       if (row.kind === 'segment') return { ...row, kindCounts: {} };
       if (row.kind === 'type') {
-        return { ...row, hidden: hiddenNodeIds.has(row.nodeId), qualifier: typeLabels.get(row.nodeId)?.qualifier };
+        return {
+          ...row,
+          hidden: hiddenNodeIds.has(row.nodeId),
+          qualifier: getNodePresentation?.(row.nodeId).description ?? typeLabels.get(row.nodeId)?.qualifier
+        };
       }
       return row;
     });
-  }, [filteredRoots, effectiveTreeExpanded, hiddenNodeIds, typeLabels]);
+  }, [filteredRoots, effectiveTreeExpanded, hiddenNodeIds, typeLabels, getNodePresentation]);
 
   const selectionIds = useMemo(() => {
     const byNode = new Map<string, string>();
@@ -420,7 +429,11 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
     // (dense, frequently-hovered UI) — preserve that pre-existing behavior
     // against the shared TooltipProvider's now-nonzero default (tooltip.tsx).
     <TooltipProvider delayDuration={0}>
-      <div className={`flex min-h-0 flex-col h-full bg-card ${className ?? ''}`} data-testid="namespace-explorer">
+      <div
+        className={`flex min-h-0 flex-col ${fitContent ? 'h-auto' : 'h-full'} bg-card ${className ?? ''}`}
+        style={fitContent ? { maxHeight: 'inherit' } : undefined}
+        data-testid="namespace-explorer"
+      >
         {/* Header */}
         {!compact && (
           <div className="px-3 py-2 border-b">
@@ -519,7 +532,12 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
          * scrollbar-* properties so the scrollbar is fully draggable and
          * click-to-page works — see PR commit message for the click-through
          * root cause (was: wrapped in a redundant Radix ScrollArea). */}
-        <div ref={scrollRef} className="studio-scroll min-h-0 flex-1 overflow-auto py-1" data-testid="namespace-tree">
+        <div
+          ref={scrollRef}
+          className="studio-scroll min-h-0 flex-1 overflow-auto py-1"
+          style={fitContent ? { height: Math.max(48, virtualizer.getTotalSize() + 8), flexBasis: 'auto' } : undefined}
+          data-testid="namespace-tree"
+        >
           {flatRows.length === 0 && (
             <p className="px-3 py-4 text-xs text-center text-muted-foreground">
               {searchQuery
@@ -769,6 +787,8 @@ function TypeItemRow({
   selectionId,
   presentation
 }: TypeItemRowProps): JSX.Element {
+  const descriptionId = useId();
+  const description = presentation?.description ?? label?.qualifier;
   // Every kind maps to a payload kind, so every row is a drag source. That
   // avoids the WebKit fallback where a non-draggable row text/region-selects on
   // a drag attempt. Whether a drop is valid is decided by each target's
@@ -880,32 +900,34 @@ function TypeItemRow({
           </>
         )}
 
-        <KindBadge kind={row.typeKind} shape="glyph" />
-
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline-2 focus-visible:outline-ring"
-          title={presentation?.title ?? label?.fullLabel ?? `${row.namespace}.${row.name}`}
-          aria-label={presentation?.accessibleName ?? (label?.qualifier ? `${row.name} ${label.qualifier}` : row.name)}
-          data-testid={`ns-type-link-${row.nodeId}`}
-          onClick={
-            selection
-              ? (event) => {
-                  event.stopPropagation();
-                  toggleSelection();
-                }
-              : handleNavClick
-          }
-          onKeyDown={handleNavKeyDown}
-        >
-          <span className="block truncate">{row.name}</span>
-          {label?.qualifier && (
-            <>
-              {' '}
-              <span className="block truncate text-3xs text-muted-foreground">{label.qualifier}</span>
-            </>
-          )}
-        </button>
+        <div className="relative min-w-0 flex-1">
+          <ListCard
+            className={highlight || justNavigated ? '[&_[data-slot=list-card-description]]:text-foreground' : undefined}
+            icon={<KindBadge kind={row.typeKind} shape="glyph" />}
+            name={row.name}
+            description={description}
+            descriptionId={descriptionId}
+          />
+          <button
+            type="button"
+            className="absolute inset-0 w-full text-left focus-visible:outline-2 focus-visible:outline-ring"
+            title={presentation?.title ?? label?.fullLabel ?? `${row.namespace}.${row.name}`}
+            aria-label={
+              presentation?.accessibleName ?? (label?.qualifier ? `${row.name} ${label.qualifier}` : row.name)
+            }
+            aria-describedby={description ? descriptionId : undefined}
+            data-testid={`ns-type-link-${row.nodeId}`}
+            onClick={
+              selection
+                ? (event) => {
+                    event.stopPropagation();
+                    toggleSelection();
+                  }
+                : handleNavClick
+            }
+            onKeyDown={handleNavKeyDown}
+          />
+        </div>
 
         {refCount > 0 && (
           <Tooltip>

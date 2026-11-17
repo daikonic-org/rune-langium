@@ -10,6 +10,9 @@ import { EvidenceCollector, appendJourneyRecord, type JourneyRecord } from './ev
 import { exceedsBudget } from './timings.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { computeCandidateJourneyId } from './candidate-journey-id.mjs';
+import type { PerfLogEntry } from '../../src/services/perf-log.js';
+
+export type { PerfLogEntry } from '../../src/services/perf-log.js';
 
 interface CheckoutFixtures {
   evidence: EvidenceCollector;
@@ -89,6 +92,10 @@ export interface OpLogEntry {
   level: 'info' | 'warn' | 'error' | 'success';
   message: string;
   durationMs?: number;
+  outcome?: PerfLogEntry['outcome'];
+  reason?: PerfLogEntry['reason'];
+  workspaceEpoch?: number;
+  filesRevision?: number;
   ts: number;
   panel: 'output' | 'activity' | 'perf';
   /** See op-log.ts's OpLogEntry.sourceId doc comment — the source store's own unique id, used as EvidenceCollector.recordOpLog's real dedup identity. */
@@ -131,8 +138,12 @@ export async function readCombinedOpLog(page: Page): Promise<OpLogEntry[]> {
     opId: entry.opId,
     op: entry.op,
     subject: entry.subject,
-    level: entry.ok ? 'success' : 'error',
-    message: `${entry.op} ${entry.ok ? 'completed' : 'failed'}`,
+    level: entry.outcome === 'cancelled' ? 'info' : entry.ok ? 'success' : 'error',
+    message: `${entry.op} ${entry.outcome === 'cancelled' ? 'cancelled' : entry.ok ? 'completed' : 'failed'}${entry.reason && entry.reason !== 'cancelled' ? ` · ${entry.reason}` : ''}`,
+    outcome: entry.outcome,
+    reason: entry.reason,
+    workspaceEpoch: entry.workspaceEpoch,
+    filesRevision: entry.filesRevision,
     durationMs: entry.durationMs,
     ts: entry.ts,
     panel: 'perf',
@@ -155,21 +166,6 @@ export async function readCombinedOpLog(page: Page): Promise<OpLogEntry[]> {
  */
 export async function captureOpLogSnapshot(page: Page, evidence: EvidenceCollector): Promise<void> {
   evidence.recordOpLog(await readCombinedOpLog(page));
-}
-
-/**
- * High-frequency operation timing (a debounced reparse, a workspace
- * autosave) that perf-log.ts deliberately keeps OUT of the Activity/Output
- * panels — and therefore out of `readOpLog` above too — to avoid flooding
- * them with a row per keystroke. Mirrors perf-log.ts's PerfLogEntry.
- */
-export interface PerfLogEntry {
-  op: string;
-  subject?: string;
-  ok: boolean;
-  durationMs: number;
-  ts: number;
-  opId: number;
 }
 
 declare global {

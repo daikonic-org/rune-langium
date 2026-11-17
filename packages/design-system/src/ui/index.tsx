@@ -21,6 +21,7 @@ export * from './interactive-dialog.js';
 export * from './input.js';
 export * from './kbd.js';
 export * from './label.js';
+export * from './list-card.js';
 export * from './number-chiclet.js';
 export * from './picker.js';
 export * from './popover.js';

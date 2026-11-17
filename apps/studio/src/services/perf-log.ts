@@ -18,10 +18,23 @@ import { withInstrumentation, Capture } from './instrumentation/core.js';
  * anything a user actually sees.
  */
 
+export type PerfFailureReason =
+  | 'cancelled'
+  | 'timeout'
+  | 'worker-failure'
+  | 'revision-mismatch'
+  | 'receipt-mismatch'
+  | 'project-invalid';
+
 export interface PerfLogEntry {
   op: string;
   subject?: string;
   ok: boolean;
+  outcome?: 'success' | 'error' | 'cancelled';
+  /** Structural diagnostics only; never model text or exception payloads. */
+  reason?: PerfFailureReason;
+  workspaceEpoch?: number;
+  filesRevision?: number;
   durationMs: number;
   ts: number;
   opId: number;
@@ -87,7 +100,7 @@ export const recordPerf = withInstrumentation(
     sanitize: (value, which) => {
       if (which !== 'input') return undefined;
       const [entry] = value as [PerfLogEntry];
-      return { op: entry.op, ok: entry.ok, durationMs: entry.durationMs, opId: entry.opId };
+      return { op: entry.op, ok: entry.ok, outcome: entry.outcome, durationMs: entry.durationMs, opId: entry.opId };
     }
   }
 );

@@ -1318,7 +1318,74 @@ it('applies and validates one captured generation across hydration updates, then
       .filter((entry) => entry.op === 'previewPrepareProject' && entry.opId > before)
       .map((entry) => entry.ok)
   ).toEqual([true, true, true, false, true]);
+  const failed = getPerfLogSnapshot().find(
+    (entry) => entry.op === 'previewPrepareProject' && entry.opId > before && !entry.ok
+  );
+  expect(failed).toMatchObject({
+    outcome: 'error',
+    reason: 'timeout',
+    workspaceEpoch: expect.any(Number),
+    filesRevision: expect.any(Number)
+  });
 });
+
+it.each(['replace', 'unmount'])(
+  'records %s of a pending preview as cancellation with its source revision',
+  async (mode) => {
+    const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');
+    const before = getLastStartedOpId('previewPrepareProject') ?? 0;
+    const input = {
+      receipt: { revision: '1'.repeat(64), lockDigest: '2'.repeat(64), overridesDigest: '3'.repeat(64) }
+    } as import('../../../src/services/project-runtime-input.js').ProjectRuntimeInput;
+    const host = (workspaceId: string) => (
+      <WorkspaceStateContext.Provider value={wsState(workspaceId)}>
+        <ProjectContext.Provider
+          value={{
+            status: 'ready',
+            diagnostics: [],
+            runtime: { managed: true, status: 'captured', input, diagnostics: [] }
+          }}
+        >
+          <CodegenProvider>
+            <div />
+          </CodegenProvider>
+        </ProjectContext.Provider>
+      </WorkspaceStateContext.Provider>
+    );
+    const view = render(host('original'));
+    const worker = FakeWorker.instances[0]!;
+    const pending = worker.posted.find((entry) => entry.type === 'preview:setFiles')!;
+    if (mode === 'unmount') view.unmount();
+    else {
+      view.rerender(host('replacement'));
+      act(() => {
+        for (const listener of worker.listeners.message ?? [])
+          listener({
+            data: {
+              type: 'preview:files-ready',
+              requestId: pending.requestId,
+              filesRevision: pending.filesRevision,
+              projectReceipt: input.receipt
+            }
+          });
+      });
+    }
+    await vi.waitFor(() =>
+      expect(
+        getPerfLogSnapshot().some(
+          (entry) => entry.op === 'previewPrepareProject' && entry.opId > before && entry.outcome === 'cancelled'
+        )
+      ).toBe(true)
+    );
+    const entry = getPerfLogSnapshot().find((entry) => entry.opId > before && entry.outcome === 'cancelled');
+    expect(entry).toMatchObject({
+      ok: false,
+      workspaceEpoch: expect.any(Number),
+      filesRevision: pending.filesRevision,
+      reason: 'cancelled'
+    });
+  }
+);
 
 it('requires the current applied project receipt before a Prototype session can fetch its schema', async () => {
   const { ProjectContext } = await import('../../../src/shell/providers/project-context.js');

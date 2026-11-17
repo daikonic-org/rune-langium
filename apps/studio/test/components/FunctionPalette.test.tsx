@@ -77,6 +77,22 @@ it('searches the entire deferred inventory, without the old 100-function cutoff'
   rerender(<FunctionPalette {...initial} query="rate124" />);
   expect(screen.getAllByRole('button', { name: /^Open Rate/ })).toHaveLength(1);
 });
+it('retains a focused row when its signature description arrives', () => {
+  const initial = props();
+  const { rerender } = render(<FunctionPalette {...initial} />);
+  const button = screen.getAllByRole('button', { name: /^Open / })[0]!;
+  button.focus();
+  const identity = button.getAttribute('data-testid')!.replace('ns-type-link-', '').replace('#RosettaFunction', '');
+  rerender(
+    <FunctionPalette
+      {...initial}
+      callables={[{ identity, documentation: 'Updated function description', inputs: [], accepts: {} }]}
+    />
+  );
+  expect(document.activeElement).toBe(button);
+  expect(button).toHaveAccessibleName('Open Accrue cdm.rates');
+  expect(button).toHaveAccessibleDescription('Updated function description');
+});
 
 it('reveals asynchronously loaded functions and distinguishes identical names by namespace', () => {
   const initial = props({ repository: repository([]), query: 'accrue' });

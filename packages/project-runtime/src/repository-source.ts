@@ -15,6 +15,15 @@ function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 async function readBytes(response: Response, limit: number): Promise<Uint8Array<ArrayBuffer>> {
+  if ((response.status === 403 && response.headers.get('x-ratelimit-remaining') === '0') || response.status === 429) {
+    const reset = Number(response.headers.get('x-ratelimit-reset'));
+    const date = new Date(reset * 1000);
+    const retry =
+      reset > 0 && Number.isFinite(date.getTime()) ? `Try again after ${date.toISOString()}.` : 'Try again later.';
+    throw new Error(
+      `GitHub request limit reached. ${retry} A connected GitHub workspace can use its own request allowance.`
+    );
+  }
   if (!response.ok) throw new Error(`GitHub source unavailable (${response.status}). Check access or try again later.`);
   if (!response.body) throw new Error('GitHub returned no source body.');
   return readStreamBytes(response.body, limit, 'The repository source exceeds its size limit.');

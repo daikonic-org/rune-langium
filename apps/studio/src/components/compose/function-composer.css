@@ -138,7 +138,7 @@
   gap: var(--space-2);
 }
 .function-composer__catalog {
-  height: clamp(168px, 32vh, 288px);
+  max-height: clamp(168px, 32vh, 288px);
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);

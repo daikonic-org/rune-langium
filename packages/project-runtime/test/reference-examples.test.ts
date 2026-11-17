@@ -22,6 +22,18 @@ const fixture = new URL('../../../test/fixtures/third-party/cdm-examples/', impo
 const text = readFileSync(new URL('ird-ex28-bullet-payments.json', fixture), 'utf8');
 const path =
   'rosetta-source/src/main/resources/ingest/output/fpml-confirmation-to-trade-state/fpml-5-10-products-rates/ird-ex28-bullet-payments.json';
+it('distinguishes quota exhaustion from permissions and reports the retry time', async () => {
+  const fetcher = vi
+    .fn<typeof fetch>()
+    .mockResolvedValue(
+      new Response(null, { status: 403, headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1794923185' } })
+    );
+  await expect(openReferenceExamples(origin, new AbortController().signal, fetcher)).rejects.toThrow(
+    /request limit reached.*Try again after.*connected GitHub workspace/
+  );
+  fetcher.mockResolvedValue(new Response(null, { status: 403 }));
+  await expect(openReferenceExamples(origin, new AbortController().signal, fetcher)).rejects.toThrow(/Check access/);
+});
 it('imports real CDM Rune JSON without losing metadata or reference namespaces', () => {
   const expected = JSON.parse(readFileSync(new URL('sources.json', fixture), 'utf8'));
   for (const [file, checksum] of Object.entries(expected.sha256))

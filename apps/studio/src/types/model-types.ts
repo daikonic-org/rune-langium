@@ -14,6 +14,8 @@ export interface ModelSource {
   id: string;
   /** Display name (e.g., "CDM", "FpML") */
   name: string;
+  /** Short description for reference selection lists. */
+  description?: string;
   /** Public git repository URL (HTTPS). Used by the custom-URL flow (FR-007). */
   repoUrl: string;
   /** Git tag, branch, or commit ref. Used by the custom-URL flow (FR-007). */

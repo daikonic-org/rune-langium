@@ -22,6 +22,7 @@ const CURATED_MODELS: readonly ModelSource[] = [
   {
     id: 'cdm',
     name: 'CDM (Common Domain Model)',
+    description: 'Financial products, trades and lifecycle events.',
     repoUrl: `${CURATED_MODEL_REPOSITORIES.cdm}.git`,
     ref: 'master',
     paths: ['rosetta-source/src/main/rosetta/**/*.rosetta'],
@@ -31,6 +32,7 @@ const CURATED_MODELS: readonly ModelSource[] = [
   {
     id: 'fpml',
     name: 'FpML (Rune)',
+    description: 'Financial product and trade definitions expressed in Rune.',
     repoUrl: `${CURATED_MODEL_REPOSITORIES.fpml}.git`,
     ref: 'master',
     paths: ['rosetta-source/src/main/rosetta/**/*.rosetta'],
@@ -39,6 +41,7 @@ const CURATED_MODELS: readonly ModelSource[] = [
   {
     id: 'rune-dsl',
     name: 'Rune DSL (Built-in Types)',
+    description: 'Primitive types and annotations used by Rune models.',
     repoUrl: `${CURATED_MODEL_REPOSITORIES['rune-dsl']}.git`,
     ref: 'main',
     paths: ['rune-runtime/src/main/resources/model/**/*.rosetta'],

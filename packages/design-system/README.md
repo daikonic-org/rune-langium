@@ -4,9 +4,19 @@ Shared design tokens, theme, and UI primitives for Rune DSL tooling. Built with 
 
 ## Components
 
-- Badge, Button, Collapsible, Command palette, Field, Form, Input, Label, NativeSelect, Popover, Resizable panels, Scroll area, Select, Separator, Spinner, Tabs, Textarea, Tooltip
+- Badge, Button, Collapsible, Command palette, Field, Form, Input, Label, ListCard, NativeSelect, Popover, Resizable panels, Scroll area, Select, Separator, Spinner, Tabs, Textarea, Tooltip
 
 ## Usage
+
+`ListCard` supplies the shared icon/title/subtitle layout inside host-owned list
+buttons and tree rows. `compact` keeps a one-line subtitle; `detailed` permits a
+three-line description and a status/detail line. Detail changes information depth,
+not outer padding. Hosts retain navigation, drag, selection and focus semantics.
+Virtualized hosts must reserve the subtitle's row height, and content-sized trees
+must stay bounded for large inventories.
+Wrapped controls should derive their names from visible card content. For a
+title-only control, pass it as `name` and associate `descriptionId` with the
+control's `aria-describedby`, keeping the subtitle outside the control.
 
 ```typescript
 import { Button } from '@rune-langium/design-system/ui/button';

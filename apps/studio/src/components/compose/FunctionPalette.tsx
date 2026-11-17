@@ -60,6 +60,7 @@ export const FunctionPalette = withInstrumentation(
           : '';
         return {
           ...option,
+          description: callable?.documentation || signature || option.namespace,
           title: [`${option.namespace}.${option.label}`, signature, callable?.documentation].filter(Boolean).join('\n'),
           suggested: Boolean(portContext && callable?.accepts[portContext]?.length)
         };
@@ -88,6 +89,7 @@ export const FunctionPalette = withInstrumentation(
       const entry = entriesById.get(id);
       return {
         title: entry?.title,
+        description: entry?.description,
         accessibleName: entry ? `Open ${entry.label} ${entry.namespace ?? ''}` : undefined,
         actions: addButton(id, entry?.label ?? id),
         draggable: canAdd,
@@ -127,6 +129,7 @@ export const FunctionPalette = withInstrumentation(
         <div className="function-composer__catalog">
           <NamespaceExplorerPanel
             compact
+            fitContent
             nodeRepository={functions}
             expandedNamespaces={EMPTY}
             hiddenNodeIds={EMPTY}
