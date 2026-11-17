@@ -39,7 +39,7 @@ export const createProjectReferenceHydrator = withInstrumentation(
       onProgress?.({ completed, total: requested.size });
       if (!targets.length) return;
       const load = async (file: WorkspaceState['files'][number]) => {
-        const result = await link(pathToUri(file.path), true);
+        const result = await link(pathToUri(file.path), 'uris');
         options.signal.throwIfAborted();
         if (!result.linked || result.errors.length)
           throw new Error(result.errors.join('\n') || 'Reference namespace is unavailable');
@@ -55,7 +55,7 @@ export const createProjectReferenceHydrator = withInstrumentation(
           options.signal.throwIfAborted();
           const nextView = await materializeProjectReferenceView(
             options.current() ?? view,
-            results.flatMap((result) => result.newModels),
+            results.flatMap((result) => result.materializedUris ?? result.newModels),
             options.signal
           );
           options.signal.throwIfAborted();

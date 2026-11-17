@@ -3,6 +3,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 import { projectWorkerInput } from '../../services/project-runtime-input.js';
 import { recordOperation } from '../../services/operation-feedback.js';
+import { allocateOpId } from '../../services/op-log.js';
+import { recordPerf, recordPerfStart } from '../../services/perf-log.js';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useEditorStore } from '@rune-langium/visual-editor';
@@ -31,7 +33,12 @@ import {
   isInstanceGenerateSchemaStaleMessage,
   type PreviewFileEntry
 } from '../../services/codegen-service.js';
-import { createInstanceReadiness } from '../../services/instance-readiness.js';
+import {
+  awaitWithAbort,
+  createInstanceReadiness,
+  PREVIEW_PREPARATION_TIMEOUT_MS
+} from '../../services/instance-readiness.js';
+import { OperationTimeoutError, withAbortTimeout } from '../../services/with-abort-timeout.js';
 import { createPreviewSessionClient, isPrototypeSessionRequest } from '../../services/preview-session-client.js';
 import type { InstanceReadiness } from '../../services/instance-readiness.js';
 import {
@@ -160,6 +167,19 @@ export const CodegenProvider = withInstrumentation(
     const committedFilesVersionRef = useRef(0);
     const committedHydratedNamespacesRef = useRef(new Set<string>());
     const workerFilesRevisionRef = useRef(0);
+    const managedWorkerFilesRef = useRef<
+      | {
+          worker: Worker;
+          epoch: number;
+          receipt: ProjectResolutionReceipt;
+          files: readonly WorkspaceFile[];
+          ready: Promise<number>;
+        }
+      | undefined
+    >(undefined);
+    const validatedWorkerFilesRef = useRef<
+      { worker: Worker; epoch: number; revision: number; receipt?: ProjectResolutionReceipt } | undefined
+    >(undefined);
     const instanceHydrationSequenceRef = useRef(0);
     const workerFileWaitersRef = useRef(
       new Map<
@@ -254,6 +274,7 @@ export const CodegenProvider = withInstrumentation(
 
     const handlePreviewWorkerFailure = useCallback(
       (baseMessage: string, error: unknown, targetId?: string, options?: { toast?: boolean }) => {
+        managedWorkerFilesRef.current = undefined;
         const detail =
           error instanceof Error
             ? error.message
@@ -285,8 +306,31 @@ export const CodegenProvider = withInstrumentation(
 
     const syncWorkerFiles = useCallback(
       (worker: Worker, signal?: AbortSignal): Promise<number> => {
+        if (signal?.aborted)
+          return Promise.reject(new DOMException('Worker file synchronization was cancelled.', 'AbortError'));
         const runtime = projectRuntimeRef.current;
-        const project = runtime?.status === 'captured' && runtime.input ? projectWorkerInput(runtime.input) : undefined;
+        const input = runtime?.status === 'captured' ? runtime.input : undefined;
+        const epoch = workspaceEpochRef.current;
+        const existing = managedWorkerFilesRef.current;
+        const reuseProject = Boolean(
+          input &&
+          existing?.worker === worker &&
+          existing.epoch === epoch &&
+          projectReceiptMatches(existing.receipt, input.receipt)
+        );
+        if (reuseProject && existing && existing.files === filesRef.current) {
+          return signal ? awaitWithAbort(existing.ready, signal) : existing.ready;
+        }
+        // Explorer materialization changes view files, not the captured program.
+        // A different worker, workspace, project revision or unavailable capture
+        // invalidates this one retained acknowledgement; failures are retryable.
+        managedWorkerFilesRef.current = undefined;
+        const project = input && !reuseProject ? projectWorkerInput(input) : undefined;
+        const startedAt = performance.now();
+        const opId = allocateOpId();
+        const op = project ? 'previewPrepareProject' : 'previewSyncView';
+        if (input) recordPerfStart(op, opId);
+        const syncSignal = input ? undefined : signal;
         const codegenFiles: Array<{ uri: string; content: string }> = [];
         const previewFiles: PreviewFileEntry[] = [];
         for (const file of filesRef.current) {
@@ -297,7 +341,7 @@ export const CodegenProvider = withInstrumentation(
             content: file.content,
             // The captured project already owns these serialized bytes. Sending
             // them here too clones the entire cohort twice into the worker.
-            ...(project && file.refOnly
+            ...(input && file.refOnly
               ? { refOnly: true }
               : file.serializedModelJson
                 ? { serializedModelJson: file.serializedModelJson }
@@ -306,30 +350,29 @@ export const CodegenProvider = withInstrumentation(
         }
         const requestId = `preview:files:${++previewRequestSequenceRef.current}`;
         const filesRevision = ++workerFilesRevisionRef.current;
-        const epoch = workspaceEpochRef.current;
         const projectUnavailable =
-          runtime && runtime.status !== 'legacy' && !project
+          runtime && runtime.status !== 'legacy' && !input
             ? runtime.diagnostics.map((issue) => issue.message).join('\n') ||
               'Applying the current project configuration…'
             : undefined;
         currentPreviewRequestIdRef.current = requestId;
-        return new Promise<number>((resolve, reject) => {
+        const ready = new Promise<number>((resolve, reject) => {
           const abort = () => {
             workerFileWaitersRef.current.delete(requestId);
             reject(new DOMException('Worker file synchronization was cancelled.', 'AbortError'));
           };
-          if (signal?.aborted) return abort();
-          signal?.addEventListener('abort', abort, { once: true });
+          if (syncSignal?.aborted) return abort();
+          syncSignal?.addEventListener('abort', abort, { once: true });
           workerFileWaitersRef.current.set(requestId, {
             epoch,
             filesRevision,
-            receipt: project?.receipt,
+            receipt: input?.receipt,
             resolve: (revision) => {
-              signal?.removeEventListener('abort', abort);
+              syncSignal?.removeEventListener('abort', abort);
               resolve(revision);
             },
             reject: (reason) => {
-              signal?.removeEventListener('abort', abort);
+              syncSignal?.removeEventListener('abort', abort);
               reject(reason);
             }
           });
@@ -341,15 +384,52 @@ export const CodegenProvider = withInstrumentation(
             worker.postMessage({
               ...createPreviewSetFilesMessage(previewFiles, requestId, filesRevision),
               ...(project ? { project } : {}),
+              ...(input ? { projectReceipt: input.receipt } : {}),
               ...(projectUnavailable ? { projectUnavailable } : {})
             });
           } catch (error) {
             workerFileWaitersRef.current.delete(requestId);
-            signal?.removeEventListener('abort', abort);
+            syncSignal?.removeEventListener('abort', abort);
             handlePreviewWorkerFailure('Preview worker could not process updated files.', error);
             reject(error instanceof Error ? error : new Error(String(error)));
           }
         });
+        if (input) {
+          // Bound the shared acknowledgement as well as individual consumers.
+          // A lost reply must not pin every later request to one pending promise.
+          let ok = false;
+          const applied = withAbortTimeout(() => ready, PREVIEW_PREPARATION_TIMEOUT_MS)
+            .then((revision) => {
+              ok = true;
+              return revision;
+            })
+            .finally(() =>
+              recordPerf({
+                op,
+                ok,
+                opId,
+                durationMs: performance.now() - startedAt,
+                ts: performance.now()
+              })
+            );
+          const entry = { worker, epoch, receipt: { ...input.receipt }, files: filesRef.current, ready: applied };
+          managedWorkerFilesRef.current = entry;
+          void applied.catch((error: unknown) => {
+            if (error instanceof OperationTimeoutError) {
+              const waiter = workerFileWaitersRef.current.get(requestId);
+              workerFileWaitersRef.current.delete(requestId);
+              waiter?.reject(error);
+            }
+            if (managedWorkerFilesRef.current !== entry) return;
+            managedWorkerFilesRef.current = undefined;
+            if (error instanceof OperationTimeoutError) {
+              currentPreviewRequestIdRef.current = undefined;
+              handlePreviewWorkerFailure('Preparing the current project timed out. Retry to try again.', error);
+            }
+          });
+          return signal ? awaitWithAbort(applied, signal) : applied;
+        }
+        return ready;
       },
       [handlePreviewWorkerFailure]
     );
@@ -475,14 +555,30 @@ export const CodegenProvider = withInstrumentation(
     useEffect(() => {
       if (!codegenWorker) return;
       const epoch = workspaceEpochRef.current;
+      const receipt = projectRuntime?.status === 'captured' ? projectRuntime.input?.receipt : undefined;
       void syncWorkerFiles(codegenWorker)
-        .then(() => {
-          if (workspaceEpochRef.current === epoch) useInstanceStore.getState().revalidateInstances();
+        .then((revision) => {
+          const validated = validatedWorkerFilesRef.current;
+          const current = projectRuntimeRef.current;
+          const currentReceipt = current?.status === 'captured' ? current.input?.receipt : undefined;
+          if (
+            workspaceEpochRef.current !== epoch ||
+            revision !== workerFilesRevisionRef.current ||
+            (receipt ? !currentReceipt || !projectReceiptMatches(receipt, currentReceipt) : Boolean(currentReceipt)) ||
+            (validated?.worker === codegenWorker &&
+              validated.epoch === epoch &&
+              (receipt
+                ? Boolean(validated.receipt && projectReceiptMatches(receipt, validated.receipt))
+                : !validated.receipt && validated.revision === revision))
+          )
+            return;
+          validatedWorkerFilesRef.current = { worker: codegenWorker, epoch, revision, receipt };
+          useInstanceStore.getState().revalidateInstances();
         })
         .catch(() => {
           // Worker failure is reported by the shared synchronization path.
         });
-    }, [codegenWorker, files, syncWorkerFiles, projectRuntime?.input, projectRuntime?.status]);
+    }, [codegenWorker, files, workspaceId, syncWorkerFiles, projectRuntime?.input, projectRuntime?.status]);
 
     // Trigger form preview whenever the selected target changes. Files are
     // already current from the effect above; this effect only updates the target.

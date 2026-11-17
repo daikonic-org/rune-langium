@@ -21,6 +21,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it.each(['broken.rosetta', 'models/broken.rosetta', '/project/broken.rosetta'])(
+  'attaches worker syntax diagnostics to the captured workspace path %s',
+  async (path) => {
+    const harness = createParserWorkerHarness();
+    class HarnessWorker extends EventTarget {
+      postMessage(request: WorkerRequest) {
+        void harness.send(request).then((data) => this.dispatchEvent(new MessageEvent('message', { data })));
+      }
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', HarnessWorker);
+    const fetch = vi.fn().mockRejectedValue(new Error('Unexpected hosted parse'));
+    vi.stubGlobal('fetch', fetch);
+    const file = { ...createWorkspaceFile('broken.rosetta', 'namespace broken\ntype Broken:\n value ???\n'), path };
+    const result = await parseWorkspaceFiles([file]);
+    expect(result.parseMode).toBe('worker');
+    expect(result.errors.get(path)?.length).toBeGreaterThan(0);
+    expect([...result.errors.keys()]).toEqual([path]);
+    expect(result.parsedModels[0]?.filePath).toBe(path);
+    expect(fetch).not.toHaveBeenCalled();
+  }
+);
+
 it('offers imported reporting and eligibility rules through the parser worker', async () => {
   const harness = createParserWorkerHarness();
   class HarnessWorker extends EventTarget {
@@ -52,7 +75,10 @@ func Use:
   );
   const files = [file, rules];
   const parsed = await parseWorkspaceFiles(files);
+  expect(parsed.parseMode).toBe('worker');
   const owner = parsed.models[0]!.elements[0]!;
+  expect(owner.$container).toBe(parsed.models[0]);
+  expect(parsed.parsedModels[0]).toMatchObject({ filePath: file.path, source: file.content });
   if (owner.$type !== 'RosettaFunction') throw new Error('fixture function');
   const scope = await requestExpressionScope(
     file.path,
@@ -221,6 +247,9 @@ func CurrentDependency:
       : []
   });
   const files = [file, dependency];
+  // This test specifically covers the hosted-parser fallback, not the bounded
+  // standalone worker path. A large comment preserves semantics and scope spans.
+  file.content += '\n// ' + 'padding '.repeat(9000);
   const parsed = await parseWorkspaceFiles(files);
   expect(parsed.parseMode).toBe('main-thread-fallback');
   const owner = parsed.models[0]!.elements.find((node) => node.$type === 'RosettaFunction')!;

@@ -32,6 +32,41 @@ toasts and model/file loaders. Counts describe completed work in the caller's un
 unknown totals remain indeterminate. Progress presentation never changes semantic
 readiness or creates an additional activity/logging path.
 
+Workspace restoration and parsing keep the activity rail and perspective host
+mounted. Pending preparation hides workspace editing surfaces while Workspaces
+and Settings remain reachable; the shared spinner/status reports ongoing work.
+Opening a workspace chooses Explore before preparation starts. Completion does
+not replace navigation made during the wait, and existing workspace-epoch guards
+reject results from a workspace the user has left. Pending source data is not
+advertised as an editable or semantically ready view.
+Pending editing content and the inactive Explore workbench remain measurable
+(`visibility: hidden` and `inert`). Inactive Explore occupies an absolute slot,
+so Dockview retains its dimensions without displacing the active perspective.
+Switching or closing a
+workspace aborts its active synchronization request; cancellation skips network
+fallback parsing for that abandoned workspace.
+The initial Explore destination is selected before saved file reads, so early
+Settings/Workspaces navigation survives restoration too. Namespace expansion is
+derived from the current shallow inventory plus explicit fold/open choices;
+late-arriving declarations use the normal defaults without reopening manually
+folded branches or resetting the retained explorer.
+Explicit navigation during the save barrier also wins over a workspace's initial
+Explore destination. Launcher helpers always express their destination rather
+than treating a temporarily visible fallback as completed navigation. Automatic
+Preview yielding ignores an inactive/hidden perspective's dimensions; such
+measurements cannot collapse or persist the retained panel layout.
+
+Small standalone source sets (at most eight files and 65,536 source characters,
+including system definitions) use the existing Core parser worker. Curated,
+serialized and explicitly hydrated inputs retain the hosted parser. Worker
+failure can use the hosted path, while cancellation rejects the current wait
+without fallback. Both paths hydrate serialized user models through Core's batch
+helper, retaining containers, cross-file references, canonical URIs and exact
+source ownership. Hosted hydration uses the document identity embedded in the
+serialized model; worker diagnostics map back to captured workspace paths.
+The local worker reuses the shared namespace dependency-graph
+collector/closure, so downloads retain their ordinary dependency selection.
+
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
 canonical rendered item snapshots after accepted authored input/model revisions;
 source positions and background reference hydration do not create edit events.
@@ -98,6 +133,27 @@ strict library defaults and shared concrete namespace-scope expansion. A build
 finishing after project disposal cannot write through the guarded adapter.
 Binary generator output is persisted as bytes. Preview/download retain the exact
 captured ZIP and become stale on semantic input or configuration errors.
+
+The preview worker's captured program is reused by worker, workspace epoch and
+canonical receipt. Explorer hydration and original-source loading still refresh
+the worker's source-view files with a separate revision and acknowledgement,
+using the receipt instead of retransmitting the captured reference ASTs. A
+receipt-only update requires a matching prepared or in-flight program. Source
+projections retain their exact byte/revision checks; instance revalidation runs
+once per acknowledged program in each workspace. Identical pending/ready file
+syncs share their acknowledgement. Consumers abort their own waits;
+acknowledgement failure, deadline, worker failure, workspace switches and changed
+receipts invalidate the retained preparation. A missing acknowledgement expires
+at the shared readiness deadline and remains retryable; a late reply cannot
+complete it. The bounded perf log records `previewPrepareProject` for full
+preparation, `previewSyncView` for source-view updates, and `referenceMaterialize`
+when a new closure is adopted by the UI, with no model/source payloads, alongside
+the unchanged end-to-end form timing.
+Managed schema, validator and generated-module caches follow the program receipt,
+while source-view updates advance the independent projection revision. Identical
+in-flight computations share one promise only for the same version and variant
+(export selection or concrete input types). Rejected work is evicted; explicit
+regeneration detaches pending work, and old versions cannot overwrite newer results.
 
 Export settings and generated output share one expandable Dockview panel with
 mounted tabs, preserving target drafts when switching views. Generation diagnostics
@@ -595,8 +651,8 @@ records the fixed-corpus replay and its production verification limits.
 
 The workspace provider also carries the current parse result's pinned namespace
 seed metadata. A selected deferred type can read its namespace independently of
-the full closure and render a read-only declaration-first Inspector. The parser
-worker uses isolated services, canonical `hydrateModelDocuments` and a lazy
+the full closure and render a read-only declaration-first Inspector. The shared
+reader uses isolated services, canonical `hydrateModelDocuments` and a lazy
 Langium build for this view. Its snapshots never enter semantic/graph/preview
 stores. Selection, activation scope and artifact identity guard late results;
 the Inspector retains one projection for its active pinned namespace. Changing
@@ -605,6 +661,20 @@ instead of queuing another worker build. A different scope, cohort or namespace
 invalidates that read; full linking replaces the temporary view. A visible
 loading notice and separate readiness markers prevent treating declared fields
 as resolved dependencies.
+Managed references supply the same reader with their already-verified serialized
+namespace documents, rather than requiring legacy cache seeds or another fetch.
+Captures with namespace metadata and at most two million serialized characters
+use a dedicated, short-lived worker, avoiding both the parser worker's serialized
+linking queue and another Core build on the UI thread. Success, errors, selection
+cancellation and the shared deadline release that worker. Larger or older captures
+retain ordinary loading. Legacy cache reads use that same isolated Core
+implementation through the parser worker. Only Data, Choice and Enum declarations
+use this partial form; functions retain the complete Studio implementation and
+projection editor rather than replacing it with a signature-only Inspector.
+The temporary result belongs to that capture and workspace scope; changing either
+discards it immediately. Capture identity follows the reference-document array,
+so publishing a semantic view does not restart an unchanged namespace read.
+This view never publishes into the authoritative stores.
 Older servers without metadata retain normal loading. See the
 [progressive hydration investigation](../investigations/2026-10-18-curated-progressive-hydration.md).
 
@@ -719,7 +789,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
   Prototype and the pinned corpus CI gate use this same compiler and loader.
 - Builder scope requests include the current workspace sources and serialized dependencies, with canonical file URIs. The parser worker serializes each complete parse/link/scope request so router fallback and concurrent updates cannot query missing or stale documents.
 - Core `getFunctionInputs` resolves inherited inputs and dispatch signatures for both codegen and expression scope; external callable scope entries count their declared parameters, and reporting/eligibility rules expose zero or one argument from their declared input. Scope inspection materializes deferred callable descriptions through the shared Rune linker before reading signatures; unrelated model stubs stay deferred.
-- Core `getFunctionSignature` resolves dispatch bases from namespace declarations and linked selectors. Language-service scopes and codegen share it, including overloads split across files. Output enum-member scope derives from that effective signature, retaining the correct declaration identity for inherited and dispatch functions when global enum names collide.
+- Core `getFunctionSignature` resolves dispatch bases from namespace declarations and linked selectors. Language-service scopes and codegen share it, including overloads split across files. Scope construction uses the effective ordinary function directly; only dispatch variants enumerate candidate bases. Output enum-member scope derives from that effective signature, retaining the correct declaration identity for inherited and dispatch functions when global enum names collide.
 - Visual-editor operation drafts use core `parseExpression` for syntax validation before committing any operation. Unknown workspace symbols do not require linking at this boundary; invalid drafts retain their private text.
 - Function expression helpers live in `packages/codegen/src/expr/`; preserve cardinality and metadata across call and assignment boundaries. Validate changed semantics with parsed Rune, strict compilation of generated modules, and runtime assertions. TypeScript exported entry points expect prevalidated, correctly typed inputs. Studio validates plain form inputs once with `emitStandaloneZodSchema` in function-input mode, reusing Data attribute schemas and their full dependency closure. Calls and root assignments skip adaptation when linked bounds and representation already fit; computed arguments, nested set/add targets, and function outputs retain runtime cardinality checks; appends check the combined collection before mutating it. Function-input schemas convert ISO strings to Temporal once throughout the dependency closure. The shared `RuneFuncData` structural mapping and class-to-function calls preserve Temporal instances; Studio serializes execution results back to JSON wire values. See the codegen README.
 - Core scopes and codegen share `resolveOperationType` and `getOperationArgument` for operator result types and headless pipeline inputs. Keep symbol lookup in its owning context; add operator propagation rules to the shared core utility. Conversion operators expose intrinsic result names: scopes resolve the corresponding workspace record declarations, while codegen retains the semantic type for comparisons without inventing AST declarations. Calendar field reads, including implicit pipeline fields, use the shared `renderCalendarField` emitter because TypeScript values use Temporal and Zod JSON predicates use ISO strings.
@@ -1299,6 +1369,12 @@ serialized parse/link context transaction, without a UI resolver or evaluator. C
 context requests signatures through the same ScopeProvider enumeration as the
 expression builder. Exact resolved type identity and cardinality containment
 prioritize suggestions; this never blocks other calls or replaces validation.
+The function palette embeds `NamespaceExplorerPanel` in compact mode over the
+repository's function index, including deferred exports. Host-owned search and
+leaf actions reuse the explorer's namespace focus, breadcrumbs, expansion and
+virtualization. Signature/documentation search uses the same tree matcher and
+ancestor expansion. Tree rendering uses metadata without hydrating function
+bodies; the existing callable-signature discovery remains lazy.
 Node arguments use the existing function-preview schemas for their skeleton;
 ordinary bindings live on the node and a bottom variable tag tray supplies inputs,
 locals and outputs. Designer variables remain Rune aliases. Reference-only aliases
@@ -1426,6 +1502,11 @@ read-only ownership and original source remain attached to each reference file.
 The UI's reconstructed materialized closure also prepares its own scopes through
 the canonical DocumentBuilder before publication. Namespace overrides revive
 references lazily, so worker linking alone cannot make that separate graph ready.
+Managed view requests use the parser worker's identity-only snapshot mode: the
+same complete closure walk returns document URIs instead of serializing full ASTs
+that the UI would discard. Publication accepts only identities in its verified
+capture and reconstructs from that capture's original JSON. Legacy model-snapshot
+callers retain their response, including cross-document cycles and repeated reads.
 Scope preparation retains lazy linking and skips validation; unrelated reference
 documents stay deferred. Publications are queued per capture so concurrent
 namespace requests retain each other's models. Abort checks discard late builds,

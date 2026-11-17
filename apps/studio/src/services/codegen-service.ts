@@ -106,6 +106,8 @@ export interface PreviewFileEntry {
 
 export interface PreviewSetFilesMessage {
   project?: ProjectRuntimeInput;
+  /** Reuse a prepared/in-flight program while refreshing its source-view files. */
+  projectReceipt?: ProjectResolutionReceipt;
   projectUnavailable?: string;
   type: 'preview:setFiles';
   files: PreviewFileEntry[];

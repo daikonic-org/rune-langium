@@ -4,7 +4,7 @@
 /**
  * PerspectiveHost — renders the active perspective in the shell content slot.
  * Explore (the `ExplorePerspective` DockShell workbench) is ALWAYS mounted and
- * hidden via `display:none` when inactive — keep-alive preserves the dockview
+ * hidden in a measurable inert slot when inactive — keep-alive preserves the dockview
  * layout, open files, unsaved edits, and the LSP worker. Prototype stays mounted
  * after its first visit in the current workspace to retain input drafts. Other screens mount on demand.
  */
@@ -25,6 +25,7 @@ import type { WorkspaceFile } from '../../services/workspace.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { ComposeSurfaceContext } from './compose-surface.js';
 import { PerspectiveHeading } from './PerspectiveHeading.js';
+import { Spinner } from '@rune-langium/design-system/ui/spinner';
 
 interface Props {
   hasWorkspace: boolean;
@@ -35,6 +36,8 @@ interface Props {
   workspaceKind?: WorkspaceKind;
   /** Workspace files forwarded to ExportPerspective for the Download flow. */
   files?: ReadonlyArray<WorkspaceFile>;
+  /** Preparation blocks workspace editing while navigation remains available. */
+  loadingMessage?: string;
 }
 
 function PerspectiveScreen({
@@ -66,13 +69,15 @@ export const PerspectiveHost = withInstrumentation(
     hasExploreContent,
     workspaceId,
     workspaceKind,
-    files
+    files,
+    loadingMessage
   }: Props): React.ReactElement {
     const [composeSurface, setComposeSurface] = useState<HTMLDivElement | null>(null);
     const active = usePerspectiveStore((s) => s.activePerspective);
     // Effective-perspective fallback — shared with AppHeader via
     // resolveEffectivePerspective so the bar and the body never disagree.
     const effective = resolveEffectivePerspective(active, { hasWorkspace, hasExploreContent });
+    const contentPending = Boolean(loadingMessage) && effective !== 'workspaces' && effective !== 'settings';
     const key = workspaceId ?? ':session';
     const [prototypeWorkspace, setPrototypeWorkspace] = useState<string>();
     if (effective === 'prototype' && prototypeWorkspace !== key) setPrototypeWorkspace(key);
@@ -83,33 +88,50 @@ export const PerspectiveHost = withInstrumentation(
       // strip with many files) forces this host — and the whole layout — past
       // the viewport. `min-w-0` lets it honor the row width and clip/scroll inside.
       <ComposeSurfaceContext.Provider value={composeSurface}>
-        <div className="flex-1 min-h-0 min-w-0">
-          {/* Explore: kept alive — hidden via display:none, NEVER unmounted. */}
-          <div
-            data-perspective-slot="explore"
-            // `studio-perspective-enter` replays its fade-in each time the class
-            // is re-added (i.e. every time Explore becomes active again).
-            className={effective === 'explore' ? 'h-full studio-perspective-enter' : 'h-full'}
-            style={{ display: effective === 'explore' ? undefined : 'none' }}
-          >
-            <ExplorePerspective />
-          </div>
-          <PerspectiveScreen id="compose" active={effective === 'compose'}>
-            <div ref={setComposeSurface} className="h-full min-h-0 min-w-0" />
-          </PerspectiveScreen>
-          {hasWorkspace && prototypeWorkspace === key ? (
-            <PerspectiveScreen key={key} id="prototype" active={effective === 'prototype'}>
-              <PrototypePerspective />
-            </PerspectiveScreen>
-          ) : null}
-          {effective !== 'explore' && effective !== 'prototype' && effective !== 'compose' && (
-            <PerspectiveScreen key={effective} id={effective}>
-              {effective === 'workspaces' && <WorkspacesPerspective />}
-              {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
-              {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}
-              {effective === 'settings' && <SettingsPerspective workspaceForm={WorkspaceDirectoriesFormAdapter} />}
-            </PerspectiveScreen>
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col">
+          {loadingMessage && (
+            <div role="status" className="flex shrink-0 items-center gap-2 p-3 text-muted-foreground">
+              <Spinner className="size-4" />
+              <span>{loadingMessage}</span>
+            </div>
           )}
+          {/* Dockview needs real dimensions during preparation. Inert hidden
+           * content retains geometry without exposing editing controls. */}
+          <div
+            className="relative min-h-0 min-w-0 flex-1"
+            style={{ visibility: contentPending ? 'hidden' : undefined }}
+            inert={contentPending}
+            aria-hidden={contentPending || undefined}
+          >
+            {/* Dockview must retain real dimensions while another perspective is active. */}
+            <div
+              data-perspective-slot="explore"
+              // `studio-perspective-enter` replays its fade-in each time the class
+              // is re-added (i.e. every time Explore becomes active again).
+              className={effective === 'explore' ? 'h-full studio-perspective-enter' : 'h-full'}
+              style={effective === 'explore' ? undefined : { position: 'absolute', inset: 0, visibility: 'hidden' }}
+              inert={effective !== 'explore'}
+              aria-hidden={effective !== 'explore' || undefined}
+            >
+              <ExplorePerspective />
+            </div>
+            <PerspectiveScreen id="compose" active={effective === 'compose'}>
+              <div ref={setComposeSurface} className="h-full min-h-0 min-w-0" />
+            </PerspectiveScreen>
+            {hasWorkspace && prototypeWorkspace === key ? (
+              <PerspectiveScreen key={key} id="prototype" active={effective === 'prototype'}>
+                <PrototypePerspective />
+              </PerspectiveScreen>
+            ) : null}
+            {effective !== 'explore' && effective !== 'prototype' && effective !== 'compose' && (
+              <PerspectiveScreen key={effective} id={effective}>
+                {effective === 'workspaces' && <WorkspacesPerspective />}
+                {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
+                {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}
+                {effective === 'settings' && <SettingsPerspective workspaceForm={WorkspaceDirectoriesFormAdapter} />}
+              </PerspectiveScreen>
+            )}
+          </div>
         </div>
       </ComposeSurfaceContext.Provider>
     );

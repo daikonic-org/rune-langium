@@ -207,9 +207,18 @@ afterEach(() => {
   });
 });
 
+async function waitForSourceWorkspace() {
+  // Explore stays mounted while preparation is pending. Data in a hidden
+  // probe does not yet mean its edit controls are available to the user.
+  await waitFor(() => {
+    expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta');
+    expect(screen.getByTestId('files')).toBeVisible();
+  });
+}
+
 async function openSourceWorkspace() {
   render(<App />);
-  await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+  await waitForSourceWorkspace();
   const cdm: LoadedModel = {
     source: getModelSource('cdm')!,
     commitHash: 'latest',
@@ -288,7 +297,7 @@ describe('workspace isolation', () => {
   it('records an autosave failure once in each history with one operation id', async () => {
     vi.spyOn(workspaceFiles, 'saveWorkspaceFiles').mockRejectedValue(new Error('Quota exceeded'));
     render(<App />);
-    await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+    await waitForSourceWorkspace();
     useActivityStore.getState().clearEntries();
     useOutputStore.getState().clearLines();
     fireEvent.click(screen.getByRole('button', { name: 'Edit from test' }));
@@ -313,7 +322,7 @@ describe('workspace isolation', () => {
       const write = workspaceFiles.saveWorkspaceFiles;
       const save = vi.spyOn(workspaceFiles, 'saveWorkspaceFiles');
       render(<App />);
-      await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+      await waitForSourceWorkspace();
       save.mockRejectedValue(new Error('quota'));
       fireEvent.click(screen.getByRole('button', { name: 'Edit from test' }));
       const attempt = async () => {
@@ -353,7 +362,7 @@ describe('workspace isolation', () => {
     const write = workspaceFiles.saveWorkspaceFiles;
     const save = vi.spyOn(workspaceFiles, 'saveWorkspaceFiles');
     render(<App />);
-    await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+    await waitForSourceWorkspace();
     const gate = Promise.withResolvers<void>();
     save.mockImplementationOnce(async (id, files) => {
       await gate.promise;
@@ -411,7 +420,7 @@ describe('workspace isolation', () => {
   });
   it('adds a curated model loaded after creating a blank workspace to its catalog and saved bindings', async () => {
     render(<App />);
-    await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('trade.rosetta'));
+    await waitForSourceWorkspace();
     fireEvent.click(screen.getByRole('button', { name: 'Create workspace' }));
     fireEvent.click(await screen.findByRole('button', { name: 'New workspace' }));
     await waitFor(() => expect(screen.getByTestId('files')).toHaveTextContent('untitled.rosetta'));
@@ -705,7 +714,7 @@ it('activates a POM-only GitHub clone without duplicating it or carrying prior e
   const fs = new OpfsFs(await navigator.storage.getDirectory());
   await fs.writeFile('/empty-clone/files/pom.xml', '<project/>');
   render(<App />);
-  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a'));
+  await waitForSourceWorkspace();
   fireEvent.click(screen.getByRole('button', { name: 'Open POM-only clone' }));
   await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('empty-clone'));
   expect(screen.getByTestId('files')).not.toHaveTextContent('trade.rosetta');
@@ -740,7 +749,7 @@ it('reviews and saves a newly cloned inactive project through the real App adapt
     return new Response('{}', { status: 404 });
   });
   render(<App />);
-  await waitFor(() => expect(screen.getByTestId('workspace-id')).toHaveTextContent('ws-a'));
+  await waitForSourceWorkspace();
   fireEvent.click(screen.getByRole('button', { name: 'Start clone review' }));
   fireEvent.click(await screen.findByRole('button', { name: /check now/i }));
   fireEvent.change(await screen.findByTestId('repo-url-input'), { target: { value: 'example/rates' } });

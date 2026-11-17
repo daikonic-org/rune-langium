@@ -16,6 +16,9 @@ import type { HydrateRequest } from '../workers/parser-worker.js';
 import { pathToUri } from '../utils/uri.js';
 import { withInstrumentation } from './instrumentation/core.js';
 import { linkDocument, type WorkspaceFile } from './workspace.js';
+import { isRecord } from './message-guards.js';
+import { allocateOpId } from './op-log.js';
+import { recordPerf, recordPerfStart } from './perf-log.js';
 
 export type ProjectReferenceInventory = Pick<WorkspaceState, 'files' | 'deferredExports' | 'curatedCacheSeeds'>;
 
@@ -148,7 +151,7 @@ export const prepareProjectReferenceView = withInstrumentation(
       // their serialization and transfer for every installed implementation.
       const result = await link(
         local[0]!.uri,
-        true,
+        'uris',
         local.slice(1).map((entry) => entry.uri)
       );
       signal.throwIfAborted();
@@ -156,7 +159,7 @@ export const prepareProjectReferenceView = withInstrumentation(
         throw new Error(
           result.errors.join('\n') || 'Local reference dependencies are unavailable: ' + local[0]!.file.path
         );
-      return materializeProjectReferenceView(view, result.newModels, signal);
+      return materializeProjectReferenceView(view, result.materializedUris ?? result.newModels, signal);
     }
     return view;
   },
@@ -171,7 +174,7 @@ export const prepareProjectReferenceView = withInstrumentation(
 export const materializeProjectReferenceView = withInstrumentation(
   async function materializeProjectReferenceView(
     view: WorkspaceState,
-    additions: readonly import('@rune-langium/core').RosettaModel[],
+    additions: readonly (import('@rune-langium/core').RosettaModel | string)[],
     signal?: AbortSignal
   ): Promise<WorkspaceState> {
     signal?.throwIfAborted();
@@ -181,19 +184,30 @@ export const materializeProjectReferenceView = withInstrumentation(
     // The HTTP parser records file:///name while the editor uses
     // file:///workspace/name. Accept only aliases proved by this capture's
     // canonical serialized metadata, and never guess through an ambiguous alias.
-    const sourceFiles = new Map<string, WorkspaceFile | undefined>();
-    for (const entry of parsed.values()) {
-      if (!entry.serializedModelJson) continue;
-      const sourceUri = readLspModelMetadata(entry.serializedModelJson).sourceUri;
-      const file = view.files.find((file) => file.path === entry.filePath);
-      if (!sourceUri || !file) continue;
-      const key = canonical(sourceUri);
-      sourceFiles.set(key, !sourceFiles.has(key) || sourceFiles.get(key) === file ? file : undefined);
-    }
+    let sourceFiles: Map<string, WorkspaceFile | undefined> | undefined;
+    const legacySourceFile = (uri: string) => {
+      if (!sourceFiles) {
+        sourceFiles = new Map();
+        for (const entry of parsed.values()) {
+          if (!entry.serializedModelJson) continue;
+          const sourceUri = readLspModelMetadata(entry.serializedModelJson).sourceUri;
+          const file = view.files.find((file) => file.path === entry.filePath);
+          if (!sourceUri || !file) continue;
+          const key = canonical(sourceUri);
+          sourceFiles.set(key, !sourceFiles.has(key) || sourceFiles.get(key) === file ? file : undefined);
+        }
+      }
+      return sourceFiles.get(uri);
+    };
     const wanted = new Set(parsed.keys());
     for (const model of additions) {
-      const uri = (model as unknown as { $textRegion?: { documentURI?: string } }).$textRegion?.documentURI;
-      const file = uri && (files.get(canonical(uri)) ?? sourceFiles.get(canonical(uri)));
+      const uri =
+        typeof model === 'string'
+          ? model
+          : '$textRegion' in model && isRecord(model.$textRegion) && typeof model.$textRegion.documentURI === 'string'
+            ? model.$textRegion.documentURI
+            : undefined;
+      const file = uri && (files.get(canonical(uri)) ?? legacySourceFile(canonical(uri)));
       if (!file) throw new Error('The linked reference document is not in the current verified view.');
       wanted.add(file.path);
     }
@@ -204,14 +218,29 @@ export const materializeProjectReferenceView = withInstrumentation(
       if (!json) throw new Error('The current reference/source snapshot is unavailable: ' + path);
       return { file, json, uri: pathToUri(path) };
     });
-    const { hydrated } = await hydrateReferenceView(entries, signal);
-    const parsedModels = entries.map((entry, index) => ({
-      filePath: entry.file.path,
-      source: entry.file.content,
-      serializedModelJson: entry.json,
-      model: hydrated[index]!.model
-    }));
-    return { ...view, parsedModels, models: hydrated.map((entry) => entry.model) };
+    const startedAt = performance.now();
+    const opId = allocateOpId();
+    recordPerfStart('referenceMaterialize', opId);
+    let ok = false;
+    try {
+      const { hydrated } = await hydrateReferenceView(entries, signal);
+      const parsedModels = entries.map((entry, index) => ({
+        filePath: entry.file.path,
+        source: entry.file.content,
+        serializedModelJson: entry.json,
+        model: hydrated[index]!.model
+      }));
+      ok = true;
+      return { ...view, parsedModels, models: hydrated.map((entry) => entry.model) };
+    } finally {
+      recordPerf({
+        op: 'referenceMaterialize',
+        ok,
+        opId,
+        durationMs: performance.now() - startedAt,
+        ts: performance.now()
+      });
+    }
   },
   { op: 'materializeProjectReferenceView', capture: 0 }
 );

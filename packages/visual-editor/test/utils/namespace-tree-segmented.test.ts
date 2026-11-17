@@ -648,6 +648,29 @@ describe('filterSegmentedTree', () => {
 // ---------------------------------------------------------------------------
 
 describe('ancestorPathsForMatches', () => {
+  it('uses the visible tree matcher for additional search text and namespace descendants', () => {
+    const nodes = [
+      makeNode('cdm.rates', 'Accrue'),
+      makeNode('cdm.rates.daily', 'Compound'),
+      makeNode('cdm.other', 'Other')
+    ];
+    const roots = buildSegmentedNamespaceTree(repoOf(nodes));
+    const text = new Map([['cdm.rates.Accrue', 'RateSchedule[1]']]);
+    const matching = filterSegmentedTree(roots, 'schedule[1]', text);
+    const expanded = ancestorPathsForMatches(roots, 'schedule[1]', text);
+    expect(
+      flattenSegmentedTree(matching, expanded)
+        .filter((row) => row.kind === 'type')
+        .map((row) => row.nodeId)
+    ).toEqual(['cdm.rates.Accrue']);
+    const namespaceMatches = filterSegmentedTree(roots, 'cdm.rates');
+    const namespaceExpanded = ancestorPathsForMatches(roots, 'cdm.rates');
+    expect(
+      flattenSegmentedTree(namespaceMatches, namespaceExpanded)
+        .filter((row) => row.kind === 'type')
+        .map((row) => row.nodeId)
+    ).toEqual(['cdm.rates.daily.Compound', 'cdm.rates.Accrue']);
+  });
   it('returns empty set for empty/whitespace query', () => {
     const roots = buildSegmentedNamespaceTree(repoOf(FIXTURE_NODES));
     expect(ancestorPathsForMatches(roots, '')).toEqual(new Set());

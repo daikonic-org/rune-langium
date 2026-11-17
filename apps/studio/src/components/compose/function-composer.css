@@ -127,48 +127,36 @@
 .composition-node[data-selected='true'] .composition-node__icon {
   color: var(--primary);
 }
-.function-composer__function {
-  display: flex;
+/* Embed the shared explorer at palette scale; virtual rows keep their normal density. */
+.function-composer__functions {
   min-width: 0;
+  flex-shrink: 0;
+}
+.function-composer__functions h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.function-composer__catalog {
+  height: clamp(168px, 32vh, 288px);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.function-composer__suggestions {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-}
-.function-composer__function > button:first-child {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  gap: var(--space-2);
-  border-radius: var(--radius-sm);
-  padding: calc(var(--space-1) * 1.5) var(--space-1);
-  text-align: left;
-}
-
-.function-composer__function > button:hover {
-  background: var(--accent);
-}
-.function-composer__function > button:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 1px;
-}
-.function-composer__function span {
-  display: grid;
-  min-width: 0;
-}
-.function-composer__function strong, .function-composer__function small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.function-composer__function small {
+  margin-bottom: var(--space-1);
   color: var(--muted-foreground);
   font-size: var(--text-2xs);
 }
-.function-composer__function svg {
-  flex-shrink: 0;
-  color: var(--foreground);
-}
-.function-composer__catalog {
-  min-height: 0;
+.function-composer__suggestions > button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .function-composer__view {
   position: absolute;

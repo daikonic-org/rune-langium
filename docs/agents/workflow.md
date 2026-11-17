@@ -310,6 +310,18 @@ publication must remain separate from semantic readiness; cover requests queued
 while linking, cancellation and workspace changes. J20 retains its 10-second
 source-open budget, exact source comparison and no-artifact-refetch assertion.
 
+Inspector latency changes also run the `curated-declaration` service/worker,
+`curated-declaration-client` and `CuratedDeclarationInspector` unit suites, then
+optimized J04c, J05, J9, J19 curated-readonly and J28. Cover managed capture reads
+without legacy artifact fetches, capture replacement, worker cleanup and
+cancellation. Function selection must retain Studio's full implementation editor.
+Closure publication changes also run `parser-worker-closure`, `project-reference-view`
+and `use-project-reference-view` tests: identity-only replies must contain the
+complete linked closure, preserve local inheritance and overrides, leave unrelated
+documents deferred, and reject identities outside the verified capture.
+J05 measures populated declared fields separately from fully linked readiness;
+retain its existing 3-second first-content budget.
+
 J23–J28 cover workspace YAML in both themes, named Export targets and retained
 outputs, Rune JSON metadata/Choice reopen, workspace selection isolation, failed
 example repair, and blank workspaces returning from reference review to Explore.
@@ -764,6 +776,11 @@ existing local marker preservation and source-pattern exclusion.
 
 Browser fixtures that replace a complete project configuration use
 `seedProjectBackingFiles` with Studio unloaded, then restore the same workspace.
+If a disposable namespace file creates the backing first, wait for its exact
+persisted bytes before seeding, not for its semantic parse. Unloading cancels
+that disposable request; the restored full fixture must still pass ordinary
+project readiness and real execution assertions. Keep the bootstrap persistence
+deadline bounded independently of the hosted parser's deadline.
 Writing a new configuration piecemeal into a running app exposes empty files and
 Chromium swap entries to background snapshot capture. Live external-edit tests
 still use `projectBackingFiles`; preserve conflict/validation errors there. The

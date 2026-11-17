@@ -15,7 +15,6 @@ import {
 } from '@xyflow/react';
 import { type CompositionStep, type FunctionComposition, type SourceRegion } from '@rune-langium/core';
 import {
-  buildTypeOptions,
   computeGraphPositions,
   selectNodeRepository,
   useEditorStore,
@@ -28,7 +27,7 @@ import {
   createExpressionStarter
 } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
-import { Input } from '@rune-langium/design-system/ui/input';
+import { Input, SearchInput } from '@rune-langium/design-system/ui/input';
 import {
   ArrowLeft,
   PanelLeftClose,
@@ -79,7 +78,7 @@ import {
   findCompositionPrimitive,
   type CompositionPrimitiveId
 } from './composition-primitives.js';
-const MIME = 'application/x-rune-composition-function';
+import { FunctionPalette, COMPOSITION_FUNCTION_MIME as MIME } from './FunctionPalette.js';
 const PRIMITIVE_MIME = 'application/x-rune-composition-primitive';
 const FIT = { padding: 0.12, minZoom: 0.35, maxZoom: 1 };
 const NODE_TYPES = { composition: CompositionNode };
@@ -169,10 +168,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   const creating = useComposeNavigationStore((s) => s.creating);
   const setCreating = useComposeNavigationStore((s) => s.setCreating);
   const nodesById = useEditorStore((s) => s.nodesById);
-  const catalog = useMemo(
-    () => buildTypeOptions(selectNodeRepository(nodesById)).filter((option) => option.kind === 'func'),
-    [nodesById]
-  );
+  const repository = useMemo(() => selectNodeRepository(nodesById), [nodesById]);
   const [portContext, setPortContext] = useState<string>();
   const [discover, setDiscover] = useState(false);
   const [variablesOpen, setVariablesOpen] = useState(false);
@@ -694,25 +690,6 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       setApplyBusy(false);
     }
   };
-  const callable = new Map(composition?.callables?.map((entry) => [`${entry.identity}#RosettaFunction`, entry]));
-  const signatureLabel = (id: string) => {
-    const entry = callable.get(id);
-    return entry
-      ? `${entry.inputs.map((input) => `${input.name}: ${input.type} ${input.cardinality}`).join(', ')} → ${entry.output ? `${entry.output.type} ${entry.output.cardinality}` : 'no output'}`
-      : '';
-  };
-  const filtered = catalog
-    .filter((option) =>
-      `${option.label} ${option.namespace} ${signatureLabel(option.value)} ${callable.get(option.value)?.documentation ?? ''}`
-        .toLowerCase()
-        .includes(query.toLowerCase())
-    )
-    .sort(
-      (a, b) =>
-        Number(Boolean(callable.get(b.value)?.accepts[portContext ?? '']?.length)) -
-        Number(Boolean(callable.get(a.value)?.accepts[portContext ?? '']?.length))
-    );
-
   const openInspector = () => usePerspectiveStore.getState().setActivePerspective('explore');
   const [saveBusy, setSaveBusy] = useState(false);
   const save = async () => {
@@ -998,7 +975,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
           <div className="function-composer__body" data-palette={palette} data-details={details}>
             {palette && (
               <aside className="function-composer__palette studio-scroll" aria-label="Composition palette">
-                <Input
+                <SearchInput
                   aria-label="Search functions and primitives"
                   placeholder="Search functions & primitives"
                   value={query}
@@ -1030,6 +1007,16 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                       ? 'Signatures loaded'
                       : 'Show signatures'}
                 </Button>
+                <FunctionPalette
+                  repository={repository}
+                  query={query}
+                  callables={composition?.callables}
+                  portContext={portContext}
+                  selectedNodeId={identity}
+                  canAdd={writable && !draft && !signaturePending && !applyBusy}
+                  onOpen={navigate}
+                  onAdd={(id) => void beginAdd(id)}
+                />
                 <h2>Primitives</h2>
                 <div className="function-composer__primitives">
                   {primitiveGroups.map((group) => (
@@ -1069,46 +1056,6 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                     </div>
                   ))}
                   {!matchingPrimitives.length && <p>No matching primitives.</p>}
-                </div>
-                <h2>
-                  Functions <span>{filtered.length}</span>
-                </h2>
-                {!filtered.length && <p>No matching functions.</p>}
-                <div className="function-composer__catalog">
-                  {filtered.slice(0, 100).map((option) => (
-                    <div key={option.value} className="function-composer__function">
-                      <button
-                        type="button"
-                        aria-label={`Open ${option.label} ${option.namespace ?? ''}`}
-                        title={[
-                          `${option.namespace}.${option.label}`,
-                          signatureLabel(option.value),
-                          callable.get(option.value)?.documentation
-                        ]
-                          .filter(Boolean)
-                          .join('\n')}
-                        onClick={() => navigate(option.value)}
-                      >
-                        <Workflow className="size-3" />
-                        <span>
-                          <strong>{option.label}</strong> <small>{option.namespace}</small>
-                        </span>
-                      </button>
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        aria-label={`Add ${option.label}`}
-                        title="Add function call"
-                        disabled={!writable || Boolean(draft) || signaturePending}
-                        draggable={writable && !draft}
-                        onDragStart={(event) => event.dataTransfer.setData(MIME, option.value)}
-                        onClick={() => void beginAdd(option.value)}
-                      >
-                        <Plus className="size-3" />
-                      </Button>
-                    </div>
-                  ))}
-                  {filtered.length > 100 && <p>Search to narrow the {filtered.length} functions.</p>}
                 </div>
               </aside>
             )}
@@ -1218,7 +1165,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                         return;
                       }
                       const id = event.dataTransfer.getData(MIME);
-                      if (catalog.some((option) => option.value === id)) void beginAdd(id, position);
+                      if (repository.byId(id)?.data.$type === 'RosettaFunction') void beginAdd(id, position);
                     }}
                     aria-label="Function dependency graph"
                   >

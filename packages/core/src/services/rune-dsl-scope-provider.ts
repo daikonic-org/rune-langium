@@ -943,6 +943,8 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
   private dispatchSignature(original: RosettaFunction): RosettaFunction {
     const effectiveFunction = redirectProjectNode(this.projectServices, original);
     const func = isRosettaFunction(effectiveFunction) ? effectiveFunction : original;
+    // Ordinary functions already own their signature; only dispatch variants need a base lookup.
+    if (!func.dispatchAttribute) return func;
     const name = qualifiedExportPath(func.$container.name, func.name);
     const declarations = [
       ...new Set(

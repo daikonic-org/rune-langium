@@ -59,7 +59,8 @@ async function openPublishedImplementationProject(
   page: Page,
   project: Awaited<ReturnType<typeof createCuratedRuneProject>>,
   caller: { uri: string; content: string },
-  width: number
+  width: number,
+  beforeSeed?: () => Promise<void>
 ) {
   await page.route('https://www.daikonic.dev/curated/**', async (route) => {
     const bytes = project.fixture.artifacts.get(route.request().url());
@@ -72,12 +73,19 @@ async function openPublishedImplementationProject(
   });
   await page.setViewportSize({ width, height: 960 });
   await page.goto('./');
+  const name = caller.uri.split('/').at(-1)!;
+  const content = caller.content.split('\n', 1)[0] + '\n';
   await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
-    name: caller.uri.split('/').at(-1)!,
-    buffer: Buffer.from(caller.content.split('\n', 1)[0] + '\n'),
+    name,
+    buffer: Buffer.from(content),
     mimeType: 'text/plain'
   });
-  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  // The next step unloads Studio and installs the real project. Require durable
+  // bootstrap bytes, not completion of a parse that will be discarded.
+  await expect(async () => {
+    expect(await projectBackingFiles(page)).toMatchObject({ [name]: content });
+  }).toPass({ timeout: 5000 });
+  await beforeSeed?.();
   await seedProjectBackingFiles(page, Object.fromEntries(project.snapshot.files));
   await page.getByTestId('rail-prototype').click();
   return project;
@@ -85,11 +93,29 @@ async function openPublishedImplementationProject(
 
 for (const width of [1440, 390])
   test(`executes published AFB year fractions at ${width}px`, async ({ page }) => {
+    let bootstrapRequests = 0;
+    if (width === 1440) {
+      const bootstrap = dayCountCaller.content.split('\n', 1)[0] + '\n';
+      await page.route('**/api/parse', async (route) => {
+        const files = route.request().postDataJSON()?.files;
+        if (Array.isArray(files) && files.some((file) => file.content === bootstrap)) {
+          bootstrapRequests += 1;
+          return;
+        }
+        await route.continue();
+      });
+    }
     await openPublishedImplementationProject(
       page,
       await createCuratedRuneProject(dayCountDirectory, dayCountCaller),
       dayCountCaller,
-      width
+      width,
+      width === 1440
+        ? async () => {
+            await expect(page.getByTestId('explore-workbench')).toBeVisible();
+            expect(bootstrapRequests).toBe(0);
+          }
+        : undefined
     );
     await page.getByRole('button', { name: /^Choose a function/ }).click();
     await page.getByRole('option', { name: 'AfbAccrual — example.daycount', exact: true }).click();

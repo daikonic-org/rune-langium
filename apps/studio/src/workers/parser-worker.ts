@@ -13,6 +13,7 @@
 import { reviewProjectCompatibility } from '@rune-langium/project-runtime';
 import type { ProjectDiagnostic } from '@rune-langium/project-config';
 import { prepareReferenceArtifact } from '../services/reference-artifact-decoder.js';
+import { handleInspectNamespace } from '../services/curated-declaration-models.js';
 import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { isRecord } from '../services/message-guards.js';
 import {
@@ -25,6 +26,7 @@ import {
   type ExpressionScopeEntry,
   type SourceRegion,
   createRuneDslServices,
+  collectNamespaceDependencies,
   RuneDslIndexManager,
   namespaceFromSource,
   preserveCstText,
@@ -48,6 +50,7 @@ import {
   type LangiumDocument
 } from 'langium';
 import { parseErrorMessages } from '../services/parse-errors.js';
+import { buildDependencyGraph } from '../services/curated-closure.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from '../services/instrumentation/core.js';
@@ -88,8 +91,8 @@ export interface LinkDocumentRequest {
   uri: string;
   /** Additional roots share one scope build and dependency snapshot. */
   additionalUris?: readonly string[];
-  /** Return the roots and their linked closure, including already materialized dependencies. */
-  snapshot?: boolean;
+  /** Return the complete linked closure as models, or only identities for an already captured view. */
+  snapshot?: boolean | 'uris';
 }
 
 export interface LinkDocumentResponse {
@@ -99,6 +102,8 @@ export interface LinkDocumentResponse {
   errors: string[];
   /** Newly linked corpus models, or the complete linked closure when snapshot was requested. */
   newModels: RosettaModel[];
+  /** Complete linked closure identities when snapshot is 'uris'; model snapshots are omitted. */
+  materializedUris?: string[];
   /** Immutable artifacts whose deferred models failed to materialize. */
   invalidArtifactKeys?: string[];
 }
@@ -223,6 +228,7 @@ export interface ParseWorkspaceResponse {
   parsedModels: Array<{ filePath: string; model: RosettaModel; serializedModelJson?: string }>;
   errors: Record<string, string[]>;
   deferredExports: DeferredExportEntry[];
+  dependencyGraph?: Record<string, string[]>;
   /**
    * Optional curated-bundle file map produced ONLY by the routed parse path
    * (workspace.ts:parseWorkspaceViaRouter). Lets the studio populate
@@ -457,8 +463,8 @@ const handleParseWorkspace = withInstrumentation(
         // DEPRECATED (019 Phase 0): pre-parsed corpus content no longer flows through
         // this path. The server-side /api/parse Pages Function fetches curated bundles
         // from curated-mirror directly and returns them in hydrationState. This branch
-        // remains as a transition shim during 019 rollout; remove in a follow-up spec
-        // once the router is the only production path for parseWorkspace. The
+        // remains as a compatibility shim. The bounded standalone worker path
+        // accepts raw user sources only, never serialized corpus entries. The
         // `.bundle-marker` synthetic file entries (workspace.ts BUNDLE_MARKER_SUFFIX)
         // also flow through this branch with `serializedModelJson: '{}'` and content '',
         // which the deferred-model machinery handles harmlessly.
@@ -535,11 +541,28 @@ const handleParseWorkspace = withInstrumentation(
         }
       }
 
+      const namespaceModels = userDocs.flatMap((document) => {
+        const model = document.parseResult.value;
+        return isRosettaModel(model)
+          ? [
+              {
+                namespace: namespaceFromSource(document.textDocument.getText()),
+                imports: model.imports.map((entry) => entry.importedNamespace)
+              }
+            ]
+          : [];
+      });
       return {
         type: 'parseWorkspaceResult',
         id: req.id,
         models,
         parsedModels,
+        dependencyGraph: buildDependencyGraph(
+          namespaceModels,
+          new Map(),
+          new Set(namespaceModels.map((model) => model.namespace)),
+          collectNamespaceDependencies(userDocs)
+        ),
         errors,
         deferredExports
       };
@@ -669,7 +692,10 @@ const handleLinkDocument = withInstrumentation(
         id: req.id,
         linked: true,
         errors,
-        newModels: [...snapshots].map((model) => modelSnapshot(model))
+        newModels: req.snapshot === 'uris' ? [] : [...snapshots].map((model) => modelSnapshot(model)),
+        ...(req.snapshot === 'uris'
+          ? { materializedUris: [...snapshots].map((model) => AstUtils.getDocument(model).uri.toString()) }
+          : {})
       };
     } catch (error) {
       if (targetArtifactKey) invalidArtifactKeys.add(targetArtifactKey);
@@ -853,35 +879,6 @@ async function handleExpressionScope(
 // Exported dispatcher — testable in Node without spinning up a Web Worker
 // ---------------------------------------------------------------------------
 
-const handleInspectNamespace = withInstrumentation(
-  async function handleInspectNamespace(req: InspectNamespaceRequest): Promise<InspectNamespaceResponse> {
-    try {
-      // A separate document set prevents failed dependency lookups in this early
-      // read from poisoning lazy references in the authoritative workspace.
-      const services = createRuneDslServices(EmptyFileSystem);
-      const entries = hydrateModelDocuments(
-        services,
-        req.documents.map((doc) => ({ uri: doc.uri, json: doc.serializedModel }))
-      );
-      if (entries.some(({ model }) => !isRosettaModel(model))) throw new Error('Expected a serialized RosettaModel');
-      await services.shared.workspace.DocumentBuilder.build(
-        entries.map(({ document }) => document),
-        { eagerLinking: false, validation: false }
-      );
-      return {
-        type: 'inspectNamespaceResult',
-        id: req.id,
-        models: entries.map(({ model }) =>
-          JSON.parse(serializeRuneModel(services.RuneDsl.serializer.JsonSerializer, model))
-        )
-      };
-    } catch (error) {
-      return { type: 'inspectNamespaceResult', id: req.id, models: [], error: (error as Error).message };
-    }
-  },
-  { op: 'inspectCuratedDeclaration', capture: 0 }
-);
-
 // Langium's document/index services are mutable. A complete request, including
 // scope's parse/link/read sequence, must own them until its response is captured.
 let requestQueue: Promise<unknown> = Promise.resolve();
@@ -960,7 +957,9 @@ export const isLinkDocumentResponse = withInstrumentation(
       typeof value.linked === 'boolean' &&
       Array.isArray(value.errors) &&
       value.errors.every((e) => typeof e === 'string') &&
-      Array.isArray(value.newModels)
+      Array.isArray(value.newModels) &&
+      (value.materializedUris === undefined ||
+        (Array.isArray(value.materializedUris) && value.materializedUris.every((uri) => typeof uri === 'string')))
     );
   },
   {

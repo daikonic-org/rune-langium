@@ -205,20 +205,35 @@ let lastTarget: Target = 'zod';
 let lastCodegenRequestId: string | undefined;
 let lastPreviewTargetId: string | undefined;
 let lastPreviewRequestId: string | undefined;
+
+class AsyncVersionedCache<T> extends Map<string, VersionedEntry<T>> {
+  readonly pending = new Map<string, Map<string, Promise<VersionedEntry<T>>>>();
+
+  override delete(key: string): boolean {
+    this.pending.delete(key);
+    return super.delete(key);
+  }
+
+  override clear(): void {
+    this.pending.clear();
+    super.clear();
+  }
+}
+
 let previewFilesVersion = 0;
 let previewFilesRevision = 0;
 let previewVersionStartRevision = 0;
 type PreviewDocuments = { all: LangiumDocument[]; valid: LangiumDocument[] };
-const documentsCache = new Map<string, VersionedEntry<PreviewDocuments>>();
+const documentsCache = new AsyncVersionedCache<PreviewDocuments>();
 const documentBuilds = new Map<number, Promise<VersionedEntry<PreviewDocuments>>>();
 let previewWorkspaceTail = Promise.resolve();
 const previewSchemaCache = new Map<string, VersionedEntry<FormPreviewSchema[]>>();
-const previewGenerateCache = new Map<string, VersionedEntry<GeneratorOutput[]>>();
-const previewPythonCache = new Map<string, VersionedEntry<PythonModule>>();
+const previewGenerateCache = new AsyncVersionedCache<GeneratorOutput[]>();
+const previewPythonCache = new AsyncVersionedCache<PythonModule>();
 let codegenFilesVersion = 0;
 // One result per output target, rather than retaining every visited declaration.
-const codegenGenerateCache = new Map<string, VersionedEntry<{ selectionKey: string; results: GeneratorOutput[] }>>();
-const standaloneValidatorCache = new Map<string, VersionedEntry<StandaloneValidatorResult & { subtypeKey?: string }>>();
+const codegenGenerateCache = new AsyncVersionedCache<{ selectionKey: string; results: GeneratorOutput[] }>();
+const standaloneValidatorCache = new AsyncVersionedCache<StandaloneValidatorResult>();
 
 // Curated documents are relinked as a BATCH once per `preview:setFiles`
 // (the only message that ever carries new curated content) and cached here
@@ -340,12 +355,13 @@ function queuePreviewWorkspace<T>(operation: () => T | Promise<T>): Promise<T> {
 /**
  * Every cache in this file is invalidated by comparing a stored version
  * number against a live counter (`previewFilesVersion`/`codegenFilesVersion`)
- * bumped whenever the relevant file set changes — never by content hashing
- * or a TTL.
+ * bumped when the legacy file set or captured managed program changes.
+ * Managed source-view revisions remain independent; there is no TTL.
  */
 interface VersionedEntry<T> {
   version: number;
   value: T;
+  variant?: string;
 }
 
 /**
@@ -403,23 +419,43 @@ function getOrCompute<T>(
  * `buildDocuments()`, `executeFunction`, and `runCodegen` all thread this
  * returned `version` forward into their own `getOrCompute`/`getOrComputeAsync`
  * calls for exactly this reason.
+ * Matching in-flight version/variant requests share compilation. Rejections
+ * are removed, while deleting the cache key detaches its pending group.
  */
 async function getOrComputeAsync<T>(
-  cache: Map<string, VersionedEntry<T>>,
+  cache: AsyncVersionedCache<T>,
   key: string,
   getVersion: () => number,
-  compute: () => Promise<T>
+  compute: () => Promise<T>,
+  variant?: string
 ): Promise<VersionedEntry<T>> {
   const versionAtStart = getVersion();
   const cached = cache.get(key);
-  if (cached && cached.version === versionAtStart) return cached;
-  const value = await compute();
-  const entry: VersionedEntry<T> = { version: versionAtStart, value };
-  const cachedNow = cache.get(key);
-  if (!cachedNow || cachedNow.version < versionAtStart) {
-    cache.set(key, entry);
+  if (cached && cached.version === versionAtStart && cached.variant === variant) return cached;
+  const identity = JSON.stringify([versionAtStart, variant]);
+  let pending = cache.pending.get(key);
+  if (!pending) {
+    pending = new Map();
+    cache.pending.set(key, pending);
   }
-  return entry;
+  const existing = pending.get(identity);
+  if (existing) return existing;
+  const requests = pending;
+  const work = Promise.resolve().then(async () => {
+    const entry = { version: versionAtStart, value: await compute(), ...(variant === undefined ? {} : { variant }) };
+    const cachedNow = cache.get(key);
+    if (cache.pending.get(key) === requests && (!cachedNow || cachedNow.version <= versionAtStart)) {
+      cache.set(key, entry);
+    }
+    return entry;
+  });
+  requests.set(identity, work);
+  try {
+    return await work;
+  } finally {
+    requests.delete(identity);
+    if (!requests.size && cache.pending.get(key) === requests) cache.pending.delete(key);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -506,8 +542,7 @@ async function runCodegen(
     const graph = await scope.project;
     if (graph) assertProjectGenerationCapabilities(graph, selection, target);
     const selectionKey = JSON.stringify(selection ?? null);
-    if (regenerate || codegenGenerateCache.get(target)?.value.selectionKey !== selectionKey)
-      codegenGenerateCache.delete(target);
+    if (regenerate) codegenGenerateCache.delete(target);
     const {
       value: { results }
     } = await getOrComputeAsync(
@@ -522,7 +557,8 @@ async function runCodegen(
           projectBindings: graph?.implementationBindings,
           projectResources: graph?.bindings
         })
-      })
+      }),
+      selectionKey
     );
 
     if (documentsVersion !== (selection || project ? previewFilesVersion : codegenFilesVersion)) return;
@@ -1116,17 +1152,12 @@ async function executeFunction(
     );
     const subtypeKey = JSON.stringify([...concreteInputTypes.keys()].sort());
     const validationKey = `function-inputs:${selectedTargetId}`;
-    const cachedValidator = standaloneValidatorCache.get(validationKey);
-    if (cachedValidator?.version === documentsVersion && cachedValidator.value.subtypeKey !== subtypeKey)
-      standaloneValidatorCache.delete(validationKey);
     const { value: compiled } = await getOrComputeAsync(
       standaloneValidatorCache,
       validationKey,
       () => documentsVersion,
-      async () => ({
-        ...(await compileStandaloneValidator(documents, selectedTargetId, true, { concreteInputTypes })),
-        subtypeKey
-      })
+      () => compileStandaloneValidator(documents, selectedTargetId, true, { concreteInputTypes }),
+      subtypeKey
     );
     if (!compiled.validator) {
       throw new Error(`Input validation unavailable: ${compiled.diagnostics[0]?.message ?? 'unknown error'}`);
@@ -1349,6 +1380,19 @@ async function serializeInstance(message: InstanceSerializeMessage): Promise<voi
 // definition — the unguarded `self.addEventListener` would re-create the
 // same `TypeError: Cannot read properties of undefined (reading 'type')`
 // crash that PR #214 fixed for parser-worker.
+function previewFilesReady(
+  message: Extract<WorkerInboundMessage, { type: 'preview:setFiles' }>,
+  result: { projectReceipt?: ProjectResolutionReceipt; projectError?: string }
+): void {
+  if (!message.requestId) return;
+  self.postMessage({
+    type: 'preview:files-ready',
+    requestId: message.requestId,
+    filesRevision: message.filesRevision,
+    ...result
+  });
+}
+
 if (isWorkerGlobalScope()) {
   (self as unknown as DedicatedWorkerGlobalScope).addEventListener(
     'message',
@@ -1380,6 +1424,23 @@ if (isWorkerGlobalScope()) {
         }
         runCodegen(lastTarget, lastCodegenRequestId, msg.selection, msg.regenerate).catch(console.error);
       } else if (msg.type === 'preview:setFiles') {
+        const previousProject = projectGeneration;
+        const requestedReceipt = msg.project?.receipt ?? msg.projectReceipt;
+        const reuse =
+          requestedReceipt &&
+          previousProject?.receipt &&
+          projectReceiptMatches(previousProject.receipt, requestedReceipt)
+            ? previousProject
+            : undefined;
+        if (
+          (msg.project && msg.projectReceipt && !projectReceiptMatches(msg.project.receipt, msg.projectReceipt)) ||
+          (!msg.project && msg.projectReceipt && !reuse)
+        ) {
+          previewFilesReady(msg, {
+            projectError: 'The captured project is not installed for this source-view revision.'
+          });
+          return;
+        }
         const changed =
           msg.files.length !== currentPreviewFiles.length ||
           msg.files.some((file, index) => {
@@ -1392,20 +1453,15 @@ if (isWorkerGlobalScope()) {
               previous.serializedModelJson !== file.serializedModelJson
             );
           });
-        const previousProject = projectGeneration;
-        const reuse =
-          msg.project &&
-          previousProject?.receipt &&
-          projectReceiptMatches(previousProject.receipt, msg.project.receipt);
         const ready = reuse
-          ? previousProject.ready
+          ? reuse.ready
           : msg.project
             ? applyEffectiveProject(msg.project)
             : msg.projectUnavailable
               ? Promise.reject<EffectiveProject>(new Error(msg.projectUnavailable))
               : undefined;
         const generation = reuse
-          ? previousProject
+          ? reuse
           : ready
             ? { ready, ...(msg.project ? { receipt: { ...msg.project.receipt } } : {}) }
             : undefined;
@@ -1414,8 +1470,13 @@ if (isWorkerGlobalScope()) {
           ? generation.ready
           : queuePreviewWorkspace(() => previewStages.hydrateDocuments(msg.files));
         currentPreviewFiles = msg.files;
-        if (changed || generation !== previousProject) {
+        // Captured program semantics are owned by the receipt. Original-source
+        // arrival still advances the projection boundary, without recompiling
+        // the same schema/validator for every Explorer materialization.
+        if (generation !== previousProject || (!generation && changed)) {
           previewFilesVersion++;
+        }
+        if (changed || generation !== previousProject) {
           previewVersionStartRevision = msg.filesRevision;
         }
         // The provider owns this monotonic sequence. Echo the exact revision
@@ -1426,22 +1487,10 @@ if (isWorkerGlobalScope()) {
         const requestId = msg.requestId ?? lastPreviewRequestId;
         const acknowledge = (projectError?: string) => {
           if (generation !== projectGeneration) {
-            if (msg.requestId)
-              (self as unknown as DedicatedWorkerGlobalScope).postMessage({
-                type: 'preview:files-ready',
-                requestId: msg.requestId,
-                filesRevision: msg.filesRevision,
-                projectError: 'The project changed before this revision could be applied.'
-              });
+            previewFilesReady(msg, { projectError: 'The project changed before this revision could be applied.' });
             return;
           }
-          if (msg.requestId)
-            (self as unknown as DedicatedWorkerGlobalScope).postMessage({
-              type: 'preview:files-ready',
-              requestId: msg.requestId,
-              filesRevision: msg.filesRevision,
-              ...(projectError ? { projectError } : generation?.receipt ? { projectReceipt: generation.receipt } : {})
-            });
+          previewFilesReady(msg, projectError ? { projectError } : { projectReceipt: generation?.receipt });
           if (!projectError && lastPreviewTargetId && requestId)
             previewStages.generateSchema(lastPreviewTargetId, requestId).catch(console.error);
         };

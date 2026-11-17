@@ -6,7 +6,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { astToModel, type EditorFormActions, type TypeGraphNode } from '@rune-langium/visual-editor';
 import { CuratedDeclarationInspector } from '../../src/shell/panels/CuratedDeclarationInspector.js';
-import { loadCuratedDeclarations } from '../../src/services/curated-declaration.js';
+import { loadCuratedDeclarations, type CuratedDeclarationSource } from '../../src/services/curated-declaration.js';
 
 vi.mock('../../src/services/curated-declaration.js', () => ({ loadCuratedDeclarations: vi.fn() }));
 const seed = { key: 'key-a', namespace: 'example.selected', bundleId: 'cdm' as const, version: 'a' };
@@ -33,9 +33,9 @@ const node = astToModel({
   ]
 }).nodes[0]!;
 const actions = {} as EditorFormActions;
-function view(scope = 'workspace-a', selected = seed, id = node.id) {
+function view(scope = 'workspace-a', selected: CuratedDeclarationSource = seed, id = node.id) {
   return (
-    <CuratedDeclarationInspector seed={selected} nodeId={id} scope={scope} actions={actions} isHydrating>
+    <CuratedDeclarationInspector source={selected} nodeId={id} scope={scope} actions={actions} isHydrating>
       <p>Full workspace loading</p>
     </CuratedDeclarationInspector>
   );
@@ -54,6 +54,41 @@ it('shows actual own fields read-only while full semantic content remains unavai
   expect(screen.queryByText('Full workspace loading')).toBeNull();
 });
 
+it('keeps function implementation slots and cancels a pending type read when selecting a function', () => {
+  vi.mocked(loadCuratedDeclarations).mockReturnValue(new Promise(() => {}));
+  const { rerender } = render(view());
+  const signal = vi.mocked(loadCuratedDeclarations).mock.calls[0]![1];
+  rerender(view('workspace-a', seed, 'example.selected.Function#RosettaFunction'));
+  expect(screen.getByText('Full workspace loading')).toBeVisible();
+  expect(signal.aborted).toBe(true);
+  expect(loadCuratedDeclarations).toHaveBeenCalledOnce();
+});
+
+it('does not start a declaration read for a function', () => {
+  render(view('workspace-a', seed, 'example.selected.Function#RosettaFunction'));
+  expect(screen.getByText('Full workspace loading')).toBeVisible();
+  expect(loadCuratedDeclarations).not.toHaveBeenCalled();
+});
+
+it('shows captured declarations before linking and drops them immediately when the capture changes', async () => {
+  const source = {
+    namespace: seed.namespace,
+    documents: [{ uri: 'file:///selected.rosetta', serializedModel: 'first' }]
+  };
+  vi.mocked(loadCuratedDeclarations).mockResolvedValueOnce([node]);
+  const { rerender, container } = render(view('workspace-a', source));
+  expect(await screen.findByRole('heading', { name: 'Selected' })).toBeVisible();
+  expect(screen.getByDisplayValue('own')).toBeDisabled();
+  expect(container.querySelector('[data-inspector-readiness="declaration"]')).not.toBeNull();
+  expect(container.querySelector('[data-inspector-readiness="linked"]')).toBeNull();
+  const signal = vi.mocked(loadCuratedDeclarations).mock.calls[0]![1];
+  vi.mocked(loadCuratedDeclarations).mockReturnValueOnce(new Promise(() => {}));
+  rerender(view('workspace-a', { ...source, documents: [{ ...source.documents[0]!, serializedModel: 'next' }] }));
+  expect(screen.getByText('Full workspace loading')).toBeVisible();
+  expect(screen.queryByRole('heading', { name: 'Selected' })).toBeNull();
+  expect(signal.aborted).toBe(true);
+});
+
 it('reuses pending and completed namespace work while rendering the current selection', async () => {
   const other: TypeGraphNode = {
     ...node,
@@ -65,7 +100,7 @@ it('reuses pending and completed namespace work while rendering the current sele
   const { rerender } = render(view());
   const signal = vi.mocked(loadCuratedDeclarations).mock.calls[0]![1];
   for (let i = 0; i < 20; i++) {
-    rerender(view('workspace-a', seed, i % 2 ? other.id : node.id));
+    rerender(view('workspace-a', { ...seed }, i % 2 ? other.id : node.id));
   }
   expect(loadCuratedDeclarations).toHaveBeenCalledTimes(1);
   expect(signal.aborted).toBe(false);

@@ -220,6 +220,62 @@ test('enters Compose before selecting a function and switches between ordinary f
   expect(errors).toEqual([]);
 });
 
+test('browses a compact function namespace tree and searches beyond its virtual viewport at HD', async ({
+  page
+}, info) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const library =
+    source +
+    `
+type PalettePayload:
+ value number (1..1)
+enum PaletteKind:
+ A
+` +
+    Array.from(
+      { length: 125 },
+      (_, i) => `
+func PaletteCall${i}:
+ output: result number (1..1)
+ set result: ${i}
+`
+    ).join('');
+  const composer = await openComposition(page, library);
+  const palette = composer.getByRole('complementary', { name: 'Composition palette' });
+  const tree = palette.getByTestId('namespace-explorer');
+  const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
+  await expect(palette.getByRole('heading', { name: 'Functions 127' })).toBeVisible();
+  expect((await palette.locator('.function-composer__catalog').boundingBox())!.height).toBeLessThanOrEqual(288);
+  await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
+  await expect(tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true })).toHaveCount(0);
+  await expect(tree.getByTestId('kind-filter-pills')).toHaveCount(0);
+  const namespace = tree.getByTestId('ns-seg-workflow').getByRole('button', { name: 'workflow', exact: true });
+  await namespace.focus();
+  await namespace.press('Enter');
+  await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toHaveCount(0);
+  await search.fill('palettecall124');
+  const last = tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true });
+  await expect(last).toBeVisible();
+  await last.focus();
+  await last.press('Enter');
+  await expect(composer.locator('.function-composer__header > strong')).toHaveText('PaletteCall124');
+  await search.clear();
+  await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toHaveCount(0);
+  await search.fill('workflow');
+  await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
+  await search.fill('PalettePayload');
+  await expect(tree.getByRole('button', { name: /^Open / })).toHaveCount(0);
+  await search.fill('PaletteKind');
+  await expect(tree.getByRole('button', { name: /^Open / })).toHaveCount(0);
+  await search.clear();
+  await namespace.press('Enter');
+  await info.attach('compose-function-palette-hd', {
+    body: await page.screenshot({ animations: 'disabled' }),
+    contentType: 'image/png'
+  });
+});
+
 for (const theme of ['daikonic', 'light'])
   test(`keeps long composition names and variable tags within the workbench (${theme})`, async ({ page }, info) => {
     const name = 'Accrual' + 'Schedule'.repeat(16);

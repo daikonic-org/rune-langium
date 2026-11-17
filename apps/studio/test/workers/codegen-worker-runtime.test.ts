@@ -2,17 +2,215 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { existsSync, readFileSync } from 'node:fs';
-import { BASE_TYPE_FILES } from '@rune-langium/core';
+import { BASE_TYPE_FILES, getFunctionImplementationRegion, parse } from '@rune-langium/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { declarationDocuments } from '../helpers/curated-declaration-fixture.js';
 import { loadRealWorker, type WorkerScope } from './helpers/real-codegen-worker.js';
+import { pathToUri } from '../../src/utils/uri.js';
 
 async function waitForMessage(scope: WorkerScope, type: string): Promise<void> {
   await vi.waitFor(() => {
     expect(scope.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type }));
   });
 }
+
+it('retains a captured schema across source-view refreshes and replaces it for a changed program', async () => {
+  const { createProjectSnapshot } = await import('@rune-langium/project-config');
+  const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+  const content = 'namespace view\ntype Quote:\n amount number (1..1)\n';
+  const snapshot = await createProjectSnapshot(
+    'view',
+    new Map([
+      ['rune-config.yml', 'model: {name: View}'],
+      ['build-config.yml', 'schemaVersion: 1\nsources: ["model/**/*.rosetta"]\n']
+    ]),
+    () => []
+  );
+  const capture = async (source: string) =>
+    captureProjectRuntimeInput(
+      snapshot,
+      [{ name: 'quotes.rosetta', path: 'model/quotes.rosetta', content: source, dirty: false }],
+      []
+    );
+  const project = await capture(content);
+  const { scope, dispatch } = await loadRealWorker();
+  const uri = pathToUri('model/quotes.rosetta');
+  const schema = async (requestId: string, receipt = project.receipt) => {
+    dispatch({ type: 'instance:generateSchema', typeFqn: 'view.Quote#Data', projectReceipt: receipt, requestId });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'instance:generateSchemaResult', requestId })
+      )
+    );
+    return scope.postMessage.mock.calls.find(([message]) => message.requestId === requestId)![0].schema;
+  };
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 1,
+    files: [{ uri, content: '' }],
+    project,
+    requestId: 'cache:install'
+  });
+  await waitForMessage(scope, 'preview:files-ready');
+  const first = await schema('cache:first');
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 2,
+    files: [{ uri, content }],
+    projectReceipt: project.receipt,
+    requestId: 'cache:source'
+  });
+  const refreshed = await schema('cache:refreshed');
+  expect(refreshed.fields).toBe(first.fields);
+  const changed = await capture(content + ' currency string (1..1)\n');
+  expect(changed.receipt.revision).not.toBe(project.receipt.revision);
+  dispatch({
+    type: 'preview:setFiles',
+    filesRevision: 3,
+    files: [{ uri, content: content + ' currency string (1..1)\n' }],
+    project: changed,
+    requestId: 'cache:changed'
+  });
+  const updated = await schema('cache:updated', changed.receipt);
+  expect(updated.fields).not.toBe(first.fields);
+  expect(updated.fields).toContainEqual(expect.objectContaining({ path: 'currency' }));
+  vi.unstubAllGlobals();
+});
+
+it.each(['typescript', 'python'] as const)(
+  'refreshes original-source %s projections against one captured program, including in-flight preparation',
+  async (language) => {
+    const { createProjectSnapshot } = await import('@rune-langium/project-config');
+    const { captureProjectRuntimeInput } = await import('../../src/services/project-runtime-input.js');
+    const content = 'namespace view\nfunc Calculate:\n output: result int (1..1)\n set result: 1\n';
+    const original = '// Original source has different display coordinates.\n\n' + content;
+    const snapshot = await createProjectSnapshot(
+      'view',
+      new Map([
+        ['rune-config.yml', 'model: {name: View}'],
+        ['build-config.yml', 'schemaVersion: 1\nsources: ["model/**/*.rosetta"]\n']
+      ]),
+      () => []
+    );
+    const project = await captureProjectRuntimeInput(
+      snapshot,
+      [],
+      (await declarationDocuments([['functions', content]])).map(({ uri, serializedModel }) => ({
+        uri,
+        content: '',
+        serialized: serializedModel
+      }))
+    );
+    const uri = pathToUri('[cdm]/functions.rosetta');
+    const { scope, dispatch } = await loadRealWorker();
+    const wrongReceipt = { ...project.receipt, revision: '0'.repeat(64) };
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [],
+      projectReceipt: project.receipt,
+      requestId: 'view:unprepared'
+    });
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'preview:files-ready',
+        requestId: 'view:unprepared',
+        projectError: expect.any(String)
+      })
+    );
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 2,
+      files: [{ uri, content: '', refOnly: true }],
+      project,
+      requestId: 'view:install'
+    });
+    // The source arrives while program preparation is still in flight, without
+    // another serialized model payload. Both revisions must be acknowledged.
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 3,
+      files: [{ uri, content: original, refOnly: true }],
+      projectReceipt: project.receipt,
+      requestId: 'view:source'
+    });
+    for (const requestId of ['view:install', 'view:source']) {
+      await vi.waitFor(() =>
+        expect(scope.postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: 'preview:files-ready',
+            requestId,
+            projectReceipt: project.receipt
+          })
+        )
+      );
+      expect(
+        scope.postMessage.mock.calls.find(([message]) => message.requestId === requestId)?.[0].projectError
+      ).toBeUndefined();
+    }
+    const parsed = await parse(original);
+    const request = {
+      type: 'projection:generate',
+      language,
+      kind: 'function',
+      source: original,
+      subject: {
+        uri,
+        nodeId: 'view.Calculate#RosettaFunction',
+        region: getFunctionImplementationRegion(parsed.value.elements[0]!, original)
+      },
+      filesRevision: 3,
+      projectReceipt: project.receipt
+    };
+    dispatch({ ...request, requestId: 'view:projection' });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'projection:result',
+          requestId: 'view:projection',
+          projectReceipt: project.receipt,
+          projection: expect.objectContaining({ code: expect.stringContaining('return ') })
+        })
+      )
+    );
+    for (const [requestId, update] of [
+      ['view:wrong-receipt', { projectReceipt: wrongReceipt }],
+      ['view:conflicting-receipt', { project, projectReceipt: wrongReceipt }]
+    ] as const) {
+      dispatch({ type: 'preview:setFiles', filesRevision: 4, files: [], requestId, ...update });
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'preview:files-ready',
+          requestId,
+          projectError: expect.any(String)
+        })
+      );
+    }
+    // Invalid updates cannot replace the valid program or its source bytes.
+    dispatch({ ...request, requestId: 'view:preserved' });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'projection:result',
+          requestId: 'view:preserved',
+          projectReceipt: project.receipt
+        })
+      )
+    );
+    dispatch({ ...request, source: content, requestId: 'view:old-source' });
+    await vi.waitFor(() =>
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'projection:error',
+          requestId: 'view:old-source',
+          error: expect.stringContaining('source changed')
+        })
+      )
+    );
+    vi.unstubAllGlobals();
+  }
+);
 
 it('serializes cloned examples with linked metadata roles and refuses a mismatched saved revision', async () => {
   const { createProjectSnapshot, createProjectDraftSnapshot } = await import('@rune-langium/project-config');

@@ -2511,6 +2511,30 @@ export const TradeSchema = z.object({settlement: z.object({value: z.union([
 
     expect(emitStandaloneZodSchemaMock).toHaveBeenCalledTimes(2);
   });
+
+  it('shares compilation between simultaneous validations without sharing their data or diagnostics', async () => {
+    emitStandaloneZodSchemaMock.mockReturnValue({
+      code: "import { z } from 'zod';\nexport const TradeSchema = z.object({ id: z.string() }).strict();",
+      diagnostics: []
+    });
+    const { scope, dispatch } = await loadWorkerModule();
+    await setFilesAndFlush(dispatch, flushWorker);
+    dispatch({ type: 'instance:validate', typeFqn: 'beta.Trade', data: { id: 'ok' }, requestId: 'parallel:valid' });
+    dispatch({ type: 'instance:validate', typeFqn: 'beta.Trade', data: { id: 4 }, requestId: 'parallel:invalid' });
+    await flushWorker();
+    expect(emitStandaloneZodSchemaMock).toHaveBeenCalledTimes(1);
+    const responses = scope.postMessage.mock.calls.map(([message]) => message);
+    expect(responses).toContainEqual(
+      expect.objectContaining({ type: 'instance:validateResult', requestId: 'parallel:valid', diagnostics: [] })
+    );
+    expect(responses).toContainEqual(
+      expect.objectContaining({
+        type: 'instance:validateResult',
+        requestId: 'parallel:invalid',
+        diagnostics: [expect.objectContaining({ path: 'id' })]
+      })
+    );
+  });
 });
 
 describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
@@ -2605,6 +2629,55 @@ describe('codegen-worker codegenGenerateCache (runCodegen)', () => {
     dispatch({ type: 'codegen:generate', target: 'zod', requestId: 'retry:fresh', regenerate: true });
     await flushWorker();
     expect(generateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not share in-flight exports for different declaration selections', async () => {
+    const pending: Array<(outputs: unknown[]) => void> = [];
+    generateMock.mockImplementation(() => new Promise((resolve) => pending.push(resolve)));
+    const { scope, dispatch } = await loadWorkerModule();
+    dispatch({
+      type: 'preview:setFiles',
+      filesRevision: 1,
+      files: [{ uri: 'file:///trade.rosetta', content: 'namespace beta' }]
+    });
+    await flushWorker();
+    for (const name of ['Trade', 'Quote'])
+      dispatch({
+        type: 'codegen:generate',
+        target: 'typescript',
+        requestId: `selection:${name}`,
+        selection: { declarations: [{ namespace: 'beta', name, kind: 'Data' }], namespaces: [] }
+      });
+    await flushWorker();
+    expect(pending).toHaveLength(2);
+    for (const [index, name] of ['Trade', 'Quote'].entries())
+      pending[index]!([{ relativePath: `${name}.ts`, content: name, diagnostics: [], funcs: [] }]);
+    await flushWorker();
+    for (const name of ['Trade', 'Quote'])
+      expect(scope.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'codegen:result',
+          requestId: `selection:${name}`,
+          files: [expect.objectContaining({ content: name })]
+        })
+      );
+  });
+
+  it('retries generation after a shared pending computation rejects', async () => {
+    generateMock.mockRejectedValueOnce(new Error('Unavailable generator'));
+    const { scope, dispatch } = await loadWorkerModule();
+    dispatch({ type: 'codegen:setFiles', files: [{ uri: 'file:///trade.rosetta', content: 'namespace beta' }] });
+    dispatch({ type: 'codegen:generate', target: 'typescript', requestId: 'failure:first' });
+    await flushWorker();
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'codegen:error', requestId: 'failure:first' })
+    );
+    dispatch({ type: 'codegen:generate', target: 'typescript', requestId: 'failure:retry' });
+    await flushWorker();
+    expect(generateMock).toHaveBeenCalledTimes(2);
+    expect(scope.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'codegen:result', requestId: 'failure:retry' })
+    );
   });
 
   it('invalidates the codegen cache after codegen:setFiles', async () => {
