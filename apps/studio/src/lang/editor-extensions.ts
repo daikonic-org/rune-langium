@@ -6,6 +6,7 @@ import { Annotation, EditorState, type ChangeSpec, type Extension } from '@codem
 import { EditorView } from '@codemirror/view';
 import { basicSetup, minimalSetup } from 'codemirror';
 import { studioEditorExtensions } from './editor-theme.js';
+import { assertionHighlight } from './assertion-highlight.js';
 
 export const externalDocumentChange = Annotation.define<boolean>();
 
@@ -18,6 +19,7 @@ export const editorExtensions = withInstrumentation(
       EditorView.lineWrapping,
       ...studioEditorExtensions,
       language,
+      assertionHighlight,
       ...(readOnly
         ? [
             EditorState.readOnly.of(true),

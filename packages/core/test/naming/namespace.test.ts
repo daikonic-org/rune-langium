@@ -1,7 +1,23 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 import { describe, it, expect } from 'vitest';
-import { namespaceFromSource, namespaceFromModelName } from '../../src/naming/namespace.js';
+import {
+  namespaceFromSource,
+  namespaceFromModelName,
+  importNamespaceDependencies
+} from '../../src/naming/namespace.js';
+
+describe('importNamespaceDependencies', () => {
+  const namespaces = new Set(['cdm.rates', 'cdm.rates.detail', 'cdm.other']);
+  it('includes declaration imports without broadening namespace selectors', () => {
+    expect(importNamespaceDependencies('cdm.rates.FloatingRateIndexEnum', namespaces)).toEqual(['cdm.rates']);
+    expect(importNamespaceDependencies('cdm.rates', namespaces)).toEqual(['cdm.rates']);
+    expect(importNamespaceDependencies('cdm.rates.*', namespaces)).toEqual(['cdm.rates', 'cdm.rates.detail']);
+    expect(importNamespaceDependencies('cdm.missing.Type', namespaces)).toEqual([]);
+    expect(importNamespaceDependencies('cdm.rates.missing.*', namespaces)).toEqual([]);
+    expect(importNamespaceDependencies('Unknown', namespaces)).toEqual([]);
+  });
+});
 
 describe('namespaceFromSource', () => {
   it('extracts a dotted namespace from source text', () => {

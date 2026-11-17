@@ -78,6 +78,7 @@ describe('studio editor theme uses design-system syntax tokens', () => {
     expect(rule(t.comment)).toMatchObject({ color: 'var(--muted-foreground)', fontStyle: 'italic' });
     expect(rule(t.meta)?.color).toBe(rule(t.annotation)?.color);
     expect(rule(t.meta)?.fontStyle).toBeUndefined();
+    expect(rule(t.keyword)?.fontStyle).toBe('italic');
   });
 
   // Anti-regression: #C792EA (keyword) and #C3E88D (string) are unique to the

@@ -1062,10 +1062,19 @@ Authored comments are Source-only. Core's existing lexer yields UTF-16 comment r
 
 Curated navigation resolves the selected declaration's actual document within the active bundle/version/namespace/artifact. Pending reveal is scoped to current navigation/workspace/revision and is cancelled when superseded. Multi-document namespaces must never use the first matching namespace file as a declaration owner; namespace/source laziness and immutable cache keys are unchanged.
 
-Source selection uses CodeMirror lexical context plus an anchored declaration and
+Source cursor synchronization quietly ignores source-only declarations outside
+the current graph, including files outside `build.sources`; explicit navigation
+still reports missing destinations. Source selection uses CodeMirror lexical
+context plus an anchored declaration and
 its name range. Comments, strings, neighboring lines and ordinary expression
 keywords cannot manufacture a missing-type navigation request. Explicit LSP
 reference navigation still resolves through the language service.
+
+`editor-extensions.ts` owns shared CodeMirror behavior and syntax-aware assertion
+callee decoration; `editor-theme.ts` owns its token-driven colors and typography.
+`--font-editor` selects the bundled Transit Code face for content and gutters;
+`--font-mono` remains the JetBrains UI stack. Assertion callees use subdued red
+without dimming their arguments or changing source text.
 
 ### Selected-object inspector and code previews
 

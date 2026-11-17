@@ -16,9 +16,10 @@ available; no system preference silently replaces an explicit choice.
 
 ## Studio adaptation
 
-- Preserve Inter UI, Outfit wordmark and JetBrains Mono code, plus existing compact
-  sizing. Public Sans inspired the reference's practical voice, but changing
-  Studio's font or density would break its existing identity.
+- Preserve Inter UI, Outfit wordmark and compact sizing. CodeMirror uses the
+  bundled Daikonic Transit Code 1.015 at Book 350 through `--font-editor`, including
+  its line-number gutters. Other monospace UI keeps JetBrains Mono through
+  `--font-mono`. Keywords retain italic emphasis.
 - Ice `#eaf1f0` surrounds white cards. Petrol `#123f46` identifies primary actions;
   mint `#d7f5a9` is secondary action fill with dark green text. Avoid broad lilac
   washes: `#7160b5` is the focus cue.

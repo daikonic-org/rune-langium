@@ -71,9 +71,12 @@ describe('Explore navigation selection resolution', () => {
     expect(resolveExploreNavigation(repository, 'test.Party', undefined, 'source').unchanged).toBe(false);
   });
 
-  it('leaves unavailable declarations unresolved for the existing missing-type feedback', () => {
+  it('quietly ignores source-only or not-yet-parsed declarations while preserving explicit missing-type feedback', () => {
     const request = resolveExploreNavigation(repository, 'test.Missing', dataId, 'source');
     expect(request.targetNode).toBeUndefined();
-    expect(request.unchanged).toBe(false);
+    expect(request.unchanged).toBe(true);
+    expect(resolveExploreNavigation(repository, 'test.Missing', dataId).unchanged).toBe(false);
+    const empty = selectNodeRepository(new Map());
+    expect(resolveExploreNavigation(empty, functionId, functionId, 'source').unchanged).toBe(true);
   });
 });

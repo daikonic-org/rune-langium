@@ -110,7 +110,12 @@ export {
 
 // Naming utilities
 export { qualifiedExportPath } from './naming/qualified-export-path.js';
-export { namespaceFromSource, namespaceFromModelName, expandNamespaceWildcard } from './naming/namespace.js';
+export {
+  namespaceFromSource,
+  namespaceFromModelName,
+  expandNamespaceWildcard,
+  importNamespaceDependencies
+} from './naming/namespace.js';
 
 // Collection utilities
 export { indexById, fromIndex } from './collections/index-by-id.js';

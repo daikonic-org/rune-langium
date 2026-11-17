@@ -11,6 +11,32 @@ const raw = { path: 'a.rosetta', name: 'a.rosetta', content: 'namespace example'
 const parsed = { filePath: raw.path, model, serializedModelJson: source } as ParsedWorkspaceModel;
 
 describe('LSP workspace models', () => {
+  it('includes explicitly imported declarations before references have linked', () => {
+    const files = [
+      {
+        ...raw,
+        path: 'helper.rosetta',
+        serializedModelJson: JSON.stringify({
+          ...model,
+          name: 'impl.cdm.fro',
+          imports: [
+            { importedNamespace: 'cdm.rates.FloatingRateIndexEnum' },
+            { importedNamespace: 'cdm.fro.FloatingRateIndexDefinition' }
+          ]
+        })
+      },
+      ...['cdm.rates', 'cdm.fro', 'unrelated'].map((name) => ({
+        ...raw,
+        path: `${name}.rosetta`,
+        serializedModelJson: JSON.stringify({ ...model, name })
+      }))
+    ];
+    expect(collectLspWorkspaceModels(files, [], new Map(), 'helper.rosetta').map((entry) => entry.uri)).toEqual([
+      'file:///workspace/helper.rosetta',
+      'file:///workspace/cdm.rates.rosetta',
+      'file:///workspace/cdm.fro.rosetta'
+    ]);
+  });
   it('includes raw parser results and curated models without loading curated source', () => {
     const cache = new Map<string, LspModelCacheEntry>();
     const result = collectLspWorkspaceModels(

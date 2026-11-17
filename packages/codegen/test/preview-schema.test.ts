@@ -14,6 +14,7 @@ import {
   metadataPreviewField
 } from '../src/export.js';
 import type { PreviewField } from '../src/types.js';
+import { createProjectBindingRegistry } from '../src/runtime/project-bindings.js';
 
 const skipIfNodeLt22 = it.skipIf(Number(process.versions.node.split('.')[0]) < 22);
 const REAL_CDM_ADJUSTABLE_DATE_FIXTURES = [
@@ -104,7 +105,7 @@ func Dispatch(kind: Kind -> One):
  set result: 1`);
     const schemas = generatePreviewSchemas(doc);
     expect(schemas.find((schema) => schema.title === 'External')?.executionUnavailable).toMatch(
-      /No Rune implementation/
+      /No executable implementation is configured for test.capability.External in this project/
     );
     expect(schemas.find((schema) => schema.title === 'Ordinary')?.executionUnavailable).toBeUndefined();
     expect(schemas.find((schema) => schema.title === 'Dispatch')?.executionUnavailable).toBeUndefined();
@@ -114,8 +115,31 @@ func Dispatch(kind: Kind -> One):
     const doc = await parseModel('namespace segmented.example\nfunc External:\n output: result number (1..1)\n');
     Object.assign(doc.parseResult.value, { name: { segments: ['segmented', 'example'] } });
     expect(generatePreviewSchemas(doc).find((schema) => schema.title === 'External')?.executionUnavailable).toMatch(
-      /No Rune implementation/
+      /No executable implementation is configured for segmented.example.External in this project/
     );
+  });
+
+  it('permits a configured project implementation for a provider declaration', async () => {
+    const doc = await parseModel(
+      'namespace impl.cdm.settlement\nfunc ReadCashSettlementSchedule:\n output: result number (1..1)\n'
+    );
+    const projectBindings = createProjectBindingRegistry({
+      implementations: [
+        {
+          symbol: {
+            model: 'local',
+            namespace: 'impl.cdm.settlement',
+            kind: 'RosettaFunction',
+            name: 'ReadCashSettlementSchedule'
+          },
+          invoke: () => 1
+        }
+      ]
+    });
+    expect(generatePreviewSchemas(doc)[0]?.executionUnavailable).toContain(
+      'impl.cdm.settlement.ReadCashSettlementSchedule'
+    );
+    expect(generatePreviewSchemas(doc, { projectBindings })[0]?.executionUnavailable).toBeUndefined();
   });
 
   it('preserves declared symbol identities across namespaces, alias chains, collections and deferred bodies', async () => {

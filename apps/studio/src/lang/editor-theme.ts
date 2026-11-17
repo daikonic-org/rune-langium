@@ -17,7 +17,8 @@ import { syntax } from '@rune-langium/design-system/tokens';
 const syntaxColor = (key: keyof typeof syntax) => `var(--syntax-${key}, ${syntax[key]})`;
 
 const editorTextStyle = {
-  fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
+  fontFamily: 'var(--font-editor, var(--font-mono, monospace))',
+  fontWeight: '350',
   fontSize: '13px',
   lineHeight: '1.45'
 };
@@ -66,6 +67,9 @@ export const studioEditorTheme = EditorView.theme(
       minWidth: '0'
     },
     '.cm-line': { padding: '0 8px' },
+    '.cm-assertion, .cm-assertion span': {
+      color: 'color-mix(in srgb, var(--destructive) 75%, var(--foreground))'
+    },
     '.cm-foldGutter': { width: '10px' },
     '.cm-foldGutter .cm-gutterElement': { padding: '0', color: 'var(--muted-foreground)' },
     '.cm-tooltip': {
@@ -103,7 +107,7 @@ export const studioEditorTheme = EditorView.theme(
 );
 
 export const studioEditorHighlightStyle = HighlightStyle.define([
-  { tag: t.keyword, color: syntaxColor('keyword') },
+  { tag: t.keyword, color: syntaxColor('keyword'), fontStyle: 'italic' },
   { tag: [t.name, t.deleted, t.character, t.macroName], color: 'var(--foreground)' },
   { tag: [t.function(t.variableName), t.labelName], color: syntaxColor('function') },
   { tag: [t.propertyName], color: syntaxColor('attribute') },

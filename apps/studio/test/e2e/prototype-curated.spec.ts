@@ -67,9 +67,12 @@ for (const name of ['Double', 'External'])
       await expect(page.getByRole('button', { name: /External: Checks passed/ })).toBeVisible();
       await dismissLocalTransportNotices(page);
       await expect(
-        page.getByText('No Rune implementation is defined. External implementations cannot be executed in Studio.', {
-          exact: true
-        })
+        page.getByText(
+          'No executable implementation is configured for example.functions.External in this project. Add a Rune body or a project implementation binding.',
+          {
+            exact: true
+          }
+        )
       ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeDisabled();
       await page.screenshot({ path: info.outputPath('external-implementation.png') });

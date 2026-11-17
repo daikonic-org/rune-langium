@@ -1153,8 +1153,7 @@ function buildFunctionSchema(
     kind: 'function',
     ...(unimplemented
       ? {
-          executionUnavailable:
-            'No Rune implementation is defined. External implementations cannot be executed in Studio.'
+          executionUnavailable: `No executable implementation is configured for ${targetId} in this project. Add a Rune body or a project implementation binding.`
         }
       : {}),
     status: hasReportableUnsupportedFeature(unsupportedFeatures) ? 'unsupported' : 'ready',
