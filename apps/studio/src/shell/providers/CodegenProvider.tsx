@@ -4,7 +4,7 @@
 import { projectWorkerInput } from '../../services/project-runtime-input.js';
 import { recordOperation } from '../../services/operation-feedback.js';
 import { allocateOpId } from '../../services/op-log.js';
-import { recordPerf, recordPerfStart } from '../../services/perf-log.js';
+import { recordPerf, recordPerfStart, type PerfFailureReason } from '../../services/perf-log.js';
 import type React from 'react';
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { useEditorStore } from '@rune-langium/visual-editor';
@@ -57,6 +57,15 @@ import { isTelemetryRecordMessage } from '../../services/instrumentation/worker-
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { RetryExhaustedError } from '../../services/instrumentation/errors.js';
 import type { InstrumentationNamespace } from '../../services/instrumentation/namespace.js';
+
+class PreviewSynchronizationError extends Error {
+  constructor(
+    readonly reason: PerfFailureReason,
+    message: string
+  ) {
+    super(message);
+  }
+}
 
 /** Only catalog stubs need hydration; complete serialized definitions are already in the worker file set. */
 function curatedDeferredExports(
@@ -398,20 +407,40 @@ export const CodegenProvider = withInstrumentation(
           // Bound the shared acknowledgement as well as individual consumers.
           // A lost reply must not pin every later request to one pending promise.
           let ok = false;
+          let failure: unknown;
           const applied = withAbortTimeout(() => ready, PREVIEW_PREPARATION_TIMEOUT_MS)
             .then((revision) => {
               ok = true;
               return revision;
             })
-            .finally(() =>
+            .catch((error: unknown) => {
+              failure = error;
+              throw error;
+            })
+            .finally(() => {
+              const cancelled =
+                (failure instanceof Error || failure instanceof DOMException) && failure.name === 'AbortError';
+              const reason: PerfFailureReason | undefined = ok
+                ? undefined
+                : cancelled
+                  ? 'cancelled'
+                  : failure instanceof OperationTimeoutError
+                    ? 'timeout'
+                    : failure instanceof PreviewSynchronizationError
+                      ? failure.reason
+                      : 'worker-failure';
               recordPerf({
                 op,
                 ok,
+                outcome: ok ? 'success' : cancelled ? 'cancelled' : 'error',
+                ...(reason ? { reason } : {}),
+                workspaceEpoch: epoch,
+                filesRevision,
                 opId,
                 durationMs: performance.now() - startedAt,
                 ts: performance.now()
-              })
-            );
+              });
+            });
           const entry = { worker, epoch, receipt: { ...input.receipt }, files: filesRef.current, ready: applied };
           managedWorkerFilesRef.current = entry;
           void applied.catch((error: unknown) => {
@@ -636,17 +665,25 @@ export const CodegenProvider = withInstrumentation(
           if (!waiter) return;
           workerFileWaitersRef.current.delete(msg.requestId);
           if (waiter.epoch !== workspaceEpochRef.current) {
-            waiter.reject(new Error('Workspace changed before worker files were ready.'));
+            waiter.reject(new DOMException('Workspace changed before worker files were ready.', 'AbortError'));
           } else if (waiter.filesRevision !== msg.filesRevision) {
             waiter.reject(
-              new Error(`Worker acknowledged files revision ${msg.filesRevision}; expected ${waiter.filesRevision}.`)
+              new PreviewSynchronizationError(
+                'revision-mismatch',
+                `Worker acknowledged files revision ${msg.filesRevision}; expected ${waiter.filesRevision}.`
+              )
             );
           } else if (msg.projectError) {
-            waiter.reject(new Error(msg.projectError));
+            waiter.reject(new PreviewSynchronizationError('project-invalid', msg.projectError));
           } else if (
             waiter.receipt ? !projectReceiptMatches(waiter.receipt, msg.projectReceipt) : Boolean(msg.projectReceipt)
           ) {
-            waiter.reject(new Error('Worker project receipt does not match the requested source and configuration.'));
+            waiter.reject(
+              new PreviewSynchronizationError(
+                'receipt-mismatch',
+                'Worker project receipt does not match the requested source and configuration.'
+              )
+            );
           } else {
             waiter.resolve(msg.filesRevision);
           }
@@ -839,11 +876,11 @@ export const CodegenProvider = withInstrumentation(
         useInstanceStore.getState().setReadiness(undefined);
         useInstanceStore.getState().setWorker(undefined);
         for (const waiter of workerFileWaitersRef.current.values()) {
-          waiter.reject(new Error('Code generation worker was detached.'));
+          waiter.reject(new DOMException('Preview synchronization was superseded or detached.', 'AbortError'));
         }
         workerFileWaitersRef.current.clear();
         for (const waiter of workspaceCommitWaitersRef.current) {
-          waiter.reject(new Error('Code generation worker was detached.'));
+          waiter.reject(new DOMException('Preview synchronization was superseded or detached.', 'AbortError'));
         }
         workspaceCommitWaitersRef.current.clear();
       };

@@ -263,6 +263,22 @@ func PaletteCall${i}:
   await search.fill('palettecall124');
   const last = tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true });
   await expect(last).toBeVisible();
+  await expect(
+    tree.getByTestId('ns-type-workflow.PaletteCall124#RosettaFunction').locator('[data-slot="list-card"]')
+  ).toHaveAttribute('data-variant', 'compact');
+  const spacing = await palette.locator('.function-composer__catalog').evaluate((catalog) => {
+    const rows = catalog.querySelectorAll('[data-slot="list-card"]');
+    const last = rows[rows.length - 1]!;
+    return catalog.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom;
+  });
+  expect(spacing).toBeLessThan(16);
+  const subtitle = await tree
+    .getByTestId('ns-type-workflow.PaletteCall124#RosettaFunction')
+    .locator('[data-slot="list-card-description"]')
+    .boundingBox();
+  expect(subtitle).not.toBeNull();
+  await page.mouse.click(subtitle!.x + subtitle!.width / 2, subtitle!.y + subtitle!.height / 2);
+  await expect(composer.locator('.function-composer__header > strong')).toHaveText('PaletteCall124');
   await last.focus();
   await last.press('Enter');
   await expect(composer.locator('.function-composer__header > strong')).toHaveText('PaletteCall124');

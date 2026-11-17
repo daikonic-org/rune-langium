@@ -3,6 +3,7 @@
 
 import { expect, test as base } from '@playwright/test';
 import { fetchCiGitHubSource } from './ci-github-source.js';
+import { serveReferenceSource } from '../../functions/api/reference-source.js';
 
 /** Candidate runs substitute built static assets while retaining real hosted endpoints. */
 export const test = base.extend<{ runtimeHealth: void }>({
@@ -58,6 +59,33 @@ export const test = base.extend<{ runtimeHealth: void }>({
         }
       );
       const token = process.env.STUDIO_TEST_GITHUB_TOKEN;
+      // This new Pages route is not yet deployed. Exercise its candidate handler
+      // against real upstream bytes; credentials remain in the Node transport.
+      await context.route(`${deployed.origin}/api/reference-source?**`, async (route) => {
+        const response = await serveReferenceSource({
+          request: new Request(route.request().url()),
+          waitUntil: () => {},
+          fetcher: async (input, init) => {
+            const authenticated = token
+              ? await fetchCiGitHubSource(
+                  {
+                    url: String(input),
+                    method: init?.method ?? 'GET',
+                    headers: Object.fromEntries(new Headers(init?.headers))
+                  },
+                  token,
+                  abort.signal
+                )
+              : undefined;
+            return authenticated ?? fetch(input, { ...init, signal: abort.signal });
+          }
+        });
+        await route.fulfill({
+          status: response.status,
+          headers: Object.fromEntries(response.headers),
+          body: Buffer.from(await response.arrayBuffer())
+        });
+      });
       if (token)
         await context.route('https://api.github.com/repos/finos/common-domain-model{,/**}', async (route) => {
           const request = route.request();

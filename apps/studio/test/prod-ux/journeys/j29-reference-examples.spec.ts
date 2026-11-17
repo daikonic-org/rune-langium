@@ -24,7 +24,11 @@ async function openExample(page: Page, path: string) {
   await page.getByRole('button', { name: 'Reference examples…', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Import reference examples', exact: true });
   await dialog.getByRole('textbox', { name: 'Search reference examples', exact: true }).fill(path.split('/').at(-1)!);
-  await dialog.getByRole('button', { name: path, exact: true }).click();
+  const file = dialog.getByRole('button', { name: path, exact: true });
+  const failure = dialog.getByRole('alert');
+  await expect(file.or(failure).first()).toBeVisible();
+  if (await failure.isVisible()) throw new Error(`Reference examples could not load: ${await failure.textContent()}`);
+  await file.click();
   await expect(dialog.getByLabel('Example payload', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Example object type', exact: true })).toHaveCount(0);
   return dialog;

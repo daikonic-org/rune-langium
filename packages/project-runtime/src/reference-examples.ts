@@ -86,7 +86,8 @@ export async function openReferenceExamples(
     origin.repository.slice('https://github.com/'.length),
     origin.commit,
     signal,
-    fetcher
+    fetcher,
+    { entries: 50_000, treeBytes: 16 * 1024 * 1024, rawContents: true }
   );
   const bindings = new Map<string, ReferenceExecutionBinding>();
   const descriptors = repo.files.filter(

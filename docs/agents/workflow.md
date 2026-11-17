@@ -277,7 +277,12 @@ runner IP rate limits do not block source discovery. The credential never enters
 browser requests or Playwright's API tracing; other hosts, repositories, methods
 and redirects are excluded. Response bytes still come from GitHub, without fixtures
 or response caching. Local/deployed reviews remain anonymous unless this candidate-only
-transport is explicitly configured. Explore exposes its authoritative project/reference
+transport is explicitly configured.
+Candidate runs exercise the candidate `/api/reference-source` handler in Node
+against live GitHub bytes, with the same restricted CI authentication transport;
+Pages route cache/failure/allowlist behavior has separate function tests. This
+exception is recorded in candidate metadata; other backend endpoints stay deployed.
+Explore exposes its authoritative project/reference
 loading state as `aria-busy`; restored-layout checks wait for readiness within the
 existing workbench deadline before searching its inventory.
 Before any UX evidence upload, `apps/studio/scripts/redact-test-artifacts.mjs`

@@ -25,7 +25,7 @@ export function useVirtualTree(rows: FlatTreeRow[], scrollRef: RefObject<HTMLDiv
       (index: number) => {
         const row = rows[index]!;
         return row.kind === 'type'
-          ? `type:${row.nodeId}:${row.qualifier ?? ''}`
+          ? `type:${row.nodeId}:${Boolean(row.qualifier)}`
           : row.kind === 'segment'
             ? `segment:${row.fullPath}`
             : `namespace:${row.namespace}`;

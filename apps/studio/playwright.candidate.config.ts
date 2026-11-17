@@ -14,7 +14,12 @@ process.env.PROD_UX_REPORT_DIR ??= '../../dist/ux-candidate/report';
 export default defineConfig({
   ...production,
   forbidOnly: true,
-  metadata: { reviewTarget: 'candidate', staticAssetOrigin: process.env.PROD_UX_ASSET_ORIGIN, backend: 'deployed' },
+  metadata: {
+    reviewTarget: 'candidate',
+    staticAssetOrigin: process.env.PROD_UX_ASSET_ORIGIN,
+    backend: 'deployed',
+    referenceSource: 'candidate Pages handler with live GitHub transport'
+  },
   globalTeardown: './test/prod-ux/candidate-teardown.ts',
   retries: 0,
   outputDir: '../../dist/ux-candidate/results',
@@ -57,6 +62,8 @@ export default defineConfig({
         'e2e/export-workbench.spec.ts',
         'e2e/review-api-polish.spec.ts',
         'e2e/inspector-details.spec.ts',
+        'e2e/list-card-presentation.spec.ts',
+        'e2e/reference-examples.spec.ts',
         'e2e/inspector-local-declaration.spec.ts',
         'e2e/project-overrides.spec.ts',
         'e2e/native-builtin-mappings.spec.ts',

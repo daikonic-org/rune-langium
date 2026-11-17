@@ -151,6 +151,11 @@ complete it. The bounded perf log records `previewPrepareProject` for full
 preparation, `previewSyncView` for source-view updates, and `referenceMaterialize`
 when a new closure is adopted by the UI, with no model/source payloads, alongside
 the unchanged end-to-end form timing.
+Intentional synchronization teardown and stale workspace acknowledgements use
+AbortError and record a cancelled outcome, not a worker failure. Perf records keep
+structural failure reasons, workspace epoch and file revision; raw exception/model
+text stays out of this buffer. Receipt/revision mismatches and real worker failures
+remain errors and retryable.
 Managed schema, validator and generated-module caches follow the program receipt,
 while source-view updates advance the independent projection revision. Identical
 in-flight computations share one promise only for the same version and variant
@@ -1582,6 +1587,14 @@ parser does not guess imported symbol kinds. Incremental copies isolate enum,
 member and declaration state. Light-theme palette work is tracked in #643.
 
 ## Reference example imports
+
+Public reference commit/tree metadata uses `/api/reference-source`, restricted to
+the curated repository registry, immutable SHA identities and GET. Successful
+responses share an edge cache; failures are never cached. Connected workspaces
+reuse their scoped token directly for admitted GitHub objects, without entering
+the public cache. Payloads use raw immutable URLs and retain the shared reader's
+Git blob hash/size checks. Quota errors expose reset/recovery guidance. This is a
+transport cache, not a second reference catalog or a parser/validation path.
 
 Core's parser-free `/serialization` entry owns JSON/RUNE_JSON wire metadata
 conversion. Project-config's portable example reader and native project-data APIs

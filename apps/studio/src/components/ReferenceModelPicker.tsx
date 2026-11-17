@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Library } from 'lucide-react';
+import { ListCard } from '@rune-langium/design-system/ui/list-card';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
@@ -255,13 +256,18 @@ export const ReferenceModelPicker = withInstrumentation(
                       setDetail(true);
                     }}
                   >
-                    <strong>{entry.name}</strong>
-                    <span>
-                      {installed.get(entry.id) === 'nightly'
-                        ? 'Nightly'
-                        : (installed.get(entry.id) ??
-                          (dependenciesLoading ? 'Checking dependencies…' : 'Not in workspace'))}
-                    </span>
+                    <ListCard
+                      variant="detailed"
+                      icon={<Library />}
+                      name={entry.name}
+                      description={entry.description}
+                      detail={
+                        installed.get(entry.id) === 'nightly'
+                          ? 'Nightly'
+                          : (installed.get(entry.id) ??
+                            (dependenciesLoading ? 'Checking dependencies…' : 'Not in workspace'))
+                      }
+                    />
                   </button>
                 </li>
               ))}

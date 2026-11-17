@@ -72,10 +72,11 @@ async function setup(
     };
   });
   const fetcher = vi.fn(async (url: string) => {
-    if (url.includes('/commits/'))
+    if (url.includes('/commits/') || url.includes('object=commits'))
       return Response.json({ sha: origin.commit, commit: { tree: { sha: 'b'.repeat(40) } } });
-    if (url.includes('/git/trees/')) return Response.json({ truncated: false, tree: blobs });
-    const blob = blobs.find((entry) => url.endsWith(entry.sha));
+    if (url.includes('/git/trees/') || url.includes('object=git%2Ftrees'))
+      return Response.json({ truncated: false, tree: blobs });
+    const blob = blobs.find((entry) => url.endsWith(entry.sha) || url.endsWith('/' + entry.path));
     return blob ? new Response(entries.get(blob.path)) : new Response('', { status: 404 });
   });
   vi.stubGlobal('fetch', fetcher);

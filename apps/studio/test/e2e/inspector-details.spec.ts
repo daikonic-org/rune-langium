@@ -190,6 +190,17 @@ test('divider keyboard, pointer and touch remain bounded with narrow scaled cont
   await scaledDefinition.scrollIntoViewIfNeeded();
   await expect(scaledDefinition).toBeInViewport();
   await scaledDefinition.fill('Scaled child documentation');
+  await expect
+    .poll(() =>
+      scaledDefinition.evaluate((control) => {
+        const region = control.closest('[role="region"]')!;
+        const label =
+          (control as HTMLTextAreaElement).labels?.[0] ??
+          control.closest('[data-slot="field"]')?.querySelector('label');
+        return Boolean(label && label.getBoundingClientRect().top >= region.getBoundingClientRect().top - 1);
+      })
+    )
+    .toBe(true);
   await savedSource(page, 'Scaled child documentation');
   const overflow = await frame.evaluate((element) => {
     const pane = element.getBoundingClientRect();

@@ -29,6 +29,9 @@ import { workspaceDeclarationIdentities } from '../workspace/example-identity.js
 import { serializeProjectPayload } from '@rune-langium/core/serialization';
 import { useInstanceStore } from '../store/instance-store.js';
 import { WorkspaceTypePicker } from './WorkspaceTypePicker.js';
+import { createReferenceSourceFetch } from '../services/reference-source.js';
+import { loadWorkspaceToken } from '../services/github-auth.js';
+import { OpfsFs } from '../opfs/opfs-fs.js';
 
 type Catalog = Awaited<ReturnType<typeof openReferenceExamples>>;
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -114,7 +117,21 @@ export const ReferenceExampleImport = withInstrumentation(
       const abort = new AbortController();
       operation.current = abort;
       setBusy(true);
-      void openReferenceExamples(origin, abort.signal)
+      const load = async () => {
+        let token: string | null = null;
+        const workspaceId = workspace?.workspaceId;
+        if (workspaceId) {
+          try {
+            token = await loadWorkspaceToken(new OpfsFs(await navigator.storage.getDirectory()), workspaceId);
+          } catch {
+            // Optional credentials must not prevent public example browsing.
+            token = null;
+          }
+        }
+        abort.signal.throwIfAborted();
+        return openReferenceExamples(origin, abort.signal, createReferenceSourceFetch(token));
+      };
+      void load()
         .then(
           (value) => {
             if (!abort.signal.aborted) setCatalog(value);
