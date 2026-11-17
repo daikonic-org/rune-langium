@@ -198,6 +198,12 @@ async function openComposition(page: Page, content: string, name?: string) {
   });
   await page.getByTestId('rail-compose').click();
   const composer = page.getByTestId('function-composer');
+  // Dockview descendants may explicitly restore visibility; the retained
+  // Explore ancestor must suppress their paint while preserving its size.
+  const retained = page.locator('[data-perspective-slot="explore"]');
+  await expect(retained).toHaveAttribute('inert');
+  await expect(retained).toHaveCSS('opacity', '0');
+  expect((await retained.boundingBox())!.width).toBeGreaterThan(0);
   if (name) await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
   await dismissLocalTransportNotices(page);
   return composer;
@@ -533,6 +539,20 @@ ${earlier}${later} alias consumed: Double(earlier)
       .locator('[data-composition-step="alias:consumed"]')
       .getByRole('combobox', { name: 'consumed argument value', exact: true })
   ).toHaveValue('input:value');
+  await expect
+    .poll(async () => {
+      const selected = await composer.locator('[data-composition-step="alias:consumed"]').boundingBox();
+      const canvas = await composer.locator('.react-flow').boundingBox();
+      return Boolean(
+        selected &&
+        canvas &&
+        selected.x >= canvas.x - 1 &&
+        selected.y >= canvas.y - 1 &&
+        selected.x + selected.width <= canvas.x + canvas.width + 1 &&
+        selected.y + selected.height <= canvas.y + canvas.height + 1
+      );
+    })
+    .toBe(true);
   await page.screenshot({ path: testInfo.outputPath('compose-node-bindings-hd.png') });
 });
 

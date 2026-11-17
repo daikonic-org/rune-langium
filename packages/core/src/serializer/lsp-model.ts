@@ -17,7 +17,11 @@ export const LSP_REQUEST_TIMEOUT_MS = 30_000;
 
 /** Keep semantic AST data and declaration ranges, without dependency token spans. */
 export function compactLspModelJson(json: string): string {
-  return JSON.stringify(JSON.parse(json), function (key, value) {
+  return compactModel(JSON.parse(json));
+}
+
+function compactModel(model: unknown): string {
+  return JSON.stringify(model, function (key, value) {
     if (key === '$cstText' || key === '$sourceText') return undefined;
     if (key !== '$textRegion') return value;
     if (typeof this.name !== 'string') return undefined;
@@ -27,7 +31,7 @@ export function compactLspModelJson(json: string): string {
 }
 
 /** Read canonical import and resolved-reference edges, including function bodies. */
-export function readLspModelMetadata(json: string): {
+export interface LspModelMetadata {
   namespace?: string;
   sourceUri?: string;
   imports: string[];
@@ -36,9 +40,28 @@ export function readLspModelMetadata(json: string): {
   declarations?: Array<{ type: string; name: string }>;
   /** Older metadata omits this flag, requiring source inspection. */
   hasImplementationSources?: boolean;
-} {
+}
+
+interface SerializedModel {
+  name?: string | { segments: string[] };
+  $textRegion?: { documentURI?: string };
+  imports?: Array<{ importedNamespace: string }>;
+  elements?: Array<{ $type?: unknown; name?: unknown }>;
+}
+
+/** Derive both views from one native JSON parse of the canonical serialized model. */
+export function deriveLspModelData(json: string): { metadata: LspModelMetadata; compact: string } {
+  const model: SerializedModel = JSON.parse(json);
+  return { metadata: modelMetadata(model), compact: compactModel(model) };
+}
+
+/** Read canonical import and resolved-reference edges, including function bodies. */
+export function readLspModelMetadata(json: string): LspModelMetadata {
+  return modelMetadata(JSON.parse(json));
+}
+
+function modelMetadata(model: SerializedModel): LspModelMetadata {
   const references = new Set<string>();
-  const model = JSON.parse(json);
   // A JSON reviver crosses into JavaScript for every scalar/token-span field.
   // Visit only objects and reference fields after the native parse instead.
   const pending: Array<[string, unknown]> = [['', model]];

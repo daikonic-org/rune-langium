@@ -140,6 +140,8 @@ export interface HydrateRequest {
     serializedModel: string;
     /** Export descriptions for the symbol index, scoped to this document. */
     exports: Array<{ type: string; name: string; path: string }>;
+    /** Canonical resolved dependency edges, already derived from this serialized model. */
+    references?: string[];
     /**
      * Set on curated-bundle entries (added by /api/parse:functions/api/parse.ts).
      * Absent on user-file entries. The studio uses this to mark workspace
@@ -257,6 +259,7 @@ export type WorkerResponse =
 // Populated by handleParseWorkspace, consumed lazily by RuneDslLinker.loadAstNode
 // when Langium resolves cross-references during handleLinkDocument.
 const deferredModelJson = new Map<string, string>();
+const deferredModelReferences = new Map<string, string[]>();
 let installedProjectDocuments: HydrateRequest['documents'] | undefined;
 const deferredArtifactKeys = new Map<string, string>();
 const invalidArtifactKeys = new Set<string>();
@@ -285,7 +288,7 @@ const deferredProvider: DeferredModelProvider = {
         const json = deferredModelJson.get(current);
         if (json === undefined) continue;
         entries.push({ uri: current, json });
-        for (const dependency of readLspModelMetadata(json).references) {
+        for (const dependency of deferredModelReferences.get(current) ?? readLspModelMetadata(json).references) {
           pending.push(URI.parse(dependency).toString());
         }
       }
@@ -299,6 +302,7 @@ const deferredProvider: DeferredModelProvider = {
           relinkModelReferences(RuneDsl, model);
         } else newModelsAccumulator.push(model);
         deferredModelJson.delete(key);
+        deferredModelReferences.delete(key);
       }
       return hydrated[0]!.model;
     } catch (error) {
@@ -311,6 +315,7 @@ const deferredProvider: DeferredModelProvider = {
   },
   consume(uri: string): void {
     deferredModelJson.delete(uri);
+    deferredModelReferences.delete(uri);
   }
 };
 
@@ -438,6 +443,7 @@ async function resetWorkspace(): Promise<void> {
   for (const uri of indexedUris.values()) indexManager.remove(uri);
   installedProjectDocuments = undefined;
   deferredModelJson.clear();
+  deferredModelReferences.clear();
   deferredArtifactKeys.clear();
   invalidArtifactKeys.clear();
   publishedUserModelUris.clear();
@@ -733,6 +739,7 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
           doc.serializedModel === previous.serializedModel &&
           doc.bundleId === previous.bundleId &&
           doc.artifactKey === previous.artifactKey &&
+          JSON.stringify(doc.references) === JSON.stringify(previous.references) &&
           JSON.stringify(doc.exports) === JSON.stringify(previous.exports)
         );
       })
@@ -747,6 +754,7 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
       const uri = URI.parse(doc.uri);
       if (!doc.bundleId) publishedUserModelUris.add(uri.toString());
       deferredModelJson.set(uri.toString(), doc.serializedModel);
+      if (doc.references) deferredModelReferences.set(uri.toString(), doc.references);
       if (doc.artifactKey) deferredArtifactKeys.set(uri.toString(), doc.artifactKey);
       if (doc.exports?.length) {
         const descriptions: AstNodeDescription[] = doc.exports.map((e) => ({

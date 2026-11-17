@@ -40,7 +40,9 @@ not replace navigation made during the wait, and existing workspace-epoch guards
 reject results from a workspace the user has left. Pending source data is not
 advertised as an editable or semantically ready view.
 Pending editing content and the inactive Explore workbench remain measurable
-(`visibility: hidden` and `inert`). Inactive Explore occupies an absolute slot,
+(`visibility: hidden` and `inert`). Inactive Explore also uses ancestor opacity
+to suppress paint from Dockview descendants that explicitly restore visibility.
+It occupies an absolute slot,
 so Dockview retains its dimensions without displacing the active perspective.
 Switching or closing a
 workspace aborts its active synchronization request; cancellation skips network
@@ -1034,6 +1036,11 @@ inherited reference excludes the global bare-name fallback; unresolved text and
 builtins remain authored text instead of picking an unrelated loaded declaration.
 
 The Inspector uses one declaration form and generated canonical schema. `InspectorFrame` composes the common header, inheritance picker, appropriate tabs and `InspectorFooter`; `InspectorDetailsPane` shows metadata for the selected child below the member rows. Fill sections retain their minimum content height: a short Inspector scrolls the form rather than compressing signature fields or clipping the embedded editor. Attributes/function inputs share `AttributeRow` and the same complete Attribute draft factory. Enum identifiers remain inline; enum `display` belongs in selected-value details. `MetadataSection`, `AnnotationSection` and `SynonymEditor` bind root or child paths through `MetadataTargetContext`; readonly rich items use the authoritative Rune renderer.
+
+Shared Button icon sizes keep stationary hit targets on hover and press; color
+feedback remains shared with text buttons. Text buttons retain their lift/settle
+motion. Inspector controls therefore stay reachable under text scaling and edge
+pointer placement without local motion overrides.
 
 Inspector sections mount on first activation and remain mounted while hidden afterward. This avoids creating inactive expression editors on selection while preserving visited drafts, CodeMirror views/undo and registered commit flushes. Section IDs retain their sessions across tab reordering; removing a section unmounts its content. Browser checks for the complete file editor use `fullSourceEditor` in Studio's shared test helpers, scoped to the center stack's Source pane; embedded expression editors also use the shared SourceEditor component.
 

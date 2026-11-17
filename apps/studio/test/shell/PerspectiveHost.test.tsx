@@ -69,6 +69,7 @@ describe('PerspectiveHost', () => {
     expect(slot()).toHaveAttribute('aria-hidden', 'true');
     expect(slot().style.display).not.toBe('none');
     expect(slot().style.position).toBe('absolute');
+    expect(slot().style.opacity).toBe('0');
     expect(screen.getByTestId('settings-perspective')).toBeTruthy(); // the active screen renders
 
     act(() => usePerspectiveStore.getState().setActivePerspective('explore'));
@@ -76,6 +77,7 @@ describe('PerspectiveHost', () => {
     expect(screen.getByTestId('explore-probe')).toBe(editor);
     expect(editor).toBeVisible();
     expect(slot()).not.toHaveAttribute('inert');
+    expect(slot().style.opacity).toBe('');
   });
 
   it('git/export fall back to the Workspaces launcher without a workspace (no blank pane, Codex P2 #238)', () => {

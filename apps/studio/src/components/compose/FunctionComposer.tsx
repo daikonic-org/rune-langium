@@ -186,7 +186,12 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   const [source, setSource] = useState(false);
   const [selected, setSelected] = useState('return');
   const [focusId, setFocusId] = useState<string>();
-  const [facts, setFacts] = useState<{ source: string; nodeId: string; value: FunctionComposition }>();
+  const [facts, setFacts] = useState<{
+    source: string;
+    nodeId: string;
+    dependencies: ExpressionWorkspaceProps['dependencySnapshot'];
+    value: FunctionComposition;
+  }>();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -256,7 +261,12 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
           current.current?.file?.content === captured.file?.content &&
           current.current?.dependencySnapshot === captured.dependencySnapshot
         )
-          setFacts({ source: captured.file!.content, nodeId: identity, value });
+          setFacts({
+            source: captured.file!.content,
+            nodeId: identity,
+            dependencies: captured.dependencySnapshot,
+            value
+          });
       })
       .catch((failure) => {
         if (!cancelled) setError(failure instanceof Error ? failure.message : 'Could not load the composition.');
@@ -269,7 +279,12 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
     };
   }, [active, identity, file?.content, editor?.parseCurrent, editor?.dependencySnapshot, creating, retry, discover]);
   const composition =
-    facts?.nodeId === identity && facts.source === file?.content && editor?.parseCurrent ? facts.value : undefined;
+    facts?.nodeId === identity &&
+    facts.source === file?.content &&
+    facts.dependencies === editor?.dependencySnapshot &&
+    editor?.parseCurrent
+      ? facts.value
+      : undefined;
   // Keep the last graph mounted during a reparse. Only current facts permit editing.
   const presented = composition ?? (facts?.nodeId === identity ? facts.value : undefined);
   const presentedSource = facts?.nodeId === identity ? facts.source : (file?.content ?? '');
@@ -352,29 +367,25 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       : visible;
   };
   const graphNodes = withPreview(nodes);
+  const graphCurrent = Boolean(
+    composition &&
+    nodes.every(
+      (node) => node.id === DRAFT_NODE || node.data.step === composition.steps.find((step) => step.id === node.id)
+    )
+  );
   useEffect(() => {
     if (source) {
       cameraKey.current = undefined;
       return;
     }
-    if (
-      !active ||
-      !composition ||
-      !nodesInitialized ||
-      !nodes.length ||
-      cameraKey.current === viewKey ||
-      nodes.some(
-        (node) => node.id !== DRAFT_NODE && node.data.step !== composition.steps.find((step) => step.id === node.id)
-      )
-    )
-      return;
+    if (!active || !graphCurrent || !nodesInitialized || !nodes.length || cameraKey.current === viewKey) return;
     cameraKey.current = viewKey;
     if (!focusId) {
       const saved = viewports.current.get(viewKey);
       if (saved) void flow.setViewport(saved);
       else setFocusId('*');
     }
-  }, [active, source, composition, nodes, nodesInitialized, viewKey, flow, focusId]);
+  }, [active, source, graphCurrent, nodes, nodesInitialized, viewKey, flow, focusId]);
 
   useEffect(() => {
     // A different canvas size/direction needs a fresh camera, not old pixel offsets.
@@ -384,6 +395,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
     if (
       !active ||
       source ||
+      !graphCurrent ||
       !focusId ||
       !nodesInitialized ||
       !nodes.length ||
@@ -391,15 +403,19 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       (focusId !== '*' && !nodes.some((node) => node.id === focusId))
     )
       return;
+    let cancelled = false;
     const frame = requestAnimationFrame(() => {
       void flow
         .fitView(focusId === '*' ? FIT : { nodes: [{ id: focusId }], padding: 0.15, minZoom: 0.35, maxZoom: 1 })
         .then((fitted) => {
-          if (fitted) setFocusId((current) => (current === focusId ? undefined : current));
+          if (fitted && !cancelled) setFocusId((current) => (current === focusId ? undefined : current));
         });
     });
-    return () => cancelAnimationFrame(frame);
-  }, [focusId, nodes, nodesInitialized, active, source, flow, canvasSize.width, canvasSize.height]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [focusId, nodes, nodesInitialized, graphCurrent, active, source, flow, canvasSize.width, canvasSize.height]);
   const variables = useMemo<CompositionVariable[]>(() => {
     const locals = selectedStep?.locals ?? [];
     return [
@@ -442,16 +458,22 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       setError('Apply or discard the current node draft first.');
       return;
     }
-    if (!step.region || !writable) return;
+    const canonical = composition?.steps.find((candidate) => candidate.id === step.id);
+    if (!canonical?.region || !writable) return;
+    const region = canonical.region;
     const binding = capture();
-    if (!binding) return;
+    if (!binding || binding.source !== file?.content) {
+      setError('The source is updating. Try this edit again once the current source is ready.');
+      return;
+    }
+    step = canonical;
     return {
       binding,
       dependencies: editor?.dependencySnapshot,
-      region: step.region,
+      region,
       name: step.name,
       stepId: step.id,
-      expression: binding.source.slice(step.region.from, step.region.to),
+      expression: binding.source.slice(region.from, region.to),
       ...(step.call && step.call.arguments.length === step.call.inputs.length
         ? {
             callee: `${step.call.identity}#RosettaFunction`,
@@ -770,7 +792,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       : undefined);
   const actions: NodeBindingActions = {
     owner: identity,
-    writable: writable && !stale,
+    writable: writable && graphCurrent && !stale,
     busy: applyBusy,
     selectedVariable,
     draftId: draft?.stepId,

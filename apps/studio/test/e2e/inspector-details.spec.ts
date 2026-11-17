@@ -211,7 +211,26 @@ test('divider keyboard, pointer and touch remain bounded with narrow scaled cont
     body: await page.locator('[data-slot="inspector-frame"]').screenshot({ path: info.outputPath('inspector.png') }),
     contentType: 'image/png'
   });
-  await page.getByRole('button', { name: 'Collapse item details' }).click();
+  const collapse = page.getByRole('button', { name: 'Collapse item details' });
+  await collapse.hover();
+  await expect(collapse).toHaveCSS('translate', 'none');
+  const initial = (await collapse.boundingBox())!;
+  // An edge pointer must not repeatedly enter/leave a moving icon hit target.
+  await page.mouse.move(initial.x + initial.width / 2, initial.y + initial.height - 0.25);
+  const positions = await collapse.evaluate(
+    (button) =>
+      new Promise<number[]>((resolve) => {
+        const samples: number[] = [];
+        const sample = () => {
+          samples.push(button.getBoundingClientRect().top);
+          if (samples.length < 20) requestAnimationFrame(sample);
+          else resolve(samples);
+        };
+        requestAnimationFrame(sample);
+      })
+  );
+  expect(Math.max(...positions) - Math.min(...positions)).toBeLessThan(0.25);
+  await collapse.click();
   await expect(divider).toHaveCount(0);
   await page.getByRole('button', { name: 'Expand item details' }).click();
   await page.getByRole('button', { name: 'Clear item selection' }).click();

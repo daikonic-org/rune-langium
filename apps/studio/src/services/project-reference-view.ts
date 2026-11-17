@@ -112,6 +112,7 @@ export const prepareProjectReferenceView = withInstrumentation(
         content: entry.file.content,
         serializedModel: entry.json,
         exports,
+        ...(info?.lsp ? { references: info.lsp.metadata.references } : {}),
         ...(entry.file.refOnly ? { bundleId: entry.file.bundleId } : {})
       });
       signal.throwIfAborted();

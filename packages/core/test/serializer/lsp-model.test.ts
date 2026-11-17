@@ -1,9 +1,26 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
-import { describe, it, expect } from 'vitest';
-import { compactLspModelJson, readLspModelMetadata } from '../../src/serializer/lsp-model.js';
+import { describe, it, expect, vi } from 'vitest';
+import { compactLspModelJson, readLspModelMetadata, deriveLspModelData } from '../../src/serializer/lsp-model.js';
 
 describe('semantic LSP model transport', () => {
+  it('derives both canonical views with one native JSON parse', () => {
+    const json = JSON.stringify({
+      name: 'example',
+      elements: [
+        { name: 'A', $type: 'Data', $cstText: 'authored source', body: { $ref: 'file:///other.rosetta#/elements@0' } }
+      ]
+    });
+    const expected = { metadata: readLspModelMetadata(json), compact: compactLspModelJson(json) };
+    const parse = vi.spyOn(JSON, 'parse');
+    try {
+      const derived = deriveLspModelData(json);
+      expect(parse).toHaveBeenCalledOnce();
+      expect(derived).toEqual(expected);
+    } finally {
+      parse.mockRestore();
+    }
+  });
   it('preserves semantics and declaration ranges without dependency token/source spans', () => {
     const name = { range: { start: { line: 1, character: 5 }, end: { line: 1, character: 9 } } };
     const model = {

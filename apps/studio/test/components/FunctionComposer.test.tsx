@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import type { FunctionComposition } from '@rune-langium/core';
 import { FunctionComposer, type FunctionComposerProps } from '../../src/components/compose/FunctionComposer.js';
@@ -14,6 +14,55 @@ vi.mock('../../src/services/workspace.js', async (original) => ({
 vi.mock('../../src/components/editing/ExpressionWorkspace.js', () => ({
   ExpressionWorkspace: () => <div>Source body</div>
 }));
+
+it('keeps editing disabled until composition facts match the current dependency snapshot', async () => {
+  const source = 'namespace example\nfunc Inspect:\n set result: 1\n';
+  const file = { path: 'model/inspect.rosetta', name: 'inspect.rosetta', content: source, dirty: false };
+  const facts: FunctionComposition = {
+    optedIn: true,
+    supported: true,
+    steps: [
+      {
+        id: 'return',
+        name: 'result',
+        kind: 'return',
+        dependencies: [],
+        region: { from: source.indexOf('1'), to: source.indexOf('1') + 1 }
+      }
+    ],
+    reasons: []
+  };
+  describe.mockResolvedValueOnce(facts);
+  const editor = {
+    nodeId: 'example.Inspect#RosettaFunction',
+    file,
+    parseCurrent: true,
+    documents: new ExpressionDocument({ getGeneration: () => 1, getFile: () => file, onContentChange: vi.fn() }),
+    dependencySnapshot: [file],
+    onContentChange: vi.fn(),
+    onOpenSource: vi.fn()
+  };
+  const props: FunctionComposerProps = {
+    workspaceKey: 'snapshot',
+    active: true,
+    inspector: null,
+    onNavigate: vi.fn(),
+    onSave: vi.fn(async () => {}),
+    saveLabel: 'Saved',
+    editor
+  };
+  const { rerender } = render(<FunctionComposer {...props} />);
+  const edit = await screen.findByRole('button', { name: 'Edit expression', exact: true });
+  expect(edit).toBeEnabled();
+  const refresh = Promise.withResolvers<FunctionComposition>();
+  describe.mockReturnValueOnce(refresh.promise);
+  rerender(<FunctionComposer {...props} editor={{ ...editor, dependencySnapshot: [...editor.dependencySnapshot] }} />);
+  expect(edit).toBeDisabled();
+  await act(async () => refresh.resolve(facts));
+  expect(edit).toBeEnabled();
+  fireEvent.click(edit);
+  expect(screen.getByText(/Bind arguments and output variables directly on the node/)).toBeVisible();
+});
 
 it.each([true, false])(
   'retains source-only diagnostics through a source handoff with Compose active=%s',
