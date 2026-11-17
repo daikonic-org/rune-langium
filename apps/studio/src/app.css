@@ -2080,6 +2080,12 @@ html[data-theme="light"] .preview-panel__editor {
 }
 
 /* Collapsed columns keep vertical tab chrome and mounted, hidden drafts. */
+.studio-app .studio-side-panel-collapsed > .dv-tabs-and-actions-container {
+  /* Center the native header in the entire rail, including its reserved width. */
+  width: 100%;
+  min-width: 0;
+}
+
 .studio-app .studio-side-panel-collapsed > .dv-content-container {
   display: none;
 }
@@ -2158,6 +2164,7 @@ html[data-theme="light"] .preview-panel__editor {
   white-space: nowrap;
   color: var(--muted-foreground);
   font-size: var(--text-sm);
+  line-height: normal;
 }
 
 .studio-explore-location ol,
