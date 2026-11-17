@@ -401,18 +401,17 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* The UI sans stack (Inter) is the ambient default. The display font
-     * (Outfit) is OPT-IN via `.font-display` (or an explicit element rule,
+    /* The UI sans stack (Transit System) is the ambient default. The display font
+     * (Transit Sans) is OPT-IN via `.font-display` (or an explicit element rule,
      * e.g. the studio brand wordmark) — NOT the ambient default. Making
      * display the default previously leaked the brand font into every
      * portaled overlay (dialogs, toasts, popovers, dropdowns, tooltips),
      * which render outside the app's `.studio-app` scope and so escaped the
-     * app-level sans override. Docs sets its own vitepress font vars to
-     * display and is unaffected. */
+     * app-level sans override. Docs uses the same UI and display roles. */
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* App-wide negative tracking — Inter is drawn a touch wide for UI density.
+    /* App-wide negative tracking for UI density.
      * The handoff's -0.005em is below the perceptual threshold on its own, so
      * we run -0.01em globally for a visibly tighter set (still conservative;
      * mono/code opt back out where needed). Display surfaces tighten further
@@ -431,7 +430,7 @@
 
   /* Display-font opt-in. Apply to brand / marketing surfaces (the studio app
    * header brand wordmark, a future landing hero, etc.) to switch a subtree to
-   * the Outfit display stack. Cascades to descendants, including headings
+   * the Transit Sans display stack. Cascades to descendants, including headings
    * (which `inherit` above). Deliberately scoped to an explicit class so the
    * brand font never becomes ambient again. */
   .font-display {

@@ -122,7 +122,7 @@ html.dark {
 /* ---------- Typography ---------- */
 
 :root {
-  --vp-font-family-base: var(--rune-font-display);
+  --vp-font-family-base: var(--font-sans);
   --vp-font-family-mono: var(--rune-font-mono);
 }
 

@@ -25,6 +25,8 @@
  * `oklch()` (Tailwind v4 / shadcn default) — each conversion verified to
  * round-trip to the same sRGB, so the rendered output is unchanged.
  */
+@import './fonts.css';
+
 :root {
   /* Surfaces — Daikonic midnight-green (hue 220), matching the design handoff's
    * daikonic.css ladder verbatim: --rs-bg/-2/-3/-4 = L 0.215/0.255/0.30/0.345 at
@@ -125,9 +127,10 @@
    * same rationale as the radius ladder below. `--font-family-mono` was a dead
    * generic stack (zero consumers); it now carries the JetBrains brand mono, so
    * the mono family has a single source instead of a primitive/semantic split. */
-  --font-family-sans: Inter, system-ui, -apple-system, sans-serif;
+  --font-family-sans: 'Daikonic Transit System', system-ui, -apple-system, sans-serif;
   --font-family-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --font-family-display: 'Outfit', system-ui, sans-serif;
+  --font-family-display: 'Daikonic Transit Sans', system-ui, sans-serif;
+  --font-editor: 'Daikonic Transit Code', var(--font-mono);
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --font-display: var(--font-family-display);

@@ -64,9 +64,10 @@ export const colors = {
 } as const;
 
 export const fonts = {
-  display: "'Outfit', system-ui, sans-serif",
-  sans: 'Inter, system-ui, -apple-system, sans-serif',
-  mono: "'JetBrains Mono', ui-monospace, monospace"
+  display: "'Daikonic Transit Sans', system-ui, sans-serif",
+  sans: "'Daikonic Transit System', system-ui, -apple-system, sans-serif",
+  mono: "'JetBrains Mono', ui-monospace, monospace",
+  editor: "'Daikonic Transit Code', var(--font-mono)"
 } as const;
 
 // NOTE: there is intentionally no JS `radii` export. Radius lives only in CSS

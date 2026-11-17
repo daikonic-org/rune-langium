@@ -46,7 +46,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { copyPagesAssets, validatePagesAssets } from './pages-assets.mjs';
@@ -56,6 +56,7 @@ const docsRoot = resolve(__dirname, '..');
 const repoRoot = resolve(docsRoot, '..', '..');
 
 const siteRoot = join(repoRoot, 'site');
+const designSystem = join(repoRoot, 'packages', 'design-system', 'src');
 const studioDist = join(repoRoot, 'apps', 'studio', 'dist');
 const docsRawDist = join(docsRoot, '.vitepress', 'dist-docs-raw');
 const combinedDist = join(docsRoot, '.vitepress', 'dist');
@@ -144,6 +145,9 @@ run('Building Rune Studio (base=/rune-studio/studio/)', 'pnpm --filter @rune-lan
 
 // `copyDir` creates `subpathDist` itself (so its contents are not nested).
 copyDir(siteRoot, subpathDist, 'site → /rune-studio/');
+// The static landing page consumes the same font/token source as Vite consumers.
+copyDir(join(designSystem, 'fonts'), join(subpathDist, 'fonts'), 'shared fonts and OFL notices');
+for (const name of ['tokens.css', 'fonts.css']) copyFileSync(join(designSystem, name), join(subpathDist, name));
 copyDir(docsRawDist, join(subpathDist, 'docs'), 'vitepress → /rune-studio/docs/');
 copyDir(studioDist, join(subpathDist, 'studio'), 'studio → /rune-studio/studio/');
 

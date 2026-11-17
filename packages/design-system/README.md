@@ -28,6 +28,15 @@ import { NativeSelect } from '@rune-langium/design-system/ui/select';
 @import '@rune-langium/design-system/theme.css';
 ```
 
+## Typography
+
+`src/tokens.css` imports the shared variable webfonts: Transit System for UI,
+Transit Sans for headings, and Transit Code for CodeMirror via `--font-editor`.
+Other monospace content keeps JetBrains Mono. `src/fonts/manifest.json` pins the
+upstream release, axes and SHA-256 of each unmodified WOFF2; that directory retains
+the upstream OFL and notices. The combined site build copies this same source for
+the static landing page. Vite fingerprints font assets for Studio and docs.
+
 ## Panel and section spacing
 
 `src/tokens.css` owns the shared density defaults: `--panel-padding-inline`

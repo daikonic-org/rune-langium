@@ -5,7 +5,6 @@
  * canonical design tokens before the design-system aliases. */
 @import '@rune-langium/design-system/theme.css';
 @import './styles/daikonic.css';
-@import './styles/editor-font.css';
 
 /* Ensure Tailwind scans workspace packages for utility classes */
 @source "../../../packages/design-system/src";
