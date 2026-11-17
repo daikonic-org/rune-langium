@@ -156,6 +156,10 @@ function SidePanelHeaderAction({
     }
   };
   const measure = () => {
+    // Inactive perspectives retain their DOM, but their zero-sized layout is
+    // not a reason to change or persist the user's panel visibility.
+    const perspective = group.element.closest('[data-perspective-slot]');
+    if (perspective?.checkVisibility?.() === false) return;
     const center = group.element.closest('.dv-dockview')?.querySelector<HTMLElement>('[data-testid="center-stack"]');
     if (!center) return;
     const rect = center.getBoundingClientRect();

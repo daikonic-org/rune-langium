@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { expect, type Page, type Route } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { test } from '../helpers/studio-test.js';
 import {
   cdmRuneImplementationSources,
@@ -93,20 +93,16 @@ async function openPublishedImplementationProject(
 
 for (const width of [1440, 390])
   test(`executes published AFB year fractions at ${width}px`, async ({ page }) => {
-    let held: Route | undefined;
-    let cancelled = false;
+    let bootstrapRequests = 0;
     if (width === 1440) {
       const bootstrap = dayCountCaller.content.split('\n', 1)[0] + '\n';
       await page.route('**/api/parse', async (route) => {
         const files = route.request().postDataJSON()?.files;
-        if (!held && Array.isArray(files) && files.some((file) => file.content === bootstrap)) {
-          held = route;
+        if (Array.isArray(files) && files.some((file) => file.content === bootstrap)) {
+          bootstrapRequests += 1;
           return;
         }
         await route.continue();
-      });
-      page.on('requestfailed', (request) => {
-        if (request === held?.request()) cancelled = true;
       });
     }
     await openPublishedImplementationProject(
@@ -116,12 +112,11 @@ for (const width of [1440, 390])
       width,
       width === 1440
         ? async () => {
-            await expect.poll(() => Boolean(held)).toBe(true);
-            await expect(page.getByText('Parsing files…', { exact: true })).toBeVisible();
+            await expect(page.getByTestId('explore-workbench')).toBeVisible();
+            expect(bootstrapRequests).toBe(0);
           }
         : undefined
     );
-    if (width === 1440) await expect.poll(() => cancelled).toBe(true);
     await page.getByRole('button', { name: /^Choose a function/ }).click();
     await page.getByRole('option', { name: 'AfbAccrual — example.daycount', exact: true }).click();
     await page.getByLabel('Start Date', { exact: true }).fill('2024-02-29');

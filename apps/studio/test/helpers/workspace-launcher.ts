@@ -6,7 +6,9 @@ import { typeNavigationButton } from './type-navigation.js';
 /** Editable projects and reference dependencies use distinct launcher sections. */
 export async function openReferenceModels(page: Page) {
   const launcher = page.getByTestId('workspaces-perspective');
-  if (!(await launcher.isVisible())) await page.getByTestId('rail-workspaces').click();
+  // Always express the destination: a visible launcher can be the temporary
+  // fallback while a newly created workspace is still activating.
+  await page.getByTestId('rail-workspaces').click();
   await expect(launcher).toBeVisible();
   await launcher.getByRole('button', { name: 'Reference models', exact: true }).click();
   return page.getByTestId('reference-model-picker');

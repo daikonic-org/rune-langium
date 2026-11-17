@@ -11,12 +11,14 @@ const fromStringMock = vi.fn((content: string, uri: string) => ({
     value: {
       $type: 'RosettaModel',
       elements: [],
+      imports: [],
       uri,
       content
     },
     lexerErrors: [],
     parserErrors: []
-  }
+  },
+  textDocument: { getText: () => content }
 }));
 const fromModelMock = vi.fn((model: unknown, uri: string) => ({
   uri,
@@ -35,7 +37,9 @@ const getDocumentMock = vi.fn((_uri: unknown) => ({
 }));
 const registerExportsMock = vi.fn();
 
-vi.mock('@rune-langium/core', () => ({
+vi.mock('@rune-langium/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@rune-langium/core')>()),
+  collectNamespaceDependencies: () => new Map(),
   readLspModelMetadata: () => ({ references: [] }),
   hydrateModelDocuments: (_services: unknown, entries: Array<{ uri: string; json: string }>) =>
     entries.map((entry) => {

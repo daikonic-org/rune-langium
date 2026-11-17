@@ -52,7 +52,10 @@ func Use:
   );
   const files = [file, rules];
   const parsed = await parseWorkspaceFiles(files);
+  expect(parsed.parseMode).toBe('worker');
   const owner = parsed.models[0]!.elements[0]!;
+  expect(owner.$container).toBe(parsed.models[0]);
+  expect(parsed.parsedModels[0]).toMatchObject({ filePath: file.path, source: file.content });
   if (owner.$type !== 'RosettaFunction') throw new Error('fixture function');
   const scope = await requestExpressionScope(
     file.path,
@@ -221,6 +224,9 @@ func CurrentDependency:
       : []
   });
   const files = [file, dependency];
+  // This test specifically covers the hosted-parser fallback, not the bounded
+  // standalone worker path. A large comment preserves semantics and scope spans.
+  file.content += '\n// ' + 'padding '.repeat(9000);
   const parsed = await parseWorkspaceFiles(files);
   expect(parsed.parseMode).toBe('main-thread-fallback');
   const owner = parsed.models[0]!.elements.find((node) => node.$type === 'RosettaFunction')!;

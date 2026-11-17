@@ -38,6 +38,29 @@ describe('HydrateResponse type', () => {
 });
 
 describe('hydrate handler', () => {
+  it('returns the shared transitive namespace dependency graph for standalone parsing', async () => {
+    const { createParserWorkerHarness } = await import('./parser-worker-harness.js');
+    const harness = createParserWorkerHarness();
+    const result = await harness.send({
+      type: 'parseWorkspace',
+      id: 'local-dependencies',
+      files: [
+        { name: 'file:///a.rosetta', content: 'namespace local.a\ntype A:\n value string (1..1)\n' },
+        { name: 'file:///b.rosetta', content: 'namespace local.b\nimport local.a.*\ntype B:\n a A (1..1)\n' },
+        { name: 'file:///c.rosetta', content: 'namespace local.c\nimport local.b.*\ntype C:\n b B (1..1)\n' }
+      ]
+    });
+    expect(result).toMatchObject({
+      type: 'parseWorkspaceResult',
+      errors: {},
+      dependencyGraph: {
+        'local.a': ['local.a'],
+        'local.b': ['local.a', 'local.b'],
+        'local.c': ['local.a', 'local.b', 'local.c']
+      }
+    });
+  });
+
   it('links user documents without publishing duplicate graph models, and still publishes curated documents', async () => {
     const { createParserWorkerHarness } = await import('./parser-worker-harness.js');
     const harness = createParserWorkerHarness();

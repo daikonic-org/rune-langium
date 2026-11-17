@@ -626,11 +626,12 @@ function AppContent() {
 
   const restoreWorkspace = useCallback(
     async (workspace: WorkspaceRecord): Promise<'restored' | 'empty' | 'superseded'> => {
+      const navigation = usePerspectiveStore.getState();
       const activationEpoch = await clearWorkspaceState();
       if (activationEpoch === null) return 'superseded';
       // Choose the initial destination before file reads expose navigation.
       // Later completion must preserve any destination chosen during the wait.
-      usePerspectiveStore.getState().setActivePerspective('explore');
+      if (usePerspectiveStore.getState() === navigation) navigation.setActivePerspective('explore');
       setBootState('restoring');
       reconcileWorkspaceModels(workspace.curatedModels ?? []);
       if (activationEpoch !== workspaceEpochRef.current) return 'superseded';
@@ -894,12 +895,13 @@ function AppContent() {
 
   const handleFilesLoaded = useCallback(
     async (loadedFiles: WorkspaceFile[], targetWorkspaceId?: string) => {
+      const navigation = usePerspectiveStore.getState();
       // Reference models selected on the launcher seed a new workspace.
       // An active workspace's bindings belong only to that workspace.
       const launcherModels = restoredWorkspaceRef.current ? new Map<string, LoadedModel>() : loadedModelsRef.current;
       const activationEpoch = await clearWorkspaceState();
       if (activationEpoch === null) return;
-      usePerspectiveStore.getState().setActivePerspective('explore');
+      if (usePerspectiveStore.getState() === navigation) navigation.setActivePerspective('explore');
       setBootState('start');
       setLoading(true);
       try {

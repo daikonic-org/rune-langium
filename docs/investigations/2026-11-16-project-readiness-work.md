@@ -234,3 +234,56 @@ service/performance question, not something this fixture fix claims to improve.
 All 31 optimized native-implementation browser cases passed after the correction,
 including the held-request desktop AFB case, ordinary mobile AFB, calendars,
 schedule/frequency adapters, market observations, overrides and decimal rounding.
+
+## Remaining readiness and hidden-layout failures on `3b27039e`
+
+CI 43968197226 passed AFB, hot reload, lint/test/coverage and candidate shards 2
+and 4. Three failures remained. J11 uploaded a three-file scratch set of roughly
+4,000 source characters; its hosted parse was still pending when the 20-second
+readiness assertion expired. J16 observed the launcher between New workspace's
+click and its asynchronous save barrier completing, skipped explicit navigation,
+then lost the launcher when activation selected Explore. The code-reading case
+visited Settings during preparation; the retained hidden workbench let automatic
+Preview yielding consume invisible geometry and collapse the Code panel.
+
+The corrections address those causes without changing timing budgets. Small
+standalone workspaces reuse the existing parser worker, bounded to eight files
+and 65,536 source characters. Curated, serialized and hydration requests stay
+hosted; boundary tests cover each exclusion. Worker waits support cancellation
+without triggering a second parse. The shared Core batch hydrator reconstructs
+UI models for both transport paths, preserving containers, references, canonical
+document identities and captured source bytes. The worker uses the same
+namespace dependency collector and closure as the hosted parser. Tests cover
+transitive dependencies and live Builder scope/parent identity.
+
+Workspace activation now checks that the navigation-store snapshot has not
+changed during the save barrier before choosing its default destination. An
+explicit launcher selection is always recorded even when the launcher happens
+to be visible already. Preview auto-collapse ignores hidden perspectives.
+The code-reading regression deliberately holds parser-worker startup while
+Settings is active, then completes preparation before returning to Explore.
+
+Local testing caught a parentless worker-snapshot integration error in Prototype
+before delivery; the shared batch hydration above fixes the contract rather than
+masking the UI exception. The desktop AFB case now blocks any hosted bootstrap
+request and verifies that standalone preparation completes without it; the
+larger restored-source case separately retains held-request cancellation coverage.
+The initial focused replay passed J11 (36 seconds), J16 (7 seconds), code reading
+and large-request cancellation. Full Studio tests passed 2,768 cases (two skipped)
+before final transport-lifecycle verification. Final expanded browser evidence
+and scanner reports are retained under ignored `dist/pr712-followup/`.
+
+These changes remove an unnecessary hosted dependency for bounded standalone
+editing. They do not explain Cloudflare's previously observed tail latency or
+prove CI ready before the new head's complete checks and review have finished.
+
+The final optimized replay passed all 51 selected browser cases with no retries:
+J05/J09/J11/J16/J20, all 31 native implementation cases, launcher/code reading,
+large-request cancellation, and all Compose editing/execution cases. Recorded
+timings had no budget overruns: J9 curated form 1,432ms, scratch form 135ms, J20
+warm source 3,771ms. The deterministic early-Settings/code reading case passed
+in 2.2 seconds; this establishes the local hidden-layout regression check, not
+deployed or CI performance. React Doctor reported no new errors and the existing
+PerspectiveHost complexity warning. No timing budgets or retries were changed.
+Final verification also passed all 2,768 Studio tests (two skipped), types, scoped
+lint/format and both Inspector hot-reload cases within the two-second bound.

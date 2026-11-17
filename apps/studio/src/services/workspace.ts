@@ -14,15 +14,15 @@ import {
   parse,
   parseWorkspace,
   createRuneDslServices,
+  hydrateModelDocuments,
   serializeRuneModel,
-  getModelSourceUri,
   type RosettaModel
 } from '@rune-langium/core';
 import type { ExportSelection } from '@rune-langium/codegen/export';
 import { requestCodegenDownload } from './codegen-download-client.js';
 import { sanitizeDownloadFilename } from './export.js';
 import { OperationTimeoutError, withAbortTimeout } from './with-abort-timeout.js';
-import { EmptyFileSystem, URI } from 'langium';
+import { EmptyFileSystem } from 'langium';
 import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import { CURATED_MODEL_IDS, type CuratedSerializedDocument } from '@rune-langium/curated-schema';
 import type { CachedFile, LoadedModel } from '../types/model-types.js';
@@ -320,9 +320,8 @@ let workerInitError: Error | null = null;
 const WORKER_FALLBACK_MESSAGE =
   'Parser worker unavailable — using in-browser parsing, which may feel slower on large workspaces.';
 
-/** Used when the /api/parse router fails (network error, 5xx, etc.).  The
- *  parser worker is not involved in the workspace parse path; only the
- *  server-side Pages Function is unavailable. */
+/** Used when the hosted parser path fails (network error, 5xx, etc.). This
+ *  notice describes the Pages Function, not the bounded local-worker path. */
 const ROUTER_FALLBACK_MESSAGE =
   'Server-side parsing unavailable — using in-browser parsing, which may feel slower on large workspaces.';
 
@@ -426,15 +425,19 @@ function resetWorkerState(nextError: Error): void {
 }
 
 function workerRequest(msg: Extract<WorkerRequest, { type: 'parse' }>): Promise<ParseResponse>;
-function workerRequest(msg: Extract<WorkerRequest, { type: 'parseWorkspace' }>): Promise<ParseWorkspaceResponse>;
+function workerRequest(
+  msg: Extract<WorkerRequest, { type: 'parseWorkspace' }>,
+  signal?: AbortSignal
+): Promise<ParseWorkspaceResponse>;
 function workerRequest(msg: LinkDocumentRequest): Promise<LinkDocumentResponse>;
 function workerRequest(msg: ReviewReferenceRequest): Promise<ReviewReferenceResponse>;
 function workerRequest(msg: DecodeReferenceRequest): Promise<DecodeReferenceResponse>;
 function workerRequest(msg: HydrateRequest): Promise<HydrateResponse>;
 function workerRequest(msg: ExpressionScopeRequest): Promise<ExpressionScopeResponse>;
 function workerRequest(msg: InspectNamespaceRequest): Promise<InspectNamespaceResponse>;
-function workerRequest(msg: WorkerRequest): Promise<WorkerResponse> {
+function workerRequest(msg: WorkerRequest, signal?: AbortSignal): Promise<WorkerResponse> {
   return new Promise((resolve, reject) => {
+    signal?.throwIfAborted();
     const w = getWorker();
     if (!w) {
       reject(workerInitError ?? new Error('Worker not available'));
@@ -450,6 +453,7 @@ function workerRequest(msg: WorkerRequest): Promise<WorkerResponse> {
       }
     };
     const cleanupListeners = () => {
+      signal?.removeEventListener('abort', abortHandler);
       w.removeEventListener('error', errorHandler);
       w.removeEventListener('messageerror', messageErrorHandler);
       w.removeEventListener('message', handler);
@@ -549,9 +553,23 @@ function workerRequest(msg: WorkerRequest): Promise<WorkerResponse> {
       resetWorkerState(error);
       reject(error);
     };
+    const abortHandler = () => {
+      clearPendingTimeout();
+      cleanupListeners();
+      reject(signal?.reason);
+    };
+    signal?.addEventListener('abort', abortHandler, { once: true });
     w.addEventListener('message', handler);
     w.addEventListener('error', errorHandler);
     w.addEventListener('messageerror', messageErrorHandler);
+    // Own the deadline before posting: even a synchronous transport failure
+    // or cancellation must be able to clear it.
+    timeoutId = setTimeout(() => {
+      cleanupListeners();
+      const error = new Error('Worker timeout');
+      resetWorkerState(error);
+      reject(error);
+    }, 30000);
     try {
       w.postMessage(msg);
     } catch (error) {
@@ -563,14 +581,6 @@ function workerRequest(msg: WorkerRequest): Promise<WorkerResponse> {
       reject(workerError);
       return;
     }
-
-    // Timeout after 30s
-    timeoutId = setTimeout(() => {
-      cleanupListeners();
-      const error = new Error('Worker timeout');
-      resetWorkerState(error);
-      reject(error);
-    }, 30000);
   });
 }
 
@@ -776,6 +786,52 @@ export const parseWorkspaceFiles = withInstrumentation(
     // extension '.'" → 500, collapsing the curated catalog to the user closure.
     const userFiles = collectRawWorkspaceSources(capturedFiles).map(({ path, content }) => ({ name: path, content }));
     const curatedBundles = collectCuratedBundlesFromWorkspace(capturedFiles);
+
+    // Small standalone projects need no remote corpus. Reuse Core's existing
+    // parser worker, including its canonical document set for later linking.
+    // Curated/serialized inputs and explicit hydration always use the router.
+    const smallStandalone =
+      typeof Worker !== 'undefined' &&
+      !wantsHydration &&
+      !options.requireCuratedHydration &&
+      capturedFiles.length <= 8 &&
+      capturedFiles.every((file) => !file.bundleId && !file.refOnly && !file.serializedModelJson) &&
+      userFiles.reduce((size, file) => size + file.content.length, 0) <= 65_536;
+    if (smallStandalone) {
+      try {
+        const response = await workerRequest(
+          {
+            type: 'parseWorkspace',
+            id: String(++requestId),
+            files: userFiles.map((file) => ({ ...file, name: pathToUri(file.name) }))
+          },
+          options.signal
+        );
+        options.signal?.throwIfAborted();
+        useCodegenStore.getState().setDependencyGraph(response.dependencyGraph ?? {});
+        const sources = new Map(userFiles.map((file) => [pathToUri(file.name), file]));
+        const documents = hydrateModelDocuments(
+          createRuneDslServices(EmptyFileSystem),
+          response.parsedModels.map((model) => {
+            if (!model.serializedModelJson) throw new Error('Parser snapshot is missing its serialized model');
+            return { uri: pathToUri(model.filePath), json: model.serializedModelJson };
+          })
+        );
+        return {
+          ...routedWorkspaceResult(response),
+          parseMode: 'worker',
+          models: documents.map((document) => document.model),
+          parsedModels: response.parsedModels.map((model, index) => {
+            const source = sources.get(model.filePath);
+            if (!source) throw new Error('Parser returned a document outside the captured source set');
+            return { ...model, filePath: source.name, model: documents[index]!.model, source: source.content };
+          })
+        };
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        // A failed worker remains recoverable through the hosted parser.
+      }
+    }
 
     try {
       const response = await parseWorkspaceViaRouter(userFiles, {
@@ -1009,20 +1065,13 @@ export const parseWorkspaceViaRouter = withInstrumentation(
       // JSON in the first place) and reintroduces multi-megabyte main-thread
       // deserialization on every debounced edit parse.
       const userFileNames = new Set(sourceByPath.keys());
-      const services = createRuneDslServices(EmptyFileSystem).RuneDsl;
       const userDocuments = hydrationDocuments.filter((doc) => userFileNames.has(doc.uri.replace(/^file:\/\/\//, '')));
       // Register the complete user graph before restoring linked pointers. Independent
       // deserialization loses cross-file targets (including imported annotations).
-      const models = services.serializer.JsonSerializer.deserializeModels<RosettaModel>(
-        userDocuments.map((doc) => doc.serializedModel),
-        (roots) => {
-          for (const [index, model] of roots.entries()) {
-            const uri = URI.parse(getModelSourceUri(model) ?? userDocuments[index]!.uri);
-            const document = services.shared.workspace.LangiumDocumentFactory.fromModel(model, uri);
-            services.shared.workspace.LangiumDocuments.addDocument(document);
-          }
-        }
-      );
+      const models = hydrateModelDocuments(
+        createRuneDslServices(EmptyFileSystem),
+        userDocuments.map((doc) => ({ uri: doc.uri, json: doc.serializedModel }))
+      ).map((entry) => entry.model);
       const userModelsByUri = new Map(userDocuments.map((doc, index) => [doc.uri, models[index]!]));
       const parsedModels: ParsedWorkspaceModel[] = [];
       // Build a quick lookup: filePath → namespace from the response's

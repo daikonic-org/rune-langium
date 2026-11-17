@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   PARSE_ROUTER_TIMEOUT_MS,
+  _resetParserWorkerForTests,
   parseWorkspaceViaRouter,
   parseWorkspaceFiles,
   resetCuratedDocumentCache,
@@ -19,10 +20,115 @@ describe('parseWorkspace routing', () => {
   });
 
   afterEach(() => {
+    _resetParserWorkerForTests();
+    vi.unstubAllGlobals();
     global.fetch = originalFetch;
     resetCuratedDocumentCache();
     vi.useRealTimers();
   });
+
+  it('uses the parser worker for small standalone sources without a network request', async () => {
+    class LocalWorker extends EventTarget {
+      terminate() {}
+      postMessage(message: { id: string; type: string }) {
+        queueMicrotask(() =>
+          this.dispatchEvent(
+            new MessageEvent('message', {
+              data: {
+                type: 'parseWorkspaceResult',
+                id: message.id,
+                models: [],
+                parsedModels: [],
+                errors: {},
+                deferredExports: []
+              }
+            })
+          )
+        );
+      }
+    }
+    vi.stubGlobal('Worker', LocalWorker);
+    const result = await parseWorkspaceFiles([
+      { name: 'small.rosetta', path: 'small.rosetta', content: 'namespace small\n', dirty: false }
+    ]);
+    expect(result.parseMode).toBe('worker');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('cancels a pending local worker wait without falling through to the router', async () => {
+    const requested = Promise.withResolvers<void>();
+    class HeldWorker extends EventTarget {
+      terminate() {}
+      postMessage() {
+        requested.resolve();
+      }
+    }
+    vi.stubGlobal('Worker', HeldWorker);
+    const controller = new AbortController();
+    const result = parseWorkspaceFiles(
+      [{ name: 'small.rosetta', path: 'small.rosetta', content: 'namespace small\n', dirty: false }],
+      { signal: controller.signal }
+    );
+    const rejected = expect(result).rejects.toMatchObject({ name: 'AbortError' });
+    await requested.promise;
+    controller.abort();
+    await rejected;
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(['large', 'many', 'curated', 'serialized', 'hydration'] as const)(
+    'keeps %s inputs on the hosted parser path',
+    async (kind) => {
+      const messages: string[] = [];
+      class RouterWorker extends EventTarget {
+        terminate() {}
+        postMessage(message: { type: string; id: string }) {
+          messages.push(message.type);
+          queueMicrotask(() =>
+            this.dispatchEvent(
+              new MessageEvent('message', {
+                data: {
+                  type: 'hydrateResult',
+                  id: message.id,
+                  ok: true
+                }
+              })
+            )
+          );
+        }
+      }
+      vi.stubGlobal('Worker', RouterWorker);
+      global.fetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            models: [],
+            errors: {},
+            deferredExports: [],
+            hydrationState: { documents: [] }
+          })
+        )
+      );
+      const source: WorkspaceFile = {
+        name: 'local.rosetta',
+        path: 'local.rosetta',
+        content: 'namespace local\n',
+        dirty: false
+      };
+      if (kind === 'large') source.content += '// ' + 'x'.repeat(65_537);
+      if (kind === 'curated') {
+        source.bundleId = 'cdm';
+        source.refOnly = true;
+      }
+      if (kind === 'serialized') source.serializedModelJson = '{}';
+      const files =
+        kind === 'many' ? Array.from({ length: 9 }, (_, i) => ({ ...source, path: `${i}.rosetta` })) : [source];
+      const result = await parseWorkspaceFiles(files, kind === 'hydration' ? { hydrateNamespaces: ['local'] } : {});
+      expect(result.parseMode).toBe('router');
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(messages).not.toContain('parseWorkspace');
+    }
+  );
 
   it('cancels an abandoned workspace request without starting browser fallback parsing', async () => {
     const controller = new AbortController();

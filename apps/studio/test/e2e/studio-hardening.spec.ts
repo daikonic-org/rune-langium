@@ -6,6 +6,7 @@ import { expect, type Route } from '@playwright/test';
 import { test } from '../helpers/studio-test.js';
 import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+import { seedProjectBackingFiles } from '../helpers/project-backing.js';
 
 const source = `namespace harden
 enum BusinessCenterEnum:
@@ -40,7 +41,13 @@ test('navigation remains available during a stalled restore while opening anothe
     }
     await route.continue();
   });
-  await page.reload();
+  // Keep this a hosted-parse cancellation test after small standalone projects
+  // moved to the local worker. Seed a larger source without waiting on a first
+  // hosted parse just to create the disposable fixture.
+  await seedProjectBackingFiles(page, {
+    'first.rosetta':
+      '// ' + 'padding '.repeat(9000) + '\nnamespace navigation.initial\ntype InitialRecord:\n value string (1..1)\n'
+  });
   await expect.poll(() => Boolean(held)).toBe(true);
   await page.getByRole('button', { name: 'Workspaces', exact: true }).click();
   await expect(page.getByTestId('workspaces-perspective')).toBeVisible();

@@ -26,6 +26,7 @@ import {
   type ExpressionScopeEntry,
   type SourceRegion,
   createRuneDslServices,
+  collectNamespaceDependencies,
   RuneDslIndexManager,
   namespaceFromSource,
   preserveCstText,
@@ -49,6 +50,7 @@ import {
   type LangiumDocument
 } from 'langium';
 import { parseErrorMessages } from '../services/parse-errors.js';
+import { buildDependencyGraph } from '../services/curated-closure.js';
 import { isWorkerGlobalScope } from './runtime-guards.js';
 import { installInstrumentationWorkerSink } from '../services/instrumentation/worker-sink.js';
 import { withInstrumentation, Capture } from '../services/instrumentation/core.js';
@@ -226,6 +228,7 @@ export interface ParseWorkspaceResponse {
   parsedModels: Array<{ filePath: string; model: RosettaModel; serializedModelJson?: string }>;
   errors: Record<string, string[]>;
   deferredExports: DeferredExportEntry[];
+  dependencyGraph?: Record<string, string[]>;
   /**
    * Optional curated-bundle file map produced ONLY by the routed parse path
    * (workspace.ts:parseWorkspaceViaRouter). Lets the studio populate
@@ -460,8 +463,8 @@ const handleParseWorkspace = withInstrumentation(
         // DEPRECATED (019 Phase 0): pre-parsed corpus content no longer flows through
         // this path. The server-side /api/parse Pages Function fetches curated bundles
         // from curated-mirror directly and returns them in hydrationState. This branch
-        // remains as a transition shim during 019 rollout; remove in a follow-up spec
-        // once the router is the only production path for parseWorkspace. The
+        // remains as a compatibility shim. The bounded standalone worker path
+        // accepts raw user sources only, never serialized corpus entries. The
         // `.bundle-marker` synthetic file entries (workspace.ts BUNDLE_MARKER_SUFFIX)
         // also flow through this branch with `serializedModelJson: '{}'` and content '',
         // which the deferred-model machinery handles harmlessly.
@@ -538,11 +541,28 @@ const handleParseWorkspace = withInstrumentation(
         }
       }
 
+      const namespaceModels = userDocs.flatMap((document) => {
+        const model = document.parseResult.value;
+        return isRosettaModel(model)
+          ? [
+              {
+                namespace: namespaceFromSource(document.textDocument.getText()),
+                imports: model.imports.map((entry) => entry.importedNamespace)
+              }
+            ]
+          : [];
+      });
       return {
         type: 'parseWorkspaceResult',
         id: req.id,
         models,
         parsedModels,
+        dependencyGraph: buildDependencyGraph(
+          namespaceModels,
+          new Map(),
+          new Set(namespaceModels.map((model) => model.namespace)),
+          collectNamespaceDependencies(userDocs)
+        ),
         errors,
         deferredExports
       };

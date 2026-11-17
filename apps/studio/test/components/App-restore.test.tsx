@@ -116,6 +116,18 @@ afterEach(() => {
 });
 
 describe('App workspace restore on mount (T027/US2)', () => {
+  it('honors an explicit launcher selection made while a new workspace is still activating', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'New workspace', exact: true })).toBeVisible());
+    act(() => {
+      screen.getByRole('button', { name: 'New workspace', exact: true }).click();
+      screen.getByTestId('rail-workspaces').click();
+    });
+    await waitFor(() => expect(document.body).toHaveAttribute('data-workspace-active', 'true'));
+    expect(usePerspectiveStore.getState().activePerspective).toBe('workspaces');
+    expect(screen.getByText(/Open your work or start with an example project/i)).toBeVisible();
+  });
+
   it('renders the start page when no recents exist', async () => {
     render(<App />);
     await waitFor(() => {

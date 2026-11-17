@@ -59,6 +59,16 @@ for (const width of [1024, 800])
   });
 
 test('generated code gains reading height while its selection and editor stay intact', async ({ page }, info) => {
+  const workerLoad = Promise.withResolvers<void>();
+  let workerHeld = false;
+  await page.route(
+    /\/assets\/parser-worker-[^/]+\.js(?:\?|$)|\/src\/workers\/parser-worker\.ts\?worker_file/,
+    async (route) => {
+      workerHeld = true;
+      await workerLoad.promise;
+      await route.fallback();
+    }
+  );
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('./');
   await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
@@ -66,8 +76,15 @@ test('generated code gains reading height while its selection and editor stay in
     mimeType: 'text/plain',
     buffer: Buffer.from('namespace review\ntype Quote:\n amount number (1..1)\n')
   });
-  await page.getByTestId('rail-settings').click();
-  await page.getByTestId('settings-perspective').getByLabel('Theme', { exact: true }).selectOption('light');
+  try {
+    await page.getByTestId('rail-settings').click();
+    await page.getByTestId('settings-perspective').getByLabel('Theme', { exact: true }).selectOption('light');
+    await expect.poll(() => workerHeld).toBe(true);
+  } finally {
+    workerLoad.resolve();
+  }
+  // Finish preparation with Explore inactive, then verify its real panel size.
+  await expect(page.getByText('Parsing files…', { exact: true })).toHaveCount(0);
   await page.getByTestId('rail-explore').click();
   await page.getByTestId('namespace-search').fill('Quote');
   await page.getByRole('button', { name: 'Navigate to Quote', exact: true }).click();

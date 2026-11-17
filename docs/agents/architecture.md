@@ -48,6 +48,20 @@ Settings/Workspaces navigation survives restoration too. Namespace expansion is
 derived from the current shallow inventory plus explicit fold/open choices;
 late-arriving declarations use the normal defaults without reopening manually
 folded branches or resetting the retained explorer.
+Explicit navigation during the save barrier also wins over a workspace's initial
+Explore destination. Launcher helpers always express their destination rather
+than treating a temporarily visible fallback as completed navigation. Automatic
+Preview yielding ignores an inactive/hidden perspective's dimensions; such
+measurements cannot collapse or persist the retained panel layout.
+
+Small standalone source sets (at most eight files and 65,536 source characters,
+including system definitions) use the existing Core parser worker. Curated,
+serialized and explicitly hydrated inputs retain the hosted parser. Worker
+failure can use the hosted path, while cancellation rejects the current wait
+without fallback. Both paths hydrate serialized user models through Core's batch
+helper, retaining containers, cross-file references, canonical URIs and exact
+source ownership. The local worker reuses the shared namespace dependency-graph
+collector/closure, so downloads retain their ordinary dependency selection.
 
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
 canonical rendered item snapshots after accepted authored input/model revisions;
