@@ -4,12 +4,7 @@ import { withInstrumentation } from './instrumentation/core.js';
 import { decodeReferenceArtifactAsync, type DecodedReferenceArtifact } from '@rune-langium/project-runtime/references';
 import { projectFileRevision } from '@rune-langium/project-config';
 import { projectReferenceUri } from '@rune-langium/project-runtime/context';
-import {
-  compactLspModelJson,
-  readLspModelMetadata,
-  createRuneDslServices,
-  hydrateModelDocument
-} from '@rune-langium/core';
+import { deriveLspModelData, createRuneDslServices, hydrateModelDocument } from '@rune-langium/core';
 import { EmptyFileSystem } from 'langium';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
 
@@ -37,11 +32,7 @@ export const prepareReferenceArtifact = withInstrumentation(
             const exports = (await services.RuneDsl.references.ScopeComputation.collectExportedSymbols(document)).map(
               ({ type, name, path }) => ({ type, name, path })
             );
-            derived = {
-              metadata: readLspModelMetadata(doc.modelJson),
-              compact: compactLspModelJson(doc.modelJson),
-              exports
-            };
+            derived = { ...deriveLspModelData(doc.modelJson), exports };
             await curatedArtifactCache.putReferenceDerived(sourceHash, derived);
           }
           doc.lsp = { metadata: derived.metadata, compact: derived.compact };

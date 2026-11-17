@@ -1,5 +1,35 @@
 # Repeated work in captured project readiness
 
+## Follow-ups after the accepted PR #712 merge
+
+Exact-head CI 44011646089 still exceeded the J9 form budget (6,771/5,000 ms)
+and J20 warm-source budget (10,878/10,000 ms). J19's editor appeared beyond a
+five-second assertion, the scaled Inspector collapse click remained unstable,
+and a Compose output draft disappeared during refresh. Ordinary optimized local
+replays passed those interactions; they do not establish the CI causes resolved.
+
+Local profiles identified repeated canonical JSON metadata reads in the deferred
+parser and separate parses for metadata and compact LSP content during artifact
+preparation. Core now shares one parse for those two derived views. Verified
+reference metadata supplies dependency edges during parser installation; legacy
+payloads still derive them from canonical JSON. Malformed transitive artifacts
+must continue to reject the whole closure and permit a repaired installation.
+
+Compose facts now belong to a dependency snapshot as well as exact source bytes
+and declaration identity. A pending refresh keeps editing disabled, and draft
+capture uses the current canonical step rather than a retained graph node's old
+region. Failed source capture reports an error. A controlled delayed-refresh
+test covers the readiness boundary.
+Camera fitting shares current-graph readiness and ignores superseded fit
+completions. The selected node must fit within the canvas after a binding Apply.
+
+The Compose CI image also exposed Explore painting beneath the canvas: Dockview
+descendants can restore `visibility: visible`. An ancestor opacity guard keeps
+the retained workbench measurable and inert while suppressing descendant paint.
+Compact shared icon buttons now retain stationary hit targets. The added hover
+contract fails against the old optimized bundle; this is interaction hardening,
+not proof that hover motion alone caused the CI collapse timeout.
+
 PR #712's `91f80514` passed code review but failed the complete candidate evidence
 gate in [CI 43779943084](https://github.com/daikonic-org/rune-langium/actions/runs/43779943084):
 J9's BusinessCenters form took 5,579 ms against its unchanged 5,000 ms budget.

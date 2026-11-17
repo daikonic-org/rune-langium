@@ -63,6 +63,9 @@ function PerspectiveScreen({
   );
 }
 
+// Descendant visibility overrides must not reveal retained or pending controls.
+const hiddenContentStyle: React.CSSProperties = { visibility: 'hidden', opacity: 0 };
+
 export const PerspectiveHost = withInstrumentation(
   function PerspectiveHost({
     hasWorkspace,
@@ -99,7 +102,7 @@ export const PerspectiveHost = withInstrumentation(
            * content retains geometry without exposing editing controls. */}
           <div
             className="relative min-h-0 min-w-0 flex-1"
-            style={{ visibility: contentPending ? 'hidden' : undefined }}
+            style={contentPending ? hiddenContentStyle : undefined}
             inert={contentPending}
             aria-hidden={contentPending || undefined}
           >
@@ -109,7 +112,9 @@ export const PerspectiveHost = withInstrumentation(
               // `studio-perspective-enter` replays its fade-in each time the class
               // is re-added (i.e. every time Explore becomes active again).
               className={effective === 'explore' ? 'h-full studio-perspective-enter' : 'h-full'}
-              style={effective === 'explore' ? undefined : { position: 'absolute', inset: 0, visibility: 'hidden' }}
+              // Dockview descendants can set visibility:visible. Ancestor
+              // opacity suppresses their paint without discarding geometry.
+              style={effective === 'explore' ? undefined : { position: 'absolute', inset: 0, ...hiddenContentStyle }}
               inert={effective !== 'explore'}
               aria-hidden={effective !== 'explore' || undefined}
             >

@@ -83,6 +83,7 @@ test('generated code gains reading height while its selection and editor stay in
     const retained = page.locator('[data-perspective-slot="explore"]');
     await expect(retained).toBeHidden();
     await expect(retained).toHaveAttribute('inert');
+    await expect(retained).toHaveCSS('opacity', '0');
     await expect.poll(async () => (await retained.boundingBox())?.width ?? 0).toBeGreaterThan(1000);
   } finally {
     workerLoad.resolve();
