@@ -2079,6 +2079,24 @@ out of preview/download semantic worker payloads.
 
 ## Responsive reading and diagnostic presentation
 
+`WorkbenchViewBar` and `WorkbenchPaneHeading` own center-view chrome shared by
+Explore and Compose: grouped pressed toggles, pending cues, captions and action
+slots. Perspective state still decides which views are available. Compose allows
+Canvas, Source or both, retaining at least one center view; bodies outside its
+supported composition subset stay in Source.
+
+`SplitWorkbench` reuses design-system resizable primitives for Compose's
+palette/center/details columns and Export's settings/output split. Its keyboard
+and pointer separators enforce pane bounds. Narrow containers switch Compose to
+vertical splits, including its center views when needed. Stable pane keys retain
+mounted peers through resizing and sidebar toggles. Optional workspace-scoped
+personal preferences remember each axis and visible pane set, saving only after
+user resize commits. Invalid/unavailable preference storage falls back safely;
+temporary constraints never overwrite the requested layout. Axis restoration
+waits for pane registration and applies in place. Layout never writes Rune source,
+project configuration, examples or graph positions. Explore's existing Dockview
+lifecycle and center focus/visibility policy remain in their shared shell.
+
 Generated export text reads are scoped to the exact captured artifact and path,
 including the render before effects settle. Failed reads retain the downloadable
 archive and expose an explicit retry; late results cannot replace the active

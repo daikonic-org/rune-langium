@@ -42,6 +42,14 @@
   min-height: 0;
   min-width: 0;
 }
+.function-composer__center, .function-composer__source-pane {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
 .function-composer__canvas {
   position: relative;
   display: flex;
@@ -50,30 +58,31 @@
   flex: 1;
   flex-direction: column;
   overflow: hidden;
+  height: 100%;
 }
 
 .function-composer__palette {
   display: flex;
-  width: clamp(220px, 18vw, 244px);
+  width: 100%;
+  height: 100%;
   min-width: 0;
   flex-shrink: 0;
   flex-direction: column;
   gap: var(--space-1);
   overflow: auto;
-  border-right: 1px solid var(--border);
   padding: var(--space-2);
   background: var(--card);
 }
 
 .function-composer__details {
   display: flex;
-  width: clamp(280px, 24vw, 336px);
+  width: 100%;
+  height: 100%;
   min-width: 0;
   flex-shrink: 0;
   flex-direction: column;
   gap: var(--space-2);
   overflow: auto;
-  border-left: 1px solid var(--border);
   padding: var(--space-2);
   background: var(--card);
   overflow-wrap: anywhere;
@@ -162,22 +171,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.function-composer__view {
-  position: absolute;
-  z-index: 5;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  gap: var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: calc(var(--space-1) * 0.5);
-  background: var(--card);
-}
 .function-composer__source {
-  height: 100%;
   overflow: auto;
-  padding: calc(var(--space-6) * 2) var(--space-3) var(--space-3);
+  padding: var(--space-3);
 }
 .function-composer__notice {
   margin-bottom: var(--space-3);
@@ -267,27 +263,6 @@
 }
 
 @media (width < 900px) {
-  .function-composer__body {
-  flex-wrap: wrap;
-  overflow: auto;
-}
-  .function-composer__palette {
-  width: 100%;
-  max-height: 35dvh;
-  border-right: 0;
-  border-bottom: 1px solid var(--border);
-}
-  .function-composer__canvas {
-  min-height: 420px;
-  flex-basis: 100%;
-}
-  .function-composer__details {
-  width: 100%;
-  max-height: none;
-  min-height: 200px;
-  border-left: 0;
-  border-top: 1px solid var(--border);
-}
   .function-composer__header {
   flex-wrap: wrap;
 }
