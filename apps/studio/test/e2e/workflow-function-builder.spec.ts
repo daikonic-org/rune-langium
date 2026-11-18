@@ -251,7 +251,16 @@ func PaletteCall${i}:
   const palette = composer.getByRole('complementary', { name: 'Composition palette' });
   const tree = palette.getByTestId('namespace-explorer');
   const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
-  await expect(palette.getByRole('heading', { name: 'Functions 127' })).toBeVisible();
+  const heading = palette.getByRole('heading', { name: /functions 127/i });
+  await expect(heading).toBeVisible();
+  await expect(heading).toHaveCSS('text-transform', 'uppercase');
+  await expect(heading).toHaveCSS('font-weight', '500');
+  const headingType = await heading.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { family: style.fontFamily, tracking: parseFloat(style.letterSpacing) / parseFloat(style.fontSize) };
+  });
+  expect(headingType.family).toContain('Daikonic Transit Sans');
+  expect(headingType.tracking).toBeCloseTo(0.1, 3);
   expect((await palette.locator('.function-composer__catalog').boundingBox())!.height).toBeLessThanOrEqual(288);
   await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
   await expect(tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true })).toHaveCount(0);
@@ -263,6 +272,7 @@ func PaletteCall${i}:
   await search.fill('palettecall124');
   const last = tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true });
   await expect(last).toBeVisible();
+  await expect(last).toHaveCSS('text-transform', 'none');
   await expect(
     tree.getByTestId('ns-type-workflow.PaletteCall124#RosettaFunction').locator('[data-slot="list-card"]')
   ).toHaveAttribute('data-variant', 'compact');

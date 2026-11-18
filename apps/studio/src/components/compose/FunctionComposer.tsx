@@ -973,11 +973,11 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                   onOpen={navigate}
                   onAdd={(id) => void beginAdd(id)}
                 />
-                <h2>Primitives</h2>
+                <h2 className="section-heading">Primitives</h2>
                 <div className="function-composer__primitives">
                   {primitiveGroups.map((group) => (
                     <div key={group} role="group" aria-label={group}>
-                      <h3>{group}</h3>
+                      <h3 className="section-heading">{group}</h3>
                       <div className="function-composer__primitive-grid">
                         {matchingPrimitives
                           .filter((primitive) => primitive.group === group)
@@ -1111,7 +1111,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
               {variablesOpen && !source && presented?.supported && (
                 <div className="composition-variables nodrag" role="region" aria-label="Available variables">
                   <div className="composition-variables__header">
-                    <strong>Variables</strong>
+                    <strong className="section-heading">Variables</strong>
                     <Input
                       aria-label="Filter variables"
                       placeholder="Filter variables"

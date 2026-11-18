@@ -275,7 +275,7 @@ function ChoiceForm({
                       {' '}
                       <FieldSet className="gap-1">
                         <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                          Options ({members.length})
+                          <span className="section-heading">Options ({members.length})</span>
                         </FieldLegend>
 
                         <FieldGroup role="list" className="gap-0.5">

@@ -82,6 +82,8 @@
 .function-composer h2 {
   margin: var(--space-3) 0 var(--space-1);
   font-size: inherit;
+}
+.function-composer h2:not(.section-heading) {
   font-weight: 600;
 }
 .function-composer__details > button {

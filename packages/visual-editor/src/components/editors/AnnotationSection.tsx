@@ -159,7 +159,7 @@ export function AnnotationSection({
   return (
     <div data-slot="annotation-section" className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">Annotations</span>
+        <span className="section-heading text-xs text-muted-foreground">Annotations</span>
         {!effectiveReadOnly && addable.length > 0 && (
           <Button
             variant="ghost"

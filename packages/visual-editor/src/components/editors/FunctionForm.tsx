@@ -562,7 +562,7 @@ function FunctionForm({
               mirrors the Members section in DataTypeForm (DRY / R-func-input). */}
                         <FieldSet className="shrink-0 gap-1">
                           <FieldLegend variant="label" className="mb-0 flex items-center gap-1 text-muted-foreground">
-                            Inputs ({fields.length})
+                            <span className="section-heading">Inputs ({fields.length})</span>
                             {!isReadOnly && (
                               <Button
                                 data-slot="add-input-btn"
@@ -612,7 +612,7 @@ function FunctionForm({
                         </FieldSet>
                         <FieldSet className="shrink-0 gap-1">
                           <FieldLegend variant="label" className="mb-0 flex items-center gap-1 text-muted-foreground">
-                            Output
+                            <span className="section-heading">Output</span>
                             {!d.output && !isReadOnly && (
                               <Button
                                 type="button"

@@ -347,7 +347,7 @@ function EnumForm({
                           variant="label"
                           className="mb-0 text-muted-foreground flex items-center justify-between"
                         >
-                          <span>Values ({fields.length + inheritedCount})</span>
+                          <span className="section-heading">Values ({fields.length + inheritedCount})</span>
                           {/* Icon-only add button matches FormPreviewPanel; see
                   DataTypeForm for the rationale. */}
                           {!isReadOnly && (

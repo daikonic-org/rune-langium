@@ -134,6 +134,7 @@
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --font-display: var(--font-family-display);
+  --section-heading-letter-spacing: 0.1em;
   /* 3xs/2xs extend the scale DOWN for dense chrome (badges, status bar, tiny
    * pills) that runs below the 12px `xs` floor — added so those 10–11px sizes
    * become real tokens instead of raw px/rem literals, with no visual change. */

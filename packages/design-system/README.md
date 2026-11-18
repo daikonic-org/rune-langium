@@ -37,6 +37,12 @@ upstream release, axes and SHA-256 of each unmodified WOFF2; that directory reta
 the upstream OFL and notices. The combined site build copies this same source for
 the static landing page. Vite fingerprints font assets for Studio and docs.
 
+Use `.section-heading` on short, static section-label text: Transit Sans Medium
+500, uppercase and `--section-heading-letter-spacing` (0.10em). Existing text sizes
+remain authoritative. Apply the class to the text span when a header also contains
+controls; function/type names, field values, page titles and navigation tabs keep
+their original case and spacing.
+
 ## Panel and section spacing
 
 `src/tokens.css` owns the shared density defaults: `--panel-padding-inline`

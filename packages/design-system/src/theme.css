@@ -394,6 +394,14 @@
   --sidebar-ring: var(--focus-ring-colour);
 }
 
+/* Static section labels opt in; authored names and controls retain their own typography. */
+.section-heading {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--section-heading-letter-spacing);
+  text-transform: uppercase;
+}
+
 /* ── Base layer ───────────────────────────────────────────────── */
 @layer base {
   * {

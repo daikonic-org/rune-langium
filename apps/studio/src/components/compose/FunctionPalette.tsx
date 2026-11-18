@@ -102,7 +102,7 @@ export const FunctionPalette = withInstrumentation(
 
     return (
       <section className="function-composer__functions" aria-label="Function library">
-        <h2>
+        <h2 className="section-heading">
           Functions <NumberChiclet>{entries.length}</NumberChiclet>
         </h2>
         {suggestions.length > 0 && (

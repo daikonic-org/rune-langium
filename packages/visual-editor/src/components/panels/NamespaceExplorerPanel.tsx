@@ -437,7 +437,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
         {/* Header */}
         {!compact && (
           <div className="px-3 py-2 border-b">
-            {showHeading && <span className="block text-sm font-semibold">Type explorer</span>}
+            {showHeading && <span className="section-heading block text-sm">Type explorer</span>}
             <p className={`${showHeading ? 'mt-1 ' : ''}text-2xs text-muted-foreground`}>
               {selection
                 ? 'Click a row to include or exclude it. Use the arrow to open.'
