@@ -431,6 +431,56 @@ func Analyze:
   await page.screenshot({ path: testInfo.outputPath('compose-primitives-hd.png') });
 });
 
+test('retains the canvas camera across Source and nested function navigation', async ({ page }) => {
+  const content =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+    `
+func SavedCamera:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias scaled: Double(value)
+ set result: scaled
+`;
+  const composer = await openComposition(page, content, 'SavedCamera');
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  await composer.getByRole('combobox', { name: 'Selected composition step', exact: true }).selectOption('alias:scaled');
+  const viewport = composer.locator('.react-flow__viewport');
+  const settledCamera = async () => {
+    let previous = '';
+    let stable = 0;
+    await expect
+      .poll(
+        async () => {
+          const current = (await viewport.getAttribute('style')) ?? '';
+          stable = current && current === previous ? stable + 1 : 0;
+          previous = current;
+          return stable;
+        },
+        { intervals: [100] }
+      )
+      .toBeGreaterThanOrEqual(3);
+    return previous;
+  };
+  const initial = await settledCamera();
+  await composer.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+  const saved = await settledCamera();
+  expect(saved).not.toBe(initial);
+
+  await composer.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(viewport).toHaveCount(0);
+  await composer.getByRole('button', { name: 'Canvas', exact: true }).click();
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  expect(await settledCamera()).toBe(saved);
+
+  await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
+  await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+  await composer.getByRole('button', { name: 'Parent', exact: true }).click();
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  expect(await settledCamera()).toBe(saved);
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+});
+
 test('replaces zero-argument calls with entered expressions and variable bindings', async ({ page }) => {
   const content = `namespace workflow
 import rune.studio.*
@@ -451,6 +501,18 @@ func ReplaceConstant:
     await composer.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
   };
+  await output.getByRole('button', { name: 'Edit result expression', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit result expression', exact: true });
+  const textToggle = dialog.getByRole('button', { name: 'Text', exact: true });
+  if (await textToggle.isVisible()) await textToggle.click();
+  await dialog.getByRole('textbox', { name: 'Rune source editor', exact: true }).fill('value + 2');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(expression).toHaveValue('value + 2');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await save(content.replace('set result: Constant()', 'set result: value + 2'));
+  await expression.fill('Constant()');
+  await save(content);
   await expression.fill('value + 1');
   await expect(expression).toHaveValue('value + 1');
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);

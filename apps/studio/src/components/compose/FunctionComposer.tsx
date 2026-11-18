@@ -1300,11 +1300,10 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
                 }
                 editor={editor}
                 onChange={(value) => {
-                  if (expressionEditor.argument === undefined) changeDraft({ ...draft, expression: value });
-                  else {
-                    const step = preview?.step ?? composition?.steps.find((step) => step.id === draft.stepId);
-                    if (step) stageArgument(step, expressionEditor.argument, value);
-                  }
+                  const step = preview?.step ?? composition?.steps.find((step) => step.id === draft.stepId);
+                  if (!step) return;
+                  if (expressionEditor.argument === undefined) actions.value(step, value);
+                  else stageArgument(step, expressionEditor.argument, value);
                 }}
               />
             )}

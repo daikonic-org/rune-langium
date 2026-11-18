@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Daikonic contributors
 
 import { act, render, screen } from '@testing-library/react';
-import { memo, useContext, useState } from 'react';
-import { expect, it, vi } from 'vitest';
+import { memo, useContext, useState, type ComponentProps } from 'react';
+import { beforeEach, expect, it, vi } from 'vitest';
 import type { ReactFlowProps } from '@xyflow/react';
 import type { FunctionComposition } from '@rune-langium/core';
 import { CompositionCanvas } from '../../src/components/compose/CompositionCanvas.js';
@@ -17,6 +17,7 @@ const harness = vi.hoisted(() => {
   const flow: ReactFlowProps<ComposerNode> = {};
   return {
     flow,
+    initialized: false,
     layout: vi.fn(() => ({})),
     parent: vi.fn(),
     palette: vi.fn(),
@@ -28,7 +29,7 @@ const harness = vi.hoisted(() => {
 vi.mock('@xyflow/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@xyflow/react')>()),
   useReactFlow: () => harness.api,
-  useNodesInitialized: () => false,
+  useNodesInitialized: () => harness.initialized,
   ReactFlow: (props: ReactFlowProps<ComposerNode>) => {
     harness.flow = props;
     return (
@@ -49,6 +50,100 @@ const Probe = memo(function Probe({ data }: { data: ComposerNode['data'] }) {
   useContext(NodeBindingContext);
   harness.node();
   return <span>{data.expression}</span>;
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  harness.initialized = false;
+});
+
+function cameraProps(): ComponentProps<typeof CompositionCanvas> {
+  const composition: FunctionComposition = {
+    optedIn: true,
+    supported: true,
+    reasons: [],
+    steps: [{ id: 'return', name: 'result', kind: 'return', dependencies: [] }]
+  };
+  return {
+    current: composition,
+    presented: composition,
+    source: '',
+    active: true,
+    vertical: true,
+    selected: 'return',
+    variablesOpen: false,
+    viewKey: 'example:TB',
+    size: { width: 900, height: 600 },
+    setFocus: vi.fn(),
+    positions: new Map(),
+    viewports: new Map(),
+    onSelect: vi.fn(),
+    onDraftMove: vi.fn(),
+    onConnect: vi.fn(),
+    onDrop: vi.fn()
+  };
+}
+
+it('restores the saved camera on mount and after navigating away and back', () => {
+  harness.initialized = true;
+  const props = cameraProps();
+  const saved = { x: 120, y: -80, zoom: 0.6 };
+  props.viewports.set(props.viewKey, saved);
+  const mounted = render(<CompositionCanvas {...props} />);
+  expect(harness.api.setViewport).toHaveBeenLastCalledWith(saved);
+  expect(props.setFocus).not.toHaveBeenCalled();
+
+  const moved = { x: -300, y: 250, zoom: 0.8 };
+  act(() => harness.flow.onMoveEnd?.(null, moved));
+  mounted.unmount();
+  render(<CompositionCanvas {...props} />);
+  expect(harness.api.setViewport).toHaveBeenLastCalledWith(moved);
+  expect(props.setFocus).not.toHaveBeenCalled();
+});
+
+it('preserves the saved camera through initial measurement and only refocuses on a real resize', () => {
+  harness.initialized = true;
+  const props = { ...cameraProps(), variablesOpen: true };
+  const saved = { x: 100, y: 200, zoom: 0.75 };
+  props.viewports.set(props.viewKey, saved);
+  const { rerender } = render(<CompositionCanvas {...props} size={{ width: 0, height: 0 }} />);
+  rerender(<CompositionCanvas {...props} />);
+  expect(harness.api.setViewport).toHaveBeenLastCalledWith(saved);
+  expect(props.setFocus).not.toHaveBeenCalled();
+
+  rerender(<CompositionCanvas {...props} size={{ width: 750, height: 600 }} />);
+  expect(props.setFocus).toHaveBeenCalledExactlyOnceWith('return');
+});
+
+it('keeps explicit focus ahead of a saved camera and fits new functions without a saved camera', () => {
+  harness.initialized = true;
+  const props = cameraProps();
+  props.viewports.set(props.viewKey, { x: 100, y: 200, zoom: 0.75 });
+  const mounted = render(<CompositionCanvas {...props} focus="return" />);
+  expect(harness.api.setViewport).not.toHaveBeenCalled();
+  expect(props.setFocus).not.toHaveBeenCalled();
+  mounted.unmount();
+
+  props.viewports.clear();
+  render(<CompositionCanvas {...props} />);
+  expect(harness.api.setViewport).not.toHaveBeenCalled();
+  expect(props.setFocus).toHaveBeenCalledExactlyOnceWith('*');
+});
+
+it('ignores initial and repeated node measurements but refocuses a resized selected node', () => {
+  harness.initialized = true;
+  const props = { ...cameraProps(), variablesOpen: true };
+  props.viewports.set(props.viewKey, { x: 100, y: 200, zoom: 0.75 });
+  render(<CompositionCanvas {...props} />);
+  const measure = (height: number) =>
+    act(() => harness.flow.onNodesChange?.([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }]));
+  // React Flow has already measured its internal node before notifying us.
+  harness.api.getNode.mockReturnValue({ measured: { width: 280, height: 240 } });
+  measure(240);
+  measure(240);
+  expect(props.setFocus).not.toHaveBeenCalled();
+  measure(300);
+  expect(props.setFocus).toHaveBeenCalledExactlyOnceWith('return');
 });
 
 it('keeps pointer updates inside the canvas and preserves a draft position through semantic edits', () => {

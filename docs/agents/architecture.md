@@ -1384,6 +1384,8 @@ Measured relayout and automatic camera fitting pause during drag/connection gest
 so a source selection cannot move its target under the pointer.
 Palette/camera changes do not write Rune. Per-function leaf drafts
 survive nested navigation while the workspace remains mounted.
+Saved per-function/direction cameras also survive Canvas/Source and nested navigation;
+initial canvas measurement restores them, while subsequent resizing may refit the graph.
 Retained composition diagnostics use the source captured with their facts, even
 when reference publication temporarily removes the current file. This invariant
 also applies while the kept-alive Composer is hidden behind another perspective.

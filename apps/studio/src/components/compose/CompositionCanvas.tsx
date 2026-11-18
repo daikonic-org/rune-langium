@@ -104,6 +104,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   const flow = useReactFlow<ComposerNode>();
   const initialized = useNodesInitialized();
   const cameraKey = useRef<string | undefined>(undefined);
+  const previousSize = useRef({ ...size, vertical });
   const edges = useMemo(() => compositionEdges(presented, wiring), [presented, wiring]);
   useEffect(() => {
     setNodes((previous) => {
@@ -167,8 +168,18 @@ export const CompositionCanvas = memo(function CompositionCanvas({
     }
   }, [active, graphCurrent, initialized, nodes, viewKey, flow, focus, viewports, setFocus]);
   useEffect(() => {
-    if (size.width > 0) setFocus(variablesOpen ? selected : '*');
-  }, [size.width, size.height, vertical]);
+    const previous = previousSize.current;
+    previousSize.current = { ...size, vertical };
+    // Initial measurement belongs to camera restoration, not resize-to-fit.
+    if (
+      previous.width > 0 &&
+      previous.height > 0 &&
+      size.width > 0 &&
+      size.height > 0 &&
+      (previous.width !== size.width || previous.height !== size.height || previous.vertical !== vertical)
+    )
+      setFocus(variablesOpen ? selected : '*');
+  }, [size.width, size.height, vertical, variablesOpen, selected, setFocus]);
   useEffect(() => {
     if (
       !active ||
@@ -194,13 +205,20 @@ export const CompositionCanvas = memo(function CompositionCanvas({
       cancelAnimationFrame(frame);
     };
   }, [focus, nodes, initialized, graphCurrent, active, interacting, flow, size.width, size.height, setFocus]);
+  const selectedSize = nodes.find((node) => node.id === selected)?.measured;
   const changeNodes = useCallback(
     (changes: NodeChange<ComposerNode>[]) => {
       if (
         variablesOpen &&
         !interactingNow.current &&
-        changes.some((change) => change.type === 'dimensions') &&
-        flow.getNode(selected)?.measured?.height
+        selectedSize?.height &&
+        changes.some(
+          (change) =>
+            change.type === 'dimensions' &&
+            change.id === selected &&
+            change.dimensions &&
+            (change.dimensions.width !== selectedSize.width || change.dimensions.height !== selectedSize.height)
+        )
       )
         setFocus(selected);
       setNodes((previous) => {
@@ -217,7 +235,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
         return draft ? [...laidOut, draft] : laidOut;
       });
     },
-    [variablesOpen, flow, selected, edges, vertical, positions, viewKey, setFocus]
+    [variablesOpen, selectedSize, selected, edges, vertical, positions, viewKey, setFocus]
   );
   return (
     <NodeBindingContext.Provider value={bindings}>
