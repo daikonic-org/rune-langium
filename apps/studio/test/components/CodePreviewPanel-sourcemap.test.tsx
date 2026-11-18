@@ -22,6 +22,7 @@ vi.mock('../../src/lang/change-feedback.js', () => ({
 const capturedHandlers: { click?: (event: MouseEvent, view: object) => void } = {};
 
 // These tests exercise panel routing/status; real editor cues are covered in CodePreviewPanel-arrival.
+vi.mock('../../src/lang/assertion-highlight.js', () => ({ assertionHighlight: [] }));
 vi.mock('../../src/lang/source-navigation-highlight.js', () => ({
   sourceNavigationHighlight: [],
   clearSourceReveal: vi.fn(),
