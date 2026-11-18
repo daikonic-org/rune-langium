@@ -105,6 +105,7 @@ interface Draft {
   position?: XYPosition;
   bindingOnly?: boolean;
   inputVariable?: string;
+  collectionBinding?: { region: SourceRegion; value: string };
 }
 
 /** One mounted instance per workspace: graph positions and uncommitted leaf drafts survive navigation. */
@@ -472,11 +473,10 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   };
   const expression = draft?.callee
     ? draft.argumentRegions
-      ? compositionArgumentsText(
-          draft.binding,
-          draft.region,
-          draft.argumentRegions.map((region, index) => ({ region, value: draft.arguments?.[index]?.value ?? '' }))
-        )
+      ? compositionArgumentsText(draft.binding, draft.region, [
+          ...draft.argumentRegions.map((region, index) => ({ region, value: draft.arguments?.[index]?.value ?? '' })),
+          ...(draft.collectionBinding ? [draft.collectionBinding] : [])
+        ])
       : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value).join(', ') ?? ''})`
     : (draft?.expression ?? '');
 
@@ -753,14 +753,24 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       const next = makeDraft(step);
       if (!next) return;
       try {
-        changeDraft({
-          ...next,
-          expression: variableId ? compositionInputText(actions.expression(step), value) : value,
-          inputVariable: variableId,
-          callee: undefined,
-          argumentRegions: undefined,
-          arguments: undefined
-        });
+        if (variableId && step.collection && next.argumentRegions) {
+          // Both edits retain coordinates in the same capture, regardless of replacement length.
+          changeDraft({
+            ...next,
+            inputVariable: variableId,
+            collectionBinding: { region: step.collection, value }
+          });
+        } else {
+          changeDraft({
+            ...next,
+            expression: variableId ? compositionInputText(actions.expression(step), value) : value,
+            inputVariable: variableId,
+            callee: undefined,
+            argumentRegions: undefined,
+            arguments: undefined,
+            collectionBinding: undefined
+          });
+        }
         setError(undefined);
       } catch (failure) {
         setError(failure instanceof Error ? failure.message : 'Could not bind this input.');
