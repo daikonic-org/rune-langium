@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test';
 import { checkout as test, expect, captureOpLogSnapshot, readOpLog } from '../fixtures.js';
 import { loadCurrentCdm } from '../../helpers/workspace-launcher.js';
 import { projectBackingFiles } from '../../helpers/project-backing.js';
+import { PREVIEW_PREPARATION_TIMEOUT_MS } from '../../../src/services/instance-readiness.js';
 
 const root = 'rosetta-source/src/main/resources/';
 const gasName = 'com-ex12-physical-gas-europe-zbt-fixed-price';
@@ -85,7 +86,7 @@ for (const [version, theme] of [
       const original = await savedExample(page, path);
       await row.click();
       const validation = page.getByRole('button', { name: /^input: (Checks passed|\d+ issues?) · View validation$/ });
-      await expect(validation).toBeVisible({ timeout: 15000 });
+      await expect(validation).toBeVisible({ timeout: PREVIEW_PREPARATION_TIMEOUT_MS });
       await expect(page.getByRole('region', { name: 'input fields', exact: true })).toBeVisible();
       await validation.click();
       await expect(page.getByRole('heading', { name: 'input · validation', exact: true })).toBeVisible();
@@ -130,7 +131,10 @@ for (const [version, theme] of [
       await page.getByRole('button', { name: 'Object builder', exact: true }).click();
       await expect(row.getByText('saved', { exact: true })).toBeVisible();
       await row.click();
-      await expect(validation).toBeVisible({ timeout: 15000 });
+      // Reload starts a cold worker and the curated schema closure again.
+      // Keep this bounded by Studio's preparation contract, rather than a
+      // shorter UI-action timeout that can expire during legitimate hydration.
+      await expect(validation).toBeVisible({ timeout: PREVIEW_PREPARATION_TIMEOUT_MS });
       expect(await savedExample(page, path)).toEqual(original);
       await evidence.checkpoint('gas-restored-with-source-preserved');
     }

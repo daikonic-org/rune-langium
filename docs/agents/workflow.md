@@ -817,6 +817,11 @@ integration; the separate pinned CDM payload test establishes upstream byte and
 codec fidelity, not a complete CDM trade. Pinned third-party fixtures are excluded
 from formatting so upstream bytes and integrity hashes stay intact.
 
+J29's restored gas examples wait for completed input validation using the shared
+`PREVIEW_PREPARATION_TIMEOUT_MS` deadline. Reload rebuilds the worker and curated
+schema closure; a shorter UI-action timeout can expire during that preparation.
+The completed-validation and unchanged saved-payload assertions remain required.
+
 Code-list changes: run project-runtime's `code-lists`/`project-capabilities` suites,
 Codegen's `runtime/project-bindings` suite and Studio's `PreviewEnumInput`/
 `FormPreviewPanel` suites. `test/e2e/project-resources.spec.ts` verifies the pinned
