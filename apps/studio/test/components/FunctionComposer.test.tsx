@@ -11,6 +11,11 @@ vi.mock('../../src/services/workspace.js', async (original) => ({
   ...(await original<typeof import('../../src/services/workspace.js')>()),
   requestFunctionComposition: describe
 }));
+// These tests exercise authoring state; canvas geometry is covered by CompositionCanvas and browser tests.
+vi.mock('../../src/components/compose/CompositionCanvas.js', () => ({
+  DRAFT_NODE: 'draft',
+  CompositionCanvas: () => null
+}));
 vi.mock('../../src/components/editing/ExpressionWorkspace.js', () => ({
   ExpressionWorkspace: () => <div>Source body</div>
 }));
