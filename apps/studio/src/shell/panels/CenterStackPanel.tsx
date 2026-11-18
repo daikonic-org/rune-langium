@@ -238,7 +238,7 @@ export const CenterStackPanel = withInstrumentation(
               >
                 {ordered.length > 1 ? (
                   <div className="studio-center-stack__pane-heading">
-                    <span className="navigation-heading text-xs">{PANE_LABELS[pane]}</span>
+                    <span className="font-title text-xs font-medium">{PANE_LABELS[pane]}</span>
                     <Button
                       variant="ghost"
                       size="icon-xs"

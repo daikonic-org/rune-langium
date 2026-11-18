@@ -1153,7 +1153,7 @@ button[data-navigable]:focus-visible {
   background: none;
   color: var(--structure-kind);
   font: inherit;
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-medium);
   text-align: start;
   overflow-wrap: anywhere;
 }

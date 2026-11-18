@@ -47,14 +47,16 @@ the upstream OFL and notices. The combined site build copies this same source fo
 the static landing page. Vite fingerprints font assets for Studio and docs.
 
 The ambient UI uses Transit System Book 350 (`--font-weight-book`).
-Action buttons and the Studio center-pane toggles use Medium 500; primary and
-destructive action buttons use SemiBold 600. Field labels and disclosures remain
+Action buttons use Medium 500; primary/destructive actions and the Studio
+center-pane toggles use SemiBold 600. Field labels and disclosures remain
 Regular 400 (`font-normal`, bridged to `--font-weight-regular` by the theme).
 Use `.navigation-tab` for tabs and view toggles: System Regular 400 in authored
 case. The shared tabs primitive uses this role by default.
 Use `.navigation-heading` for perspective names and panel titles, and
 `.section-heading` for internal section labels: System Regular 400 in authored case.
-Panel/perspective titles retain Sans Regular 400.
+Panel/perspective titles retain Sans Regular 400 by default. Components may
+strengthen this: Studio pane captions use Title/Sans Medium 500, and shared
+Structure card and Inspector declaration names use Medium 500.
 Add `.perspective-heading` only to perspective names for uppercase and
 `--perspective-heading-letter-spacing` (0.10em). Apply heading roles to text spans
 when a header also contains controls or counts.

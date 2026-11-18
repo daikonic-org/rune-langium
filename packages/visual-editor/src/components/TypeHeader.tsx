@@ -73,7 +73,7 @@ export function TypeHeader({
         {namespace && (
           <span
             data-slot="type-header-namespace"
-            className="truncate text-base text-muted-foreground"
+            className="truncate text-base font-normal text-muted-foreground"
             title={namespace}
           >
             {namespace}
@@ -85,7 +85,7 @@ export function TypeHeader({
             name="name"
             render={({ field, fieldState }) =>
               nameReadOnly ? (
-                <h2 data-slot="type-name" className="truncate px-1 text-lg font-normal">
+                <h2 data-slot="type-name" className="truncate px-1 text-lg font-medium">
                   {field.value}
                 </h2>
               ) : (
@@ -99,7 +99,7 @@ export function TypeHeader({
                       field.onChange(e);
                       onNameChange?.(e.target.value);
                     }}
-                    className="h-auto px-1 py-0.5 text-lg font-normal"
+                    className="h-auto px-1 py-0.5 text-lg font-medium"
                     placeholder={placeholder}
                     aria-label={nameAriaLabel}
                   />
@@ -109,7 +109,7 @@ export function TypeHeader({
             }
           />
         ) : (
-          <h2 data-slot="type-name" className="truncate px-1 text-lg font-normal">
+          <h2 data-slot="type-name" className="truncate px-1 text-lg font-medium">
             {name}
           </h2>
         )}
