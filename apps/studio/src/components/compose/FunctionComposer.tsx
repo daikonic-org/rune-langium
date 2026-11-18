@@ -1018,11 +1018,23 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
             <section ref={setCanvasElement} className="function-composer__canvas" aria-label="Composition canvas">
               {editor && (
                 <div className="function-composer__view" role="group" aria-label="Composition view">
-                  <Button size="xs" variant="ghost" aria-pressed={!source} onClick={() => setSource(false)}>
+                  <Button
+                    className="navigation-tab"
+                    size="xs"
+                    variant="ghost"
+                    aria-pressed={!source}
+                    onClick={() => setSource(false)}
+                  >
                     <Network className="size-3" />
                     Canvas
                   </Button>
-                  <Button size="xs" variant="ghost" aria-pressed={source} onClick={() => setSource(true)}>
+                  <Button
+                    className="navigation-tab"
+                    size="xs"
+                    variant="ghost"
+                    aria-pressed={source}
+                    onClick={() => setSource(true)}
+                  >
                     <Code className="size-3" />
                     Source
                   </Button>
@@ -1154,10 +1166,17 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
             {details && (
               <aside className="function-composer__details studio-scroll" aria-label="Composition details">
                 <div className="function-composer__tabs" role="group" aria-label="Inspector view">
-                  <Button size="xs" variant="ghost" aria-pressed={tab === 'step'} onClick={() => setTab('step')}>
+                  <Button
+                    className="navigation-tab"
+                    size="xs"
+                    variant="ghost"
+                    aria-pressed={tab === 'step'}
+                    onClick={() => setTab('step')}
+                  >
                     Step
                   </Button>
                   <Button
+                    className="navigation-tab"
                     size="xs"
                     variant="ghost"
                     aria-pressed={tab === 'signature'}

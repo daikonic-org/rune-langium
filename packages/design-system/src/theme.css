@@ -40,6 +40,7 @@
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --font-display: var(--font-family-display);
+  --font-weight-normal: var(--font-weight-regular);
   --radius-xs: calc(var(--radius) - 6px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -172,7 +173,7 @@
    * instead of arbitrary `var()` (see the NumberChiclet override pilot). */
   --text-3xs: var(--font-size-3xs); /* 10px */
   --text-2xs: var(--font-size-2xs); /* 11px */
-  --text-md: 0.9375rem; /* 15px — the studio in-between rung */
+  --text-md: var(--font-size-md); /* 15px — the studio in-between rung */
 }
 
 /* ── Color palette: Daikon ──────────────────────────────────────── */
@@ -394,12 +395,31 @@
   --sidebar-ring: var(--focus-ring-colour);
 }
 
-/* Static section labels opt in; authored names and controls retain their own typography. */
+/* Headings identify a perspective or panel; navigation tabs use the UI family. */
+.navigation-heading {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-regular);
+}
+
+.navigation-tab {
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-regular);
+}
+
+/* Perspective names alone use the signage treatment. */
+.perspective-heading {
+  letter-spacing: var(--perspective-heading-letter-spacing);
+  text-transform: uppercase;
+}
+
+/* Internal section headings retain their authored case. */
 .section-heading {
   font-family: var(--font-display);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--section-heading-letter-spacing);
-  text-transform: uppercase;
+  font-weight: var(--font-weight-regular);
+}
+
+[data-slot='field-legend'] > .section-heading {
+  font-size: var(--text-sm);
 }
 
 /* ── Base layer ───────────────────────────────────────────────── */
@@ -407,16 +427,20 @@
   * {
     @apply border-border outline-ring/50;
   }
+  button,
+  [role='button'],
+  [role='tab'],
+  [role='switch'],
+  summary {
+    font-weight: var(--font-weight-regular);
+  }
   body {
     @apply bg-background text-foreground;
-    /* The UI sans stack (Transit System) is the ambient default. The display font
-     * (Transit Sans) is OPT-IN via `.font-display` (or an explicit element rule,
-     * e.g. the studio brand wordmark) — NOT the ambient default. Making
-     * display the default previously leaked the brand font into every
-     * portaled overlay (dialogs, toasts, popovers, dropdowns, tooltips),
-     * which render outside the app's `.studio-app` scope and so escaped the
-     * app-level sans override. Docs uses the same UI and display roles. */
+    /* Transit System is the ambient UI family, including portaled overlays.
+     * Sans remains the explicit heading/display role. Defining the UI family
+     * on body also covers standalone consumers and docs. */
     font-family: var(--font-sans);
+    font-weight: var(--font-weight-book);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* App-wide negative tracking for UI density.
@@ -427,20 +451,15 @@
     letter-spacing: -0.01em;
   }
   h1, h2, h3, h4, h5, h6 {
-    /* Headings follow the cascade rather than hard-coding a family, so a
-     * `.font-display` ancestor (brand/marketing surface) flows the display
-     * font into them while the default stays the UI sans of `body`. */
-    font-family: inherit;
+    /* Heading and UI families have distinct roles across shared surfaces. */
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-regular);
   }
   code, kbd, pre, samp {
     font-family: var(--font-mono);
   }
 
-  /* Display-font opt-in. Apply to brand / marketing surfaces (the studio app
-   * header brand wordmark, a future landing hero, etc.) to switch a subtree to
-   * the Transit Sans display stack. Cascades to descendants, including headings
-   * (which `inherit` above). Deliberately scoped to an explicit class so the
-   * brand font never becomes ambient again. */
+  /* Display-role opt-in for brand/marketing surfaces, using Transit Sans. */
   .font-display {
     font-family: var(--font-display);
     /* Display/heading text tracks tighter than body (body at -0.01em). The

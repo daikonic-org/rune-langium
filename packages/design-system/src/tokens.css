@@ -127,14 +127,14 @@
    * same rationale as the radius ladder below. `--font-family-mono` was a dead
    * generic stack (zero consumers); it now carries the JetBrains brand mono, so
    * the mono family has a single source instead of a primitive/semantic split. */
-  --font-family-sans: 'Daikonic Transit System', system-ui, -apple-system, sans-serif;
+  --font-family-sans: 'Daikonic Transit System', system-ui, sans-serif;
   --font-family-mono: 'JetBrains Mono', ui-monospace, monospace;
   --font-family-display: 'Daikonic Transit Sans', system-ui, sans-serif;
   --font-editor: 'Daikonic Transit Code', var(--font-mono);
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --font-display: var(--font-family-display);
-  --section-heading-letter-spacing: 0.1em;
+  --perspective-heading-letter-spacing: 0.1em;
   /* 3xs/2xs extend the scale DOWN for dense chrome (badges, status bar, tiny
    * pills) that runs below the 12px `xs` floor — added so those 10–11px sizes
    * become real tokens instead of raw px/rem literals, with no visual change. */
@@ -142,11 +142,13 @@
   --font-size-2xs: 0.6875rem; /* 11px */
   --font-size-xs: 0.75rem; /* 12px */
   --font-size-sm: 0.875rem;
+  --font-size-md: 0.9375rem; /* 15px */
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
   --font-size-2xl: 1.5rem;
   --font-size-3xl: 1.875rem;
+  --font-weight-book: 350;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

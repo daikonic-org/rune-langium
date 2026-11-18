@@ -21,10 +21,10 @@ export interface HeadingProps extends React.HTMLAttributes<HTMLHeadingElement> {
 }
 
 const SIZE_CLASS: Record<HeadingLevel, string> = {
-  1: 'text-3xl font-bold tracking-tight',
-  2: 'text-2xl font-semibold tracking-tight',
-  3: 'text-xl font-semibold',
-  4: 'text-lg font-medium'
+  1: 'text-3xl font-normal tracking-tight',
+  2: 'text-2xl font-normal tracking-tight',
+  3: 'text-xl font-normal',
+  4: 'text-lg font-normal'
 };
 
 export function Heading({ level, as, size, className, children, ...rest }: HeadingProps): React.ReactElement {

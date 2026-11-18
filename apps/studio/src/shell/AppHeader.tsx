@@ -98,7 +98,7 @@ function WorkspaceSwitcherTrigger({
             there are recents OTHER than the current workspace. */}
         {onSwitchWorkspace && workspaceMenuRecents.length > 0 && (
           <>
-            <p className="px-2 py-1 text-3xs font-medium text-muted-foreground uppercase tracking-wider">Switch to</p>
+            <p className="px-2 py-1 text-3xs font-normal text-muted-foreground uppercase tracking-wider">Switch to</p>
             <ul className="space-y-0.5" role="menu">
               {workspaceMenuRecents.slice(0, 6).map((r) => (
                 <li key={r.id} role="none">
@@ -108,7 +108,7 @@ function WorkspaceSwitcherTrigger({
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent/50 cursor-pointer text-left"
                     onClick={() => onSwitchWorkspace(r.id)}
                   >
-                    <span className="font-medium truncate flex-1">{r.name}</span>
+                    <span className="font-normal truncate flex-1">{r.name}</span>
                     <span className="shrink-0 text-3xs px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase tracking-wide">
                       {r.kind === 'git-backed' ? 'GIT' : r.kind === 'folder-backed' ? 'FOLDER' : 'BROWSER'}
                     </span>

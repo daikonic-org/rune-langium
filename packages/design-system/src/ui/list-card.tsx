@@ -41,7 +41,7 @@ export function ListCard({
         <span
           data-slot="list-card-name"
           className={cn(
-            'block font-medium',
+            'block font-normal',
             variant === 'compact' ? 'truncate text-xs' : 'line-clamp-2 break-words text-sm'
           )}
         >

@@ -437,7 +437,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
         {/* Header */}
         {!compact && (
           <div className="px-3 py-2 border-b">
-            {showHeading && <span className="section-heading block text-sm">Type explorer</span>}
+            {showHeading && <span className="navigation-heading block text-sm">Type explorer</span>}
             <p className={`${showHeading ? 'mt-1 ' : ''}text-2xs text-muted-foreground`}>
               {selection
                 ? 'Click a row to include or exclude it. Use the arrow to open.'
@@ -505,7 +505,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                   onClick={() => toggleKind(kind)}
                   aria-pressed={active}
                   data-testid={`kind-filter-${kind}`}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-normal transition-colors ${
                     active
                       ? 'border-border bg-accent/60 text-foreground'
                       : 'border-border/50 bg-transparent text-muted-foreground hover:text-muted-foreground'
@@ -667,7 +667,7 @@ function NamespaceHeaderRow({ row, isGraphVisible, onToggleTreeExpand }: Namespa
           {row.expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </Button>
 
-        <span className="flex-1 truncate text-xs font-medium cursor-pointer" onClick={onToggleTreeExpand}>
+        <span className="flex-1 truncate text-xs font-normal cursor-pointer" onClick={onToggleTreeExpand}>
           {row.namespace}
         </span>
 

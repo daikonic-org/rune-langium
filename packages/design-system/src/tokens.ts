@@ -63,9 +63,11 @@ export const colors = {
   }
 } as const;
 
+const transitSansFamily = "'Daikonic Transit Sans', system-ui, sans-serif";
+
 export const fonts = {
-  display: "'Daikonic Transit Sans', system-ui, sans-serif",
-  sans: "'Daikonic Transit System', system-ui, -apple-system, sans-serif",
+  display: transitSansFamily,
+  sans: "'Daikonic Transit System', system-ui, sans-serif",
   mono: "'JetBrains Mono', ui-monospace, monospace",
   editor: "'Daikonic Transit Code', var(--font-mono)"
 } as const;

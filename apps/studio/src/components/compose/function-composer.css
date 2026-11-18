@@ -83,8 +83,11 @@
   margin: var(--space-3) 0 var(--space-1);
   font-size: inherit;
 }
+.function-composer h2.section-heading {
+  font-size: var(--font-size-xs);
+}
 .function-composer h2:not(.section-heading) {
-  font-weight: 600;
+  font-weight: var(--font-weight-regular);
 }
 .function-composer__details > button {
   height: auto;
@@ -105,7 +108,6 @@
   margin: 0 0 var(--space-1);
   color: var(--muted-foreground);
   font-size: var(--text-2xs);
-  font-weight: 500;
 }
 .function-composer__primitive-grid {
   display: grid;
@@ -310,6 +312,10 @@
   justify-content: space-between;
   gap: var(--space-2);
 }
+.function-composer__header > strong,
+.composition-node__heading strong {
+  font-weight: var(--font-weight-regular);
+}
 .composition-node__heading strong {
   display: -webkit-box;
   min-width: 0;
@@ -344,6 +350,7 @@
 }
 .composition-node__expression-control > input,
 .composition-node__expression-control > .composition-node__bound-value {
+  font-size: var(--text-xs);
   min-width: 0;
   flex: 1;
 }
@@ -384,6 +391,7 @@
   gap: var(--space-1);
 }
 .composition-node__bound-value {
+  font-size: var(--text-xs);
   min-width: 0;
   border-radius: var(--radius-sm);
   padding: var(--space-1) 0;
@@ -419,6 +427,7 @@
   outline-offset: 2px;
 }
 .composition-node__output-tags > span {
+  font-size: var(--text-xs);
   max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -473,6 +482,7 @@
   overflow-wrap: anywhere;
 }
 .composition-variable-tag > span {
+  font-size: var(--text-xs);
   min-width: 0;
   font-family: var(--font-mono);
 }

@@ -51,7 +51,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        'rounded-md px-3 py-1.5 text-sm',
+        'navigation-tab rounded-md px-3 py-1.5 text-sm',
         'data-[active]:bg-background data-[active]:text-foreground data-[active]:shadow-sm',
         className
       )}

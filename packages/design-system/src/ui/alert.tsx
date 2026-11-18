@@ -42,7 +42,7 @@ function AlertTitle({
 }: React.ComponentProps<'div'> & { render?: React.ReactElement<{ className?: string }> }) {
   const alertTitleProps = {
     'data-slot': 'alert-title',
-    className: cn('col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight', className),
+    className: cn('col-start-2 line-clamp-1 min-h-4 font-normal tracking-tight', className),
     ...props
   };
   if (render != null && React.isValidElement(render)) {

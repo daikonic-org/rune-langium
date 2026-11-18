@@ -180,7 +180,7 @@ html {
     margin: 0;
     min-width: 0;
     font-size: var(--text-sm);
-    font-weight: 600;
+    font-weight: var(--font-weight-regular);
     color: var(--foreground);
     white-space: nowrap;
   }
@@ -210,7 +210,7 @@ html {
   .studio-app .studio-layout-presets__button {
     text-transform: uppercase;
     font-size: var(--text-3xs);
-    font-weight: 700;
+    font-weight: var(--font-weight-medium);
     letter-spacing: 0.08em;
   }
 
@@ -255,7 +255,7 @@ html {
      * padding (14px) / gap (6px) / height already match — only the type was a
      * rung small (was --text-2xs / 11px). */
     font-size: var(--text-xs);
-    font-weight: 600;
+    font-weight: var(--font-weight-medium);
     /* Tight tracking — was +0.04em (wide), which overrode the body's negative
      * track and made this the loosest text in the app. The reference
      * `.rs-paneswitch-seg` carries no positive tracking; -0.01em matches the
@@ -331,6 +331,7 @@ html {
   }
 
   .studio-app .studio-dock-tab__label {
+    font-size: var(--text-sm);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -482,7 +483,7 @@ html {
    * instead of the FileTabStrip (AppHeader, shared-perspective-chrome). */
   .studio-app .studio-topbar__title {
     font-size: var(--text-sm);
-    font-weight: 500;
+    font-weight: var(--font-weight-regular);
     color: var(--foreground);
     flex: 1;
     text-align: center;
@@ -508,7 +509,7 @@ html {
     border-radius: var(--radius);
     color: var(--foreground);
     font-size: var(--text-xs);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, white 9%, transparent),
@@ -643,7 +644,7 @@ html {
     padding: 0 var(--space-4);
     border-radius: var(--radius);
     font-size: var(--text-xs);
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     background: var(--primary);
     color: var(--primary-foreground);
     cursor: pointer;
@@ -1021,7 +1022,7 @@ html {
 }
 
 .ns-explorer__title {
-  font-weight: 600;
+  font-weight: var(--font-weight-regular);
   font-size: var(--text-base);
   color: var(--foreground);
 }
@@ -1427,7 +1428,7 @@ html {
   appearance: none;
   color: inherit;
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: var(--font-weight-regular);
   letter-spacing: -0.01em;
   white-space: nowrap;
   cursor: pointer;
@@ -1726,7 +1727,7 @@ html {
 
 .rune-type-creator__header,
 .rune-attribute-editor__header {
-  font-weight: 600;
+  font-weight: var(--font-weight-regular);
   font-size: var(--text-md);
   margin-bottom: var(--space-4);
   color: var(--foreground);
@@ -1847,11 +1848,12 @@ html {
 }
 
 .studio-brand__name {
-  font-family: var(--font-display, 'Outfit'), var(--font-sans), system-ui, sans-serif;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-semibold);
   font-size: var(--text-sm);
   color: var(--foreground);
   letter-spacing: -0.01em;
+  text-transform: uppercase;
 }
 
 .studio-app-header--compact .studio-brand__mark {
@@ -2061,7 +2063,7 @@ html[data-theme="light"] .preview-panel__editor {
   transform: translateY(0.5px);
 }
 
-/* The Explorer's sole dock title retains the original content heading's emphasis. */
+/* The Explorer's sole dock title uses the shared navigation typography. */
 .studio-app .studio-dock-tab[data-component='workspace.fileTree'] {
   justify-content: flex-start;
   padding-inline: var(--space-1);
@@ -2070,8 +2072,7 @@ html[data-theme="light"] .preview-panel__editor {
 
 .studio-app .studio-dock-tab[data-component='workspace.fileTree'] .studio-dock-tab__label {
   color: var(--foreground);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-size: var(--text-xs);
 }
 
 /* Side panels always retain their chevron, even with only one tab. */

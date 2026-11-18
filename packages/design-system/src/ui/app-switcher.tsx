@@ -47,7 +47,7 @@ export function AppSwitcher({ current, urls, className }: AppSwitcherProps): Rea
             href={resolved[surface]}
             aria-current={isCurrent ? 'page' : undefined}
             className={cn(
-              'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+              'px-3 py-1.5 rounded-md text-sm font-normal transition-colors',
               isCurrent ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'
             )}
           >

@@ -4,8 +4,8 @@ Unmodified WOFF2 files from [Daikonic Transit](https://github.com/daikonic-org/t
 
 | Family | Version | Use |
 | --- | --- | --- |
-| Sans | 0.109 | Headings and display text |
-| System | 0.117 | UI and body text; automatic optical sizing, 10–36 |
+| Sans | 0.109 | Headings, wordmark and display text |
+| System | 0.117 | UI and body; automatic optical sizing, 10–36 |
 | Code | 1.025 preview | CodeMirror, Book 350 |
 
 See [manifest.json](manifest.json) for release links, exact file checksums and

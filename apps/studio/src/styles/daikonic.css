@@ -127,8 +127,10 @@
   /* One Studio profile reaches every perspective and body-portaled overlay. */
   body[data-studio-app='true'] {
     --font-size-ui: 0.8125rem;
+    --studio-ui-font-reduction: 1px;
+    --studio-mono-font-reduction: 1px;
+    --studio-type-size-reduction: var(--studio-ui-font-reduction);
     --font-size-sm: var(--font-size-ui);
-    --text-sm: var(--font-size-ui);
     --hairline: 1px;
     --color-border-subtle: color-mix(in srgb, var(--foreground) 10%, transparent);
     --color-border-default: color-mix(in srgb, var(--foreground) 16%, transparent);
@@ -139,9 +141,51 @@
     --glass-border: var(--border);
     --glass-btn-border: var(--color-border-subtle);
     font-family: var(--font-sans);
-    font-size: var(--font-size-ui);
+    font-size: calc(var(--font-size-ui) - var(--studio-ui-font-reduction));
     line-height: 1.5;
     letter-spacing: normal;
+  }
+
+  /* Resolve sizes at font-role boundaries. The shared primitive scale remains
+   * unchanged; UI and monospace reductions do not alter rem geometry. */
+  body[data-studio-app='true'],
+  body[data-studio-app='true'] :is(
+    h1, h2, h3, h4, h5, h6,
+    .navigation-heading, .navigation-tab, .section-heading,
+    .font-display, .font-mono, .studio-brand__name,
+    code, kbd, pre, samp, .cm-editor,
+    [data-slot='type-name-input'], .studio-source-meta
+  ) {
+    --text-3xs: calc(var(--font-size-3xs) - var(--studio-type-size-reduction));
+    --text-2xs: calc(var(--font-size-2xs) - var(--studio-type-size-reduction));
+    --text-xs: calc(var(--font-size-xs) - var(--studio-type-size-reduction));
+    --text-sm: calc(var(--font-size-sm) - var(--studio-type-size-reduction));
+    --text-md: calc(var(--font-size-md) - var(--studio-type-size-reduction));
+    --text-base: calc(var(--font-size-base) - var(--studio-type-size-reduction));
+    --text-lg: calc(var(--font-size-lg) - var(--studio-type-size-reduction));
+    --text-xl: calc(var(--font-size-xl) - var(--studio-type-size-reduction));
+    --text-2xl: calc(var(--font-size-2xl) - var(--studio-type-size-reduction));
+    --text-3xl: calc(var(--font-size-3xl) - var(--studio-type-size-reduction));
+  }
+
+  body[data-studio-app='true'] .navigation-tab {
+    --studio-type-size-reduction: var(--studio-ui-font-reduction);
+  }
+
+  body[data-studio-app='true'] :is(
+    h1, h2, h3, h4, h5, h6,
+    .navigation-heading, .section-heading, .font-display, .studio-brand__name,
+    [data-slot='type-name-input']
+  ) {
+    --studio-type-size-reduction: 0px;
+  }
+
+  body[data-studio-app='true'] :is(.font-mono, code, kbd, pre, samp, .cm-editor, .studio-source-meta) {
+    --studio-type-size-reduction: var(--studio-mono-font-reduction);
+  }
+
+  body[data-studio-app='true'] [data-slot='type-name-input'] {
+    font-family: var(--font-display);
   }
 
   body[data-studio-app='true'] :is(code, kbd, pre, samp, .font-mono, .cm-editor) {

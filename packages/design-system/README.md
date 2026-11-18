@@ -30,18 +30,32 @@ import { NativeSelect } from '@rune-langium/design-system/ui/select';
 
 ## Typography
 
-`src/tokens.css` imports the shared variable webfonts: Transit System for UI,
-Transit Sans for headings, and Transit Code for CodeMirror via `--font-editor`.
+`src/tokens.css` imports the shared variable webfonts: Transit System for UI, Transit Sans for
+headings, and Transit Code for CodeMirror via `--font-editor`.
 Other monospace content keeps JetBrains Mono. `src/fonts/manifest.json` pins the
 upstream release, axes and SHA-256 of each unmodified WOFF2; that directory retains
 the upstream OFL and notices. The combined site build copies this same source for
 the static landing page. Vite fingerprints font assets for Studio and docs.
 
-Use `.section-heading` on short, static section-label text: Transit Sans Medium
-500, uppercase and `--section-heading-letter-spacing` (0.10em). Existing text sizes
-remain authoritative. Apply the class to the text span when a header also contains
-controls; function/type names, field values, page titles and navigation tabs keep
-their original case and spacing.
+The ambient UI uses Transit System Book 350 (`--font-weight-book`).
+Action buttons and the Studio center-pane toggles use Medium 500; primary and
+destructive action buttons use SemiBold 600. Field labels and disclosures remain
+Regular 400 (`font-normal`, bridged to `--font-weight-regular` by the theme).
+Use `.navigation-tab` for tabs and view toggles: System Regular 400 in authored
+case. The shared tabs primitive uses this role by default.
+Use `.navigation-heading` for perspective names and panel titles, and
+`.section-heading` for internal section labels: Sans Regular 400 in authored case.
+Add `.perspective-heading` only to perspective names for uppercase and
+`--perspective-heading-letter-spacing` (0.10em). Apply heading roles to text spans
+when a header also contains controls or counts.
+
+Studio reduces the UI text scale by exactly 1px through its body profile, including
+portaled overlays. The primitive `--font-size-*` scale remains unchanged; Sans
+heading roles retain that unscaled size. Tabs use the reduced UI scale. Studio
+also reduces monospace text by 1px through its separate
+`--studio-mono-font-reduction` setting; the shared CodeMirror text/gutter style
+uses that same setting. Font-face scaling, the root rem size and control geometry are unchanged.
+The Studio wordmark is uppercase Sans SemiBold 600.
 
 ## Panel and section spacing
 
