@@ -30,16 +30,11 @@
   --spacing-panel-y: var(--panel-padding-block);
   --spacing-inspector-x: var(--inspector-padding-inline);
   --spacing-field-gap: var(--field-label-gap);
-  /* Font families — `inline` so the generated `font-sans`/`font-mono`/
-   * `font-display` utilities inline `var(--font-family-*)` (the brand stacks in
-   * tokens.css) rather than emitting a competing `--font-*` into a layered
-   * `:root`. The semantic `--font-sans/mono/display` vars themselves come from
-   * tokens.css's plain `:root` (so standalone, Tailwind-less consumers resolve
-   * them too). Without these keys Tailwind shipped its OWN default mono/sans for
-   * the utilities and never knew `font-display` at all (it was base-rule only). */
-  --font-sans: var(--font-family-sans);
-  --font-mono: var(--font-family-mono);
-  --font-display: var(--font-family-display);
+  /* Same-name inline bridges keep generated utilities on the live CSS tokens. */
+  --font-title: var(--font-title);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+  --font-code: var(--font-code);
   --font-weight-normal: var(--font-weight-regular);
   --radius-xs: calc(var(--radius) - 6px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -178,11 +173,7 @@
 
 /* ── Color palette: Daikon ──────────────────────────────────────── */
 :root {
-  /* `--radius` (the shadcn base knob) now lives in tokens.css's primitive
-   * layer so a tokens.css-only consumer can resolve the radius ladder; it is
-   * imported above, so the `@theme inline` `--radius-*` calc()s resolve here.
-   * (`--font-sans` and the other font semantics now live in tokens.css's :root
-   * alongside the `--font-family-*` primitives — see the @theme inline bridge.) */
+  /* The shadcn base radius is shared with standalone token consumers. */
 
   --background: var(--color-surface-1);
   --foreground: var(--color-foreground-primary);
@@ -397,12 +388,12 @@
 
 /* Headings identify a perspective or panel; navigation tabs use the UI family. */
 .navigation-heading {
-  font-family: var(--font-display);
+  font-family: var(--font-title);
   font-weight: var(--font-weight-regular);
 }
 
 .navigation-tab {
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-weight: var(--font-weight-regular);
 }
 
@@ -414,7 +405,7 @@
 
 /* Internal section headings retain their authored case. */
 .section-heading {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: var(--font-weight-regular);
 }
 
@@ -439,7 +430,7 @@
     /* Transit System is the ambient UI family, including portaled overlays.
      * Sans remains the explicit heading/display role. Defining the UI family
      * on body also covers standalone consumers and docs. */
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
     font-weight: var(--font-weight-book);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -447,12 +438,12 @@
      * The handoff's -0.005em is below the perceptual threshold on its own, so
      * we run -0.01em globally for a visibly tighter set (still conservative;
      * mono/code opt back out where needed). Display surfaces tighten further
-     * (.font-display below). */
+     * (.font-title below). */
     letter-spacing: -0.01em;
   }
   h1, h2, h3, h4, h5, h6 {
     /* Heading and UI families have distinct roles across shared surfaces. */
-    font-family: var(--font-display);
+    font-family: var(--font-title);
     font-weight: var(--font-weight-regular);
   }
   code, kbd, pre, samp {
@@ -460,8 +451,8 @@
   }
 
   /* Display-role opt-in for brand/marketing surfaces, using Transit Sans. */
-  .font-display {
-    font-family: var(--font-display);
+  .font-title {
+    font-family: var(--font-title);
     /* Display/heading text tracks tighter than body (body at -0.01em). The
      * reference pushes display/name text to -0.01..-0.02em; -0.015em keeps
      * headings/wordmarks crisp without crowding. */

@@ -84,7 +84,7 @@
   font-size: inherit;
 }
 .function-composer h2.section-heading {
-  font-size: var(--font-size-xs);
+  font-size: var(--text-xs);
 }
 .function-composer h2:not(.section-heading) {
   font-weight: var(--font-weight-regular);

@@ -118,22 +118,12 @@
   --color-expr-reference-bg: oklch(0.654 0.1746 286.58 / 0.12);
   --color-expr-placeholder-base: oklch(0.4799 0.0223 220);
   --color-expr-placeholder-bg: oklch(0.4799 0.0223 220 / 0.1);
-  /* Font families — two tiers. The `--font-family-*` primitives hold the brand
-   * stacks; the `--font-sans/mono/display` semantic aliases reference them and
-   * are what every consumer uses (CSS `var(--font-*)`, the base layer, and the
-   * `@theme inline` bridge in theme.css that generates `font-*` utilities).
-   * Declared here in plain `:root` (not only `@theme`) so STANDALONE consumers
-   * of visual-editor's CSS resolve `var(--font-*)` without running Tailwind —
-   * same rationale as the radius ladder below. `--font-family-mono` was a dead
-   * generic stack (zero consumers); it now carries the JetBrains brand mono, so
-   * the mono family has a single source instead of a primitive/semantic split. */
-  --font-family-sans: 'Daikonic Transit System', system-ui, sans-serif;
-  --font-family-mono: 'JetBrains Mono', ui-monospace, monospace;
-  --font-family-display: 'Daikonic Transit Sans', system-ui, sans-serif;
-  --font-editor: 'Daikonic Transit Code', var(--font-mono);
-  --font-sans: var(--font-family-sans);
-  --font-mono: var(--font-family-mono);
-  --font-display: var(--font-family-display);
+  /* Four font tokens shared by CSS, Tailwind utilities and JS editor themes.
+   * Plain :root definitions also support consumers without Tailwind. */
+  --font-title: 'Daikonic Transit Sans', system-ui, sans-serif;
+  --font-body: 'Daikonic Transit System', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-code: 'Daikonic Transit Code', var(--font-mono);
   --perspective-heading-letter-spacing: 0.1em;
   /* 3xs/2xs extend the scale DOWN for dense chrome (badges, status bar, tiny
    * pills) that runs below the 12px `xs` floor — added so those 10–11px sizes
@@ -141,6 +131,7 @@
   --font-size-3xs: 0.625rem; /* 10px */
   --font-size-2xs: 0.6875rem; /* 11px */
   --font-size-xs: 0.75rem; /* 12px */
+  --font-size-code: 0.8125rem; /* 13px before the Studio mono adjustment */
   --font-size-sm: 0.875rem;
   --font-size-md: 0.9375rem; /* 15px */
   --font-size-base: 1rem;

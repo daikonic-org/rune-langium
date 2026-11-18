@@ -90,8 +90,8 @@
   content: 'PREVIEW';
   display: inline-block;
   margin-left: var(--space-2);
-  font-family: var(--font-display, 'Outfit'), system-ui, sans-serif;
-  font-weight: 500;
+  font-family: var(--font-title);
+  font-weight: var(--font-weight-medium);
   font-size: var(--text-3xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -140,7 +140,7 @@
     --sidebar-border: var(--border);
     --glass-border: var(--border);
     --glass-btn-border: var(--color-border-subtle);
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
     font-size: calc(var(--font-size-ui) - var(--studio-ui-font-reduction));
     line-height: 1.5;
     letter-spacing: normal;
@@ -152,7 +152,7 @@
   body[data-studio-app='true'] :is(
     h1, h2, h3, h4, h5, h6,
     .navigation-heading, .navigation-tab, .section-heading,
-    .font-display, .font-mono, .studio-brand__name,
+    .font-title, .font-mono, .studio-brand__name,
     code, kbd, pre, samp, .cm-editor,
     [data-slot='type-name-input'], .studio-source-meta
   ) {
@@ -174,10 +174,14 @@
 
   body[data-studio-app='true'] :is(
     h1, h2, h3, h4, h5, h6,
-    .navigation-heading, .section-heading, .font-display, .studio-brand__name,
+    .navigation-heading, .font-title, .studio-brand__name,
     [data-slot='type-name-input']
   ) {
     --studio-type-size-reduction: 0px;
+  }
+
+  body[data-studio-app='true'] .section-heading {
+    --studio-type-size-reduction: var(--studio-ui-font-reduction);
   }
 
   body[data-studio-app='true'] :is(.font-mono, code, kbd, pre, samp, .cm-editor, .studio-source-meta) {
@@ -185,7 +189,7 @@
   }
 
   body[data-studio-app='true'] [data-slot='type-name-input'] {
-    font-family: var(--font-display);
+    font-family: var(--font-title);
   }
 
   body[data-studio-app='true'] :is(code, kbd, pre, samp, .font-mono, .cm-editor) {

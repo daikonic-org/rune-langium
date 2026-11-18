@@ -30,9 +30,18 @@ import { NativeSelect } from '@rune-langium/design-system/ui/select';
 
 ## Typography
 
-`src/tokens.css` imports the shared variable webfonts: Transit System for UI, Transit Sans for
-headings, and Transit Code for CodeMirror via `--font-editor`.
-Other monospace content keeps JetBrains Mono. `src/fonts/manifest.json` pins the
+`src/tokens.css` owns four font-family tokens, also exposed as matching Tailwind
+utilities and TypeScript CSS-variable references:
+
+| Token | Family | Use |
+| --- | --- | --- |
+| `--font-title` | Transit Sans | Titles and wordmark |
+| `--font-body` | Transit System | UI, tabs and internal labels |
+| `--font-mono` | JetBrains Mono | Other monospace content |
+| `--font-code` | Transit Code | CodeMirror editors |
+
+Family stacks exist only in this CSS token layer; consumers reference tokens.
+`src/tokens.css` imports the shared variable webfonts. `src/fonts/manifest.json` pins the
 upstream release, axes and SHA-256 of each unmodified WOFF2; that directory retains
 the upstream OFL and notices. The combined site build copies this same source for
 the static landing page. Vite fingerprints font assets for Studio and docs.
@@ -44,7 +53,8 @@ Regular 400 (`font-normal`, bridged to `--font-weight-regular` by the theme).
 Use `.navigation-tab` for tabs and view toggles: System Regular 400 in authored
 case. The shared tabs primitive uses this role by default.
 Use `.navigation-heading` for perspective names and panel titles, and
-`.section-heading` for internal section labels: Sans Regular 400 in authored case.
+`.section-heading` for internal section labels: System Regular 400 in authored case.
+Panel/perspective titles retain Sans Regular 400.
 Add `.perspective-heading` only to perspective names for uppercase and
 `--perspective-heading-letter-spacing` (0.10em). Apply heading roles to text spans
 when a header also contains controls or counts.
@@ -55,7 +65,7 @@ heading roles retain that unscaled size. Tabs use the reduced UI scale. Studio
 also reduces monospace text by 1px through its separate
 `--studio-mono-font-reduction` setting; the shared CodeMirror text/gutter style
 uses that same setting. Font-face scaling, the root rem size and control geometry are unchanged.
-The Studio wordmark is uppercase Sans SemiBold 600. Inspector detail-pane titles
+The Studio wordmark is uppercase Sans SemiBold 600 with the shared 0.10em perspective tracking. Inspector detail-pane titles
 use the smaller Sans Medium 500 treatment at 13px.
 
 ## Panel and section spacing
@@ -112,3 +122,9 @@ to reduce a component count.
 ## License
 
 MIT
+
+Typography lint in Studio and visual-editor requires these four family tokens and
+weight tokens. It rejects raw stacks, old aliases and font shorthand; existing
+geometry lint covers raw font sizes. Font-face registrations and token definitions
+remain the authoritative literal-value exceptions. The typography rule also checks
+the shared design-system stylesheets in the visual-editor unit suite.

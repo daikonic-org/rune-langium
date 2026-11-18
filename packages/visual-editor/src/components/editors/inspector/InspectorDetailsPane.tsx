@@ -138,7 +138,7 @@ export function InspectorDetailsPane({
         />
       )}
       <div className="flex shrink-0 items-center justify-between gap-2 py-panel-y text-sm">
-        <span className="min-w-0 truncate font-display text-sm font-medium" title={heading}>
+        <span className="min-w-0 truncate font-title text-sm font-medium" title={heading}>
           {heading}
         </span>
         <div className="flex shrink-0 items-center gap-1">

@@ -169,7 +169,7 @@
   position: relative;
   overflow: hidden;
   background: var(--card);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
   min-width: 200px;
   color: var(--color-node-text);
@@ -280,7 +280,7 @@ button.rune-enum-disclosure {
   padding: 0 var(--rune-chip-padding-x);
   margin: 0;
   border-radius: var(--radius-sm);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -595,7 +595,7 @@ button[data-navigable]:focus-visible {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   padding: var(--space-6);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--foreground);
 }
@@ -1165,7 +1165,7 @@ button[data-navigable]:focus-visible {
   flex-shrink: 0;
   color: var(--structure-kind);
   font-size: var(--text-2xs);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -1371,7 +1371,7 @@ button[data-navigable]:focus-visible {
   font-weight: var(--font-weight-regular);
 }
 .rune-structure-section-title > span {
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   font-variant-numeric: tabular-nums;
 }
 .rune-structure-section-title[data-output] {

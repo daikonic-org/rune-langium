@@ -253,14 +253,19 @@ func PaletteCall${i}:
   const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
   const heading = palette.getByRole('heading', { name: /functions 127/i });
   await expect(heading).toBeVisible();
-  await expect(heading).toHaveCSS('text-transform', 'uppercase');
-  await expect(heading).toHaveCSS('font-weight', '500');
+  await expect(heading).toHaveCSS('text-transform', 'none');
+  await expect(heading).toHaveCSS('font-weight', '400');
   const headingType = await heading.evaluate((element) => {
+    const probe = document.createElement('span');
+    probe.style.fontFamily = 'var(--font-body)';
+    element.append(probe);
+    const bodyFamily = getComputedStyle(probe).fontFamily;
+    probe.remove();
     const style = getComputedStyle(element);
-    return { family: style.fontFamily, tracking: parseFloat(style.letterSpacing) / parseFloat(style.fontSize) };
+    return { family: style.fontFamily, bodyFamily, tracking: style.letterSpacing };
   });
-  expect(headingType.family).toContain('Daikonic Transit Sans');
-  expect(headingType.tracking).toBeCloseTo(0.1, 3);
+  expect(headingType.family).toBe(headingType.bodyFamily);
+  expect(headingType.tracking).toBe('normal');
   expect((await palette.locator('.function-composer__catalog').boundingBox())!.height).toBeLessThanOrEqual(288);
   await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
   await expect(tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true })).toHaveCount(0);

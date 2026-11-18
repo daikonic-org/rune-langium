@@ -13,7 +13,7 @@
 
 :root[data-design-preview-readable='true'] .studio-app :is(.studio-topbar__tab-name, .studio-type-row > button[data-testid^='ns-type-link-'], .rune-ns-seg-header > button:not([data-slot='button'])) {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 :root[data-design-preview-readable='true'] .studio-app .studio-type-row > button[data-testid^='ns-type-nav-'] {

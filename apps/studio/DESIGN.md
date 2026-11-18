@@ -17,12 +17,14 @@ available; no system preference silently replaces an explicit choice.
 ## Studio adaptation
 
 - Use the shared Transit typography tokens and compact sizing. The Rune Studio
-  wordmark uses uppercase Transit Sans SemiBold 600 through `--font-display` and
-  `--font-weight-semibold`. UI text uses System Book 350 with a direct 1px size
+  wordmark uses uppercase Transit Sans SemiBold 600 through `--font-title` and
+  `--font-weight-semibold`, with the same tracking token as perspective names.
+  The four family tokens are `--font-title`, `--font-body`, `--font-mono` and
+  `--font-code`; components must reference them rather than repeat stacks. UI text uses System Book 350 with a direct 1px size
   reduction. Action buttons and center-pane toggles use Medium 500; primary
   actions use SemiBold 600. Tabs and field labels retain System Regular 400.
-  Headings use Sans Regular 400 at their unscaled sizes; detail-pane titles use
-  Sans Medium 500 at 13px. The UI reduction leaves root rem geometry unchanged. CodeMirror uses bundled Transit Code Book 350 through `--font-editor`,
+  Internal section labels use System Regular 400. Titles use Sans Regular 400 at their unscaled sizes; detail-pane titles use
+  Sans Medium 500 at 13px. The UI reduction leaves root rem geometry unchanged. CodeMirror uses bundled Transit Code Book 350 through `--font-code`,
   including its line-number gutters. Studio reduces editor and other monospace
   text by 1px via `--studio-mono-font-reduction`. Other monospace UI keeps
   JetBrains Mono through `--font-mono`. Keywords retain italic emphasis.
