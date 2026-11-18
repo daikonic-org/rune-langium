@@ -21,7 +21,8 @@ available; no system preference silently replaces an explicit choice.
   `--font-weight-semibold`. UI text uses System Book 350 with a direct 1px size
   reduction. Action buttons and center-pane toggles use Medium 500; primary
   actions use SemiBold 600. Tabs and field labels retain System Regular 400.
-  Headings use Sans Regular 400 at their unscaled sizes. The UI reduction leaves root rem geometry unchanged. CodeMirror uses bundled Transit Code Book 350 through `--font-editor`,
+  Headings use Sans Regular 400 at their unscaled sizes; detail-pane titles use
+  Sans Medium 500 at 13px. The UI reduction leaves root rem geometry unchanged. CodeMirror uses bundled Transit Code Book 350 through `--font-editor`,
   including its line-number gutters. Studio reduces editor and other monospace
   text by 1px via `--studio-mono-font-reduction`. Other monospace UI keeps
   JetBrains Mono through `--font-mono`. Keywords retain italic emphasis.

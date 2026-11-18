@@ -55,7 +55,8 @@ heading roles retain that unscaled size. Tabs use the reduced UI scale. Studio
 also reduces monospace text by 1px through its separate
 `--studio-mono-font-reduction` setting; the shared CodeMirror text/gutter style
 uses that same setting. Font-face scaling, the root rem size and control geometry are unchanged.
-The Studio wordmark is uppercase Sans SemiBold 600.
+The Studio wordmark is uppercase Sans SemiBold 600. Inspector detail-pane titles
+use the smaller Sans Medium 500 treatment at 13px.
 
 ## Panel and section spacing
 
