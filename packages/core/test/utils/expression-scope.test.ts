@@ -192,7 +192,9 @@ func Use:
       ],
       'Use'
     );
-    expect(entries).toContainEqual(expect.objectContaining({ name: 'Combine', kind: 'callable', argumentCount: 2 }));
+    expect(entries).toContainEqual(
+      expect.objectContaining({ name: 'Combine', kind: 'callable', argumentCount: 2, argumentNames: ['a', 'b'] })
+    );
   });
 
   it('includes Choice symbols from the authoritative language-service scope', async () => {
@@ -233,8 +235,12 @@ func Use:
  set result: Derived(1, 2)`,
       'Use'
     );
-    expect(entries).toContainEqual(expect.objectContaining({ name: 'Native', kind: 'callable', argumentCount: 2 }));
-    expect(entries).toContainEqual(expect.objectContaining({ name: 'Derived', kind: 'callable', argumentCount: 2 }));
+    expect(entries).toContainEqual(
+      expect.objectContaining({ name: 'Native', kind: 'callable', argumentCount: 2, argumentNames: ['a', 'b'] })
+    );
+    expect(entries).toContainEqual(
+      expect.objectContaining({ name: 'Derived', kind: 'callable', argumentCount: 2, argumentNames: ['a', 'b'] })
+    );
   });
 
   it('resolves a dispatch signature from its declaration and scopes enum members', async () => {

@@ -201,6 +201,7 @@ export function ExpressionBuilder({
           >
             <BlockRenderer
               node={tree}
+              scope={scope}
               selectedNodeId={selectedNodeId}
               onSelect={selectNode}
               onEditReference={handleEditReference}

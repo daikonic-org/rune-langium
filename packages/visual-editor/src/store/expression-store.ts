@@ -23,6 +23,7 @@ export interface FunctionScopeEntry {
   declarationId?: string;
   kind?: ExpressionScopeEntry['kind'];
   argumentCount?: number;
+  argumentNames?: ExpressionScopeEntry['argumentNames'];
   name: string;
   typeName?: string;
   cardinality?: string;
@@ -155,7 +156,7 @@ const ARRAY_CHILD_FIELDS = ['elements', 'rawArgs'] as const;
 /**
  * Get direct child expression nodes.
  */
-function getChildren(node: ExpressionNode): ExpressionNode[] {
+export function getChildren(node: ExpressionNode): ExpressionNode[] {
   const children: ExpressionNode[] = [];
   const n = node as Record<string, unknown>;
 

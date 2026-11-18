@@ -842,6 +842,12 @@ canonical expression scope, including dispatch signatures, inherited fields,
 earlier aliases, Choice symbols and callable argument counts. Visual-editor reuses the core scope-kind type and omits callables without authoritative arity from its picker. Confirmed zero-input calls remain available. The dialog's Text surface reuses
 SourceEditor with a private buffer and no live LSP owner.
 
+Callable scope entries carry input names alongside their authoritative arity.
+Expression blocks render the existing `rawArgs` children through the same
+recursive tree renderer, labeled from that scope. Argument placeholders keep
+their ordinary editing and undo identities; rendering never creates a second
+set of slots. Explicit zero-input calls remain distinct from variable references.
+
 Before requesting builder scope, Studio normalizes the owning workspace path to
 its URI and sends the current source/dependency snapshot through the parser
 worker's existing parse/link pipeline. This also seeds that worker after a router
