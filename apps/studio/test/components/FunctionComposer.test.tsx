@@ -62,6 +62,7 @@ it('keeps editing disabled until composition facts match the current dependency 
   };
   const props: FunctionComposerProps = {
     workspaceKey: 'snapshot',
+    models: [],
     active: true,
     inspector: null,
     onNavigate: vi.fn(),
@@ -107,6 +108,7 @@ it.each([true, false])(
     describe.mockResolvedValue(facts);
     const props: FunctionComposerProps = {
       workspaceKey: 'handoff',
+      models: [],
       active: true,
       inspector: null,
       onNavigate: vi.fn(),

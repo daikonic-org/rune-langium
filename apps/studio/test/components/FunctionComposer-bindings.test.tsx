@@ -83,6 +83,7 @@ func Owner:
     render(
       <FunctionComposer
         workspaceKey={`collection-binding-${argumentFirst}`}
+        models={[]}
         active
         inspector={null}
         onNavigate={vi.fn()}

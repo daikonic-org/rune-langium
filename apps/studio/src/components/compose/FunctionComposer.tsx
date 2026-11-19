@@ -4,7 +4,15 @@ import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { DockviewApi } from 'dockview-react';
 import { ReactFlowProvider, useReactFlow, type Connection, type XYPosition } from '@xyflow/react';
-import { type CompositionStep, type FunctionComposition, type SourceRegion } from '@rune-langium/core';
+import {
+  hasCompositionAnnotation,
+  isRosettaFunction,
+  namespaceFromModelName,
+  type CompositionStep,
+  type FunctionComposition,
+  type RosettaModel,
+  type SourceRegion
+} from '@rune-langium/core';
 import {
   selectNodeRepository,
   useEditorStore,
@@ -75,6 +83,7 @@ import { compositionProducerId as producerId, type CompositionWiring } from './c
 
 export interface FunctionComposerProps {
   workspaceKey: string;
+  models: readonly RosettaModel[];
   editor?: ExpressionWorkspaceProps;
   inspector: ReactNode;
   active: boolean;
@@ -113,11 +122,31 @@ export const FunctionComposer = withInstrumentation(
   },
   { op: 'FunctionComposer', capture: 0 }
 );
-function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave, saveLabel }: FunctionComposerProps) {
+function Composer({
+  workspaceKey,
+  models,
+  editor,
+  inspector,
+  active,
+  onNavigate,
+  onSave,
+  saveLabel
+}: FunctionComposerProps) {
   const creating = useComposeNavigationStore((s) => s.creating);
   const setCreating = useComposeNavigationStore((s) => s.setCreating);
   const nodesById = useEditorStore((s) => s.nodesById);
   const repository = useMemo(() => selectNodeRepository(nodesById), [nodesById]);
+  const compositionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const model of models) {
+      const namespace = namespaceFromModelName(model.name) ?? '';
+      for (const element of model.elements) {
+        if (isRosettaFunction(element) && hasCompositionAnnotation(element))
+          ids.add(makeNodeId(namespace, element.name, element.$type));
+      }
+    }
+    return ids;
+  }, [models]);
   const [portContext, setPortContext] = useState<string>();
   const [discover, setDiscover] = useState(false);
   const [variablesOpen, setVariablesOpen] = useState(false);
@@ -130,6 +159,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
   );
   const primitiveGroups = [...new Set(matchingPrimitives.map((primitive) => primitive.group))];
   const dock = useRef<DockviewApi | undefined>(undefined);
+  const paletteSearch = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<'step' | 'signature'>('step');
   const [source, setSource] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(true);
@@ -165,7 +195,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
   const drafts = useRef(new Map<string, Draft>());
   const viewports = useRef(new Map<string, SavedCompositionViewport>());
   const positions = useRef(new Map<string, Map<string, XYPosition>>());
-  const breadcrumbs = useRef<string[]>([]);
+  const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const selections = useRef(new Map<string, string>());
   const client = usePreviewSession();
   const project = useProject();
@@ -603,13 +633,20 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
       setSaveBusy(false);
     }
   };
-  const navigate = (id: string) => {
+  const showPalette = () => {
+    const panel = dock.current?.getPanel('compose.palette');
+    if (panel?.api.location.type === 'edge') panel.group.api.expand();
+    panel?.api.setActive();
+    setQuery('');
+  };
+  const openFunction = (id: string, followStep = false) => {
     if (id === identity) return;
-    if (identity) breadcrumbs.current.push(identity);
+    setBreadcrumbs((previous) => (followStep && identity ? [...previous, identity] : []));
     setSource(false);
     setCanvasOpen(true);
     onNavigate(id);
   };
+  const parent = breadcrumbs.at(-1);
   const pick = (step: CompositionStep) => {
     if (draft && step.id !== selected) {
       setError('Apply or discard the current step draft before selecting another step.');
@@ -869,8 +906,15 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
     <NodeBindingContext.Provider value={actions}>
       <section className="function-composer" aria-label="Function composer" data-testid="function-composer">
         <header className="function-composer__header">
-          {breadcrumbs.current.length > 0 && (
-            <Button size="xs" variant="ghost" onClick={() => onNavigate(breadcrumbs.current.pop()!)}>
+          {parent && (
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                setBreadcrumbs((previous) => previous.slice(0, -1));
+                onNavigate(parent);
+              }}
+            >
               <ArrowLeft className="size-3" />
               Parent
             </Button>
@@ -951,8 +995,9 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
               <aside className="function-composer__side" aria-label="Composition palette">
                 <div className="function-composer__panel-body studio-scroll">
                   <SearchInput
+                    ref={paletteSearch}
                     aria-label="Search functions and primitives"
-                    placeholder="Search functions & primitives"
+                    placeholder="Search the palette"
                     value={query}
                     onChange={(event) => {
                       setQuery(event.target.value);
@@ -984,12 +1029,13 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                   </Button>
                   <FunctionPalette
                     repository={repository}
+                    compositionIds={compositionIds}
                     query={query}
                     callables={composition?.callables}
                     portContext={portContext}
                     selectedNodeId={identity}
                     canAdd={writable && !draft && !signaturePending && !applyBusy}
-                    onOpen={navigate}
+                    onOpen={openFunction}
                     onAdd={(id) => void beginAdd(id)}
                   />
                   <h2 className="section-heading">Primitives</h2>
@@ -1092,9 +1138,17 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                             <div className="function-composer__empty">
                               <Workflow />
                               <h2>Compose a Rune function</h2>
-                              <p className="text-caption">
-                                Select a function from the palette or create a composition.
-                              </p>
+                              {compositionIds.size > 0 && (
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => {
+                                    showPalette();
+                                    requestAnimationFrame(() => paletteSearch.current?.focus());
+                                  }}
+                                >
+                                  Browse compositions
+                                </Button>
+                              )}
                               <Button onClick={() => setCreating(true)}>New composition</Button>
                             </div>
                           ) : !presented ? (
@@ -1263,10 +1317,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                             onClick={() => {
                               setPortContext(selectedStep.id);
                               setDiscover(true);
-                              const panel = dock.current?.getPanel('compose.palette');
-                              if (panel?.api.location.type === 'edge') panel.group.api.expand();
-                              panel?.api.setActive();
-                              setQuery('');
+                              showPalette();
                             }}
                           >
                             Find calls for {selectedStep.name}
@@ -1297,7 +1348,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                             size="xs"
                             variant="ghost"
                             aria-label={`Open ${selectedStep.call.identity.split('.').pop()} definition`}
-                            onClick={() => navigate(`${selectedStep.call!.identity}#RosettaFunction`)}
+                            onClick={() => openFunction(`${selectedStep.call!.identity}#RosettaFunction`, true)}
                           >
                             Open {selectedStep.call.identity.split('.').pop()}
                             <ArrowUpRight className="size-3" />

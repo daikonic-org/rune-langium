@@ -366,6 +366,57 @@ test('enters Compose before selecting a function and switches between ordinary f
   expect(errors).toEqual([]);
 });
 
+test('opens existing compositions directly and keeps their call actions separate', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  const library =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+    `
+func DoubleTwice:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias doubled: Double(value)
+ set result: Double(doubled)
+
+func DoubleAgain:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ set result: DoubleTwice(value)
+`;
+  const composer = await openComposition(page, library);
+  const palette = composer.getByRole('complementary', { name: 'Composition palette' });
+  const compositions = palette.getByRole('region', { name: 'Compositions', exact: true });
+  const functions = palette.getByRole('region', { name: 'Function library' });
+  const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
+  const twice = compositions.getByRole('button', { name: 'Open DoubleTwice workflow', exact: true });
+  const again = compositions.getByRole('button', { name: 'Open DoubleAgain workflow', exact: true });
+
+  await composer.getByRole('button', { name: 'Browse compositions', exact: true }).click();
+  await expect(search).toBeFocused();
+  await expect(twice).toBeVisible();
+  await expect(again).toBeVisible();
+  await expect(functions.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
+  await expect(functions.getByRole('button', { name: /Open Double(?:Twice|Again)/ })).toHaveCount(0);
+
+  await search.fill('DoubleAgain');
+  await expect(again).toBeVisible();
+  await expect(twice).toHaveCount(0);
+  await search.clear();
+  await again.focus();
+  await again.press('Enter');
+  await expect(again).toHaveAttribute('aria-current', 'true');
+  await expect(composer.locator('.composition-node')).toHaveCount(2);
+  await twice.click();
+  await expect(twice).toHaveAttribute('aria-current', 'true');
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  await expect(composer.getByRole('button', { name: 'Parent', exact: true })).toHaveCount(0);
+
+  await compositions.getByRole('button', { name: 'Add DoubleAgain', exact: true }).click();
+  await expect(twice).toHaveAttribute('aria-current', 'true');
+  await expect(composer.locator('[data-composition-step="draft:new"]')).toContainText('DoubleAgain');
+});
+
 test('browses a compact function namespace tree and searches beyond its virtual viewport at HD', async ({
   page
 }, info) => {
