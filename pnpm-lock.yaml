@@ -37,10 +37,10 @@ importers:
     dependencies:
       '@lspeasy/client':
         specifier: ^3.1.10
-        version: 3.1.10(ws@8.22.2)
+        version: 3.1.10(ws@8.23.0)
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.22.2)
+        version: 3.0.1(ws@8.23.0)
       camelcase:
         specifier: ^10.0.0
         version: 10.0.0
@@ -266,7 +266,7 @@ importers:
     dependencies:
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.22.2)
+        version: 3.0.1(ws@8.23.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -339,7 +339,7 @@ importers:
         version: 1.2.5
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.22.2)
+        version: 3.0.1(ws@8.23.0)
       '@marsidev/react-turnstile':
         specifier: ^1.6.3
         version: 1.6.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -769,10 +769,10 @@ importers:
     dependencies:
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.22.2)
+        version: 3.0.1(ws@8.23.0)
       '@lspeasy/server':
         specifier: ^4.2.4
-        version: 4.2.4(ws@8.22.2)
+        version: 4.2.4(ws@8.23.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
@@ -787,11 +787,11 @@ importers:
         version: 11.0.0
       ws:
         specifier: '>=8.21.0'
-        version: 8.22.2
+        version: 8.23.0
     devDependencies:
       '@lspeasy/client':
         specifier: ^3.1.10
-        version: 3.1.10(ws@8.22.2)
+        version: 3.1.10(ws@8.23.0)
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
@@ -993,7 +993,7 @@ importers:
     dependencies:
       '@lspeasy/core':
         specifier: ^3.0.1
-        version: 3.0.1(ws@8.22.2)
+        version: 3.0.1(ws@8.23.0)
       '@rune-langium/lsp-server':
         specifier: workspace:*
         version: link:../../packages/lsp-server
@@ -1009,7 +1009,7 @@ importers:
         version: 4.161.0(@cloudflare/workers-types@5.20261112.1)(@types/node@26.6.6)
       ws:
         specifier: '>=8.21.0'
-        version: 8.22.2
+        version: 8.23.0
 
 packages:
 
@@ -7104,6 +7104,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.23.0:
+    resolution: {integrity: sha512-wCkmX8QMOrKjgO8HW2WyDbTSGeqkocxgDzS9iR79rEAexty6/2qzilx3Ag8Tqf9ykop3irLKle0MtVn5qjVnoQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   wsl-utils@1.0.1:
     resolution: {integrity: sha512-c16PKLIRxBYpR3jSWsdS7SFp0COm5SOQdiFjY818dYFHJbMGuLBszpF07LBWmOS1uzrHa9VGdynsEgoeKy0oOQ==}
     engines: {node: '>=20'}
@@ -8415,25 +8427,25 @@ snapshots:
       '@lezer/highlight': 1.2.5
       '@lezer/lr': 1.4.12
 
-  '@lspeasy/client@3.1.10(ws@8.22.2)':
+  '@lspeasy/client@3.1.10(ws@8.23.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.22.2)
+      '@lspeasy/core': 3.0.1(ws@8.23.0)
       camelcase: 9.0.0
     optionalDependencies:
       zod: 4.6.7
     transitivePeerDependencies:
       - ws
 
-  '@lspeasy/core@3.0.1(ws@8.22.2)':
+  '@lspeasy/core@3.0.1(ws@8.23.0)':
     dependencies:
       type-fest: 5.10.0
     optionalDependencies:
-      ws: 8.22.2
+      ws: 8.23.0
       zod: 4.6.7
 
-  '@lspeasy/server@4.2.4(ws@8.22.2)':
+  '@lspeasy/server@4.2.4(ws@8.23.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.22.2)
+      '@lspeasy/core': 3.0.1(ws@8.23.0)
       camelcase: 9.0.0
     optionalDependencies:
       zod: 4.6.7
@@ -12960,6 +12972,8 @@ snapshots:
       signal-exit: 4.1.0
 
   ws@8.22.2: {}
+
+  ws@8.23.0: {}
 
   wsl-utils@1.0.1:
     dependencies:
