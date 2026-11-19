@@ -19,7 +19,7 @@ const syntaxColor = (key: keyof typeof syntax) => `var(--syntax-${key}, ${syntax
 const editorTextStyle = {
   fontFamily: 'var(--font-code)',
   fontWeight: 'var(--font-weight-book)',
-  fontSize: 'calc(var(--font-size-code) - var(--studio-mono-font-reduction, 0px))',
+  fontSize: 'var(--font-size-code)',
   lineHeight: '1.45'
 };
 
@@ -100,7 +100,7 @@ export const studioEditorTheme = EditorView.theme(
     '.cm-panel.cm-search': {
       backgroundColor: 'var(--popover)',
       padding: '2px 6px',
-      fontSize: 'calc(var(--font-size-xs) - var(--studio-mono-font-reduction, 0px))'
+      fontSize: 'var(--font-size-xs)'
     }
   },
   { dark: true }

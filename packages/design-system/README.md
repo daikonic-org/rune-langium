@@ -61,12 +61,10 @@ Add `.perspective-heading` only to perspective names for uppercase and
 `--perspective-heading-letter-spacing` (0.10em). Apply heading roles to text spans
 when a header also contains controls or counts.
 
-Studio reduces the UI text scale by exactly 1px through its body profile, including
-portaled overlays. The primitive `--font-size-*` scale remains unchanged; Sans
-heading roles retain that unscaled size. Tabs use the reduced UI scale. Studio
-also reduces monospace text by 1px through its separate
-`--studio-mono-font-reduction` setting; the shared CodeMirror text/gutter style
-uses that same setting. Font-face scaling, the root rem size and control geometry are unchanged.
+Studio uses its size tokens directly for Transit System and Code, including
+portaled overlays and CodeMirror gutters. Both faces carry their size calibration
+in the font. The `--studio-mono-font-reduction` setting applies to compact
+JetBrains Mono UI labels and source metadata.
 The Studio wordmark is uppercase Sans SemiBold 600 with the shared 0.10em perspective tracking. Inspector detail-pane titles
 use the smaller Sans Medium 500 treatment at 13px.
 

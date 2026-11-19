@@ -1088,8 +1088,9 @@ reference navigation still resolves through the language service.
 
 `editor-extensions.ts` owns shared CodeMirror behavior and syntax-aware assertion
 callee decoration; `editor-theme.ts` owns its token-driven colors and typography.
-`--font-editor` selects the bundled Transit Code face for content and gutters;
-`--font-mono` remains the JetBrains UI stack. Assertion callees use subdued red
+`--font-code` selects the bundled Transit Code face for content and gutters.
+The Transit System and Code faces use the shared size tokens directly.
+`--font-mono` selects JetBrains Mono for compact UI text. Assertion callees use subdued red
 without dimming their arguments or changing source text.
 
 ### Selected-object inspector and code previews

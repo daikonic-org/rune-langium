@@ -85,6 +85,13 @@ for (const theme of ['daikonic', 'light'])
     await expect(code).toContainText('export interface Party');
     await expect(code.locator('span').filter({ hasText: /^export$/ })).toBeVisible();
     await expect(code).toHaveAttribute('aria-readonly', 'true');
+    await expect(code).toHaveCSS('font-size', '13px');
+    await expect(page.locator('body')).toHaveCSS('font-size', '13px');
+    const italicLoaded = await code.evaluate(async () => {
+      const faces = await document.fonts.load('italic 350 13px "Daikonic Transit Code"');
+      return faces.some((face) => face.style === 'italic' && face.status === 'loaded');
+    });
+    expect(italicLoaded).toBe(true);
     const selection = await page.getByRole('tabpanel', { name: 'Selection' }).boundingBox();
     const settings = await page.getByRole('region', { name: 'Export settings', exact: true }).boundingBox();
     const output = await page.getByRole('region', { name: 'Generated output', exact: true }).boundingBox();
