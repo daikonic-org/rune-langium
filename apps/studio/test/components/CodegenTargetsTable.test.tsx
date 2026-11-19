@@ -22,7 +22,9 @@ afterEach(() => cleanup());
 const IMPLEMENTED = IMPLEMENTED_TARGETS as readonly Target[];
 const NOT_IMPLEMENTED = (Object.keys(TARGET_DESCRIPTORS) as Target[]).filter((t) => !IMPLEMENTED.includes(t));
 const NAMESPACE_TARGETS = IMPLEMENTED.filter((t) => TARGET_DESCRIPTORS[t].contract === 'namespace');
-const WHOLE_MODEL_TARGETS = IMPLEMENTED.filter((t) => TARGET_DESCRIPTORS[t].contract === 'whole-model');
+const DOWNLOAD_ONLY_TARGETS = IMPLEMENTED.filter(
+  (t) => TARGET_DESCRIPTORS[t].contract === 'whole-model' && t !== 'python'
+);
 
 describe('CodegenTargetsTable', () => {
   it('renders one row per implemented target with its label', () => {
@@ -63,9 +65,9 @@ describe('CodegenTargetsTable', () => {
   // no-op skip until Phase 3 lands graphql / Phase 1 lands excel. Once
   // either does, IMPLEMENTED_TARGETS will start including a whole-model
   // entry and this test will run and exercise it.
-  it.skipIf(WHOLE_MODEL_TARGETS.length === 0)('shows [Download] only (no [View]) for whole-model targets', () => {
+  it.skipIf(DOWNLOAD_ONLY_TARGETS.length === 0)('shows [Download] only for targets without a preview', () => {
     render(<CodegenTargetsTable onView={vi.fn()} onDownload={vi.fn()} />);
-    for (const target of WHOLE_MODEL_TARGETS) {
+    for (const target of DOWNLOAD_ONLY_TARGETS) {
       expect(screen.queryByTestId(`codegen-targets-table__view-${target}`)).toBeNull();
       expect(screen.getByTestId(`codegen-targets-table__download-${target}`)).toBeTruthy();
     }
@@ -76,6 +78,8 @@ describe('CodegenTargetsTable', () => {
     render(<CodegenTargetsTable onView={onView} onDownload={vi.fn()} />);
     fireEvent.click(screen.getByTestId('codegen-targets-table__view-zod'));
     expect(onView).toHaveBeenCalledWith('zod');
+    fireEvent.click(screen.getByTestId('codegen-targets-table__view-python'));
+    expect(onView).toHaveBeenCalledWith('python');
   });
 
   it('invokes onDownload with the target id when [Download] is clicked', () => {

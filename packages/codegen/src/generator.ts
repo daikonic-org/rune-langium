@@ -26,6 +26,7 @@ import { zodProfile } from './emit/zod-profile.js';
 import { jsonSchemaProfile } from './emit/json-schema-profile.js';
 import { sqlProfile } from './emit/sql-profile.js';
 import { ExcelWholeModelEmitter } from './emit/excel-emitter.js';
+import { PythonModelEmitter } from './emit/python-emitter.js';
 import {
   selectEffectiveProjectDocuments,
   resolveExportSelection,
@@ -60,6 +61,7 @@ const NAMESPACE_EMITTERS: Partial<Record<Target, NamespaceEmitterConstructor>> =
 
 const WHOLE_MODEL_EMITTERS: Partial<Record<Target, WholeModelEmitterConstructor>> = {
   typescript: TypeScriptModelEmitter,
+  python: PythonModelEmitter,
   excel: ExcelWholeModelEmitter
   // Phase 3: graphql: GraphqlSdlEmitter
 };
@@ -105,6 +107,7 @@ export const IMPLEMENTED_TARGETS: readonly Target[] = Object.freeze(
 const LIBRARY_DEFAULT_LAYOUT: Record<Target, string> = {
   zod: 'per-namespace',
   typescript: 'per-namespace',
+  python: 'single-file',
   'json-schema': 'per-namespace',
   sql: 'per-namespace',
   markdown: 'per-namespace',

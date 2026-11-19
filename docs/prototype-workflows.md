@@ -1,5 +1,9 @@
 # Prototype workflows and object building
 
+The lower dock has **Workflows** and **Data** tabs. Select a saved workflow from
+the Workflows list to restore its function and input bindings. Use Data to find
+stored examples you can bind to a workflow input.
+
 Rune Studio is source-available. Prototype provides two complementary surfaces:
 
 - **Workflow** applies an optional Rune function to inputs and displays its output. **New workflow** starts with no function or predetermined input type. Named recipes remain in the repository; complete edited recipe drafts are retained when switching between saved recipes in the same session.

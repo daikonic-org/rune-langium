@@ -31,13 +31,43 @@ export interface ExportPerspectiveProps {
   workspaceId?: string;
 }
 
-/** Keep the task surface usable beside a compact selection explorer. */
-function reconcileExportLayout(api: DockviewApi): void {
-  const selection = api.getPanel('export.selection');
-  const settings = api.getPanel('export.settings');
-  if (settings && settings.group !== selection?.group && api.width >= 768) {
+const exportDesktopWidth = 768;
+const selectionPanel = { id: 'export.selection', component: 'export.selection', title: 'Selection' };
+const settingsPanel = { id: 'export.settings', component: 'export.settings', title: 'Export' };
+
+/** Repair partial layouts and keep Selection reachable at the current width. */
+function reconcileExportLayout(api: DockviewApi, width: number): void {
+  const compact = width < exportDesktopWidth;
+  const restoredSelection = api.getPanel(selectionPanel.id);
+  const restoredSettings = api.getPanel(settingsPanel.id);
+  const selection =
+    restoredSelection ??
+    api.addPanel({
+      ...selectionPanel,
+      inactive: Boolean(restoredSettings),
+      position: restoredSettings
+        ? { referencePanel: restoredSettings.id, direction: compact ? 'within' : 'left' }
+        : undefined
+    });
+  const settings =
+    restoredSettings ??
+    api.addPanel({
+      ...settingsPanel,
+      inactive: compact,
+      position: { referencePanel: selection.id, direction: compact ? 'within' : 'right' }
+    });
+
+  const grouped = selection.group === settings.group;
+  if (compact !== grouped) {
+    if (api.hasMaximizedGroup()) api.exitMaximizedGroup();
+    selection.api.moveTo({ group: settings.group, position: compact ? 'center' : 'left', skipSetActive: true });
+  }
+  if (compact) {
+    settings.group.api.setConstraints({ minimumWidth: 0, maximumWidth: Number.POSITIVE_INFINITY });
+  } else {
     settings.group.api.setConstraints({ minimumWidth: 320 });
-    selection?.group.api.setConstraints({ minimumWidth: 220 });
+    selection.group.api.setConstraints({ minimumWidth: 200, maximumWidth: 320 });
+    if (!restoredSelection || grouped) selection.group.api.setSize({ width: 248 });
   }
 }
 
@@ -100,6 +130,17 @@ export const ExportPerspective = withInstrumentation(
     const activationRef = useRef<{ workspaceId: string; promise: Promise<void> } | undefined>(undefined);
     const [workbenchApi, setWorkbenchApi] = useState<DockviewApi>();
     const [expanded, setExpanded] = useState(false);
+    useEffect(() => {
+      if (!workbenchApi) return;
+      const desktop = window.matchMedia(`(min-width: ${exportDesktopWidth}px)`);
+      const resize = () => reconcileExportLayout(workbenchApi, window.innerWidth);
+      desktop.addEventListener('change', resize);
+      const maximized = workbenchApi.onDidMaximizedGroupChange(() => setExpanded(workbenchApi.hasMaximizedGroup()));
+      return () => {
+        desktop.removeEventListener('change', resize);
+        maximized.dispose();
+      };
+    }, [workbenchApi]);
     const [navigationNotice, setNavigationNotice] = useState<string>();
     useEffect(() => {
       setNavigationNotice(undefined);
@@ -310,7 +351,6 @@ export const ExportPerspective = withInstrumentation(
                 if (!workbenchApi || !panel) return;
                 if (workbenchApi.hasMaximizedGroup()) workbenchApi.exitMaximizedGroup();
                 else workbenchApi.maximizeGroup(panel);
-                setExpanded(workbenchApi.hasMaximizedGroup());
               }}
               settings={
                 <div data-testid="export-settings" className="h-full min-h-0">
@@ -359,25 +399,7 @@ export const ExportPerspective = withInstrumentation(
           'export.selection': 'Selection',
           'export.settings': 'Export'
         },
-        buildDefault(api, width) {
-          const selection = api.addPanel({
-            id: 'export.selection',
-            component: 'export.selection',
-            title: 'Selection'
-          });
-          api.addPanel({
-            id: 'export.settings',
-            component: 'export.settings',
-            title: 'Export',
-            position:
-              width < 768
-                ? { referenceGroup: selection.group, direction: 'within' }
-                : { referencePanel: selection.id, direction: 'right' }
-          });
-          reconcileExportLayout(api);
-          if (width >= 768) selection.group.api.setSize({ width: Math.min(400, Math.max(240, width * 0.28)) });
-          if (width < 768) selection.api.setActive();
-        },
+        buildDefault: reconcileExportLayout,
         reconcile: reconcileExportLayout
       }),
       [

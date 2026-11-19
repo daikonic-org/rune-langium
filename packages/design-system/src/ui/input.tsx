@@ -14,7 +14,7 @@ import * as React from 'react';
 import { SearchIcon } from 'lucide-react';
 
 import { cn } from '../utils';
-import { fieldControlStyles } from './control-styles';
+import { nativeFieldControlStyles } from './control-styles';
 
 export type InputProps = React.ComponentProps<'input'>;
 
@@ -24,7 +24,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input({ cl
       type={type}
       data-slot="input"
       ref={ref}
-      className={cn(fieldControlStyles, 'h-6 min-h-6 max-h-7 w-full px-1.5 py-0', className)}
+      className={cn(nativeFieldControlStyles, 'h-6 min-h-6 max-h-7 w-full px-1.5', className)}
       {...props}
     />
   );

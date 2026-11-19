@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { python } from '@codemirror/lang-python';
+import { EditorView } from '@codemirror/view';
+import { editorExtensions } from '../../lang/editor-extensions.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import type { GeneratorDiagnostic } from '@rune-langium/codegen/export';
@@ -56,6 +61,32 @@ function ArtifactDiagnostics({ diagnostics }: { diagnostics: readonly GeneratorD
       </Dialog>
     </>
   );
+}
+
+function ExportSource({ path, text }: { path: string; text: string }): ReactElement {
+  const container = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!container.current) return;
+    const language = /\.json$/i.test(path)
+      ? json()
+      : /\.py$/i.test(path)
+        ? python()
+        : /\.[cm]?[jt]sx?$/i.test(path)
+          ? javascript({ typescript: /\.[cm]?tsx?$/i.test(path), jsx: /\.[jt]sx$/i.test(path) })
+          : [];
+    const view = new EditorView({
+      doc: text,
+      extensions: [
+        ...editorExtensions(language, true),
+        EditorView.contentAttributes.of({ 'aria-label': 'Generated export code' })
+      ],
+      parent: container.current
+    });
+    return () => view.destroy();
+  }, [path, text]);
+
+  return <div ref={container} className="preview-panel__editor min-h-0 min-w-0 flex-1 overflow-hidden" />;
 }
 
 export interface ExportPreviewPanelProps {
@@ -287,15 +318,10 @@ export const ExportPreviewPanel = withInstrumentation(
               Retry file
             </Button>
           </div>
+        ) : text === undefined ? (
+          <p className="p-3 text-sm text-muted-foreground">Loading artifact…</p>
         ) : (
-          <pre
-            tabIndex={0}
-            aria-busy={text === undefined}
-            className="studio-scroll min-h-0 flex-1 overflow-auto p-3 text-xs whitespace-pre focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-            aria-label="Generated export code"
-          >
-            {text ?? 'Loading artifact…'}
-          </pre>
+          <ExportSource path={textFile.path} text={text} />
         )}
       </section>
     );

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ProjectContext, type ProjectState } from '../../src/shell/providers/project-context.js';
 import { WorkspaceActionsContext } from '../../src/shell/perspectives/workspace-actions-context.js';
 import type { WorkspaceActions } from '../../src/shell/perspectives/workspace-actions-context.js';
@@ -89,7 +89,13 @@ vi.mock('../../src/shell/WorkbenchHost.js', () => ({
   }
 }));
 
+afterEach(() => vi.unstubAllGlobals());
+
 beforeEach(() => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+  );
   state.config = {
     target: 'typescript',
     selection: { namespaces: [], declarations: [] },
@@ -107,7 +113,7 @@ beforeEach(() => {
   mockCancel.mockClear();
 });
 
-function layoutApi(previewHeight = 128) {
+function layoutApi(previewHeight = 128, missingPanels: readonly string[] = []) {
   function panel(id: string, initialHeight: number) {
     let height = initialHeight;
     const group = {
@@ -130,7 +136,8 @@ function layoutApi(previewHeight = 128) {
         get height() {
           return height;
         },
-        setActive: vi.fn()
+        setActive: vi.fn(),
+        moveTo: vi.fn()
       }
     };
   }
@@ -142,7 +149,8 @@ function layoutApi(previewHeight = 128) {
     height: 640,
     width: 1280,
     addPanel: vi.fn(({ id }: { id: string }) => panels.get(id)),
-    getPanel: (id: string) => panels.get(id)
+    getPanel: (id: string) => (missingPanels.includes(id) ? undefined : panels.get(id)),
+    onDidMaximizedGroupChange: vi.fn(() => ({ dispose: vi.fn() }))
   };
   return { api: api as unknown as DockviewApi, selection, settings, preview };
 }
@@ -163,16 +171,25 @@ function readyArtifact(): ExportRunState {
 it('places settings and output in one full-height task panel beside a compact selection explorer', async () => {
   render(<ExportPerspective workspaceId="workspace-a" />);
   await screen.findByTestId('mock-export-workbench');
-  const fresh = layoutApi();
+  const fresh = layoutApi(128, ['export.selection', 'export.settings']);
   capturedDefinition.buildDefault(fresh.api, 1280);
   expect(fresh.api.addPanel.mock.calls.map(([options]) => options.id)).toEqual(['export.selection', 'export.settings']);
-  expect(fresh.selection.group.api.setSize).toHaveBeenCalledWith({ width: expect.closeTo(358.4) });
+  expect(fresh.selection.group.api.setSize).toHaveBeenCalledWith({ width: 248 });
   expect(fresh.preview.group.api.setSize).not.toHaveBeenCalled();
   const restored = layoutApi(300);
   capturedDefinition.reconcile?.(restored.api, 1280);
-  expect(restored.selection.group.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 220 });
+  expect(restored.selection.group.api.setConstraints).toHaveBeenCalledWith({ minimumWidth: 200, maximumWidth: 320 });
   expect(restored.api.addPanel).not.toHaveBeenCalled();
   expect(restored.selection.group.api.setSize).not.toHaveBeenCalled();
+  const partial = layoutApi(300, ['export.selection']);
+  capturedDefinition.reconcile?.(partial.api, 1280);
+  expect(partial.api.addPanel).toHaveBeenCalledWith({
+    id: 'export.selection',
+    component: 'export.selection',
+    title: 'Selection',
+    inactive: true,
+    position: { referencePanel: 'export.settings', direction: 'left' }
+  });
 });
 it('reveals output when a fresh artifact arrives without resizing restored groups', async () => {
   const { rerender } = render(<ExportPerspective workspaceId="workspace-a" />);

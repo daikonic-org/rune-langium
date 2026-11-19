@@ -21,6 +21,7 @@ import { EditorState } from '@codemirror/state';
 import { clearSourceReveal, setSourceReveal, sourceNavigationHighlight } from '../lang/source-navigation-highlight.js';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
+import { python } from '@codemirror/lang-python';
 import type { Target } from '@rune-langium/codegen/export';
 import { namespaceFromModelName } from '@rune-langium/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
@@ -328,7 +329,8 @@ export const CodePreviewPanel = withInstrumentation(
     useEffect(() => {
       if (!editorContainerRef.current) return;
 
-      const langExtension = target === 'json-schema' ? json() : javascript({ typescript: true });
+      const langExtension =
+        target === 'python' ? python() : target === 'json-schema' ? json() : javascript({ typescript: true });
 
       const state = EditorState.create({
         doc: '',

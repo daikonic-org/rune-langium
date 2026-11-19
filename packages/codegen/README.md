@@ -49,7 +49,11 @@ and import. Include Core's `COMPOSITION_MODEL_SOURCE` in the project alongside
 that output; Studio installs it atomically when creating a composition. The
 option is off by default for callers that only need ordinary Rune source.
 
-## Python projections
+## Python export and projections
+
+Select Python in Studio Export, use `rune-codegen --target python`, or pass
+`{ target: 'python' }` to `generate()`. The result is one `model.py` with the
+selected declarations, their dependencies and the standard-library-only Rune runtime.
 
 The browser-safe `@rune-langium/codegen/export` surface exposes
 `generatePythonModule(documents)` and `selectPythonProjection(module, subject, kind)`.

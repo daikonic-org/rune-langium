@@ -27,6 +27,7 @@ for (const theme of ['light', 'daikonic'])
       const firstName = preview.getByLabel('First Name', { exact: true });
       await expect(firstName).toBeVisible();
       await expect(firstName).toHaveCSS('height', '24px');
+      await expect(firstName).toHaveCSS('padding-block-end', '2px');
       await firstName.focus();
       await page.keyboard.press('Tab');
       await page.keyboard.press('Shift+Tab');
@@ -44,7 +45,20 @@ for (const theme of ['light', 'daikonic'])
       expect(spacing).toBeGreaterThanOrEqual(8);
       await expect(preview.locator('.preview-layout-grid').first()).toHaveCSS('row-gap', '8px');
       await page.screenshot({ path: info.outputPath('preview.png'), fullPage: true });
-      await page.getByRole('button', { name: 'Import Model', exact: true }).click();
+      const importModel = page.getByRole('button', { name: 'Import Model', exact: true });
+      const buttonLabel = importModel.locator('[data-slot="button-label"]');
+      await expect(buttonLabel).toHaveCSS('text-box-edge', 'ex alphabetic');
+      const buttonAlignment = await buttonLabel.evaluate((label) => {
+        const center = (element: Element) => {
+          const box = element.getBoundingClientRect();
+          return box.top + box.height / 2;
+        };
+        const button = label.closest('button')!;
+        return { label: center(label) - center(button), icon: center(button.querySelector('svg')!) - center(button) };
+      });
+      expect(Math.abs(buttonAlignment.label)).toBeLessThan(0.5);
+      expect(Math.abs(buttonAlignment.icon)).toBeLessThan(0.5);
+      await importModel.click();
       const dialog = page.getByRole('dialog', { name: 'Import Model', exact: true });
       await expect(dialog).toBeVisible();
       await waitForEntranceAnimations(page);
@@ -80,6 +94,18 @@ for (const theme of ['light', 'daikonic'])
       expect(privacyGeometry).toEqual({ gap: 8, helpOffset: 0 });
       const themeSelect = settings.getByRole('combobox', { name: /theme/i });
       await expect(themeSelect).toHaveCSS('height', '24px');
+      await expect(themeSelect).toHaveCSS('padding-block-end', '2px');
+      const selectAlignment = await themeSelect.evaluate((control) => {
+        const field = control.getBoundingClientRect();
+        const wrapper = control.parentElement!.getBoundingClientRect();
+        const chevron = control.parentElement!.querySelector('svg')!.getBoundingClientRect();
+        return {
+          wrapperHeight: wrapper.height,
+          chevronOffset: chevron.top + chevron.height / 2 - (field.top + field.height / 2)
+        };
+      });
+      expect(selectAlignment.wrapperHeight).toBe(24);
+      expect(Math.abs(selectAlignment.chevronOffset)).toBeLessThan(0.5);
       await themeSelect.selectOption(theme === 'light' ? 'daikonic' : 'light');
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'light' ? 'daikonic' : 'light');
       await themeSelect.selectOption(theme);

@@ -83,6 +83,7 @@ describe('runGenerate dispatch (018 Task 0.4)', () => {
       'excel',
       'json-schema',
       'openapi',
+      'python',
       'sql',
       'typescript',
       'xsd',

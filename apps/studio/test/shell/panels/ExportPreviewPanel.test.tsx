@@ -2,8 +2,16 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { beforeAll, expect, it, vi } from 'vitest';
 import { ExportPreviewPanel } from '../../../src/shell/panels/ExportPreviewPanel.js';
+
+beforeAll(() => {
+  // jsdom does not implement the text geometry CodeMirror measures.
+  Object.defineProperties(Range.prototype, {
+    getBoundingClientRect: { configurable: true, value: () => new DOMRect() },
+    getClientRects: { configurable: true, value: () => [] }
+  });
+});
 
 const artifact = {
   blob: new Blob(['archive']),
@@ -54,7 +62,7 @@ it.each([undefined, 'removed.ts'])(
         onDownload={vi.fn()}
       />
     );
-    await expect.poll(() => screen.getByLabelText('Generated export code').textContent).toBe('dependency.ts');
+    expect(await screen.findByLabelText('Generated export code')).toHaveTextContent('dependency.ts');
   }
 );
 
@@ -62,7 +70,7 @@ it('renders text from the captured export artifact and downloads it on demand', 
   const onDownload = vi.fn();
   render(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={onDownload} />);
 
-  expect(await screen.findByText('export interface Party {}')).toBeTruthy();
+  expect(await screen.findByLabelText('Generated export code')).toHaveTextContent('export interface Party {}');
   screen.getByRole('button', { name: 'Download export' }).click();
   expect(onDownload).toHaveBeenCalledOnce();
   expect(artifact.readText).toHaveBeenCalledWith('test.ts');
@@ -73,7 +81,8 @@ it('copies the loaded active text file', async () => {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
   render(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={vi.fn()} />);
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Copy file' }));
+  await screen.findByLabelText('Generated export code');
+  fireEvent.click(screen.getByRole('button', { name: 'Copy file' }));
 
   await expect.poll(() => writeText.mock.calls).toEqual([['export interface Party {}']]);
   expect(await screen.findByRole('button', { name: 'Copied' })).toBeVisible();
@@ -114,7 +123,7 @@ it('keeps a failed regeneration visible with its previous output', async () => {
   );
 
   expect(screen.getByTestId('export-artifact-status')).toHaveTextContent('Generation failed');
-  expect(await screen.findByText('export interface Party {}')).toBeVisible();
+  expect(await screen.findByLabelText('Generated export code')).toHaveTextContent('export interface Party {}');
   expect(screen.getByText('Outdated')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Download export' })).toBeDisabled();
 });
@@ -257,7 +266,7 @@ it('ignores a late failed read after the active artifact changes', async () => {
   );
   const next = { ...artifact, readText: vi.fn().mockResolvedValue('current file') };
   rerender(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'next', artifact: next }} onDownload={vi.fn()} />);
-  expect(await screen.findByText('current file')).toBeVisible();
+  expect(await screen.findByLabelText('Generated export code')).toHaveTextContent('current file');
   await act(async () => {
     reject(new Error('old artifact failure'));
   });
@@ -271,7 +280,7 @@ it('keeps Copy available with actionable feedback when clipboard permission is d
     value: { writeText: vi.fn().mockRejectedValue(new Error('Denied')) }
   });
   render(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={vi.fn()} />);
-  await screen.findByText('export interface Party {}');
+  await screen.findByLabelText('Generated export code');
   fireEvent.click(screen.getByRole('button', { name: 'Copy file' }));
   expect(await screen.findByRole('status')).toHaveTextContent('Check clipboard permissions');
   expect(screen.getByRole('button', { name: 'Copy file' })).toBeEnabled();

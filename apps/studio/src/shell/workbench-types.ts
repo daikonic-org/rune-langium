@@ -6,7 +6,7 @@ import type { DockviewApi } from 'dockview-react';
 import type { DockLayoutProps } from '@rune-langium/design-system/ui/dock-layout';
 
 export interface WorkbenchDefinition {
-  id: 'explore' | 'prototype' | 'export';
+  id: 'explore' | 'compose' | 'prototype' | 'export';
   panels: Readonly<Record<string, ComponentType>>;
   titles: Readonly<Record<string, string>>;
   buildDefault(api: DockviewApi, width: number): void;

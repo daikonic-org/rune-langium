@@ -15,7 +15,8 @@ const AUXILIARY_PANELS: Record<WorkbenchDefinition['id'], Record<string, EdgeGro
     'workspace.activity': 'bottom',
     'workspace.output': 'bottom'
   },
-  prototype: { 'prototype.grid': 'bottom', 'prototype.payloadGraph': 'right' },
+  compose: { 'compose.palette': 'left', 'compose.details': 'right' },
+  prototype: { 'prototype.grid': 'bottom', 'prototype.workflows': 'bottom', 'prototype.payloadGraph': 'right' },
   export: { 'export.settings': 'right', 'export.preview': 'bottom' }
 };
 
@@ -30,6 +31,19 @@ export const getExploreSidePanel = withInstrumentation(
       return { direction, label: direction === 'left' ? 'Type explorer' : 'Preview panel' };
   },
   { op: 'getExploreSidePanel' }
+);
+
+/** Shared side chrome for the dedicated editor and composer tool groups. */
+export const getWorkbenchSidePanel = withInstrumentation(
+  function getWorkbenchSidePanel(components: readonly string[]) {
+    const explore = getExploreSidePanel(components);
+    if (explore) return explore;
+    if (components.length > 0 && components.every((component) => component === 'compose.palette'))
+      return { direction: 'left' as const, label: 'palette' };
+    if (components.length > 0 && components.every((component) => component === 'compose.details'))
+      return { direction: 'right' as const, label: 'details' };
+  },
+  { op: 'getWorkbenchSidePanel', capture: 0 }
 );
 
 /** Restore one compact Form/Code group without replacing views. */

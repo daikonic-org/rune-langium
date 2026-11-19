@@ -6,7 +6,7 @@ import type React from 'react';
 import type { IDockviewPanelHeaderProps } from 'dockview-react';
 import { NumberChiclet } from '@rune-langium/design-system/ui/number-chiclet';
 import { withInstrumentation } from '../services/instrumentation/core.js';
-import { getExploreSidePanel } from './auxiliary-panel-layout.js';
+import { getWorkbenchSidePanel } from './auxiliary-panel-layout.js';
 
 export interface StudioDockTabParams {
   count?: number;
@@ -24,7 +24,7 @@ export const StudioDockTab = withInstrumentation(
       tab.setAttribute('aria-labelledby', labelId);
       const select = (event: Event) => {
         if (event.defaultPrevented) return;
-        if (!getExploreSidePanel(api.group.panels.map((panel) => panel.api.component))) return;
+        if (!getWorkbenchSidePanel(api.group.panels.map((panel) => panel.api.component))) return;
         if (event instanceof MouseEvent && (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey))
           return;
         // Side tabs select a view; the explicit chevron alone hides the panel.

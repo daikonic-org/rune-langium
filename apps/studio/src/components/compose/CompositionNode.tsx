@@ -123,7 +123,7 @@ export const CompositionNode = memo(
       };
       return (
         <div
-          className="composition-node"
+          className="studio-card composition-node"
           data-composition-step={step.id}
           data-selected={active}
           data-kind={step.kind}
@@ -143,7 +143,9 @@ export const CompositionNode = memo(
           )}
           <div className="composition-node__heading">
             <Icon className="composition-node__icon" aria-hidden="true" />
-            <strong title={label}>{label}</strong>
+            <strong className="font-title font-medium" title={label}>
+              {label}
+            </strong>
             {step.kind !== 'return' && (
               <span className="composition-node__kind">
                 {step.kind === 'input' ? 'Input' : step.call ? 'Function' : 'Value'}

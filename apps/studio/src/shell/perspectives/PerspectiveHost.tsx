@@ -43,18 +43,28 @@ interface Props {
 function PerspectiveScreen({
   id,
   active = true,
+  retainGeometry = false,
   loadingMessage,
   children
 }: {
   id: PerspectiveId;
   active?: boolean;
+  retainGeometry?: boolean;
   loadingMessage?: string;
   children: ReactNode;
 }) {
   return (
     <div
       data-perspective-slot={id}
-      style={{ display: active ? undefined : 'none' }}
+      style={
+        active
+          ? undefined
+          : retainGeometry
+            ? { position: 'absolute', inset: 0, ...hiddenContentStyle }
+            : { display: 'none' }
+      }
+      inert={!active}
+      aria-hidden={!active || undefined}
       className="flex h-full min-h-0 min-w-0 flex-col studio-perspective-enter"
     >
       <div className="studio-layout-presets" data-testid={active ? 'perspective-header-row' : undefined}>
@@ -128,7 +138,7 @@ export const PerspectiveHost = withInstrumentation(
             >
               <ExplorePerspective />
             </div>
-            <PerspectiveScreen id="compose" active={effective === 'compose'}>
+            <PerspectiveScreen id="compose" active={effective === 'compose'} retainGeometry>
               <div ref={setComposeSurface} className="h-full min-h-0 min-w-0" />
             </PerspectiveScreen>
             {hasWorkspace && prototypeWorkspace === key ? (

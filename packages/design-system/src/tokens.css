@@ -162,6 +162,7 @@
   --panel-padding-block: var(--space-2);
   --inspector-padding-inline: var(--space-2);
   --field-label-gap: var(--space-1);
+  --native-field-text-inset: 2px;
   /* --text-md (0.9375rem) now lives in theme.css's @theme block so it also
    * generates a `text-md` utility (and still emits --text-md to :root). */
   --sidebar-width-default: 280px;

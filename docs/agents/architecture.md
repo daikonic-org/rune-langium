@@ -164,9 +164,14 @@ in-flight computations share one promise only for the same version and variant
 (export selection or concrete input types). Rejected work is evicted; explicit
 regeneration detaches pending work, and old versions cannot overwrite newer results.
 
-Export settings and generated output share one expandable Dockview panel with
-mounted tabs, preserving target drafts when switching views. Generation diagnostics
-open from a counted disclosure instead of displacing source. Artifact files carry
+Export docks a compact selection explorer beside one expandable panel. Settings
+and generated output share that panel, with a resizable divider above the source.
+At narrow widths, Selection and Export are tabs in the same Dockview group.
+Restoration and viewport changes reconcile those groups in place, restoring any
+missing required panel and returning the compact Selection tab to the desktop sidebar.
+The read-only output uses the shared CodeMirror theme and highlights JavaScript,
+TypeScript, Python, and JSON by file extension. Generation diagnostics open from a counted
+disclosure. Artifact files carry
 small namespace ownership lists derived from emitter source maps and canonical
 target paths; explorer navigation selects the matching captured file within Export.
 These lists survive output-prefix composition without retaining full source maps.
@@ -997,7 +1002,10 @@ file. Grammar reflection drives the expression-kind census; linked execution
 fixtures compare Python with the TypeScript emitter, including lexical closure
 scope, metadata retention, nanoseconds and daylight-saving transitions.
 
-`generatePythonModule` emits typed Data records, enum literals and complete
+The Python export target packages the existing `generatePythonModule` backend as a
+single dependency-closed `model.py` for Python 3.13 or later. It carries the
+selected Rune namespaces and backend diagnostics. The same backend emits typed
+Data records, enum literals and complete
 function bodies with positional parameters. Both generated APIs use declared Rune
 input order and names, escaping target keywords or internal binding collisions.
 Trailing optional arguments have defaults; preceding optional arguments retain
@@ -2087,19 +2095,16 @@ out of preview/download semantic worker payloads.
 Explore and Compose: grouped pressed toggles, pending cues, captions and action
 slots. Perspective state still decides which views are available. Compose allows
 Canvas, Source or both, retaining at least one center view; bodies outside its
-supported composition subset stay in Source.
+supported composition subset stay in Source. Compose uses `WorkbenchHost` for
+its center and native Dockview Palette and Details edges. It stores the desktop
+layout as workspace-local view preferences. At constrained widths, side edges
+collapse into labeled rails. The composer stays measurable and inert while
+inactive. Canvas and Source retain their independent center split using
+`SplitWorkbench`, which also backs Export's settings/output split.
 
-`SplitWorkbench` reuses design-system resizable primitives for Compose's
-palette/center/details columns and Export's settings/output split. Its keyboard
-and pointer separators enforce pane bounds. Narrow containers switch Compose to
-vertical splits, including its center views when needed. Stable pane keys retain
-mounted peers through resizing and sidebar toggles. Optional workspace-scoped
-personal preferences remember each axis and visible pane set, saving only after
-user resize commits. Invalid/unavailable preference storage falls back safely;
-temporary constraints never overwrite the requested layout. Axis restoration
-waits for pane registration and applies in place. Layout never writes Rune source,
-project configuration, examples or graph positions. Explore's existing Dockview
-lifecycle and center focus/visibility policy remain in their shared shell.
+Prototype docks Workflows and Data together. The list and original saved-workflow
+selector use the same recipe loader, draft retention and input bindings.
+Restoration adds the Workflows tab to layouts saved before it existed.
 
 Generated export text reads are scoped to the exact captured artifact and path,
 including the render before effects settle. Failed reads retain the downloadable

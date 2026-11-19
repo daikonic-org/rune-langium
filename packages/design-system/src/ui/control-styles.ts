@@ -7,6 +7,9 @@ export const fieldControlStyles =
   'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset ' +
   'aria-invalid:border-destructive aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50';
 
+/** Optical centering for text painted by native single-line fields. */
+export const nativeFieldControlStyles = fieldControlStyles + ' pt-0 pb-(--native-field-text-inset)';
+
 /** Common rows for native picker buttons and Base UI Select/Command items. */
 export const pickerOptionStyles =
   'relative flex min-h-6 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-left text-xs leading-4 outline-none ' +

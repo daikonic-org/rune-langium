@@ -31,6 +31,7 @@ export const MarkdownOptionsSchema = z.object({ layout: TARGET_LAYOUT_SCHEMAS.ma
 export const TARGET_OPTIONS_SCHEMAS = {
   zod: ZodOptionsSchema,
   typescript: TypescriptOptionsSchema,
+  python: z.object({}),
   'json-schema': JsonSchemaOptionsSchema,
   sql: SqlOptionsSchema,
   markdown: MarkdownOptionsSchema,

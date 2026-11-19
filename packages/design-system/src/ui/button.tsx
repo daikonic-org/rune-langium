@@ -93,15 +93,47 @@ const buttonVariants = cva(
   }
 );
 
+function ButtonLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span data-slot="button-label" className="[text-box:trim-both_ex_alphabetic]">
+      {children}
+    </span>
+  );
+}
+
+function centerButtonLabels(children: React.ReactNode): React.ReactNode {
+  if (children == null) return children;
+  const parts: React.ReactNode[] = [];
+  for (const child of React.Children.toArray(children)) {
+    if (typeof child === 'string' || typeof child === 'number' || typeof child === 'bigint') {
+      const previous = parts.at(-1);
+      if (typeof previous === 'string') parts[parts.length - 1] = previous + String(child);
+      else parts.push(String(child));
+    } else {
+      parts.push(child);
+    }
+  }
+  return parts.map((part, index) => {
+    if (typeof part === 'string') {
+      return part.trim() ? <ButtonLabel key={`label:${index}`}>{part}</ButtonLabel> : null;
+    }
+    if (React.isValidElement<{ children?: React.ReactNode }>(part) && part.type === React.Fragment) {
+      return <React.Fragment key={part.key}>{centerButtonLabels(part.props.children)}</React.Fragment>;
+    }
+    return part;
+  });
+}
+
 function Button({
   className,
   variant = 'default',
   size = 'default',
   render,
+  children,
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
-    render?: React.ReactElement<{ className?: string }>;
+    render?: React.ReactElement<{ className?: string; children?: React.ReactNode }>;
   }) {
   const buttonProps = {
     'data-slot': 'button',
@@ -112,10 +144,13 @@ function Button({
   };
 
   if (render != null && React.isValidElement(render)) {
-    return cloneElementWithMergedClassName(render, buttonProps);
+    return cloneElementWithMergedClassName(render, {
+      ...buttonProps,
+      children: centerButtonLabels(children === undefined ? render.props.children : children)
+    });
   }
 
-  return <button {...buttonProps} />;
+  return <button {...buttonProps}>{centerButtonLabels(children)}</button>;
 }
 
-export { Button, buttonVariants };
+export { Button, ButtonLabel, buttonVariants };

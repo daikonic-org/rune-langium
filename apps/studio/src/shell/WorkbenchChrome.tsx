@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Daikonic contributors
 
 import type { ComponentType, ReactNode, SVGProps } from 'react';
+import { ButtonLabel } from '@rune-langium/design-system/ui/button';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 interface WorkbenchView {
@@ -44,7 +45,7 @@ export const WorkbenchViewBar = withInstrumentation(
                   onClick={onToggle}
                 >
                   <Icon className={pending ? 'size-3.5 studio-navigation-pending' : 'size-3.5'} aria-hidden="true" />
-                  <span>{title}</span>
+                  <ButtonLabel>{title}</ButtonLabel>
                 </button>
               ))}
             </div>

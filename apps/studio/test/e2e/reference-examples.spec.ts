@@ -143,7 +143,7 @@ for (const catalog of [false, true])
       if (width === 390) await picker.getByRole('button', { name: /CDM \(Common/ }).click();
       await expect(picker.getByRole('button', { name: /^(Add|Update) reference$/ })).toBeDisabled();
       await page.getByTestId('rail-prototype').click();
-      if (width === 390) await page.getByRole('tab', { name: 'Examples', exact: true }).click();
+      if (width === 390) await page.getByRole('tab', { name: 'Data', exact: true }).click();
       await page.getByRole('button', { name: 'Reference examples…' }).click();
       const dialog = page.getByRole('dialog', { name: 'Import reference examples' });
       await dialog.getByRole('button', { name: path, exact: true }).click();
@@ -184,7 +184,7 @@ for (const catalog of [false, true])
         await page.getByRole('button', { name: /Choose a function/ }).click();
         await page.getByRole('option', { name: /Double/ }).click();
         await expect(page.getByRole('region', { name: 'payment fields', exact: true })).toBeVisible();
-        if (width === 390) await page.getByRole('tab', { name: 'Examples', exact: true }).click();
+        if (width === 390) await page.getByRole('tab', { name: 'Data', exact: true }).click();
         await row.click();
         await page
           .getByRole('dialog', { name: 'Use object as input', exact: true })
@@ -208,7 +208,7 @@ for (const catalog of [false, true])
       await expect(page.getByTestId('instance-payload-output')).toContainText('44');
       await page.reload();
       await page.getByTestId('rail-prototype').click();
-      if (width === 390) await page.getByRole('tab', { name: 'Examples', exact: true }).click();
+      if (width === 390) await page.getByRole('tab', { name: 'Data', exact: true }).click();
       await expect(row).toContainText(catalog ? 'reference.example.Double' : 'reference.example.Payment');
       await expect(row).toContainText('saved');
       if (catalog) {

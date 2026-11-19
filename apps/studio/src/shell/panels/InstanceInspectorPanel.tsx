@@ -9,6 +9,7 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 export interface InstanceInspectorPanelProps {
   instanceId?: string;
   bindingRequestId?: number;
+  requestedWorkflow?: { id: string };
   onNewInstance?(): void;
   focusedPayloadPointer?: string;
   focusRequestId?: number;

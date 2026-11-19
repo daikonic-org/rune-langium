@@ -167,6 +167,49 @@ export const ExportSettingsPanel = withInstrumentation(
           </div>
         )}
         <TabsContent value={activeTab} className="mt-0 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-2">
+          <div className="flex flex-wrap gap-x-3 gap-y-2">
+            <label className="flex min-w-0 flex-1 basis-60 flex-col gap-1.5 text-xs font-medium">
+              Target
+              <NativeSelect
+                aria-label="Export target"
+                value={target}
+                onChange={(event) => onChange({ ...config, target: event.target.value as Target })}
+              >
+                {!IMPLEMENTED_TARGETS.includes(target) && (
+                  <option value={target} disabled>
+                    {target} — provider unavailable
+                  </option>
+                )}
+                {IMPLEMENTED_TARGETS.map((candidate) => (
+                  <option key={candidate} value={candidate}>
+                    {TARGET_DESCRIPTORS[candidate].label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </label>
+            {panel && (
+              <label className="flex min-w-0 flex-1 basis-60 flex-col gap-1.5 text-xs font-medium">
+                Layout
+                <NativeSelect
+                  aria-label="Export layout"
+                  value={(targetOptions.layout as string | undefined) ?? panel.defaultLayout ?? ''}
+                  onChange={(event) =>
+                    onChange({
+                      ...config,
+                      options: { ...config.options, [target]: { ...targetOptions, layout: event.target.value } }
+                    })
+                  }
+                >
+                  {panel.layouts.map((layout) => (
+                    <option key={layout.value} value={layout.value}>
+                      {layout.label}
+                      {layout.hint ? ` — ${layout.hint}` : ''}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </label>
+            )}
+          </div>
           {projectEnabled && (
             <div className="flex flex-col gap-2 border-b border-border pb-3">
               {selectedTargetName && (
@@ -262,47 +305,6 @@ export const ExportSettingsPanel = withInstrumentation(
                 </p>
               ))}
             </div>
-          )}
-          <label className="flex flex-col gap-1.5 text-xs font-medium">
-            Target
-            <NativeSelect
-              aria-label="Export target"
-              value={target}
-              onChange={(event) => onChange({ ...config, target: event.target.value as Target })}
-            >
-              {!IMPLEMENTED_TARGETS.includes(target) && (
-                <option value={target} disabled>
-                  {target} — provider unavailable
-                </option>
-              )}
-              {IMPLEMENTED_TARGETS.map((candidate) => (
-                <option key={candidate} value={candidate}>
-                  {TARGET_DESCRIPTORS[candidate].label}
-                </option>
-              ))}
-            </NativeSelect>
-          </label>
-          {panel && (
-            <label className="flex flex-col gap-1.5 text-xs font-medium">
-              Layout
-              <NativeSelect
-                aria-label="Export layout"
-                value={(targetOptions.layout as string | undefined) ?? panel.defaultLayout ?? ''}
-                onChange={(event) =>
-                  onChange({
-                    ...config,
-                    options: { ...config.options, [target]: { ...targetOptions, layout: event.target.value } }
-                  })
-                }
-              >
-                {panel.layouts.map((layout) => (
-                  <option key={layout.value} value={layout.value}>
-                    {layout.label}
-                    {layout.hint ? ` — ${layout.hint}` : ''}
-                  </option>
-                ))}
-              </NativeSelect>
-            </label>
           )}
           {OptionsForm && (
             <div className="flex flex-col gap-1.5" data-testid="export-target-options">

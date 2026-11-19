@@ -12,6 +12,19 @@ vi.mock('../../src/services/workspace.js', async (original) => ({
   requestFunctionComposition: describe
 }));
 // These tests exercise authoring state; canvas geometry is covered by CompositionCanvas and browser tests.
+vi.mock('../../src/components/compose/ComposeWorkbench.js', () => ({
+  ComposeWorkbench: ({
+    palette,
+    center,
+    details
+  }: React.ComponentProps<typeof import('../../src/components/compose/ComposeWorkbench.js').ComposeWorkbench>) => (
+    <>
+      {palette}
+      {center}
+      {details}
+    </>
+  )
+}));
 vi.mock('../../src/components/compose/CompositionCanvas.js', () => ({
   DRAFT_NODE: 'draft',
   CompositionCanvas: () => null

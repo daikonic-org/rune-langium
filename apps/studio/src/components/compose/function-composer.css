@@ -20,7 +20,6 @@
   flex-shrink: 0;
   align-items: center;
   gap: var(--space-1);
-  border-bottom: 1px solid var(--border);
   padding: var(--space-1) var(--space-2);
 }
 
@@ -36,13 +35,11 @@
   color: var(--muted-foreground);
   white-space: nowrap;
 }
-.function-composer__body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
+.function-composer__body [data-compose-resize]:focus-visible {
+  outline: var(--hairline) solid var(--primary);
+  outline-offset: calc(-1 * var(--hairline));
 }
-.function-composer__center, .function-composer__source-pane {
+.function-composer__center, .function-composer__source-pane, .function-composer__side {
   display: flex;
   height: 100%;
   min-width: 0;
@@ -61,30 +58,15 @@
   height: 100%;
 }
 
-.function-composer__palette {
+.function-composer__panel-body:not([hidden]) {
   display: flex;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  flex-shrink: 0;
-  flex-direction: column;
-  gap: var(--space-1);
-  overflow: auto;
-  padding: var(--space-2);
-  background: var(--card);
-}
-
-.function-composer__details {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  flex-shrink: 0;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-2);
+  margin: 0;
   overflow: auto;
   padding: var(--space-2);
-  background: var(--card);
   overflow-wrap: anywhere;
 }
 
@@ -98,7 +80,7 @@
 .function-composer h2:not(.section-heading) {
   font-weight: var(--font-weight-regular);
 }
-.function-composer__details > button {
+.function-composer__side [data-slot="tabs-content"] > button {
   height: auto;
   white-space: normal;
 }
@@ -106,8 +88,8 @@
   color: var(--muted-foreground);
   line-height: 1.5;
 }
-.function-composer__palette > button {
-  justify-content: flex-start;
+.function-composer__panel-body > button {
+  align-self: flex-start;
 }
 .function-composer__primitives {
   display: grid;
@@ -202,13 +184,6 @@
   color: var(--destructive);
   overflow-wrap: anywhere;
 }
-.function-composer__tabs {
-  display: flex;
-  flex-shrink: 0;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: var(--space-1);
-}
 .function-composer__step-picker, .function-composer__draft, .function-composer__draft label {
   display: grid;
   min-width: 0;
@@ -222,12 +197,8 @@
   display: grid;
   width: 280px;
   gap: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   padding: var(--space-3);
-  background: var(--card);
   color: var(--foreground);
-
 }
 
 .composition-node[data-selected='true'] {
@@ -276,6 +247,9 @@
   min-height: 0;
   flex: 1;
 }
+.function-composer__graph, .function-composer__empty {
+  background: var(--canvas-background);
+}
 .function-composer__source, .function-composer__empty {
   min-height: 0;
   flex: 1;
@@ -286,10 +260,6 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
-}
-.function-composer__header > strong,
-.composition-node__heading strong {
-  font-weight: var(--font-weight-regular);
 }
 .composition-node__heading strong {
   display: -webkit-box;

@@ -194,10 +194,12 @@ export const PrototypeWorkflow = withInstrumentation(
     instanceId,
     focusedPayloadPointer,
     focusRequestId,
-    bindingRequestId
+    bindingRequestId,
+    requestedWorkflow
   }: {
     instanceId?: string;
     bindingRequestId?: number;
+    requestedWorkflow?: { id: string };
     focusedPayloadPointer?: string;
     focusRequestId?: number;
   }) {
@@ -906,6 +908,7 @@ export const PrototypeWorkflow = withInstrumentation(
       <section ref={rootRef} className="workflow" aria-label="Prototype workflow" aria-busy={opening}>
         <div hidden={mode !== 'flow'} className="shrink-0">
           <WorkflowLibrary
+            requestedWorkflow={requestedWorkflow}
             onNew={() => {
               ++openingGeneration.current;
               setOpening(false);
