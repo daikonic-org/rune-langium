@@ -237,9 +237,13 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   const selectedSize = nodes.find((node) => node.id === selected)?.measured;
   const changeNodes = useCallback(
     (changes: NodeChange<ComposerNode>[]) => {
+      // Expanding a manually placed node must not pull it away from the pointer.
+      const manuallyPlaced =
+        positions.get(viewKey)?.has(selected) || (selected === DRAFT_NODE && preview?.position !== undefined);
       if (
         variablesOpen &&
         !interactingNow.current &&
+        !manuallyPlaced &&
         selectedSize?.height &&
         changes.some(
           (change) =>
@@ -264,7 +268,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
         return draft ? [...laidOut, draft] : laidOut;
       });
     },
-    [variablesOpen, selectedSize, selected, edges, vertical, positions, viewKey, setFocus]
+    [variablesOpen, selectedSize, selected, edges, vertical, positions, viewKey, preview?.position, setFocus]
   );
   const rememberNodePosition = (id: string, position: XYPosition) => {
     const saved = positions.get(viewKey) ?? new Map<string, XYPosition>();
