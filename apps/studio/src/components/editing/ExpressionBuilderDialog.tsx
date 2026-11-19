@@ -63,7 +63,10 @@ export const ExpressionBuilderDialog = withInstrumentation(
           </DialogDescription>
           <ExpressionBuilder
             value={draft}
-            onChange={setDraft}
+            onChange={(value) => {
+              setDraft(value);
+              setError(undefined);
+            }}
             onBlur={() => {}}
             scope={scope}
             renderTextEditor={({ value, onChange, onBlur }) => (

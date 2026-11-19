@@ -117,7 +117,7 @@
 .workflow-node>header h2 {
   font-size: var(--text-sm);
   line-height: 1.4;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--workflow-kind);
   margin-right: auto;
   overflow-wrap: anywhere;

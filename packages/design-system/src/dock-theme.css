@@ -59,7 +59,7 @@
     text-transform: none;
     letter-spacing: inherit;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: var(--font-weight-regular);
     line-height: 1;
     text-align: center;
   }
@@ -262,7 +262,7 @@
   text-transform: none;
   letter-spacing: inherit;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--font-weight-regular);
   line-height: 1;
   text-align: center !important;
 }

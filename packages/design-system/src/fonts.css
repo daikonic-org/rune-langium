@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: MIT
+ * Copyright (c) 2026 Daikonic contributors
+ * Font files retain the SIL Open Font License; see fonts/OFL.txt and manifest.json.
+ */
+
+@font-face {
+  font-family: 'Daikonic Transit Sans';
+  src: url('./fonts/DaikonicTransitSans-VF.woff2') format('woff2');
+  font-weight: 300 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Daikonic Transit System';
+  src: url('./fonts/DaikonicTransitSystem-VF.woff2') format('woff2');
+  font-weight: 300 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Daikonic Transit Code';
+  src: url('./fonts/DaikonicTransitCode-VF.woff2') format('woff2');
+  font-weight: 300 400;
+  font-style: normal;
+  font-display: swap;
+}

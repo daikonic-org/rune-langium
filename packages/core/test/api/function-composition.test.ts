@@ -74,7 +74,34 @@ it('retains scoped per-item calls and their canonical callee signature', async (
   expect(result.steps[1]).toMatchObject({
     kind: 'each',
     dependencies: ['input:value'],
+    collectionDependencies: ['input:value'],
     call: { identity: 'test.compositions.Double', inputs: [{ name: 'value', type: 'number' }] }
+  });
+});
+
+it('identifies collection references even when the nested call takes the same variable', async () => {
+  const { result } = await describe(`namespace test.compositions
+import rune.studio.*
+func Totals:
+ [composition]
+ inputs:
+  values number (1..*)
+  offset number (1..1)
+ output: result number (1..*)
+ alias totals: (values filter [ item > 0 ]) extract [ Aggregate(values, offset) ]
+ set result: totals
+func Aggregate:
+ inputs:
+  values number (1..*)
+  offset number (1..1)
+ output: result number (1..1)
+ set result: values sum + offset`);
+
+  expect(result.supported).toBe(true);
+  expect(result.steps.find((step) => step.id === 'alias:totals')).toMatchObject({
+    dependencies: ['input:values', 'input:offset'],
+    collectionDependencies: ['input:values'],
+    call: { argumentVariables: ['input:values', 'input:offset'] }
   });
 });
 

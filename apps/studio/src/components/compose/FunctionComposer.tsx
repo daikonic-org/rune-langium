@@ -2,20 +2,9 @@
 // Copyright (c) 2026 Daikonic contributors
 import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  Controls,
-  applyNodeChanges,
-  useReactFlow,
-  useNodesInitialized,
-  type Edge,
-  type XYPosition
-} from '@xyflow/react';
+import { ReactFlowProvider, useReactFlow, type Connection, type XYPosition } from '@xyflow/react';
 import { type CompositionStep, type FunctionComposition, type SourceRegion } from '@rune-langium/core';
 import {
-  computeGraphPositions,
   selectNodeRepository,
   useEditorStore,
   useLatestRef,
@@ -28,6 +17,13 @@ import {
 } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input, SearchInput } from '@rune-langium/design-system/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@rune-langium/design-system/ui/dialog';
 import {
   ArrowLeft,
   PanelLeftClose,
@@ -43,6 +39,7 @@ import {
 import { requestFunctionComposition } from '../../services/workspace.js';
 import {
   compositionReference,
+  compositionInputText,
   compositionAliasEdit,
   compositionExpressionEdit,
   compositionArgumentsText,
@@ -55,6 +52,8 @@ import type { DocumentBinding } from '../../services/expression-document.js';
 import { usePerspectiveStore } from '../../store/perspective-store.js';
 import { useComposeNavigationStore } from '../../store/compose-navigation-store.js';
 import { usePreviewSession } from '../../shell/providers/preview-session-context.js';
+import { SplitWorkbench } from '../../shell/SplitWorkbench.js';
+import { WorkbenchViewBar, WorkbenchPaneHeading } from '../../shell/WorkbenchChrome.js';
 import { ExpressionWorkspace, type ExpressionWorkspaceProps } from '../editing/ExpressionWorkspace.js';
 import { SourceEditor } from '../SourceEditor.js';
 import { WorkflowFunctionBuilder } from '../WorkflowFunctionBuilder.js';
@@ -65,7 +64,6 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 import './function-composer.css';
 
 import {
-  CompositionNode,
   NodeBindingContext,
   VARIABLE_MIME,
   type ComposerNode,
@@ -80,51 +78,8 @@ import {
 } from './composition-primitives.js';
 import { FunctionPalette, COMPOSITION_FUNCTION_MIME as MIME } from './FunctionPalette.js';
 const PRIMITIVE_MIME = 'application/x-rune-composition-primitive';
-const FIT = { padding: 0.12, minZoom: 0.35, maxZoom: 1 };
-const NODE_TYPES = { composition: CompositionNode };
-const DRAFT_NODE = 'draft:new';
-
-/** Reference-only aliases project as tags on their existing producer. */
-function producerId(id: string, steps: readonly CompositionStep[]): string {
-  const visited = new Set<string>();
-  let current = id;
-  while (!visited.has(current)) {
-    visited.add(current);
-    const step = steps.find((step) => step.id === current);
-    const source = step?.kind === 'return' ? undefined : step?.variableSource;
-    if (!source) break;
-    current = source;
-  }
-  return current;
-}
-function compositionEdges(composition: FunctionComposition): Edge[] {
-  return composition.steps
-    .filter((step) => !step.variableSource || step.kind === 'return')
-    .flatMap((step) =>
-      [...new Set(step.dependencies.map((id) => producerId(id, composition.steps)))].map((dependency) => ({
-        id: `${dependency}->${step.id}`,
-        source: dependency,
-        target: step.id
-      }))
-    );
-}
-function layoutNodes(
-  nodes: ComposerNode[],
-  edges: Edge[],
-  vertical: boolean,
-  pinned?: Map<string, XYPosition>
-): ComposerNode[] {
-  const positions = computeGraphPositions(
-    nodes.map((node) => ({
-      id: node.id,
-      width: node.measured?.width ?? 280,
-      height: node.measured?.height ?? (node.data.step.kind === 'input' ? 140 : 240)
-    })),
-    edges,
-    { direction: vertical ? 'TB' : 'LR', nodeSeparation: 40, rankSeparation: 60 }
-  );
-  return nodes.map((node) => ({ ...node, position: pinned?.get(node.id) ?? positions[node.id] ?? node.position }));
-}
+import { CompositionCanvas, DRAFT_NODE } from './CompositionCanvas.js';
+import { compositionProducerId as producerId, type CompositionWiring } from './composition-graph.js';
 
 export interface FunctionComposerProps {
   workspaceKey: string;
@@ -151,6 +106,8 @@ interface Draft {
   outputBinding?: { variableId?: string; name?: string };
   position?: XYPosition;
   bindingOnly?: boolean;
+  inputVariable?: string;
+  collectionBinding?: { region: SourceRegion; value: string };
 }
 
 /** One mounted instance per workspace: graph positions and uncommitted leaf drafts survive navigation. */
@@ -164,7 +121,7 @@ export const FunctionComposer = withInstrumentation(
   },
   { op: 'FunctionComposer', capture: 0 }
 );
-function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: FunctionComposerProps) {
+function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave, saveLabel }: FunctionComposerProps) {
   const creating = useComposeNavigationStore((s) => s.creating);
   const setCreating = useComposeNavigationStore((s) => s.setCreating);
   const nodesById = useEditorStore((s) => s.nodesById);
@@ -184,6 +141,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   const [details, setDetails] = useState(true);
   const [tab, setTab] = useState<'step' | 'signature'>('step');
   const [source, setSource] = useState(false);
+  const [canvasOpen, setCanvasOpen] = useState(true);
   const [selected, setSelected] = useState('return');
   const [focusId, setFocusId] = useState<string>();
   const [facts, setFacts] = useState<{
@@ -211,25 +169,28 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
     observer.observe(canvasElement);
     return () => observer.disconnect();
   }, [canvasElement]);
-  const [nodes, setNodes] = useState<ComposerNode[]>([]);
   const [draft, setDraft] = useState<Draft>();
+  const [expressionEditor, setExpressionEditor] = useState<{ argument?: number }>();
   const drafts = useRef(new Map<string, Draft>());
   const viewports = useRef(new Map<string, { x: number; y: number; zoom: number }>());
-  const cameraKey = useRef<string | undefined>(undefined);
   const positions = useRef(new Map<string, Map<string, XYPosition>>());
   const breadcrumbs = useRef<string[]>([]);
   const selections = useRef(new Map<string, string>());
   const client = usePreviewSession();
   const project = useProject();
   const flow = useReactFlow<ComposerNode>();
-  const nodesInitialized = useNodesInitialized();
   const current = useLatestRef(editor);
   const identity = editor?.nodeId ?? '';
-  const recipe = project.snapshot
-    ? readWorkflows(project.snapshot).workflows.find(
-        (entry) => entry.function && `${entry.function.namespace}.${entry.function.name}#RosettaFunction` === identity
-      )
-    : undefined;
+  const recipe = useMemo(
+    () =>
+      project.snapshot
+        ? readWorkflows(project.snapshot).workflows.find(
+            (entry) =>
+              entry.function && `${entry.function.namespace}.${entry.function.name}#RosettaFunction` === identity
+          )
+        : undefined,
+    [project.snapshot, identity]
+  );
   const viewKey = `${identity}:${vertical ? 'TB' : 'LR'}`;
   const file = editor?.file;
   const request = useRef(0);
@@ -241,6 +202,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   }, [createdId, nodesById, onNavigate, editor?.nodeId]);
   useEffect(() => {
     setDraft(drafts.current.get(identity));
+    setExpressionEditor(undefined);
     setSelected(selections.current.get(identity) ?? drafts.current.get(identity)?.stepId ?? 'return');
     setPortContext(undefined);
     setSelectedVariable(undefined);
@@ -297,125 +259,32 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       selections.current.set(identity, id);
     }
   }, [composition, selected, draft?.adding, identity]);
-  useEffect(() => {
-    if (!composition || !file) return;
-    const saved = positions.current.get(viewKey);
-    setNodes(
-      layoutNodes(
-        composition.steps
-          .filter((step) => !step.variableSource || step.kind === 'return')
-          .map((step) => ({
-            id: step.id,
-            type: 'composition',
-            position: { x: 0, y: 0 },
-            selected: step.id === selected,
-            data: {
-              step,
-              vertical,
-              expression: step.region ? file.content.slice(step.region.from, step.region.to) : ''
-            }
-          })),
-        compositionEdges(composition),
-        vertical,
-        saved
-      )
-    );
-  }, [composition, file?.content, viewKey, vertical]);
-  useEffect(() => {
-    setNodes((previous) => previous.map((node) => ({ ...node, selected: node.id === selected })));
-  }, [selected, composition]);
-  const edges = presented ? compositionEdges(presented) : [];
-  const previewStep: CompositionStep | undefined = draft?.adding
-    ? {
-        id: draft.stepId!,
-        name: draft.name,
-        kind: draft.callee ? 'call' : 'expression',
-        expressionType: draft.expressionType,
-        dependencies: [],
-        region: draft.region,
-        call: draft.callee
-          ? {
-              identity: qualifiedNameFromNodeId(draft.callee),
-              region: draft.region,
-              arguments: [],
-              inputs:
-                draft.arguments?.map((argument) => ({
-                  name: argument.name,
-                  type: argument.type ?? '',
-                  cardinality: argument.cardinality
-                })) ?? []
-            }
-          : undefined
-      }
-    : undefined;
-  const selectedStep = previewStep ?? presented?.steps.find((step) => step.id === selected);
-  const withPreview = (previous: ComposerNode[]): ComposerNode[] => {
-    const original = previous.find((node) => node.id === DRAFT_NODE);
-    const visible = previous.filter((node) => node.id !== DRAFT_NODE);
-    return previewStep
-      ? [
-          ...visible,
-          {
-            ...original,
-            id: DRAFT_NODE,
-            type: 'composition',
-            selected: true,
-            position: draft?.position ?? original?.position ?? { x: 320, y: 180 },
-            data: { step: previewStep, expression: draft?.expression ?? '', vertical }
+  const preview = useMemo(() => {
+    if (!draft?.adding) return undefined;
+    const step: CompositionStep = {
+      id: draft.stepId!,
+      name: draft.name,
+      kind: draft.callee ? 'call' : 'expression',
+      expressionType: draft.expressionType,
+      dependencies: [],
+      region: draft.region,
+      call: draft.callee
+        ? {
+            identity: qualifiedNameFromNodeId(draft.callee),
+            region: draft.region,
+            arguments: [],
+            inputs:
+              draft.arguments?.map((argument) => ({
+                name: argument.name,
+                type: argument.type ?? '',
+                cardinality: argument.cardinality
+              })) ?? []
           }
-        ]
-      : visible;
-  };
-  const graphNodes = withPreview(nodes);
-  const graphCurrent = Boolean(
-    composition &&
-    nodes.every(
-      (node) => node.id === DRAFT_NODE || node.data.step === composition.steps.find((step) => step.id === node.id)
-    )
-  );
-  useEffect(() => {
-    if (source) {
-      cameraKey.current = undefined;
-      return;
-    }
-    if (!active || !graphCurrent || !nodesInitialized || !nodes.length || cameraKey.current === viewKey) return;
-    cameraKey.current = viewKey;
-    if (!focusId) {
-      const saved = viewports.current.get(viewKey);
-      if (saved) void flow.setViewport(saved);
-      else setFocusId('*');
-    }
-  }, [active, source, graphCurrent, nodes, nodesInitialized, viewKey, flow, focusId]);
-
-  useEffect(() => {
-    // A different canvas size/direction needs a fresh camera, not old pixel offsets.
-    if (canvasSize.width > 0) setFocusId(variablesOpen ? selected : '*');
-  }, [canvasSize.width, canvasSize.height, vertical]);
-  useEffect(() => {
-    if (
-      !active ||
-      source ||
-      !graphCurrent ||
-      !focusId ||
-      !nodesInitialized ||
-      !nodes.length ||
-      nodes.some((node) => !node.measured?.height) ||
-      (focusId !== '*' && !nodes.some((node) => node.id === focusId))
-    )
-      return;
-    let cancelled = false;
-    const frame = requestAnimationFrame(() => {
-      void flow
-        .fitView(focusId === '*' ? FIT : { nodes: [{ id: focusId }], padding: 0.15, minZoom: 0.35, maxZoom: 1 })
-        .then((fitted) => {
-          if (fitted && !cancelled) setFocusId((current) => (current === focusId ? undefined : current));
-        });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
+        : undefined
     };
-  }, [focusId, nodes, nodesInitialized, graphCurrent, active, source, flow, canvasSize.width, canvasSize.height]);
+    return { step, expression: draft.expression, position: draft.position };
+  }, [draft]);
+  const selectedStep = preview?.step ?? presented?.steps.find((step) => step.id === selected);
   const variables = useMemo<CompositionVariable[]>(() => {
     const locals = selectedStep?.locals ?? [];
     return [
@@ -607,11 +476,10 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
   };
   const expression = draft?.callee
     ? draft.argumentRegions
-      ? compositionArgumentsText(
-          draft.binding,
-          draft.region,
-          draft.argumentRegions.map((region, index) => ({ region, value: draft.arguments?.[index]?.value ?? '' }))
-        )
+      ? compositionArgumentsText(draft.binding, draft.region, [
+          ...draft.argumentRegions.map((region, index) => ({ region, value: draft.arguments?.[index]?.value ?? '' })),
+          ...(draft.collectionBinding ? [draft.collectionBinding] : [])
+        ])
       : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value).join(', ') ?? ''})`
     : (draft?.expression ?? '');
 
@@ -620,6 +488,23 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
     (draft.binding.source !== file?.content ||
       draft.binding.nodeId !== identity ||
       draft.dependencies !== editor?.dependencySnapshot)
+  );
+  const wiring = useMemo<CompositionWiring | undefined>(
+    () =>
+      draft?.stepId
+        ? {
+            step: draft.stepId,
+            inputs: [
+              ...(draft.inputVariable ? [{ variable: draft.inputVariable, handle: 'input' }] : []),
+              ...(draft.arguments?.map((argument, index) => ({
+                variable: argument.variableId,
+                handle: `argument:${index}`
+              })) ?? [])
+            ],
+            output: draft.outputBinding?.variableId
+          }
+        : undefined,
+    [draft]
   );
   const apply = async () => {
     if (!draft || !composition || !writable || !editor || stale || applyBusy || !file) return;
@@ -731,6 +616,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
     if (id === identity) return;
     if (identity) breadcrumbs.current.push(identity);
     setSource(false);
+    setCanvasOpen(true);
     onNavigate(id);
   };
   const pick = (step: CompositionStep) => {
@@ -792,7 +678,7 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       : undefined);
   const actions: NodeBindingActions = {
     owner: identity,
-    writable: writable && graphCurrent && !stale,
+    writable: writable && !stale,
     busy: applyBusy,
     selectedVariable,
     draftId: draft?.stepId,
@@ -828,6 +714,14 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
           ? presentedSource.slice(step.region.from, step.region.to)
           : '',
     select: pick,
+    editExpression: (step, argument) => {
+      const next = makeDraft(step);
+      if (!next || (argument !== undefined && !next.arguments?.[argument])) return;
+      changeDraft(next);
+      setSelected(step.id);
+      setError(undefined);
+      setExpressionEditor({ argument });
+    },
     argument: stageArgument,
     argumentMode: (step, index, mode) => {
       const next = makeDraft(step);
@@ -842,6 +736,11 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
         });
     },
     value: (step, value, variableId) => {
+      if (variableId && step.call && step.call.inputs.length > 0 && !step.collection) {
+        if (step.call.inputs.length === 1) stageArgument(step, 0, value, variableId);
+        else setError('Connect to a named argument on this function call.');
+        return;
+      }
       const variable = variables.find((entry) => entry.id === variableId);
       if (variable?.kind === 'output') {
         setError('The function output is assigned after its variables; it cannot supply an input.');
@@ -856,14 +755,30 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
         return;
       }
       const next = makeDraft(step);
-      if (next)
-        changeDraft({
-          ...next,
-          expression: value,
-          callee: undefined,
-          argumentRegions: undefined,
-          arguments: undefined
-        });
+      if (!next) return;
+      try {
+        if (variableId && step.collection && next.argumentRegions) {
+          // Both edits retain coordinates in the same capture, regardless of replacement length.
+          changeDraft({
+            ...next,
+            inputVariable: variableId,
+            collectionBinding: { region: step.collection, value }
+          });
+        } else {
+          changeDraft({
+            ...next,
+            expression: variableId ? compositionInputText(actions.expression(step), value) : value,
+            inputVariable: variableId,
+            callee: undefined,
+            argumentRegions: undefined,
+            arguments: undefined,
+            collectionBinding: undefined
+          });
+        }
+        setError(undefined);
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : 'Could not bind this input.');
+      }
       setVariablesOpen(true);
     },
     output: (step, variableId) => {
@@ -902,6 +817,63 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
       setError(undefined);
     }
   };
+  const connectNodes = (connection: Connection) => {
+    if (!actions.writable || actions.busy || !composition) return;
+    const source =
+      variables.find((variable) => variable.id === connection.source && variable.kind !== 'output') ??
+      variables.find(
+        (variable) => variable.producer === connection.source && variable.kind !== 'local' && variable.kind !== 'output'
+      );
+    const target =
+      preview?.step.id === connection.target
+        ? preview.step
+        : composition.steps.find((step) => step.id === connection.target);
+    const editingProducer = preview?.step ?? composition.steps.find((step) => step.id === draft?.stepId);
+    if (
+      editingProducer?.id === connection.source &&
+      draft &&
+      target?.kind === 'return' &&
+      connection.targetHandle === 'input'
+    ) {
+      actions.output(editingProducer, target.id);
+      return;
+    }
+    if (connection.source === DRAFT_NODE) {
+      setError('Apply this new variable before connecting it to another step.');
+      return;
+    }
+    if (!source || !target || target.kind === 'input') return;
+    const argument = connection.targetHandle?.startsWith('argument:')
+      ? Number(connection.targetHandle.slice('argument:'.length))
+      : undefined;
+    if (argument !== undefined && Number.isInteger(argument) && actions.arguments(target)[argument])
+      actions.argument(target, argument, source.reference, source.id);
+    else actions.value(target, source.reference, source.id);
+  };
+  const sourceOnly = Boolean(presented && !presented.supported);
+  const canvasVisible = !editor || (canvasOpen && !sourceOnly);
+  const sourceVisible = Boolean(editor && (source || sourceOnly));
+  const sourceView = editor ? (
+    <div className="function-composer__source studio-scroll">
+      {!presented?.supported && (
+        <div className="function-composer__notice">
+          <h2>{presented?.optedIn ? 'Source-only composition' : 'Ordinary Rune function'}</h2>
+          <p>
+            {presented?.optedIn
+              ? 'This body stays in Source to preserve its semantics.'
+              : 'Callable as a step. Add the rune.studio.composition annotation to edit its body on the canvas.'}
+          </p>
+          {presented?.reasons.map((reason, index) => (
+            <p key={index}>
+              Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
+            </p>
+          ))}
+        </div>
+      )}
+      <ExpressionWorkspace {...editor} />
+    </div>
+  ) : null;
+
   return (
     <NodeBindingContext.Provider value={actions}>
       <section className="function-composer" aria-label="Function composer" data-testid="function-composer">
@@ -994,368 +966,471 @@ function Composer({ editor, inspector, active, onNavigate, onSave, saveLabel }: 
             }}
           />
         ) : (
-          <div className="function-composer__body" data-palette={palette} data-details={details}>
-            {palette && (
-              <aside className="function-composer__palette studio-scroll" aria-label="Composition palette">
-                <SearchInput
-                  aria-label="Search functions and primitives"
-                  placeholder="Search functions & primitives"
-                  value={query}
-                  onChange={(event) => {
-                    setQuery(event.target.value);
-                    if (event.target.value.trim()) setDiscover(true);
-                  }}
-                />
-                {portContext && (
-                  <p>
-                    Suggested for {composition?.steps.find((step) => step.id === portContext)?.name}.{' '}
-                    <Button size="xs" variant="ghost" onClick={() => setPortContext(undefined)}>
-                      Clear context
-                    </Button>
-                  </p>
-                )}
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  disabled={loading || !composition?.supported || Boolean(composition.callables)}
-                  onClick={() => {
-                    setDiscover(true);
-                    setRetry(retry + 1);
-                  }}
-                >
-                  {discover && loading
-                    ? 'Loading signatures…'
-                    : composition?.callables
-                      ? 'Signatures loaded'
-                      : 'Show signatures'}
-                </Button>
-                <FunctionPalette
-                  repository={repository}
-                  query={query}
-                  callables={composition?.callables}
-                  portContext={portContext}
-                  selectedNodeId={identity}
-                  canAdd={writable && !draft && !signaturePending && !applyBusy}
-                  onOpen={navigate}
-                  onAdd={(id) => void beginAdd(id)}
-                />
-                <h2>Primitives</h2>
-                <div className="function-composer__primitives">
-                  {primitiveGroups.map((group) => (
-                    <div key={group} role="group" aria-label={group}>
-                      <h3>{group}</h3>
-                      <div className="function-composer__primitive-grid">
-                        {matchingPrimitives
-                          .filter((primitive) => primitive.group === group)
-                          .map(({ id, label, description, icon: Icon }) => {
-                            const disabled =
-                              !composition?.supported ||
-                              (id !== 'output' && (!writable || Boolean(draft) || signaturePending || applyBusy));
-                            return (
-                              <Button
-                                key={id}
-                                size="sm"
-                                variant="ghost"
-                                title={description}
-                                disabled={disabled}
-                                draggable={id !== 'output' && !disabled}
-                                onDragStart={(event) => {
-                                  event.dataTransfer.setData(PRIMITIVE_MIME, id);
-                                  event.dataTransfer.effectAllowed = 'copy';
-                                }}
-                                onClick={() =>
-                                  id === 'output'
-                                    ? pick(composition!.steps.find((step) => step.kind === 'return')!)
-                                    : void beginAdd(undefined, undefined, id)
-                                }
-                              >
-                                <Icon aria-hidden="true" />
-                                {label}
-                              </Button>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  ))}
-                  {!matchingPrimitives.length && <p>No matching primitives.</p>}
-                </div>
-              </aside>
-            )}
-            <section ref={setCanvasElement} className="function-composer__canvas" aria-label="Composition canvas">
-              {editor && (
-                <div className="function-composer__view" role="group" aria-label="Composition view">
-                  <Button size="xs" variant="ghost" aria-pressed={!source} onClick={() => setSource(false)}>
-                    <Network className="size-3" />
-                    Canvas
-                  </Button>
-                  <Button size="xs" variant="ghost" aria-pressed={source} onClick={() => setSource(true)}>
-                    <Code className="size-3" />
-                    Source
-                  </Button>
-                  {!composition && presented && (
-                    <span className="function-composer__pending" role="status">
-                      Updating…
-                    </span>
-                  )}
-                </div>
-              )}
-              {!editor ? (
-                <div className="function-composer__empty">
-                  <Workflow />
-                  <h2>Compose a Rune function</h2>
-                  <p>Select a function from the palette or create a composition.</p>
-                  <Button onClick={() => setCreating(true)}>New composition</Button>
-                </div>
-              ) : source || (presented && !presented.supported) ? (
-                <div className="function-composer__source studio-scroll">
-                  {!presented?.supported && (
-                    <div className="function-composer__notice">
-                      <h2>{presented?.optedIn ? 'Source-only composition' : 'Ordinary Rune function'}</h2>
-                      <p>
-                        {presented?.optedIn
-                          ? 'This body stays in Source to preserve its semantics.'
-                          : 'Callable as a step. Add the rune.studio.composition annotation to edit its body on the canvas.'}
-                      </p>
-                      {presented?.reasons.map((reason, index) => (
-                        <p key={index}>
-                          Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  <ExpressionWorkspace {...editor} />
-                </div>
-              ) : !presented ? (
-                <div className="function-composer__empty" role="status">
-                  <p>
-                    {loading
-                      ? 'Resolving composition…'
-                      : editor.readOnly
-                        ? 'Reference source is read-only. Open Source to inspect it, or use Modify in Inspector.'
-                        : 'Waiting for the current source to parse. Open Source to inspect or correct it.'}
-                  </p>
-                  <Button variant="ghost" onClick={() => setSource(true)}>
-                    Open Source
-                  </Button>
-                </div>
-              ) : (
-                <div className="function-composer__graph">
-                  <ReactFlow<ComposerNode>
-                    nodes={graphNodes}
-                    edges={edges}
-                    nodeTypes={NODE_TYPES}
-                    nodesConnectable={false}
-                    deleteKeyCode={null}
-                    fitViewOptions={FIT}
-                    proOptions={{ hideAttribution: true }}
-                    onMoveEnd={(_, viewport) => viewports.current.set(viewKey, viewport)}
-                    onNodeClick={(_, node) => pick(node.data.step)}
-                    onNodesChange={(changes) => {
-                      // Expanding binding controls may move this rank. Keep its actions reachable.
-                      if (
-                        variablesOpen &&
-                        changes.some((change) => change.type === 'dimensions') &&
-                        nodes.some((node) => node.id === selected && node.measured?.height)
-                      )
-                        setFocusId(selected);
-                      setNodes((previous) => {
-                        const next = applyNodeChanges(changes, withPreview(previous));
-                        return changes.some((change) => change.type === 'dimensions')
-                          ? layoutNodes(next, edges, vertical, positions.current.get(viewKey))
-                          : next;
-                      });
-                    }}
-                    onNodeDragStop={(_, node) => {
-                      if (draft?.adding && node.id === DRAFT_NODE) {
-                        changeDraft({ ...draft, position: node.position });
-                        return;
-                      }
-                      const saved = positions.current.get(viewKey) ?? new Map<string, XYPosition>();
-                      saved.set(node.id, node.position);
-                      positions.current.set(viewKey, saved);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = 'copy';
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const primitive = findCompositionPrimitive(event.dataTransfer.getData(PRIMITIVE_MIME));
-                      const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-                      if (primitive && primitive.id !== 'output') {
-                        void beginAdd(undefined, position, primitive.id);
-                        return;
-                      }
-                      const id = event.dataTransfer.getData(MIME);
-                      if (repository.byId(id)?.data.$type === 'RosettaFunction') void beginAdd(id, position);
-                    }}
-                    aria-label="Function dependency graph"
-                  >
-                    <Background gap={24} />
-                    <Controls showInteractive={false} />
-                  </ReactFlow>
-                </div>
-              )}
-              {variablesOpen && !source && presented?.supported && (
-                <div className="composition-variables nodrag" role="region" aria-label="Available variables">
-                  <div className="composition-variables__header">
-                    <strong>Variables</strong>
-                    <Input
-                      aria-label="Filter variables"
-                      placeholder="Filter variables"
-                      value={variableQuery}
-                      onChange={(event) => setVariableQuery(event.target.value)}
+          <SplitWorkbench
+            className="function-composer__body"
+            storageKey={JSON.stringify([workspaceKey, 'compose'])}
+            stackAt={860}
+            panes={[
+              {
+                id: 'compose-palette',
+                visible: palette,
+                defaultSize: '232px',
+                minSize: '180px',
+                maxSize: '40%',
+                stacked: { defaultSize: '25%', minSize: '10%', maxSize: '40%' },
+                content: (
+                  <aside className="function-composer__palette studio-scroll" aria-label="Composition palette">
+                    <SearchInput
+                      aria-label="Search functions and primitives"
+                      placeholder="Search functions & primitives"
+                      value={query}
+                      onChange={(event) => {
+                        setQuery(event.target.value);
+                        if (event.target.value.trim()) setDiscover(true);
+                      }}
                     />
-                    <Button size="xs" variant="ghost" onClick={() => setVariablesOpen(false)}>
-                      Hide
+                    {portContext && (
+                      <p>
+                        Suggested for {composition?.steps.find((step) => step.id === portContext)?.name}.{' '}
+                        <Button size="xs" variant="ghost" onClick={() => setPortContext(undefined)}>
+                          Clear context
+                        </Button>
+                      </p>
+                    )}
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      disabled={loading || !composition?.supported || Boolean(composition.callables)}
+                      onClick={() => {
+                        setDiscover(true);
+                        setRetry(retry + 1);
+                      }}
+                    >
+                      {discover && loading
+                        ? 'Loading signatures…'
+                        : composition?.callables
+                          ? 'Signatures loaded'
+                          : 'Show signatures'}
                     </Button>
-                  </div>
-                  <p>Drag a variable to a node input or output. Or select a tag and use Bind selected.</p>
-                  <div className="composition-variables__tags">
-                    {variables
-                      .filter((variable) => variable.name.toLowerCase().includes(variableQuery.toLowerCase()))
-                      .map((variable) => (
-                        <button
-                          key={variable.id}
-                          type="button"
-                          className="composition-variable-tag"
-                          aria-pressed={selectedVariable === variable.id}
-                          draggable={writable}
-                          title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
-                          onClick={() => setSelectedVariable(variable.id)}
-                          onDragStart={(event) => {
-                            event.dataTransfer.setData(
-                              VARIABLE_MIME,
-                              JSON.stringify({ owner: identity, variable: variable.id })
-                            );
-                            event.dataTransfer.effectAllowed = 'link';
-                          }}
-                        >
-                          <span>{variable.name}</span>
-                          <small>{variable.kind === 'variable' ? variable.type : variable.kind}</small>
-                        </button>
+                    <FunctionPalette
+                      repository={repository}
+                      query={query}
+                      callables={composition?.callables}
+                      portContext={portContext}
+                      selectedNodeId={identity}
+                      canAdd={writable && !draft && !signaturePending && !applyBusy}
+                      onOpen={navigate}
+                      onAdd={(id) => void beginAdd(id)}
+                    />
+                    <h2 className="section-heading">Primitives</h2>
+                    <div className="function-composer__primitives">
+                      {primitiveGroups.map((group) => (
+                        <div key={group} role="group" aria-label={group}>
+                          <h3 className="section-heading">{group}</h3>
+                          <div className="function-composer__primitive-grid">
+                            {matchingPrimitives
+                              .filter((primitive) => primitive.group === group)
+                              .map(({ id, label, description, icon: Icon }) => {
+                                const disabled =
+                                  !composition?.supported ||
+                                  (id !== 'output' && (!writable || Boolean(draft) || signaturePending || applyBusy));
+                                return (
+                                  <Button
+                                    key={id}
+                                    size="sm"
+                                    variant="ghost"
+                                    title={description}
+                                    disabled={disabled}
+                                    draggable={id !== 'output' && !disabled}
+                                    onDragStart={(event) => {
+                                      event.dataTransfer.setData(PRIMITIVE_MIME, id);
+                                      event.dataTransfer.effectAllowed = 'copy';
+                                    }}
+                                    onClick={() =>
+                                      id === 'output'
+                                        ? pick(composition!.steps.find((step) => step.kind === 'return')!)
+                                        : void beginAdd(undefined, undefined, id)
+                                    }
+                                  >
+                                    <Icon aria-hidden="true" />
+                                    {label}
+                                  </Button>
+                                );
+                              })}
+                          </div>
+                        </div>
                       ))}
-                  </div>
-                </div>
-              )}
-            </section>
-            {details && (
-              <aside className="function-composer__details studio-scroll" aria-label="Composition details">
-                <div className="function-composer__tabs" role="group" aria-label="Inspector view">
-                  <Button size="xs" variant="ghost" aria-pressed={tab === 'step'} onClick={() => setTab('step')}>
-                    Step
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    aria-pressed={tab === 'signature'}
-                    onClick={() => setTab('signature')}
-                  >
-                    Signature & details
-                  </Button>
-                </div>
-                {tab === 'signature' ? (
-                  inspector
-                ) : !presented?.supported ? (
-                  <p>Use Source or Signature & details for this function.</p>
-                ) : (
-                  <>
-                    <label className="function-composer__step-picker">
-                      Step
-                      <NativeSelect
-                        aria-label="Selected composition step"
-                        value={selected}
-                        onChange={(event) => {
-                          const step = presented?.steps.find((step) => step.id === event.target.value);
-                          if (step) pick(step);
-                        }}
+                      {!matchingPrimitives.length && <p>No matching primitives.</p>}
+                    </div>
+                  </aside>
+                )
+              },
+              {
+                id: 'compose-canvas',
+                minSize: '320px',
+                separatorLabel: 'Resize composition palette',
+                stacked: { minSize: '35%' },
+                content: (
+                  <section className="function-composer__center" aria-label="Composition editor">
+                    {editor && (
+                      <WorkbenchViewBar
+                        label="Composition view"
+                        groups={[
+                          {
+                            label: 'View',
+                            views: [
+                              {
+                                id: 'canvas',
+                                label: 'Canvas',
+                                icon: Network,
+                                active: canvasVisible,
+                                disabled: sourceOnly,
+                                onToggle: () => {
+                                  if (!canvasOpen || sourceVisible) setCanvasOpen(!canvasOpen);
+                                }
+                              },
+                              {
+                                id: 'source',
+                                label: 'Source',
+                                icon: Code,
+                                active: sourceVisible,
+                                disabled: sourceOnly,
+                                onToggle: () => {
+                                  if (!source || canvasVisible) setSource(!source);
+                                }
+                              }
+                            ]
+                          }
+                        ]}
                       >
-                        {presented?.steps
-                          .filter((step) => !step.variableSource || step.kind === 'return')
-                          .map((step) => (
-                            <option key={step.id} value={step.id}>
-                              {step.kind === 'input' ? 'Input: ' : step.kind === 'return' ? 'Output: ' : ''}
-                              {step.name}
-                            </option>
-                          ))}
-                      </NativeSelect>
-                    </label>
-                    {selectedStep?.parameter && selectedStep.kind !== 'return' && (
+                        {!composition && presented && (
+                          <span className="function-composer__pending" role="status">
+                            Updating…
+                          </span>
+                        )}
+                      </WorkbenchViewBar>
+                    )}
+                    <SplitWorkbench
+                      stackAt={600}
+                      panes={[
+                        {
+                          id: 'composition-canvas-view',
+                          minSize: '20%',
+                          visible: canvasVisible,
+                          content: (
+                            <section
+                              ref={setCanvasElement}
+                              className="function-composer__canvas"
+                              aria-label="Composition canvas"
+                            >
+                              {sourceVisible && <WorkbenchPaneHeading label="Canvas" />}
+
+                              {!editor ? (
+                                <div className="function-composer__empty">
+                                  <Workflow />
+                                  <h2>Compose a Rune function</h2>
+                                  <p>Select a function from the palette or create a composition.</p>
+                                  <Button onClick={() => setCreating(true)}>New composition</Button>
+                                </div>
+                              ) : !presented ? (
+                                <div className="function-composer__empty" role="status">
+                                  <p>
+                                    {loading
+                                      ? 'Resolving composition…'
+                                      : editor.readOnly
+                                        ? 'Reference source is read-only. Open Source to inspect it, or use Modify in Inspector.'
+                                        : 'Waiting for the current source to parse. Open Source to inspect or correct it.'}
+                                  </p>
+                                  <Button variant="ghost" onClick={() => setSource(true)}>
+                                    Open Source
+                                  </Button>
+                                </div>
+                              ) : (
+                                <CompositionCanvas
+                                  key={viewKey}
+                                  current={composition}
+                                  presented={presented}
+                                  source={presentedSource}
+                                  preview={preview}
+                                  wiring={wiring}
+                                  active={active}
+                                  vertical={vertical}
+                                  selected={selected}
+                                  variablesOpen={variablesOpen}
+                                  viewKey={viewKey}
+                                  size={canvasSize}
+                                  focus={focusId}
+                                  setFocus={setFocusId}
+                                  positions={positions.current}
+                                  viewports={viewports.current}
+                                  onSelect={pick}
+                                  onDraftMove={(position) => {
+                                    if (draft?.adding) changeDraft({ ...draft, position });
+                                  }}
+                                  onConnect={connectNodes}
+                                  onDrop={(event) => {
+                                    event.preventDefault();
+                                    const primitive = findCompositionPrimitive(
+                                      event.dataTransfer.getData(PRIMITIVE_MIME)
+                                    );
+                                    const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+                                    if (primitive && primitive.id !== 'output') {
+                                      void beginAdd(undefined, position, primitive.id);
+                                      return;
+                                    }
+                                    const id = event.dataTransfer.getData(MIME);
+                                    if (repository.byId(id)?.data.$type === 'RosettaFunction')
+                                      void beginAdd(id, position);
+                                  }}
+                                />
+                              )}
+                              {variablesOpen && presented?.supported && (
+                                <div
+                                  className="composition-variables nodrag"
+                                  role="region"
+                                  aria-label="Available variables"
+                                >
+                                  <div className="composition-variables__header">
+                                    <strong className="section-heading">Variables</strong>
+                                    <Input
+                                      aria-label="Filter variables"
+                                      placeholder="Filter variables"
+                                      value={variableQuery}
+                                      onChange={(event) => setVariableQuery(event.target.value)}
+                                    />
+                                    <Button size="xs" variant="ghost" onClick={() => setVariablesOpen(false)}>
+                                      Hide
+                                    </Button>
+                                  </div>
+                                  <p>
+                                    Drag a variable to a node input or output. Or select a tag and use Bind selected.
+                                  </p>
+                                  <div className="composition-variables__tags">
+                                    {variables
+                                      .filter((variable) =>
+                                        variable.name.toLowerCase().includes(variableQuery.toLowerCase())
+                                      )
+                                      .map((variable) => (
+                                        <button
+                                          key={variable.id}
+                                          type="button"
+                                          className="composition-variable-tag"
+                                          aria-pressed={selectedVariable === variable.id}
+                                          draggable={writable}
+                                          title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
+                                          onClick={() => setSelectedVariable(variable.id)}
+                                          onDragStart={(event) => {
+                                            event.dataTransfer.setData(
+                                              VARIABLE_MIME,
+                                              JSON.stringify({ owner: identity, variable: variable.id })
+                                            );
+                                            event.dataTransfer.effectAllowed = 'link';
+                                          }}
+                                        >
+                                          <span>{variable.name}</span>
+                                          <small>{variable.kind === 'variable' ? variable.type : variable.kind}</small>
+                                        </button>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+                            </section>
+                          )
+                        },
+                        {
+                          id: 'composition-source-view',
+                          minSize: '20%',
+                          visible: sourceVisible,
+                          separatorLabel: 'Resize composition views',
+                          content: (
+                            <section className="function-composer__source-pane" aria-label="Composition source">
+                              {canvasVisible && <WorkbenchPaneHeading label="Source" />}
+                              {sourceView}
+                            </section>
+                          )
+                        }
+                      ]}
+                    />
+                  </section>
+                )
+              },
+              {
+                id: 'compose-details',
+                visible: details,
+                defaultSize: '304px',
+                minSize: '220px',
+                maxSize: '45%',
+                separatorLabel: 'Resize composition details',
+                stacked: { defaultSize: '30%', minSize: '15%', maxSize: '50%' },
+                content: (
+                  <aside className="function-composer__details studio-scroll" aria-label="Composition details">
+                    <div className="function-composer__tabs" role="group" aria-label="Inspector view">
                       <Button
+                        className="navigation-tab"
                         size="xs"
                         variant="ghost"
-                        onClick={() => {
-                          setPortContext(selectedStep.id);
-                          setDiscover(true);
-                          setPalette(true);
-                          setQuery('');
-                        }}
+                        aria-pressed={tab === 'step'}
+                        onClick={() => setTab('step')}
                       >
-                        Find calls for {selectedStep.name}
+                        Step
                       </Button>
-                    )}
-                    {selectedStep && !draft && (
+                      <Button
+                        className="navigation-tab"
+                        size="xs"
+                        variant="ghost"
+                        aria-pressed={tab === 'signature'}
+                        onClick={() => setTab('signature')}
+                      >
+                        Signature & details
+                      </Button>
+                    </div>
+                    {tab === 'signature' ? (
+                      inspector
+                    ) : !presented?.supported ? (
+                      <p>Use Source or Signature & details for this function.</p>
+                    ) : (
                       <>
-                        <h2>{selectedStep.name}</h2>
-                        {selectedStep.parameter && (
-                          <p>
-                            {selectedStep.parameter.type} · {selectedStep.parameter.cardinality}
-                          </p>
-                        )}
-                        {selectedStep.region && !selectedStep.call && (
+                        <label className="function-composer__step-picker">
+                          Step
+                          <NativeSelect
+                            aria-label="Selected composition step"
+                            value={selected}
+                            onChange={(event) => {
+                              const step = presented?.steps.find((step) => step.id === event.target.value);
+                              if (step) pick(step);
+                            }}
+                          >
+                            {presented?.steps
+                              .filter((step) => !step.variableSource || step.kind === 'return')
+                              .map((step) => (
+                                <option key={step.id} value={step.id}>
+                                  {step.kind === 'input' ? 'Input: ' : step.kind === 'return' ? 'Output: ' : ''}
+                                  {step.name}
+                                </option>
+                              ))}
+                          </NativeSelect>
+                        </label>
+                        {selectedStep?.parameter && selectedStep.kind !== 'return' && (
                           <Button
                             size="xs"
-                            variant="outline"
-                            disabled={!writable}
-                            onClick={() => beginEdit(selectedStep)}
+                            variant="ghost"
+                            onClick={() => {
+                              setPortContext(selectedStep.id);
+                              setDiscover(true);
+                              setPalette(true);
+                              setQuery('');
+                            }}
                           >
-                            Edit expression
+                            Find calls for {selectedStep.name}
                           </Button>
+                        )}
+                        {selectedStep && !draft && (
+                          <>
+                            <h2>{selectedStep.name}</h2>
+                            {selectedStep.parameter && (
+                              <p>
+                                {selectedStep.parameter.type} · {selectedStep.parameter.cardinality}
+                              </p>
+                            )}
+                            {selectedStep.region && !selectedStep.call && (
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                disabled={!writable}
+                                onClick={() => beginEdit(selectedStep)}
+                              >
+                                Edit expression
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {selectedStep?.call && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            aria-label={`Open ${selectedStep.call.identity.split('.').pop()} definition`}
+                            onClick={() => navigate(`${selectedStep.call!.identity}#RosettaFunction`)}
+                          >
+                            Open {selectedStep.call.identity.split('.').pop()}
+                            <ArrowUpRight className="size-3" />
+                          </Button>
+                        )}
+                        {file?.readOnly || file?.refOnly ? (
+                          <p>
+                            Reference source is read-only. Use Modify in the inspector to create an editable override.
+                          </p>
+                        ) : null}
+                        {draft && (
+                          <div className="function-composer__draft">
+                            <h2>{draft.adding ? 'New variable' : draft.name}</h2>
+                            <p>
+                              Bind arguments and output variables directly on the node. Use the expression editor for a
+                              complex value.
+                            </p>
+                            {!draft.callee && !draft.bindingOnly && !expressionEditor && (
+                              <LeafEditor
+                                key={`${identity}:${draft.region.from}:${draft.adding}`}
+                                draft={draft}
+                                editor={editor!}
+                                onChange={(expression) => changeDraft({ ...draft, expression })}
+                              />
+                            )}
+                            {stale && (
+                              <p role="status">
+                                Source changed. Your draft is retained. Discard it to reload the current expression.
+                              </p>
+                            )}
+                          </div>
                         )}
                       </>
                     )}
-                    {selectedStep?.call && (
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        aria-label={`Open ${selectedStep.call.identity.split('.').pop()} definition`}
-                        onClick={() => navigate(`${selectedStep.call!.identity}#RosettaFunction`)}
-                      >
-                        Open {selectedStep.call.identity.split('.').pop()}
-                        <ArrowUpRight className="size-3" />
-                      </Button>
-                    )}
-                    {file?.readOnly || file?.refOnly ? (
-                      <p>Reference source is read-only. Use Modify in the inspector to create an editable override.</p>
-                    ) : null}
-                    {draft && (
-                      <div className="function-composer__draft">
-                        <h2>{draft.adding ? 'New variable' : draft.name}</h2>
-                        <p>
-                          Bind arguments and output variables directly on the node. Use the expression editor for a
-                          complex value.
-                        </p>
-                        {!draft.callee && !draft.bindingOnly && (
-                          <LeafEditor
-                            key={`${identity}:${draft.region.from}:${draft.adding}`}
-                            draft={draft}
-                            editor={editor!}
-                            onChange={(expression) => changeDraft({ ...draft, expression })}
-                          />
-                        )}
-                        {stale && (
-                          <p role="status">
-                            Source changed. Your draft is retained. Discard it to reload the current expression.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </aside>
-            )}
-          </div>
+                  </aside>
+                )
+              }
+            ]}
+          />
         )}
+        <Dialog
+          open={Boolean(expressionEditor && draft)}
+          onOpenChange={(open) => {
+            if (!open) setExpressionEditor(undefined);
+          }}
+        >
+          <DialogContent className="composition-expression-dialog">
+            <DialogHeader>
+              <DialogTitle>
+                Edit {draft?.name}
+                {expressionEditor?.argument !== undefined
+                  ? ` ${draft?.arguments?.[expressionEditor.argument]?.name}`
+                  : ''}{' '}
+                expression
+              </DialogTitle>
+              <DialogDescription>Changes stay in the node draft until you choose Apply.</DialogDescription>
+            </DialogHeader>
+            {expressionEditor && draft && editor && (
+              <LeafEditor
+                key={`${identity}:${draft.stepId}:${expressionEditor.argument ?? 'value'}`}
+                draft={
+                  expressionEditor.argument === undefined
+                    ? draft
+                    : {
+                        ...draft,
+                        expression: draft.arguments?.[expressionEditor.argument]?.value ?? '',
+                        scopeRegion:
+                          draft.argumentRegions?.[expressionEditor.argument] ?? draft.scopeRegion ?? draft.region
+                      }
+                }
+                editor={editor}
+                onChange={(value) => {
+                  const step = preview?.step ?? composition?.steps.find((step) => step.id === draft.stepId);
+                  if (!step) return;
+                  if (expressionEditor.argument === undefined) actions.value(step, value);
+                  else stageArgument(step, expressionEditor.argument, value);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </section>
     </NodeBindingContext.Provider>
   );

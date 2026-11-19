@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
-import { compactLspModelJson, readLspModelMetadata, closeNamespaceDependencies } from '@rune-langium/core';
+import {
+  compactLspModelJson,
+  readLspModelMetadata,
+  closeNamespaceDependencies,
+  importNamespaceDependencies
+} from '@rune-langium/core';
 import { URI } from 'langium';
 import type { ParsedWorkspaceModel, WorkspaceFile } from './workspace.js';
 import { pathToUri } from '../utils/uri.js';
-import { expandWildcard } from './curated-closure.js';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 
 export interface LspModelCacheEntry {
@@ -57,7 +61,8 @@ export const collectLspWorkspaceModels = withInstrumentation(
       const { namespace, imports, references } = entry.metadata;
       if (!namespace) continue;
       const targets = deps.get(namespace) ?? new Set<string>();
-      for (const pattern of imports) for (const target of expandWildcard(pattern, allNamespaces)) targets.add(target);
+      for (const pattern of imports)
+        for (const target of importNamespaceDependencies(pattern, allNamespaces)) targets.add(target);
       for (const reference of references) {
         const target = uriNamespaces.get(canonicalUri(reference));
         if (target) targets.add(target);

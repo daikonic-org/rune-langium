@@ -51,7 +51,9 @@ export const PerspectiveHeading = withInstrumentation(function PerspectiveHeadin
     >
       <h1 className="studio-layout-presets__title" data-testid="perspective-heading">
         <Icon className="size-4" aria-hidden="true" />
-        <span className="truncate">{perspective.title ?? perspective.label}</span>
+        <span className="navigation-heading perspective-heading truncate">
+          {perspective.title ?? perspective.label}
+        </span>
       </h1>
       {perspectiveId === 'explore' && <ExploreLocationPath />}
     </div>

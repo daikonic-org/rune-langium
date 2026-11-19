@@ -459,7 +459,7 @@ function DataTypeForm({
                           variant="label"
                           className="mb-0 text-muted-foreground flex items-center justify-between"
                         >
-                          <span>Attributes ({fields.length + inheritedCount})</span>
+                          <span className="section-heading">Attributes ({fields.length + inheritedCount})</span>
                           {/* Icon-only add button to match FormPreviewPanel's
                     +/- treatment for optional sections and array adds.
                     The legend already names the section ("Attributes"),

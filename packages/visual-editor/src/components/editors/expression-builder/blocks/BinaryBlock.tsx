@@ -42,7 +42,7 @@ export function BinaryBlock({ node, renderChild }: BinaryBlockProps) {
 
   return (
     <span
-      className={`inline-flex items-baseline gap-1 rounded px-1 py-0.5 ${categoryClass(n['$type'] as string)}`}
+      className={`inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-1 rounded px-1 py-0.5 ${categoryClass(n['$type'] as string)}`}
       data-block="binary"
     >
       {renderChild(left)}

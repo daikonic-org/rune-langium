@@ -3,6 +3,7 @@
 import {
   isRosettaSymbolReference,
   getSourceComments,
+  getNodeSourceRegion,
   parseExpression,
   type FunctionComposition,
   type SourceRegion
@@ -10,6 +11,22 @@ import {
 import { withInstrumentation } from './instrumentation/core.js';
 import type { DocumentBinding, DocumentEdit } from './expression-document.js';
 import { minimalDocumentChange } from '../lang/document-extensions.js';
+
+/** A collection connector replaces its operand, retaining the operator, lambda and authored trivia. */
+export const compositionInputText = withInstrumentation(
+  function compositionInputText(expression: string, reference: string): string {
+    const parsed = parseExpression(expression);
+    if (parsed.hasErrors) throw new Error('Complete the expression before connecting its input.');
+    const value = parsed.value;
+    const operand = 'argument' in value ? value.argument : value.$type === 'DefaultOperation' ? value.left : undefined;
+    if (!operand) return reference;
+    const region = getNodeSourceRegion(operand);
+    const replacement = expression.slice(0, region.from) + reference + expression.slice(region.to);
+    if (parseExpression(replacement).hasErrors) throw new Error('Open the expression editor to bind this input.');
+    return replacement;
+  },
+  { op: 'compositionInputText', capture: 0 }
+);
 
 /** Core's parser decides when a display name needs Rune's identifier escape. */
 export const compositionReference = withInstrumentation(

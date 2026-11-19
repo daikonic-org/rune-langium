@@ -23,7 +23,7 @@ export function Calendar({ className, classNames, components, ...props }: Compon
         months: 'relative flex flex-col gap-4 sm:flex-row',
         month: 'w-full',
         month_caption: 'flex h-8 items-center justify-center px-9',
-        caption_label: 'text-sm font-medium',
+        caption_label: 'text-sm font-normal',
         nav: 'flex items-center gap-1',
         button_previous: cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'absolute left-0 top-0 size-8'),
         button_next: cn(buttonVariants({ variant: 'ghost', size: 'icon-xs' }), 'absolute right-0 top-0 size-8'),

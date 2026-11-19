@@ -443,7 +443,7 @@ export function ConditionSection({
   return (
     <FieldSet data-slot="condition-section" className="gap-1">
       <FieldLegend variant="label" className="mb-0 text-muted-foreground flex items-center justify-between">
-        <span>
+        <span className="section-heading">
           {label} ({conditions.length})
         </span>
         {!effectiveReadOnly && (

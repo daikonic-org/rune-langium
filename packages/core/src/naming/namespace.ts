@@ -13,6 +13,16 @@ export function expandNamespaceWildcard(raw: string, allNamespaces: ReadonlySet<
   return allNamespaces.has(raw) ? [raw] : [];
 }
 
+/** Namespace dependencies of a Rune import, including an explicitly named declaration. */
+export function importNamespaceDependencies(raw: string, allNamespaces: ReadonlySet<string>): string[] {
+  const namespaces = expandNamespaceWildcard(raw, allNamespaces);
+  if (namespaces.length || raw.endsWith('.*')) return namespaces;
+  const dot = raw.lastIndexOf('.');
+  if (dot < 0) return [];
+  const namespace = raw.slice(0, dot);
+  return allNamespaces.has(namespace) ? [namespace] : [];
+}
+
 /**
  * Extract the namespace from raw `.rosetta` source text. Returns `''` when no
  * `namespace` declaration is present (matching the historical callers).

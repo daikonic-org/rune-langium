@@ -1,0 +1,7 @@
+Daikonic Transit Code1.010 modifies the arrow ligatures of Code1.009, derived from Metropolitan Line. Original copyright and license metadata are retained in the font and OFL.txt. All other glyphs and advances are retained.
+
+Current UI-polish candidate: Daikonic Transit Code 1.011. See proofs/Review.md for the bounded changes; existing upstream attribution and OFL remain applicable.
+
+Current candidate Code-1.012: shared diamond punctuation and user-selected40-degree numeral1 diagonals. Original copyright and OFL metadata retained.
+
+Code-1.013: solid-flag numeral1 candidate, other outlines/advances retained. Original OFL attribution preserved.

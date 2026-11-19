@@ -565,7 +565,7 @@ export const FormPreviewPanel = withInstrumentation(
       >
         {presentation.showHeader ? (
           <header className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-border px-panel-x py-panel-y">
-            <h2 className="min-w-0 flex-1 basis-28 truncate text-sm font-semibold" title={schema.title}>
+            <h2 className="min-w-0 flex-1 basis-28 truncate text-sm font-normal" title={schema.title}>
               {schema.title}
             </h2>
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -721,13 +721,13 @@ export const FormPreviewPanel = withInstrumentation(
                     ) : null}
                     {executionError ? (
                       <div className="execution-error mt-2 text-xs">
-                        <span className="text-xs font-medium text-destructive">Error:</span>{' '}
+                        <span className="text-xs font-normal text-destructive">Error:</span>{' '}
                         <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
                       </div>
                     ) : null}
                     {executionResult !== undefined ? (
                       <div className="execution-result mt-2">
-                        <span className="text-2xs font-medium text-muted-foreground">Output:</span>
+                        <span className="text-2xs font-normal text-muted-foreground">Output:</span>
                         <pre
                           tabIndex={0}
                           className="preview-panel__sample-output studio-scroll mt-0.5 overflow-auto p-2 text-2xs leading-5 text-foreground"

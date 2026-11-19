@@ -78,6 +78,7 @@ describe('studio editor theme uses design-system syntax tokens', () => {
     expect(rule(t.comment)).toMatchObject({ color: 'var(--muted-foreground)', fontStyle: 'italic' });
     expect(rule(t.meta)?.color).toBe(rule(t.annotation)?.color);
     expect(rule(t.meta)?.fontStyle).toBeUndefined();
+    expect(rule(t.keyword)?.fontStyle).toBe('italic');
   });
 
   // Anti-regression: #C792EA (keyword) and #C3E88D (string) are unique to the
@@ -101,7 +102,7 @@ describe('studio editor theme uses design-system syntax tokens', () => {
   // its font, so it must set the mono font itself — otherwise line numbers
   // fall back to the body UI font (Inter) and render proportional/misaligned.
   it('the .cm-gutters block sets the mono font', () => {
-    expect(THEME_SRC).toMatch(/const editorTextStyle =\s*\{[\s\S]*?font-mono/);
+    expect(THEME_SRC).toMatch(/const editorTextStyle =\s*\{[\s\S]*?font-code/);
     expect(THEME_SRC).toMatch(/'\.cm-gutters':\s*\{[\s\S]*?\.\.\.editorTextStyle/);
   });
 

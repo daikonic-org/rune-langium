@@ -1,0 +1,20 @@
+Daikonic Transit — modified Metropolitan Line-derived font family
+
+Original lineage and notices:
+Copyright 1994 Justin Howes. An Unpublished work from Justin Howes.
+Copyright 2012 Greg Fleming, with Reserved Font Name Railway.
+Copyright 2026 The Metropolitan Line Authors
+(https://github.com/cyrealtype/metropolitan-line).
+
+Original authors and font licensing records are retained in the font metadata,
+OFL.txt and upstream/AUTHORS.txt. The Reserved Font Name Railway is retained as
+a notice, not used as the modified family's name.
+
+Daikonic Transit Sans, Daikonic Transit System and Daikonic Transit Code are
+modified typefaces derived from Metropolitan Line.
+They are not upstream releases or proprietary Johnston100 fonts. No affiliation
+with Transport for London is represented. The user's TfL screenshot informed
+the arrow style; no proprietary font binaries or outlines were imported.
+
+Daikonic specimen palette: deep blue/midnight green #194454, sandy orange
+#FA994A, vermilion #F03630, from the existing Rune Studio Daikonic palette.

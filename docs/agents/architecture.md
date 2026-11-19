@@ -35,6 +35,8 @@ readiness or creates an additional activity/logging path.
 Workspace restoration and parsing keep the activity rail and perspective host
 mounted. Pending preparation hides workspace editing surfaces while Workspaces
 and Settings remain reachable; the shared spinner/status reports ongoing work.
+In Workspaces and Settings, preparation status occupies the existing header row
+so completion cannot move interactive controls during a pointer gesture.
 Opening a workspace chooses Explore before preparation starts. Completion does
 not replace navigation made during the wait, and existing workspace-epoch guards
 reject results from a workspace the user has left. Pending source data is not
@@ -842,6 +844,12 @@ canonical expression scope, including dispatch signatures, inherited fields,
 earlier aliases, Choice symbols and callable argument counts. Visual-editor reuses the core scope-kind type and omits callables without authoritative arity from its picker. Confirmed zero-input calls remain available. The dialog's Text surface reuses
 SourceEditor with a private buffer and no live LSP owner.
 
+Callable scope entries carry input names alongside their authoritative arity.
+Expression blocks render the existing `rawArgs` children through the same
+recursive tree renderer, labeled from that scope. Argument placeholders keep
+their ordinary editing and undo identities; rendering never creates a second
+set of slots. Explicit zero-input calls remain distinct from variable references.
+
 Before requesting builder scope, Studio normalizes the owning workspace path to
 its URI and sends the current source/dependency snapshot through the parser
 worker's existing parse/link pipeline. This also seeds that worker after a router
@@ -1062,10 +1070,19 @@ Authored comments are Source-only. Core's existing lexer yields UTF-16 comment r
 
 Curated navigation resolves the selected declaration's actual document within the active bundle/version/namespace/artifact. Pending reveal is scoped to current navigation/workspace/revision and is cancelled when superseded. Multi-document namespaces must never use the first matching namespace file as a declaration owner; namespace/source laziness and immutable cache keys are unchanged.
 
-Source selection uses CodeMirror lexical context plus an anchored declaration and
+Source cursor synchronization quietly ignores source-only declarations outside
+the current graph, including files outside `build.sources`; explicit navigation
+still reports missing destinations. Source selection uses CodeMirror lexical
+context plus an anchored declaration and
 its name range. Comments, strings, neighboring lines and ordinary expression
 keywords cannot manufacture a missing-type navigation request. Explicit LSP
 reference navigation still resolves through the language service.
+
+`editor-extensions.ts` owns shared CodeMirror behavior and syntax-aware assertion
+callee decoration; `editor-theme.ts` owns its token-driven colors and typography.
+`--font-editor` selects the bundled Transit Code face for content and gutters;
+`--font-mono` remains the JetBrains UI stack. Assertion callees use subdued red
+without dimming their arguments or changing source text.
 
 ### Selected-object inspector and code previews
 
@@ -1367,8 +1384,16 @@ owner into its own activity-rail surface. It shares the selected declaration,
 canonical inspector, `ExpressionDocument`, save barrier and source update path;
 only the active perspective mounts the canonical inspector form. Its controlled
 React Flow instance has separate positions, selection and viewport state from the
-type graph. Palette/camera changes do not write Rune. Per-function leaf drafts
+type graph. `CompositionCanvas` owns pointer-rate positions, dimensions and camera
+updates; these never invalidate the Composer, palette or canonical inspector.
+Memoized custom nodes retain stable semantic data and binding context during drag.
+Only a completed draft drag reports its final position to the authoring state.
+Measured relayout and automatic camera fitting pause during drag/connection gestures
+so a source selection cannot move its target under the pointer.
+Palette/camera changes do not write Rune. Per-function leaf drafts
 survive nested navigation while the workspace remains mounted.
+Saved per-function/direction cameras also survive Canvas/Source and nested navigation;
+initial canvas measurement restores them, while subsequent resizing may refit the graph.
 Retained composition diagnostics use the source captured with their facts, even
 when reference publication temporarily removes the current file. This invariant
 also applies while the kept-alive Composer is hidden behind another perspective.
@@ -1394,6 +1419,14 @@ share one producer node, and output rebinding replaces a definition without rena
 its consumers. Core supplies exact dependencies and source blocks. Private candidate
 analysis through the same serialized parser queue restores the captured workspace
 in a finally block, including on failure; canonical validation runs before commit.
+Named argument and collection connectors reuse the node binding actions and their
+cycle/scope guards. Core's expression parser locates the collection operand so
+rebinding preserves the operator and lambda. Core identifies its linked dependencies
+separately from nested call arguments so editing one port preserves the other.
+Draft edges are a visual overlay;
+Apply commits the same captured Rune edit, and Discard removes the overlay.
+Expression ellipsis buttons open the shared leaf ExpressionBuilder in the standard
+design-system dialog; closing retains the draft without publishing it.
 Stable topological source-block ordering retains comments and condition placement.
 The canvas remains mounted but inert while source reparses, preserving camera state.
 Core retains the outer AST `expressionType` in composition facts. Studio's shared
@@ -2049,6 +2082,24 @@ read-only ownership survive placeholder replacement. Derived LSP/index data stay
 out of preview/download semantic worker payloads.
 
 ## Responsive reading and diagnostic presentation
+
+`WorkbenchViewBar` and `WorkbenchPaneHeading` own center-view chrome shared by
+Explore and Compose: grouped pressed toggles, pending cues, captions and action
+slots. Perspective state still decides which views are available. Compose allows
+Canvas, Source or both, retaining at least one center view; bodies outside its
+supported composition subset stay in Source.
+
+`SplitWorkbench` reuses design-system resizable primitives for Compose's
+palette/center/details columns and Export's settings/output split. Its keyboard
+and pointer separators enforce pane bounds. Narrow containers switch Compose to
+vertical splits, including its center views when needed. Stable pane keys retain
+mounted peers through resizing and sidebar toggles. Optional workspace-scoped
+personal preferences remember each axis and visible pane set, saving only after
+user resize commits. Invalid/unavailable preference storage falls back safely;
+temporary constraints never overwrite the requested layout. Axis restoration
+waits for pane registration and applies in place. Layout never writes Rune source,
+project configuration, examples or graph positions. Explore's existing Dockview
+lifecycle and center focus/visibility policy remain in their shared shell.
 
 Generated export text reads are scoped to the exact captured artifact and path,
 including the render before effects settle. Failed reads retain the downloadable

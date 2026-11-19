@@ -157,6 +157,10 @@ applicable payment, calculation, reset and accrual fields. A master
 confirmation supplies its own equity payment schedule. Bind the second to
 the selected payout's calendar-resolved settlement schedule and current period
 end. Rune requires a unique schedule entry for that period.
+`cdm.event.common.ResolveCashSettlementDate` is the implemented Rune calculation;
+`ReadCashSettlementSchedule` is its project-supplied provider boundary, not a
+second implementation of that calculation. Prototype reports the selected
+function's qualified name when its project has no executable body or binding.
 
 Bind `impl.cdm.collateral.ReadProductEligibilityInputs` to supply the
 `EligibilityQuery` facts for the product. When more than one schedule is

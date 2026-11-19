@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import { PerspectiveHost } from '../../src/shell/perspectives/PerspectiveHost.js';
 import { usePerspectiveStore } from '../../src/store/perspective-store.js';
 
@@ -43,10 +43,19 @@ describe('PerspectiveHost', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Parsing files…');
     act(() => usePerspectiveStore.getState().setActivePerspective('workspaces'));
     expect(screen.getByTestId('workspaces-perspective')).toBeVisible();
+    expect(within(screen.getByTestId('perspective-header-row')).getByRole('status')).toHaveTextContent(
+      'Parsing files…'
+    );
     act(() => usePerspectiveStore.getState().setActivePerspective('settings'));
-    expect(screen.getByTestId('settings-perspective')).toBeVisible();
-    act(() => usePerspectiveStore.getState().setActivePerspective('explore'));
+    const settings = screen.getByTestId('settings-perspective');
+    expect(settings).toBeVisible();
+    expect(within(screen.getByTestId('perspective-header-row')).getByRole('status')).toHaveTextContent(
+      'Parsing files…'
+    );
     rerender(<PerspectiveHost hasWorkspace hasExploreContent />);
+    expect(screen.getByTestId('settings-perspective')).toBe(settings);
+    expect(screen.queryByText('Parsing files…')).not.toBeInTheDocument();
+    act(() => usePerspectiveStore.getState().setActivePerspective('explore'));
     expect(screen.getByTestId('explore-probe')).toBe(editor);
     expect(editor).toBeVisible();
     expect(editor.closest('[inert]')).toBeNull();

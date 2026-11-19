@@ -12,6 +12,7 @@ export default {
   extends: ['stylelint-config-standard'],
   plugins: [
     '../../packages/visual-editor/stylelint-plugins/no-raw-color.mjs',
+    '../../packages/visual-editor/stylelint-plugins/no-raw-typography.mjs',
     '../../packages/visual-editor/stylelint-plugins/no-raw-geometry.mjs',
     '../../packages/visual-editor/stylelint-plugins/no-undefined-token.mjs'
   ],
@@ -19,6 +20,7 @@ export default {
     // Keep radius + spacing on the design-system token ladders so raw px can't
     // drift back in. Hairline insets ≤3px and custom-property defs are allowed.
     'rune/no-raw-geometry': true,
+    'rune/no-raw-typography': true,
 
     // Every var(--…) must resolve in the token layer, this file, or a known
     // runtime-injected name. Replaces no-undefined-vars.test.ts (a lint rule is

@@ -24,7 +24,7 @@ function CollapsibleContent({ ...props }: React.ComponentProps<typeof Collapsibl
 }
 
 const disclosureHeadingClassName =
-  'flex min-h-7 w-full min-w-0 items-center gap-1.5 rounded-md px-1 py-1 text-left text-xs font-medium text-foreground transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:opacity-50';
+  'flex min-h-7 w-full min-w-0 items-center gap-1.5 rounded-md px-1 py-1 text-left text-xs font-normal text-foreground transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset disabled:opacity-50';
 const disclosureIconClassName = 'size-3.5 shrink-0 transition-transform motion-reduce:transition-none';
 
 /** Controlled disclosure heading; the caller retains panel and draft ownership. */

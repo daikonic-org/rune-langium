@@ -4,7 +4,7 @@
 /**
  * Rune DSL Design System — TypeScript token exports.
  *
- * JS-side color/font/radius references (ReactFlow config, chart colors) that
+ * JS-side color references (ReactFlow config, chart colors) that
  * cannot read CSS `@theme`/`var(--*)` at runtime, so they need literal values
  * here. These are the SAME COLORS as the `tokens.css` primitive layer, kept in
  * the sRGB hex/rgba notation JS consumers expect — `tokens.css` expresses the
@@ -63,10 +63,12 @@ export const colors = {
   }
 } as const;
 
+/** CSS owns the font stacks; JS styles consume the same four tokens. */
 export const fonts = {
-  display: "'Outfit', system-ui, sans-serif",
-  sans: 'Inter, system-ui, -apple-system, sans-serif',
-  mono: "'JetBrains Mono', ui-monospace, monospace"
+  title: 'var(--font-title)',
+  body: 'var(--font-body)',
+  mono: 'var(--font-mono)',
+  code: 'var(--font-code)'
 } as const;
 
 // NOTE: there is intentionally no JS `radii` export. Radius lives only in CSS

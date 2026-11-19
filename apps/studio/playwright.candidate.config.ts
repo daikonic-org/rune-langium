@@ -62,6 +62,7 @@ export default defineConfig({
         'e2e/export-workbench.spec.ts',
         'e2e/review-api-polish.spec.ts',
         'e2e/inspector-details.spec.ts',
+        'e2e/inspector-condition-drafts.spec.ts',
         'e2e/list-card-presentation.spec.ts',
         'e2e/reference-examples.spec.ts',
         'e2e/inspector-local-declaration.spec.ts',

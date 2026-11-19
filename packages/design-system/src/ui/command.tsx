@@ -120,7 +120,7 @@ function CommandGroup<Value>({ id, heading, className, children, ...props }: Com
       {...props}
     >
       {heading ? (
-        <Combobox.GroupLabel className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+        <Combobox.GroupLabel className="px-2 py-1.5 text-xs font-normal text-muted-foreground">
           {heading}
         </Combobox.GroupLabel>
       ) : null}

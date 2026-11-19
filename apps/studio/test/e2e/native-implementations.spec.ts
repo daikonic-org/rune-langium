@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { expect, type Page } from '@playwright/test';
+import { fullSourceEditor } from '../helpers/source-editor.js';
+import { typeNavigationButton } from '../helpers/type-navigation.js';
 import { test } from '../helpers/studio-test.js';
 import {
   cdmRuneImplementationSources,
@@ -280,6 +282,57 @@ test('selects the supplied FRO matrix version for the trade date in Prototype', 
   await tradeDate.fill('2024-07-01');
   await execute.click();
   await expect(output).toContainText('"definitionalSource": "fixture-v2"');
+});
+
+test('resolves explicit FRO imports in the source editor and shares editor presentation across views', async ({
+  page
+}) => {
+  const helperUri = 'file:///workspace/model/implementations/cdm/floating-rate-index-matrix.rosetta';
+  let diagnostics: unknown;
+  page.on('websocket', (socket) =>
+    socket.on('framereceived', (event) => {
+      try {
+        const message = JSON.parse(String(event.payload));
+        if (message.method === 'textDocument/publishDiagnostics' && message.params?.uri === helperUri)
+          diagnostics = message.params.diagnostics;
+      } catch {
+        // Non-JSON transport frames are unrelated to document diagnostics.
+      }
+    })
+  );
+  // No declaration override roots: the helper's explicit imports must supply its closure.
+  await openPublishedImplementationProject(page, await createCuratedFroProject(false), froCaller, 1440);
+  await page.getByTestId('rail-explore').click();
+  await page.getByTestId('namespace-search').fill('SelectFloatingRateIndexDefinition');
+  await typeNavigationButton(page, 'impl.cdm.fro.SelectFloatingRateIndexDefinition', 'RosettaFunction').click();
+  const panes = page.getByRole('toolbar', { name: 'Center pane selector' });
+  for (const name of ['Source', 'Inspector']) {
+    const button = panes.getByRole('button', { name, exact: true });
+    if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
+  }
+  await expect(fullSourceEditor(page)).toContainText('FloatingRateIndexEnum');
+  await expect.poll(() => diagnostics, { timeout: 20000 }).toEqual([]);
+  const inspector = page.getByTestId('center-stack').locator('[data-pane="inspector"]');
+  await inspector.getByRole('button', { name: 'TypeScript', exact: true }).click();
+  await expect(inspector.locator('.cm-assertion').first()).toHaveText('assert');
+  const typography = await page.evaluate(async () => {
+    const fonts = await document.fonts.load('350 13px "Daikonic Transit Code"');
+    return {
+      loaded: fonts.some((font) => font.family.includes('Daikonic Transit Code') && font.status === 'loaded'),
+      mono: getComputedStyle(document.documentElement).getPropertyValue('--font-mono'),
+      editors: [...document.querySelectorAll('.cm-content, .cm-gutters')].map((node) => {
+        const style = getComputedStyle(node);
+        return { family: style.fontFamily, weight: style.fontWeight };
+      })
+    };
+  });
+  expect(typography.loaded).toBe(true);
+  expect(typography.mono).toContain('JetBrains Mono');
+  expect(typography.editors.length).toBeGreaterThan(1);
+  for (const editor of typography.editors) {
+    expect(editor.family).toContain('Daikonic Transit Code');
+    expect(editor.weight).toBe('350');
+  }
 });
 
 test('resolves a published observation and a rate selected from the Rune codelist', async ({ page }) => {

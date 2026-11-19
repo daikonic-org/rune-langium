@@ -17,8 +17,9 @@ import { syntax } from '@rune-langium/design-system/tokens';
 const syntaxColor = (key: keyof typeof syntax) => `var(--syntax-${key}, ${syntax[key]})`;
 
 const editorTextStyle = {
-  fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
-  fontSize: '13px',
+  fontFamily: 'var(--font-code)',
+  fontWeight: 'var(--font-weight-book)',
+  fontSize: 'calc(var(--font-size-code) - var(--studio-mono-font-reduction, 0px))',
   lineHeight: '1.45'
 };
 
@@ -66,6 +67,9 @@ export const studioEditorTheme = EditorView.theme(
       minWidth: '0'
     },
     '.cm-line': { padding: '0 8px' },
+    '.cm-assertion, .cm-assertion span': {
+      color: 'color-mix(in srgb, var(--destructive) 75%, var(--foreground))'
+    },
     '.cm-foldGutter': { width: '10px' },
     '.cm-foldGutter .cm-gutterElement': { padding: '0', color: 'var(--muted-foreground)' },
     '.cm-tooltip': {
@@ -96,14 +100,14 @@ export const studioEditorTheme = EditorView.theme(
     '.cm-panel.cm-search': {
       backgroundColor: 'var(--popover)',
       padding: '2px 6px',
-      fontSize: '12px'
+      fontSize: 'calc(var(--font-size-xs) - var(--studio-mono-font-reduction, 0px))'
     }
   },
   { dark: true }
 );
 
 export const studioEditorHighlightStyle = HighlightStyle.define([
-  { tag: t.keyword, color: syntaxColor('keyword') },
+  { tag: t.keyword, color: syntaxColor('keyword'), fontStyle: 'italic' },
   { tag: [t.name, t.deleted, t.character, t.macroName], color: 'var(--foreground)' },
   { tag: [t.function(t.variableName), t.labelName], color: syntaxColor('function') },
   { tag: [t.propertyName], color: syntaxColor('attribute') },
@@ -119,11 +123,11 @@ export const studioEditorHighlightStyle = HighlightStyle.define([
   },
   { tag: t.meta, color: syntaxColor('type') },
   { tag: t.comment, color: 'var(--muted-foreground)', fontStyle: 'italic' },
-  { tag: t.strong, fontWeight: 'bold' },
+  { tag: t.strong, fontWeight: 'var(--font-weight-bold)' },
   { tag: t.emphasis, fontStyle: 'italic' },
   { tag: t.strikethrough, textDecoration: 'line-through' },
   { tag: t.link, color: syntaxColor('variable'), textDecoration: 'underline' },
-  { tag: t.heading, fontWeight: 'bold', color: 'var(--foreground)' },
+  { tag: t.heading, fontWeight: 'var(--font-weight-bold)', color: 'var(--foreground)' },
   { tag: [t.atom, t.bool, t.constant(t.name), t.special(t.variableName)], color: syntaxColor('constant') },
   { tag: [t.processingInstruction, t.string, t.inserted], color: syntaxColor('string') },
   // --destructive (not --color-error): the latter is only defined under

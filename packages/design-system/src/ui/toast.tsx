@@ -70,7 +70,7 @@ function ToastTitle({ className, ...props }: React.ComponentProps<typeof ToastPr
     <ToastPrimitive.Title
       data-slot="toast-title"
       className={cn(
-        'text-sm font-semibold',
+        'text-sm font-normal',
         // Destructive title: text-sm (14px) semi-bold does NOT qualify as large
         // text under WCAG (needs ≥18.67px at 700+ weight), so the 4.5:1 threshold
         // applies. text-destructive (#f03630) on the dark toast bg is ~4.13:1 —

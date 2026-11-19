@@ -9,7 +9,7 @@ import { withInstrumentation } from './instrumentation/core.js';
 
 export type NavigateToExploreType = (typeFqn: string) => void;
 
-/** Resolve Source's qualified names before deciding whether selection changed. */
+/** Source cursor sync selects known declarations; explicit navigation reports missing targets. */
 export const resolveExploreNavigation = withInstrumentation(
   function resolveExploreNavigation(
     repository: NodeRepository,
@@ -22,7 +22,9 @@ export const resolveExploreNavigation = withInstrumentation(
       repository.all().find((node) => isTypeNodeId(node.id) && qualifiedNameFromNodeId(node.id) === nodeId);
     return {
       targetNode,
-      unchanged: origin === 'source' && targetNode !== undefined && targetNode.id === selectedNodeId
+      // Source can show a declaration outside build.sources or ahead of the parser.
+      // Its cursor is already at the destination; it is not a request to load a type.
+      unchanged: origin === 'source' && (!targetNode || targetNode.id === selectedNodeId)
     };
   },
   { op: 'resolveExploreNavigation' }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { closeNamespaceDependencies, expandNamespaceWildcard } from '@rune-langium/core';
+import { closeNamespaceDependencies, expandNamespaceWildcard, importNamespaceDependencies } from '@rune-langium/core';
 import { withInstrumentation, Capture } from './instrumentation/core.js';
 
 export const expandWildcard = withInstrumentation(
@@ -83,7 +83,7 @@ export const buildDependencyGraph = withInstrumentation(
     for (const { namespace, imports } of userModels) {
       const bucket = ensure(namespace);
       for (const raw of imports) {
-        for (const t of expandWildcard(raw, allNamespaces)) {
+        for (const t of importNamespaceDependencies(raw, allNamespaces)) {
           if (t !== namespace && !userNamespaces.has(t)) bucket.add(t);
         }
       }

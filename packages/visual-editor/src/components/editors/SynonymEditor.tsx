@@ -299,7 +299,7 @@ function EditableSynonyms(props: SynonymEditorProps) {
 export function SynonymEditor(props: SynonymEditorProps) {
   return (
     <div data-slot={props.field === 'enumSynonyms' ? 'enum-value-synonyms' : 'synonym-editor'} className="space-y-1.5">
-      <span className="text-xs text-muted-foreground">Synonyms</span>
+      <span className="section-heading text-xs text-muted-foreground">Synonyms</span>
       {props.readonlyNode ? (
         <SynonymList items={getMetadataItems(props.readonlyNode, props.field)} field={props.field} />
       ) : (

@@ -209,6 +209,122 @@ async function openComposition(page: Page, content: string, name?: string) {
   return composer;
 }
 
+test('resizes Compose side panels without editing source or replacing the canvas', async ({ page }, info) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const composed = source
+    .replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*')
+    .replace('func Double:', 'func Double:\n [composition]');
+  const composer = await openComposition(page, composed, 'Double');
+  const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+  const details = composer.getByRole('complementary', { name: 'Composition details', exact: true });
+  const canvas = composer.getByRole('region', { name: 'Composition canvas', exact: true });
+  const left = composer.getByRole('separator', { name: 'Resize composition palette', exact: true });
+  const right = composer.getByRole('separator', { name: 'Resize composition details', exact: true });
+  const width = (panel: Locator) => panel.evaluate((element) => element.getBoundingClientRect().width);
+  const original = await projectBackingFiles(page);
+  await canvas.evaluate((element) => {
+    element.dataset.resizeWitness = 'retained';
+  });
+
+  const initialPalette = await width(palette);
+  const leftBox = (await left.boundingBox())!;
+  await page.mouse.move(leftBox.x + leftBox.width / 2, leftBox.y + leftBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(leftBox.x + 80, leftBox.y + leftBox.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => width(palette)).toBeGreaterThan(initialPalette + 60);
+  const paletteWidth = await width(palette);
+  const initialDetails = await width(details);
+  await right.focus();
+  await right.press('ArrowLeft');
+  await expect.poll(() => width(details)).toBeGreaterThan(initialDetails + 5);
+  const detailsWidth = await width(details);
+
+  for (const panel of ['palette', 'details']) {
+    await composer.getByRole('button', { name: `Hide ${panel}`, exact: true }).click();
+    await composer.getByRole('button', { name: `Show ${panel}`, exact: true }).click();
+  }
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
+  await expect(canvas).toHaveAttribute('data-resize-witness', 'retained');
+  const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
+  await views.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(views.getByRole('button', { name: 'Canvas', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(views.getByRole('button', { name: 'Source', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(composer.getByRole('region', { name: 'Composition source', exact: true })).toBeVisible();
+  await expect(canvas).toHaveAttribute('data-resize-witness', 'retained');
+  await page.screenshot({ path: info.outputPath('compose-shared-view-chrome.png') });
+  await views.getByRole('button', { name: 'Source', exact: true }).click();
+  // The last selected center view stays open, just as it does in Explore.
+  await views.getByRole('button', { name: 'Canvas', exact: true }).click();
+  await expect(views.getByRole('button', { name: 'Canvas', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('rail-explore').click();
+  await page.getByTestId('rail-compose').click();
+  await expect(canvas).toHaveAttribute('data-resize-witness', 'retained');
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  expect(await projectBackingFiles(page)).toEqual(original);
+  await page.screenshot({ path: info.outputPath('compose-resized-hd.png') });
+
+  await page.reload();
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await page.getByTestId('rail-compose').click();
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(composer.locator('.function-composer__body')).toHaveAttribute('data-workbench-orientation', 'vertical');
+  // Narrow entry hides the palette; explicitly opening it should keep every panel reachable.
+  const showPalette = composer.getByRole('button', { name: 'Show palette', exact: true });
+  if (await showPalette.isVisible()) await showPalette.click();
+  const height = () => palette.evaluate((element) => element.getBoundingClientRect().height);
+  const initialHeight = await height();
+  await left.focus();
+  await left.press('ArrowDown');
+  await expect.poll(height).toBeGreaterThan(initialHeight + 5);
+  await expect(canvas).toBeVisible();
+  await expect(details).toBeVisible();
+  expect(await composer.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('compose-resized-narrow.png') });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  expect(await projectBackingFiles(page)).toEqual(original);
+});
+
+for (const mode of ['unavailable', 'malformed'] as const) {
+  test(`resizing survives ${mode} personal layout preferences`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.addInitScript((mode) => {
+      const get = Storage.prototype.getItem;
+      const set = Storage.prototype.setItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.includes('rune:split-workbench:')) {
+          if (mode === 'unavailable') throw new DOMException('Preferences unavailable', 'SecurityError');
+          return get.call(this, key) ?? '{malformed';
+        }
+        return get.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (mode === 'unavailable' && key.includes('rune:split-workbench:'))
+          throw new DOMException('Preferences unavailable', 'SecurityError');
+        set.call(this, key, value);
+      };
+    }, mode);
+    const composer = await openComposition(page, source, 'Double');
+    const panel = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+    const width = () => panel.evaluate((element) => element.getBoundingClientRect().width);
+    const before = await width();
+    const divider = composer.getByRole('separator', { name: 'Resize composition palette', exact: true });
+    await divider.focus();
+    await divider.press('ArrowRight');
+    await expect.poll(width).toBeGreaterThan(before + 5);
+    const resized = await width();
+    await composer.getByRole('button', { name: 'Hide palette', exact: true }).click();
+    await composer.getByRole('button', { name: 'Show palette', exact: true }).click();
+    await expect.poll(width).toBeCloseTo(resized, 0);
+    expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(source);
+  });
+}
+
 test('enters Compose before selecting a function and switches between ordinary function definitions', async ({
   page
 }) => {
@@ -251,7 +367,21 @@ func PaletteCall${i}:
   const palette = composer.getByRole('complementary', { name: 'Composition palette' });
   const tree = palette.getByTestId('namespace-explorer');
   const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
-  await expect(palette.getByRole('heading', { name: 'Functions 127' })).toBeVisible();
+  const heading = palette.getByRole('heading', { name: /functions 127/i });
+  await expect(heading).toBeVisible();
+  await expect(heading).toHaveCSS('text-transform', 'none');
+  await expect(heading).toHaveCSS('font-weight', '400');
+  const headingType = await heading.evaluate((element) => {
+    const probe = document.createElement('span');
+    probe.style.fontFamily = 'var(--font-body)';
+    element.append(probe);
+    const bodyFamily = getComputedStyle(probe).fontFamily;
+    probe.remove();
+    const style = getComputedStyle(element);
+    return { family: style.fontFamily, bodyFamily, tracking: style.letterSpacing };
+  });
+  expect(headingType.family).toBe(headingType.bodyFamily);
+  expect(headingType.tracking).toBe('normal');
   expect((await palette.locator('.function-composer__catalog').boundingBox())!.height).toBeLessThanOrEqual(288);
   await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
   await expect(tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true })).toHaveCount(0);
@@ -263,6 +393,7 @@ func PaletteCall${i}:
   await search.fill('palettecall124');
   const last = tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true });
   await expect(last).toBeVisible();
+  await expect(last).toHaveCSS('text-transform', 'none');
   await expect(
     tree.getByTestId('ns-type-workflow.PaletteCall124#RosettaFunction').locator('[data-slot="list-card"]')
   ).toHaveAttribute('data-variant', 'compact');
@@ -421,6 +552,61 @@ func Analyze:
   await page.screenshot({ path: testInfo.outputPath('compose-primitives-hd.png') });
 });
 
+test('retains the canvas camera across Source and nested function navigation', async ({ page }) => {
+  const content =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+    `
+func SavedCamera:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias scaled: Double(value)
+ set result: scaled
+`;
+  const composer = await openComposition(page, content, 'SavedCamera');
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  await composer.getByRole('combobox', { name: 'Selected composition step', exact: true }).selectOption('alias:scaled');
+  const viewport = composer.locator('.react-flow__viewport');
+  const settledCamera = async () => {
+    let previous = '';
+    let stable = 0;
+    await expect
+      .poll(
+        async () => {
+          const current = (await viewport.getAttribute('style')) ?? '';
+          stable = current && current === previous ? stable + 1 : 0;
+          previous = current;
+          return stable;
+        },
+        { intervals: [100] }
+      )
+      .toBeGreaterThanOrEqual(3);
+    return previous;
+  };
+  const initial = await settledCamera();
+  await composer.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+  const saved = await settledCamera();
+  expect(saved).not.toBe(initial);
+
+  await composer.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(viewport).toHaveCount(1);
+  await settledCamera();
+  await composer.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+  const splitCamera = await settledCamera();
+  await composer.getByRole('button', { name: 'Canvas', exact: true }).click();
+  await expect(viewport).toHaveCount(0);
+  await composer.getByRole('button', { name: 'Canvas', exact: true }).click();
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  expect(await settledCamera()).toBe(splitCamera);
+
+  await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
+  await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+  await composer.getByRole('button', { name: 'Parent', exact: true }).click();
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  expect(await settledCamera()).toBe(splitCamera);
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+});
+
 test('replaces zero-argument calls with entered expressions and variable bindings', async ({ page }) => {
   const content = `namespace workflow
 import rune.studio.*
@@ -441,6 +627,18 @@ func ReplaceConstant:
     await composer.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
   };
+  await output.getByRole('button', { name: 'Edit result expression', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit result expression', exact: true });
+  const textToggle = dialog.getByRole('button', { name: 'Text', exact: true });
+  if (await textToggle.isVisible()) await textToggle.click();
+  await dialog.getByRole('textbox', { name: 'Rune source editor', exact: true }).fill('value + 2');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(expression).toHaveValue('value + 2');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await save(content.replace('set result: Constant()', 'set result: value + 2'));
+  await expression.fill('Constant()');
+  await save(content);
   await expression.fill('value + 1');
   await expect(expression).toHaveValue('value + 1');
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
@@ -695,4 +893,116 @@ test('creates in Compose, opens Prototype on its first visit and executes reusab
   await expect(page.getByTestId('prototype-perspective').getByLabel('Value', { exact: true })).toHaveValue('4');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   await expect(page.getByTestId('instance-payload-output')).toContainText('16');
+});
+
+test('drags a draft freely and binds connectors through guarded node drafts and the shared expression editor', async ({
+  page
+}, testInfo) => {
+  test.setTimeout(120000);
+  page.setDefaultTimeout(15000);
+  await page.setViewportSize({ width: 1426, height: 985 });
+  const content =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+    `
+func Pair:
+ inputs:
+  left number (1..1)
+  right number (1..1)
+ output: result number (1..1)
+ set result: left + right
+func Wiring:
+ [composition]
+ inputs:
+  values number (1..*)
+  extra number (1..*)
+  value number (1..1)
+ output: result number (1..*)
+ alias scaled: Pair(value, 1)
+ alias consumed: Pair(scaled, 1)
+ set result: values
+`;
+  const composer = await openComposition(page, content, 'Wiring');
+  const node = (id: string) => composer.locator(`[data-composition-step="${id}"]`);
+  const port = (id: string, handle: string) => node(id).locator(`[data-handleid="${handle}"]`);
+  const connect = async (sourceId: string, targetId: string, handle: string) => {
+    // Retained nodes are inert until the exact edited source has linked again.
+    await expect(port(sourceId, 'output')).toHaveClass(/\bconnectable\b/);
+    await expect(port(targetId, handle)).toHaveClass(/\bconnectable\b/);
+    await composer.getByRole('button', { name: 'Fit View', exact: true }).click();
+    // Selection and node measurements can legitimately fit the camera once.
+    let previous = '';
+    await expect
+      .poll(async () => {
+        const next = JSON.stringify([
+          await port(sourceId, 'output').boundingBox(),
+          await port(targetId, handle).boundingBox()
+        ]);
+        const stable = previous === next;
+        previous = next;
+        return stable;
+      })
+      .toBe(true);
+    const from = await port(sourceId, 'output').boundingBox();
+    const to = await port(targetId, handle).boundingBox();
+    expect(from).not.toBeNull();
+    expect(to).not.toBeNull();
+    await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, { steps: 12 });
+    await page.mouse.up();
+  };
+  await composer.getByRole('button', { name: 'Sort', exact: true }).click();
+  await composer.getByRole('button', { name: 'Signature & details', exact: true }).click();
+  const draft = node('draft:new');
+  await expect(draft).toBeVisible();
+  const heading = (await draft.locator('.composition-node__heading').boundingBox())!;
+  const before = (await draft.boundingBox())!;
+  await page.mouse.move(heading.x + 65, heading.y + heading.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(heading.x + 165, heading.y + heading.height / 2 + 55, { steps: 24 });
+  const during = (await draft.boundingBox())!;
+  expect(during.x - before.x).toBeGreaterThan(80);
+  expect(during.y - before.y).toBeGreaterThan(40);
+  await page.mouse.up();
+  await expect.poll(async () => (await draft.boundingBox())?.x).toBeCloseTo(during.x, 0);
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+
+  await connect('input:extra', 'draft:new', 'input');
+  await expect(draft.getByRole('textbox', { name: 'step1 expression', exact: true })).toHaveValue('extra sort');
+  await connect('draft:new', 'return', 'input');
+  await expect(draft.getByRole('combobox', { name: 'Bind output of step1', exact: true })).toHaveValue('return');
+  await expect(composer.locator('.react-flow__edge')).toHaveCount(4);
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await draft.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  const bound = content.replace('\n set result: values\n', '\n set result: extra sort\n');
+  await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(bound);
+
+  await composer.getByRole('combobox', { name: 'Selected composition step', exact: true }).selectOption('alias:scaled');
+  const scaled = node('alias:scaled');
+  await connect('input:value', 'alias:scaled', 'argument:1');
+  await expect(scaled.getByRole('combobox', { name: 'scaled argument right', exact: true })).toHaveValue('input:value');
+  await scaled.getByRole('combobox', { name: 'scaled right binding mode', exact: true }).selectOption('value');
+  await scaled.getByRole('button', { name: 'Edit scaled right expression', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit scaled right expression', exact: true });
+  await expect(dialog.getByText('Changes stay in the node draft until you choose Apply.')).toBeVisible();
+  // Text mode uses the same CodeMirror editor and captured argument scope as the builder.
+  const textToggle = dialog.getByRole('button', { name: 'Text', exact: true });
+  if (await textToggle.isVisible()) await textToggle.click();
+  const editor = dialog.getByRole('textbox', { name: 'Rune source editor', exact: true });
+  await editor.fill('value + 2');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(scaled.getByRole('textbox', { name: 'scaled argument right', exact: true })).toHaveValue('value + 2');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(bound);
+  await scaled.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(bound.replace('Pair(value, 1)', 'Pair(value, value + 2)'));
+
+  await connect('alias:consumed', 'alias:scaled', 'argument:0');
+  await expect(composer.getByRole('alert')).toContainText('cycle');
+  await expect(scaled.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('compose-wired-nodes.png') });
 });

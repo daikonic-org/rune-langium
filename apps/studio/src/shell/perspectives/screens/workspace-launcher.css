@@ -116,7 +116,7 @@
 .studio-launcher__section-heading h2, .starter-picker h3 {
   margin: 0;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-regular);
 }
 
 .studio-launcher__section-heading > span {

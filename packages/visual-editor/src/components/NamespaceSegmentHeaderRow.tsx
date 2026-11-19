@@ -103,7 +103,7 @@ export function NamespaceSegmentHeaderRow({
             Enter/Space and assistive tech announces it as interactive. */}
         <button
           type="button"
-          className="min-w-0 flex-1 text-xs font-semibold cursor-pointer bg-transparent border-0 p-0 text-left text-inherit hover:text-inherit focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="min-w-0 flex-1 text-xs font-normal cursor-pointer bg-transparent border-0 p-0 text-left text-inherit hover:text-inherit focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onClick={onToggle}
           title={fullPath || '(default)'}
           aria-label={fullPath || '(default)'}

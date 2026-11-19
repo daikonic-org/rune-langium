@@ -12,7 +12,8 @@
 <meta property="og:url" content="https://www.daikonic.dev/rune-studio/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./tokens.css">
 <style>
 /* T060 (014/FR-022) — TODO(014): once the publishing pipeline copies
  * `packages/design-tokens/dist/brand.css` to a stable URL on
@@ -29,12 +30,12 @@
 --text-primary:#E8E6E1;--text-secondary:#8A8A96;--text-tertiary:#5C5C6A;
 --teal:#00D4AA;--teal-dim:rgba(0,212,170,0.12);--teal-glow:rgba(0,212,170,0.06);
 --amber:#E8913A;--amber-dim:rgba(232,145,58,0.12);
---font-display:'Outfit',sans-serif;--font-mono:'JetBrains Mono',monospace;
 }
 html{scroll-behavior:smooth}
 /* T058 (014/FR-026) — single shared focus-ring spec across landing, docs, Studio */
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-display);font-weight:400;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-body);font-weight:400;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3{font-family:var(--font-title)}
 .grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);background-size:80px 80px;pointer-events:none;z-index:0}
 section{position:relative;z-index:1}
 .container{max-width:1120px;margin:0 auto;padding:0 40px}
@@ -54,9 +55,9 @@ nav .container{display:flex;align-items:center;justify-content:space-between}
 .hero h1 span{background:linear-gradient(135deg,var(--teal),#4AEACC);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:18px;color:var(--text-secondary);max-width:560px;line-height:1.7;margin-bottom:48px}
 .hero-actions{display:flex;gap:16px;align-items:center}
-.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:var(--teal);color:var(--bg-primary);font-family:var(--font-display);font-size:14px;font-weight:600;border:none;border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:var(--teal);color:var(--bg-primary);font-family:var(--font-title);font-size:14px;font-weight:600;border:none;border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
 .btn-primary:hover{background:#4AEACC;transform:translateY(-1px)}
-.btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:transparent;color:var(--text-primary);font-family:var(--font-display);font-size:14px;font-weight:500;border:1px solid var(--border-accent);border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:transparent;color:var(--text-primary);font-family:var(--font-title);font-size:14px;font-weight:500;border:1px solid var(--border-accent);border-radius:8px;cursor:pointer;text-decoration:none;transition:all 0.2s}
 .btn-secondary:hover{border-color:var(--text-secondary);background:rgba(255,255,255,0.03)}
 .btn-tag{font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:rgba(12,12,20,0.25);color:inherit;line-height:1}
 .section-label{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--text-tertiary);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:16px}
