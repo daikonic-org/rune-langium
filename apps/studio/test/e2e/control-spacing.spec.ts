@@ -38,6 +38,7 @@ for (const theme of ['light', 'daikonic'])
       const checkbox = preview.getByRole('checkbox', { name: 'Enabled', exact: true });
       await preview.getByText('Enabled', { exact: true }).click();
       await expect(checkbox).toBeChecked();
+      await expect(checkbox).toHaveCSS('top', '-1px');
       const spacing = await checkbox.evaluate((control) => {
         const label = control.parentElement!.querySelector('label')!;
         return label.getBoundingClientRect().left - control.getBoundingClientRect().right;
