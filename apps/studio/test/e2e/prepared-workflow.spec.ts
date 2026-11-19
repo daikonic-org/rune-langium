@@ -153,7 +153,19 @@ for (const base of ['valid', 'invalid', 'unavailable'] as const)
       await page.getByRole('option', { name, exact: true }).click();
       if (runnable) await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
     };
-    await choose('Prepared rate calculation');
+    if (base === 'valid') {
+      await page.getByRole('tab', { name: 'Workflows', exact: true }).click();
+      const library = page.getByRole('region', { name: 'Saved workflows', exact: true });
+      await library.getByRole('textbox', { name: 'Search workflows' }).fill('prepared');
+      await expect(library.getByRole('button', { name: 'Offline rate calculation' })).toHaveCount(0);
+      await library.getByRole('button', { name: 'Prepared rate calculation', exact: true }).click();
+      await expect(page.getByRole('combobox', { name: 'Saved workflow' })).toHaveText('Prepared rate calculation');
+      await page.getByRole('tab', { name: 'Data', exact: true }).click();
+      await expect(page.getByRole('region', { name: 'Example table' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
+    } else {
+      await choose('Prepared rate calculation');
+    }
     await expect(
       page.getByRole('button', {
         name:

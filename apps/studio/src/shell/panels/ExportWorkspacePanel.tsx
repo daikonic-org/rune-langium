@@ -49,7 +49,7 @@ export const ExportWorkspacePanel = withInstrumentation(
           panes={[
             {
               id: 'export-settings-pane',
-              defaultSize: '300px',
+              defaultSize: '240px',
               minSize: '160px',
               content: (
                 <section aria-label="Export settings" className="h-full min-h-0">
@@ -62,8 +62,8 @@ export const ExportWorkspacePanel = withInstrumentation(
               minSize: '25%',
               separatorLabel: 'Resize export settings and output',
               content: (
-                <section aria-label="Generated output" className="flex h-full min-h-0 flex-col border-t border-border">
-                  <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                <section aria-label="Generated output" className="flex h-full min-h-0 flex-col">
+                  <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-1.5 text-sm font-semibold">
                     Generated output
                   </h2>
                   <div className="min-h-0 flex-1">{output}</div>

@@ -125,7 +125,7 @@ func SourceOnly:
     [390, 900]
   ] as const) {
     await page.setViewportSize({ width, height });
-    if (width < 900) await composer.getByRole('button', { name: 'Hide palette', exact: true }).click();
+    if (width < 900) await expect(composer.getByRole('button', { name: 'Show palette', exact: true })).toBeVisible();
     await expect(composer.locator('.composition-node')).toHaveCount(5);
     const chosenNode = composer.locator('[data-composition-step="alias:extra"]');
     await expect(chosenNode).toBeVisible();
@@ -150,7 +150,7 @@ func SourceOnly:
     await page.screenshot({ path: testInfo.outputPath(`compose-canvas-${width}.png`) });
   }
   await page.setViewportSize({ width: 1280, height: 720 });
-  await composer.getByRole('button', { name: 'Show palette', exact: true }).click();
+  await expect(composer.getByRole('complementary', { name: 'Composition palette' })).toBeVisible();
   await expect
     .poll(() =>
       page
@@ -219,6 +219,21 @@ test('resizes Compose side panels without editing source or replacing the canvas
   const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
   const details = composer.getByRole('complementary', { name: 'Composition details', exact: true });
   const canvas = composer.getByRole('region', { name: 'Composition canvas', exact: true });
+  const center = composer.getByRole('region', { name: 'Composition editor', exact: true });
+  const explorePanel = page.locator('[data-perspective-slot="explore"] .rune-dock-theme .dv-groupview').first();
+  const radius = await explorePanel.evaluate((panel) => getComputedStyle(panel).borderTopLeftRadius);
+  expect(parseFloat(radius)).toBeGreaterThan(0);
+  const dockGroups = composer.getByTestId('compose-dock').locator('.dv-groupview');
+  await expect(dockGroups).toHaveCount(3);
+  for (const group of await dockGroups.all()) {
+    await expect(group).toHaveCSS('border-top-left-radius', radius);
+  }
+  const [paletteBox, centerBox, detailsBox] = await Promise.all(
+    [palette, center, details].map((panel) => panel.boundingBox())
+  );
+  expect(centerBox!.x - (paletteBox!.x + paletteBox!.width)).toBeGreaterThan(4);
+  expect(detailsBox!.x - (centerBox!.x + centerBox!.width)).toBeGreaterThan(4);
+  await expect(details.getByRole('tab', { name: 'Step', exact: true })).toHaveAttribute('aria-selected', 'true');
   const left = composer.getByRole('separator', { name: 'Resize composition palette', exact: true });
   const right = composer.getByRole('separator', { name: 'Resize composition details', exact: true });
   const width = (panel: Locator) => panel.evaluate((element) => element.getBoundingClientRect().width);
@@ -272,16 +287,17 @@ test('resizes Compose side panels without editing source or replacing the canvas
   await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
   await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
   await page.setViewportSize({ width: 700, height: 900 });
-  await expect(composer.locator('.function-composer__body')).toHaveAttribute('data-workbench-orientation', 'vertical');
-  // Narrow entry hides the palette; explicitly opening it should keep every panel reachable.
   const showPalette = composer.getByRole('button', { name: 'Show palette', exact: true });
-  if (await showPalette.isVisible()) await showPalette.click();
-  const height = () => palette.evaluate((element) => element.getBoundingClientRect().height);
-  const initialHeight = await height();
-  await left.focus();
-  await left.press('ArrowDown');
-  await expect.poll(height).toBeGreaterThan(initialHeight + 5);
+  await expect(showPalette).toBeVisible();
+  await expect(palette).toBeHidden();
+  await expect(details).toBeHidden();
+  await expect(left).toHaveCount(0);
+  await expect(right).toHaveCount(0);
+  await showPalette.click();
+  await expect(palette).toBeVisible();
   await expect(canvas).toBeVisible();
+  await composer.getByRole('button', { name: 'Hide palette', exact: true }).click();
+  await composer.getByRole('button', { name: 'Show details', exact: true }).click();
   await expect(details).toBeVisible();
   expect(await composer.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('compose-resized-narrow.png') });
@@ -294,19 +310,22 @@ for (const mode of ['unavailable', 'malformed'] as const) {
   test(`resizing survives ${mode} personal layout preferences`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.addInitScript((mode) => {
-      const get = Storage.prototype.getItem;
-      const set = Storage.prototype.setItem;
-      Storage.prototype.getItem = function (key) {
-        if (key.includes('rune:split-workbench:')) {
-          if (mode === 'unavailable') throw new DOMException('Preferences unavailable', 'SecurityError');
-          return get.call(this, key) ?? '{malformed';
-        }
-        return get.call(this, key);
+      const get = IDBObjectStore.prototype.get;
+      const put = IDBObjectStore.prototype.put;
+      const dockKey = (key: unknown) => typeof key === 'string' && key.includes('"compose-dock"');
+      IDBObjectStore.prototype.get = function (key) {
+        if (this.name !== 'settings' || !dockKey(key)) return get.call(this, key);
+        if (mode === 'unavailable') throw new DOMException('Preferences unavailable', 'SecurityError');
+        const request = get.call(this, key);
+        request.addEventListener('success', () => {
+          if (!request.result) Object.defineProperty(request, 'result', { value: { key, value: '{malformed' } });
+        });
+        return request;
       };
-      Storage.prototype.setItem = function (key, value) {
-        if (mode === 'unavailable' && key.includes('rune:split-workbench:'))
+      IDBObjectStore.prototype.put = function (value, key) {
+        if (mode === 'unavailable' && this.name === 'settings' && dockKey(value?.key))
           throw new DOMException('Preferences unavailable', 'SecurityError');
-        set.call(this, key, value);
+        return put.call(this, value, key);
       };
     }, mode);
     const composer = await openComposition(page, source, 'Double');
@@ -332,12 +351,17 @@ test('enters Compose before selecting a function and switches between ordinary f
   page.on('pageerror', (error) => errors.push(error.message));
   const composer = await openComposition(page, source);
   await expect(composer).toBeVisible();
+  const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
+  await expect(views.getByRole('button', { name: 'Canvas', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(views.getByRole('button', { name: 'Source', exact: true })).toBeDisabled();
   for (const name of ['Double', 'OptionalTotal', 'Double']) {
     await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
     await expect(composer.locator('.function-composer__header > strong')).toHaveText(name);
     await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
-    await composer.getByRole('button', { name: 'Signature & details', exact: true }).click();
-    await expect(composer).toBeVisible();
+    const signature = composer.getByRole('tab', { name: 'Signature & details', exact: true });
+    await signature.click();
+    await expect(signature).toHaveAttribute('aria-selected', 'true');
+    await expect(composer.getByRole('tabpanel', { name: 'Signature & details' })).toBeVisible();
   }
   expect(errors).toEqual([]);
 });
@@ -711,7 +735,7 @@ ${earlier}${later} alias consumed: Double(earlier)
   await expect(laterNode.locator('.composition-node__output-tags')).toContainText('later');
   await tray.getByRole('textbox', { name: 'Filter variables', exact: true }).clear();
   await dragVariable('consumed', laterNode.locator('[data-argument-index="0"]'));
-  await expect(composer.getByRole('alert')).toContainText('cycle');
+  await expect(composer.getByRole('alert').filter({ hasText: 'cycle' })).toBeVisible();
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
   await dragVariable('first', laterNode.locator('[data-argument-index="0"]'));
   await laterNode.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -952,7 +976,7 @@ func Wiring:
     await page.mouse.up();
   };
   await composer.getByRole('button', { name: 'Sort', exact: true }).click();
-  await composer.getByRole('button', { name: 'Signature & details', exact: true }).click();
+  await composer.getByRole('tab', { name: 'Signature & details', exact: true }).click();
   const draft = node('draft:new');
   await expect(draft).toBeVisible();
   const heading = (await draft.locator('.composition-node__heading').boundingBox())!;
@@ -1002,7 +1026,7 @@ func Wiring:
     .toBe(bound.replace('Pair(value, 1)', 'Pair(value, value + 2)'));
 
   await connect('alias:consumed', 'alias:scaled', 'argument:0');
-  await expect(composer.getByRole('alert')).toContainText('cycle');
+  await expect(composer.getByRole('alert').filter({ hasText: 'cycle' })).toBeVisible();
   await expect(scaled.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('compose-wired-nodes.png') });
 });

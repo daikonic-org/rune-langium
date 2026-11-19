@@ -18,7 +18,7 @@ import { join, resolve, extname } from 'node:path';
 import { watch } from 'node:fs';
 import process from 'node:process';
 import { Command } from 'commander';
-import { URI } from 'langium';
+import { URI, type LangiumDocument } from 'langium';
 import { createRuneDslServices } from '@rune-langium/core';
 import { generate, IMPLEMENTED_TARGETS } from '../src/export.js';
 import type { Target, GeneratorDiagnostic, GeneratorOutput } from '../src/types.js';
@@ -76,7 +76,7 @@ async function collectRuneFiles(dir: string, out: string[]): Promise<void> {
 async function parseRuneFile(
   filePath: string,
   services: ReturnType<typeof createRuneDslServices>
-): Promise<import('langium').LangiumDocument> {
+): Promise<LangiumDocument> {
   const content = await readFile(filePath, 'utf-8');
   // Use .rosetta URI so the Langium service registry recognizes the extension
   const fileName = filePath.replace(/\.rune$/, '.rosetta').replace(/.*[/\\]/, '');
@@ -157,8 +157,10 @@ async function runOnce(
 ): Promise<RunResult> {
   const start = Date.now();
 
-  // Parse all files
-  const docs = await Promise.all(files.map((f) => parseRuneFile(f, services)));
+  const workspace = services.shared.workspace;
+  if (opts.target === 'python') await workspace.WorkspaceManager.initializeWorkspace([]);
+  const inputs = await Promise.all(files.map((f) => parseRuneFile(f, services)));
+  const docs = opts.target === 'python' ? [...new Set([...inputs, ...workspace.LangiumDocuments.all])] : inputs;
 
   // Generate
   let outputs: GeneratorOutput[];
@@ -376,10 +378,10 @@ const program = new Command();
 
 program
   .name('rune-codegen')
-  .description('Generate Zod / JSON Schema / TypeScript from Rune (.rune) models')
+  .description('Generate code and schemas from Rune models')
   .version(`rune-codegen ${PKG_VERSION}`, '-v, --version')
   .argument('<input...>', 'One or more .rune file paths or directories')
-  .option('-t, --target <target>', "Output target: 'zod', 'json-schema', or 'typescript'", 'zod')
+  .option('-t, --target <target>', `Output target: ${IMPLEMENTED_TARGETS.join(', ')}`, 'zod')
   .option('-o, --output <dir>', 'Output directory root', './generated')
   .option('-w, --watch', 'Watch mode: re-generate on file changes')
   .option('--strict', 'Treat any generator error diagnostic as fatal')

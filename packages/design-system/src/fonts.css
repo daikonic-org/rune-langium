@@ -12,6 +12,14 @@
 }
 
 @font-face {
+  font-family: 'Daikonic Transit Sans';
+  src: url('./fonts/DaikonicTransitSans-Italic-VF.woff2') format('woff2');
+  font-weight: 300 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Daikonic Transit System';
   src: url('./fonts/DaikonicTransitSystem-VF.woff2') format('woff2');
   font-weight: 300 600;
@@ -20,9 +28,25 @@
 }
 
 @font-face {
+  font-family: 'Daikonic Transit System';
+  src: url('./fonts/DaikonicTransitSystem-Italic-VF.woff2') format('woff2');
+  font-weight: 300 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Daikonic Transit Code';
   src: url('./fonts/DaikonicTransitCode-VF.woff2') format('woff2');
   font-weight: 300 400;
   font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Daikonic Transit Code';
+  src: url('./fonts/DaikonicTransitCode-Italic-VF.woff2') format('woff2');
+  font-weight: 300 400;
+  font-style: italic;
   font-display: swap;
 }

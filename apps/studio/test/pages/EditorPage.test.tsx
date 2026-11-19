@@ -436,7 +436,8 @@ vi.mock('../../src/components/ExportDialog.js', () => ({
   ExportDialog: () => null
 }));
 
-vi.mock('@rune-langium/design-system/ui/button', () => ({
+vi.mock(import('@rune-langium/design-system/ui/button'), async (importOriginal) => ({
+  ...(await importOriginal()),
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) =>
     React.createElement('button', props, children)
 }));

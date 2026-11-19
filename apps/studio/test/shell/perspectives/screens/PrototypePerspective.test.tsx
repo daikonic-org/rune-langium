@@ -98,11 +98,11 @@ describe('PrototypePerspective', () => {
     expect(screen.queryByRole('heading', { name: 'Acme' })).not.toBeInTheDocument();
   });
 
-  it('registers the Workflow, Instances and optional Payload graph panels', async () => {
+  it('registers the workflow editor, Workflows, Data and optional Payload graph panels', async () => {
     await renderPerspective();
     expect(screen.queryByTestId('prototype-workbench-panel-prototype.payloadGraph')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Payload graph' }));
-    for (const id of ['prototype.inspector', 'prototype.grid', 'prototype.payloadGraph'])
+    for (const id of ['prototype.inspector', 'prototype.grid', 'prototype.workflows', 'prototype.payloadGraph'])
       expect(screen.getByTestId(`prototype-workbench-panel-${id}`)).toBeInTheDocument();
   });
 

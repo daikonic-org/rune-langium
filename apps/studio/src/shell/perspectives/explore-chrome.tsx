@@ -15,7 +15,7 @@
 
 import { useMemo } from 'react';
 import { Check, Download, Share2, Wand2, Plus, X } from 'lucide-react';
-import { Button } from '@rune-langium/design-system/ui/button';
+import { Button, ButtonLabel } from '@rune-langium/design-system/ui/button';
 import type { WorkspaceFile } from '../../services/workspace.js';
 import { createBlankWorkspaceFile, isUserWorkspaceFile } from '../../services/workspace.js';
 import { useWorkspace } from '../providers/workspace-context.js';
@@ -259,7 +259,7 @@ export const ExploreActions = withInstrumentation(
         </Button>
         <button type="button" className="studio-topbar__import" onClick={() => setShowImportDialog(true)}>
           <Wand2 className="size-3.5" />
-          Import Model
+          <ButtonLabel>Import Model</ButtonLabel>
         </button>
       </>
     );

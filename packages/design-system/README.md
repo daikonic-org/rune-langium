@@ -61,12 +61,10 @@ Add `.perspective-heading` only to perspective names for uppercase and
 `--perspective-heading-letter-spacing` (0.10em). Apply heading roles to text spans
 when a header also contains controls or counts.
 
-Studio reduces the UI text scale by exactly 1px through its body profile, including
-portaled overlays. The primitive `--font-size-*` scale remains unchanged; Sans
-heading roles retain that unscaled size. Tabs use the reduced UI scale. Studio
-also reduces monospace text by 1px through its separate
-`--studio-mono-font-reduction` setting; the shared CodeMirror text/gutter style
-uses that same setting. Font-face scaling, the root rem size and control geometry are unchanged.
+Studio uses its size tokens directly for Transit System and Code, including
+portaled overlays and CodeMirror gutters. Both faces carry their size calibration
+in the font. The `--studio-mono-font-reduction` setting applies to compact
+JetBrains Mono UI labels and source metadata.
 The Studio wordmark is uppercase Sans SemiBold 600 with the shared 0.10em perspective tracking. Inspector detail-pane titles
 use the smaller Sans Medium 500 treatment at 13px.
 
@@ -110,10 +108,16 @@ chrome definition, including invalid, disabled and keyboard-focus states.
 SelectItem, CommandItem and PickerOption share option-row spacing and state
 treatments. Custom Base UI render elements retain the shared trigger variants.
 Single-line fields default to 24px; standard selectors and actions use 28px.
+Native inputs and selects share `--native-field-text-inset` to center rendered
+text inside those fixed heights. Native select chevrons are centered to the field.
+Button centers plain labels using the font's x-height and baseline. Its flex
+container centers icons independently.
 `FieldGroup` uses 8px row gaps, with 12px between nested groups/sets. Native
 selects restore platform arrows in forced-colors mode.
 Horizontal Field rows use an 8px control-to-label gap; vertical fields retain
-the 4px label-to-control gap. Descriptions align with their label column.
+the 4px label-to-control gap. Descriptions align with their label column. Use `text-caption` for explanatory
+copy, including shared field and dialog descriptions. It uses the Body italic
+face and a caption foreground 15% closer to the active theme’s foreground.
 
 Tabs, tree navigation, graph handles and multiline diagnostic rows retain their
 specific interaction and geometry. Cardinality presets and namespace picker

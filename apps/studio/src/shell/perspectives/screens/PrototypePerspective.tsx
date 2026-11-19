@@ -12,6 +12,7 @@ import { usePrototypeViewStore } from '../../../store/prototype-view-store.js';
 import { useWorkspaceOptional } from '../../providers/workspace-context.js';
 import { InstanceInspectorPanel } from '../../panels/InstanceInspectorPanel.js';
 import { InstanceGridPanel } from '../../panels/InstanceGridPanel.js';
+import { WorkflowListPanel } from '../../panels/WorkflowListPanel.js';
 import { InstanceGraphPanel } from '../../panels/InstanceGraphPanel.js';
 import { useInstanceStore } from '../../../store/instance-store.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
@@ -33,6 +34,18 @@ function addPayloadGraph(api: DockviewApi, width: number): void {
   if (width >= 768) graph.group.api.setConstraints({ minimumWidth: 280 });
 }
 
+function addWorkflowList(api: DockviewApi): void {
+  const grid = api.getPanel('prototype.grid');
+  if (!grid || api.getPanel('prototype.workflows')) return;
+  api.addPanel({
+    id: 'prototype.workflows',
+    component: 'prototype.workflows',
+    title: 'Workflows',
+    inactive: true,
+    position: { referenceGroup: grid.group, direction: 'within' }
+  });
+}
+
 export const PrototypePerspective = withInstrumentation(
   function PrototypePerspective(): ReactElement {
     const workspace = useWorkspaceOptional();
@@ -49,6 +62,16 @@ export const PrototypePerspective = withInstrumentation(
     }, []);
     const [payloadFocus, setPayloadFocus] = useState<{ pointer: string; revision: number }>();
     const [activationReady, setActivationReady] = useState(false);
+    const [requestedWorkflow, setRequestedWorkflow] = useState<{ id: string }>();
+    const dock = useRef<DockviewApi | undefined>(undefined);
+    const openWorkflow = useCallback(
+      (id: string) => {
+        patch({ workflowView: 'flow' });
+        dock.current?.getPanel('prototype.inspector')?.api.setActive();
+        setRequestedWorkflow({ id });
+      },
+      [patch]
+    );
     const activationRef = useRef<{ workspaceId: string; promise: Promise<void> } | undefined>(undefined);
     const selectedRecord = useInstanceStore((state) =>
       view.selectedId ? state.instances[view.selectedId] : undefined
@@ -90,11 +113,13 @@ export const PrototypePerspective = withInstrumentation(
               key={workspace?.workspaceId}
               instanceId={view.selectedId ?? undefined}
               bindingRequestId={view.bindingRequestId}
+              requestedWorkflow={requestedWorkflow}
               focusedPayloadPointer={payloadFocus?.pointer}
               focusRequestId={payloadFocus?.revision}
             />
           ),
           'prototype.grid': () => <InstanceGridPanel />,
+          'prototype.workflows': () => <WorkflowListPanel onOpen={openWorkflow} />,
           ...(view.graphVisible
             ? {
                 'prototype.payloadGraph': () =>
@@ -115,29 +140,35 @@ export const PrototypePerspective = withInstrumentation(
         },
         titles: {
           'prototype.inspector': 'Workflow',
-          'prototype.grid': 'Examples',
+          'prototype.grid': 'Data',
+          'prototype.workflows': 'Workflows',
           ...(view.graphVisible ? { 'prototype.payloadGraph': 'Payload graph' } : {})
         },
         buildDefault(api, width) {
           const inspector = api.addPanel({
             id: 'prototype.inspector',
             component: 'prototype.inspector',
-            title: 'Workflow'
+            title: 'Workflow',
+            renderer: 'always'
           });
           if (view.graphVisible) addPayloadGraph(api, width);
           api.addPanel({
             id: 'prototype.grid',
             component: 'prototype.grid',
-            title: 'Examples',
+            title: 'Data',
             initialHeight: 190,
             position:
               width < 768
                 ? { referenceGroup: inspector.group, direction: 'within' }
                 : { referencePanel: inspector.id, direction: 'below' }
           });
+          addWorkflowList(api);
           inspector.api.setActive();
         },
         reconcile(api, width) {
+          const grid = api.getPanel('prototype.grid');
+          if (grid?.api.title === 'Examples') grid.api.setTitle('Data');
+          addWorkflowList(api);
           if (view.graphVisible) addPayloadGraph(api, width);
           else {
             const graph = api.getPanel('prototype.payloadGraph');
@@ -147,6 +178,8 @@ export const PrototypePerspective = withInstrumentation(
       }),
       [
         beginCreate,
+        openWorkflow,
+        requestedWorkflow,
         payloadFocus,
         selectedRecord,
         view.graphVisible,
@@ -192,6 +225,9 @@ export const PrototypePerspective = withInstrumentation(
             <WorkbenchHost
               definition={definition}
               initialNativeLayout={view.nativeLayout}
+              onReady={(api) => {
+                dock.current = api;
+              }}
               onNativeLayoutChange={(nativeLayout) => patch({ nativeLayout })}
               className="h-full min-w-0 w-full"
             />

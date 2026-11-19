@@ -6,7 +6,7 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 
 import { cn } from '../utils';
-import { fieldControlStyles, pickerOptionStyles } from './control-styles';
+import { nativeFieldControlStyles, pickerOptionStyles } from './control-styles';
 import { PickerTrigger, pickerTriggerVariants } from './picker';
 
 /** Native selection for plain option lists, retaining platform keyboard behavior. */
@@ -23,8 +23,8 @@ function NativeSelect({
         data-slot="native-select"
         data-size={size}
         className={cn(
-          fieldControlStyles,
-          'w-full min-w-0 appearance-none pr-6 py-0 forced-colors:appearance-auto',
+          nativeFieldControlStyles,
+          'block w-full min-w-0 appearance-none pr-6 forced-colors:appearance-auto',
           size === 'sm' ? 'h-6 pl-1.5' : 'h-7 pl-2',
           className
         )}

@@ -87,6 +87,31 @@ describe('Base UI migration regressions', () => {
     expect(screen.getByRole('link', { name: 'Docs' })).toHaveClass('custom-link');
   });
 
+  it('centers one label for adjacent text and keeps icon-only controls simple', () => {
+    render(
+      <>
+        <Button>
+          <svg aria-hidden="true" />
+          {'Generate '}
+          {3}
+          {' targets'}
+        </Button>
+        <Button size="icon" aria-label="Close">
+          <svg aria-hidden="true" />
+        </Button>
+        <Button render={<a href="/docs">Open docs</a>} />
+      </>
+    );
+
+    const generate = screen.getByRole('button', { name: 'Generate 3 targets' });
+    expect(generate.querySelectorAll('[data-slot="button-label"]')).toHaveLength(1);
+    expect(generate.querySelector('svg')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' }).querySelector('[data-slot="button-label"]')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Open docs' }).querySelector('[data-slot="button-label"]')
+    ).toHaveTextContent('Open docs');
+  });
+
   it('preserves custom classes when AlertTitle renders through a supplied element', () => {
     render(
       <Alert>

@@ -9,7 +9,7 @@
  * affordance follows the emitter contract:
  *   - `contract === 'namespace'` (zod, typescript, json-schema, sql, markdown)
  *     → two icon buttons: View (eye) + Download (arrow)
- *   - `contract === 'whole-model'` (excel, graphql) → Download only
+ *   - `contract === 'whole-model'` (excel, graphql) → Download only; Python also supports View
  *
  * The component is intentionally presentational: callers pass `onView` /
  * `onDownload` plus an optional `inflightTarget` to swap that row's
@@ -26,7 +26,7 @@ import { Eye, RotateCw, Download } from 'lucide-react';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface CodegenTargetsTableProps {
-  /** Called when the user clicks the View (eye) button on a namespace-contract row. */
+  /** Called when the user clicks the View (eye) button on a previewable row. */
   onView: (target: Target) => void;
   /** Called when the user clicks the Download button on any row. */
   onDownload: (target: Target) => void;
@@ -86,7 +86,7 @@ export const CodegenTargetsTable = withInstrumentation(
               const descriptor = TARGET_DESCRIPTORS[target];
               const isLoading = inflightTarget === target;
               const isActive = activeTarget === target;
-              const canView = descriptor.contract === 'namespace';
+              const canView = descriptor.contract === 'namespace' || target === 'python';
               return (
                 <tr
                   key={target}

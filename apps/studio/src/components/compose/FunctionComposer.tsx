@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Daikonic contributors
 import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { DockviewApi } from 'dockview-react';
 import { ReactFlowProvider, useReactFlow, type Connection, type XYPosition } from '@xyflow/react';
 import { type CompositionStep, type FunctionComposition, type SourceRegion } from '@rune-langium/core';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input, SearchInput } from '@rune-langium/design-system/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -24,18 +26,7 @@ import {
   DialogTitle,
   DialogDescription
 } from '@rune-langium/design-system/ui/dialog';
-import {
-  ArrowLeft,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Plus,
-  Workflow,
-  Code,
-  Network,
-  ArrowUpRight
-} from 'lucide-react';
+import { ArrowLeft, Plus, Workflow, Code, Network, ArrowUpRight } from 'lucide-react';
 import { requestFunctionComposition } from '../../services/workspace.js';
 import {
   compositionReference,
@@ -53,6 +44,7 @@ import { usePerspectiveStore } from '../../store/perspective-store.js';
 import { useComposeNavigationStore } from '../../store/compose-navigation-store.js';
 import { usePreviewSession } from '../../shell/providers/preview-session-context.js';
 import { SplitWorkbench } from '../../shell/SplitWorkbench.js';
+import { ComposeWorkbench } from './ComposeWorkbench.js';
 import { WorkbenchViewBar, WorkbenchPaneHeading } from '../../shell/WorkbenchChrome.js';
 import { ExpressionWorkspace, type ExpressionWorkspaceProps } from '../editing/ExpressionWorkspace.js';
 import { SourceEditor } from '../SourceEditor.js';
@@ -78,7 +70,7 @@ import {
 } from './composition-primitives.js';
 import { FunctionPalette, COMPOSITION_FUNCTION_MIME as MIME } from './FunctionPalette.js';
 const PRIMITIVE_MIME = 'application/x-rune-composition-primitive';
-import { CompositionCanvas, DRAFT_NODE } from './CompositionCanvas.js';
+import { CompositionCanvas, DRAFT_NODE, type SavedCompositionViewport } from './CompositionCanvas.js';
 import { compositionProducerId as producerId, type CompositionWiring } from './composition-graph.js';
 
 export interface FunctionComposerProps {
@@ -137,8 +129,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
     `${primitive.label} ${primitive.description}`.toLowerCase().includes(query.trim().toLowerCase())
   );
   const primitiveGroups = [...new Set(matchingPrimitives.map((primitive) => primitive.group))];
-  const [palette, setPalette] = useState(() => !(window.matchMedia?.('(max-width: 899px)').matches ?? false));
-  const [details, setDetails] = useState(true);
+  const dock = useRef<DockviewApi | undefined>(undefined);
   const [tab, setTab] = useState<'step' | 'signature'>('step');
   const [source, setSource] = useState(false);
   const [canvasOpen, setCanvasOpen] = useState(true);
@@ -172,7 +163,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
   const [draft, setDraft] = useState<Draft>();
   const [expressionEditor, setExpressionEditor] = useState<{ argument?: number }>();
   const drafts = useRef(new Map<string, Draft>());
-  const viewports = useRef(new Map<string, { x: number; y: number; zoom: number }>());
+  const viewports = useRef(new Map<string, SavedCompositionViewport>());
   const positions = useRef(new Map<string, Map<string, XYPosition>>());
   const breadcrumbs = useRef<string[]>([]);
   const selections = useRef(new Map<string, string>());
@@ -878,14 +869,6 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
     <NodeBindingContext.Provider value={actions}>
       <section className="function-composer" aria-label="Function composer" data-testid="function-composer">
         <header className="function-composer__header">
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            aria-label={palette ? 'Hide palette' : 'Show palette'}
-            onClick={() => setPalette(!palette)}
-          >
-            {palette ? <PanelLeftClose /> : <PanelLeftOpen />}
-          </Button>
           {breadcrumbs.current.length > 0 && (
             <Button size="xs" variant="ghost" onClick={() => onNavigate(breadcrumbs.current.pop()!)}>
               <ArrowLeft className="size-3" />
@@ -893,7 +876,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
             </Button>
           )}
           <strong
-            className="truncate"
+            className="truncate font-title font-medium"
             title={creating ? 'New composition' : identity.split('#')[0] || 'Function composer'}
           >
             {creating ? 'New composition' : identity ? identity.split('#')[0]?.split('.').pop() : 'Function composer'}
@@ -938,14 +921,6 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
             <Plus className="size-3" />
             New composition
           </Button>
-          <Button
-            size="icon-xs"
-            variant="ghost"
-            aria-label={details ? 'Hide details' : 'Show details'}
-            onClick={() => setDetails(!details)}
-          >
-            {details ? <PanelRightClose /> : <PanelRightOpen />}
-          </Button>
         </header>
         {error && (
           <div className="function-composer__error" role="alert">
@@ -966,328 +941,299 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
             }}
           />
         ) : (
-          <SplitWorkbench
-            className="function-composer__body"
-            storageKey={JSON.stringify([workspaceKey, 'compose'])}
-            stackAt={860}
-            panes={[
-              {
-                id: 'compose-palette',
-                visible: palette,
-                defaultSize: '232px',
-                minSize: '180px',
-                maxSize: '40%',
-                stacked: { defaultSize: '25%', minSize: '10%', maxSize: '40%' },
-                content: (
-                  <aside className="function-composer__palette studio-scroll" aria-label="Composition palette">
-                    <SearchInput
-                      aria-label="Search functions and primitives"
-                      placeholder="Search functions & primitives"
-                      value={query}
-                      onChange={(event) => {
-                        setQuery(event.target.value);
-                        if (event.target.value.trim()) setDiscover(true);
-                      }}
-                    />
-                    {portContext && (
-                      <p>
-                        Suggested for {composition?.steps.find((step) => step.id === portContext)?.name}.{' '}
-                        <Button size="xs" variant="ghost" onClick={() => setPortContext(undefined)}>
-                          Clear context
-                        </Button>
-                      </p>
-                    )}
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      disabled={loading || !composition?.supported || Boolean(composition.callables)}
-                      onClick={() => {
-                        setDiscover(true);
-                        setRetry(retry + 1);
-                      }}
-                    >
-                      {discover && loading
-                        ? 'Loading signatures…'
-                        : composition?.callables
-                          ? 'Signatures loaded'
-                          : 'Show signatures'}
-                    </Button>
-                    <FunctionPalette
-                      repository={repository}
-                      query={query}
-                      callables={composition?.callables}
-                      portContext={portContext}
-                      selectedNodeId={identity}
-                      canAdd={writable && !draft && !signaturePending && !applyBusy}
-                      onOpen={navigate}
-                      onAdd={(id) => void beginAdd(id)}
-                    />
-                    <h2 className="section-heading">Primitives</h2>
-                    <div className="function-composer__primitives">
-                      {primitiveGroups.map((group) => (
-                        <div key={group} role="group" aria-label={group}>
-                          <h3 className="section-heading">{group}</h3>
-                          <div className="function-composer__primitive-grid">
-                            {matchingPrimitives
-                              .filter((primitive) => primitive.group === group)
-                              .map(({ id, label, description, icon: Icon }) => {
-                                const disabled =
-                                  !composition?.supported ||
-                                  (id !== 'output' && (!writable || Boolean(draft) || signaturePending || applyBusy));
-                                return (
-                                  <Button
-                                    key={id}
-                                    size="sm"
-                                    variant="ghost"
-                                    title={description}
-                                    disabled={disabled}
-                                    draggable={id !== 'output' && !disabled}
-                                    onDragStart={(event) => {
-                                      event.dataTransfer.setData(PRIMITIVE_MIME, id);
-                                      event.dataTransfer.effectAllowed = 'copy';
-                                    }}
-                                    onClick={() =>
-                                      id === 'output'
-                                        ? pick(composition!.steps.find((step) => step.kind === 'return')!)
-                                        : void beginAdd(undefined, undefined, id)
-                                    }
-                                  >
-                                    <Icon aria-hidden="true" />
-                                    {label}
-                                  </Button>
-                                );
-                              })}
-                          </div>
-                        </div>
-                      ))}
-                      {!matchingPrimitives.length && <p>No matching primitives.</p>}
-                    </div>
-                  </aside>
-                )
-              },
-              {
-                id: 'compose-canvas',
-                minSize: '320px',
-                separatorLabel: 'Resize composition palette',
-                stacked: { minSize: '35%' },
-                content: (
-                  <section className="function-composer__center" aria-label="Composition editor">
-                    {editor && (
-                      <WorkbenchViewBar
-                        label="Composition view"
-                        groups={[
-                          {
-                            label: 'View',
-                            views: [
-                              {
-                                id: 'canvas',
-                                label: 'Canvas',
-                                icon: Network,
-                                active: canvasVisible,
-                                disabled: sourceOnly,
-                                onToggle: () => {
-                                  if (!canvasOpen || sourceVisible) setCanvasOpen(!canvasOpen);
-                                }
-                              },
-                              {
-                                id: 'source',
-                                label: 'Source',
-                                icon: Code,
-                                active: sourceVisible,
-                                disabled: sourceOnly,
-                                onToggle: () => {
-                                  if (!source || canvasVisible) setSource(!source);
-                                }
-                              }
-                            ]
-                          }
-                        ]}
-                      >
-                        {!composition && presented && (
-                          <span className="function-composer__pending" role="status">
-                            Updating…
-                          </span>
-                        )}
-                      </WorkbenchViewBar>
-                    )}
-                    <SplitWorkbench
-                      stackAt={600}
-                      panes={[
-                        {
-                          id: 'composition-canvas-view',
-                          minSize: '20%',
-                          visible: canvasVisible,
-                          content: (
-                            <section
-                              ref={setCanvasElement}
-                              className="function-composer__canvas"
-                              aria-label="Composition canvas"
-                            >
-                              {sourceVisible && <WorkbenchPaneHeading label="Canvas" />}
-
-                              {!editor ? (
-                                <div className="function-composer__empty">
-                                  <Workflow />
-                                  <h2>Compose a Rune function</h2>
-                                  <p>Select a function from the palette or create a composition.</p>
-                                  <Button onClick={() => setCreating(true)}>New composition</Button>
-                                </div>
-                              ) : !presented ? (
-                                <div className="function-composer__empty" role="status">
-                                  <p>
-                                    {loading
-                                      ? 'Resolving composition…'
-                                      : editor.readOnly
-                                        ? 'Reference source is read-only. Open Source to inspect it, or use Modify in Inspector.'
-                                        : 'Waiting for the current source to parse. Open Source to inspect or correct it.'}
-                                  </p>
-                                  <Button variant="ghost" onClick={() => setSource(true)}>
-                                    Open Source
-                                  </Button>
-                                </div>
-                              ) : (
-                                <CompositionCanvas
-                                  key={viewKey}
-                                  current={composition}
-                                  presented={presented}
-                                  source={presentedSource}
-                                  preview={preview}
-                                  wiring={wiring}
-                                  active={active}
-                                  vertical={vertical}
-                                  selected={selected}
-                                  variablesOpen={variablesOpen}
-                                  viewKey={viewKey}
-                                  size={canvasSize}
-                                  focus={focusId}
-                                  setFocus={setFocusId}
-                                  positions={positions.current}
-                                  viewports={viewports.current}
-                                  onSelect={pick}
-                                  onDraftMove={(position) => {
-                                    if (draft?.adding) changeDraft({ ...draft, position });
+          <ComposeWorkbench
+            workspaceKey={workspaceKey}
+            active={active}
+            onReady={(api) => {
+              dock.current = api;
+            }}
+            palette={
+              <aside className="function-composer__side" aria-label="Composition palette">
+                <div className="function-composer__panel-body studio-scroll">
+                  <SearchInput
+                    aria-label="Search functions and primitives"
+                    placeholder="Search functions & primitives"
+                    value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      if (event.target.value.trim()) setDiscover(true);
+                    }}
+                  />
+                  {portContext && (
+                    <p>
+                      Suggested for {composition?.steps.find((step) => step.id === portContext)?.name}.{' '}
+                      <Button size="xs" variant="ghost" onClick={() => setPortContext(undefined)}>
+                        Clear context
+                      </Button>
+                    </p>
+                  )}
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    disabled={loading || !composition?.supported || Boolean(composition.callables)}
+                    onClick={() => {
+                      setDiscover(true);
+                      setRetry(retry + 1);
+                    }}
+                  >
+                    {discover && loading
+                      ? 'Loading signatures…'
+                      : composition?.callables
+                        ? 'Signatures loaded'
+                        : 'Show signatures'}
+                  </Button>
+                  <FunctionPalette
+                    repository={repository}
+                    query={query}
+                    callables={composition?.callables}
+                    portContext={portContext}
+                    selectedNodeId={identity}
+                    canAdd={writable && !draft && !signaturePending && !applyBusy}
+                    onOpen={navigate}
+                    onAdd={(id) => void beginAdd(id)}
+                  />
+                  <h2 className="section-heading">Primitives</h2>
+                  <div className="function-composer__primitives">
+                    {primitiveGroups.map((group) => (
+                      <div key={group} role="group" aria-label={group}>
+                        <h3 className="section-heading">{group}</h3>
+                        <div className="function-composer__primitive-grid">
+                          {matchingPrimitives
+                            .filter((primitive) => primitive.group === group)
+                            .map(({ id, label, description, icon: Icon }) => {
+                              const disabled =
+                                !composition?.supported ||
+                                (id !== 'output' && (!writable || Boolean(draft) || signaturePending || applyBusy));
+                              return (
+                                <Button
+                                  key={id}
+                                  size="sm"
+                                  variant="ghost"
+                                  title={description}
+                                  disabled={disabled}
+                                  draggable={id !== 'output' && !disabled}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.setData(PRIMITIVE_MIME, id);
+                                    event.dataTransfer.effectAllowed = 'copy';
                                   }}
-                                  onConnect={connectNodes}
-                                  onDrop={(event) => {
-                                    event.preventDefault();
-                                    const primitive = findCompositionPrimitive(
-                                      event.dataTransfer.getData(PRIMITIVE_MIME)
-                                    );
-                                    const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-                                    if (primitive && primitive.id !== 'output') {
-                                      void beginAdd(undefined, position, primitive.id);
-                                      return;
-                                    }
-                                    const id = event.dataTransfer.getData(MIME);
-                                    if (repository.byId(id)?.data.$type === 'RosettaFunction')
-                                      void beginAdd(id, position);
-                                  }}
-                                />
-                              )}
-                              {variablesOpen && presented?.supported && (
-                                <div
-                                  className="composition-variables nodrag"
-                                  role="region"
-                                  aria-label="Available variables"
+                                  onClick={() =>
+                                    id === 'output'
+                                      ? pick(composition!.steps.find((step) => step.kind === 'return')!)
+                                      : void beginAdd(undefined, undefined, id)
+                                  }
                                 >
-                                  <div className="composition-variables__header">
-                                    <strong className="section-heading">Variables</strong>
-                                    <Input
-                                      aria-label="Filter variables"
-                                      placeholder="Filter variables"
-                                      value={variableQuery}
-                                      onChange={(event) => setVariableQuery(event.target.value)}
-                                    />
-                                    <Button size="xs" variant="ghost" onClick={() => setVariablesOpen(false)}>
-                                      Hide
-                                    </Button>
-                                  </div>
-                                  <p>
-                                    Drag a variable to a node input or output. Or select a tag and use Bind selected.
-                                  </p>
-                                  <div className="composition-variables__tags">
-                                    {variables
-                                      .filter((variable) =>
-                                        variable.name.toLowerCase().includes(variableQuery.toLowerCase())
-                                      )
-                                      .map((variable) => (
-                                        <button
-                                          key={variable.id}
-                                          type="button"
-                                          className="composition-variable-tag"
-                                          aria-pressed={selectedVariable === variable.id}
-                                          draggable={writable}
-                                          title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
-                                          onClick={() => setSelectedVariable(variable.id)}
-                                          onDragStart={(event) => {
-                                            event.dataTransfer.setData(
-                                              VARIABLE_MIME,
-                                              JSON.stringify({ owner: identity, variable: variable.id })
-                                            );
-                                            event.dataTransfer.effectAllowed = 'link';
-                                          }}
-                                        >
-                                          <span>{variable.name}</span>
-                                          <small>{variable.kind === 'variable' ? variable.type : variable.kind}</small>
-                                        </button>
-                                      ))}
-                                  </div>
-                                </div>
-                              )}
-                            </section>
-                          )
+                                  <Icon aria-hidden="true" />
+                                  {label}
+                                </Button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    ))}
+                    {!matchingPrimitives.length && <p>No matching primitives.</p>}
+                  </div>
+                </div>
+              </aside>
+            }
+            center={
+              <section className="function-composer__center" aria-label="Composition editor">
+                <WorkbenchViewBar
+                  label="Composition view"
+                  groups={[
+                    {
+                      label: 'View',
+                      views: [
+                        {
+                          id: 'canvas',
+                          label: 'Canvas',
+                          icon: Network,
+                          active: canvasVisible,
+                          disabled: !editor || sourceOnly,
+                          onToggle: () => {
+                            if (!canvasOpen || sourceVisible) setCanvasOpen(!canvasOpen);
+                          }
                         },
                         {
-                          id: 'composition-source-view',
-                          minSize: '20%',
-                          visible: sourceVisible,
-                          separatorLabel: 'Resize composition views',
-                          content: (
-                            <section className="function-composer__source-pane" aria-label="Composition source">
-                              {canvasVisible && <WorkbenchPaneHeading label="Source" />}
-                              {sourceView}
-                            </section>
-                          )
+                          id: 'source',
+                          label: 'Source',
+                          icon: Code,
+                          active: sourceVisible,
+                          disabled: !editor || sourceOnly,
+                          onToggle: () => {
+                            if (!source || canvasVisible) setSource(!source);
+                          }
                         }
-                      ]}
-                    />
-                  </section>
-                )
-              },
-              {
-                id: 'compose-details',
-                visible: details,
-                defaultSize: '304px',
-                minSize: '220px',
-                maxSize: '45%',
-                separatorLabel: 'Resize composition details',
-                stacked: { defaultSize: '30%', minSize: '15%', maxSize: '50%' },
-                content: (
-                  <aside className="function-composer__details studio-scroll" aria-label="Composition details">
-                    <div className="function-composer__tabs" role="group" aria-label="Inspector view">
-                      <Button
-                        className="navigation-tab"
-                        size="xs"
-                        variant="ghost"
-                        aria-pressed={tab === 'step'}
-                        onClick={() => setTab('step')}
-                      >
-                        Step
-                      </Button>
-                      <Button
-                        className="navigation-tab"
-                        size="xs"
-                        variant="ghost"
-                        aria-pressed={tab === 'signature'}
-                        onClick={() => setTab('signature')}
-                      >
-                        Signature & details
-                      </Button>
-                    </div>
-                    {tab === 'signature' ? (
-                      inspector
+                      ]
+                    }
+                  ]}
+                >
+                  {!composition && presented && (
+                    <span className="function-composer__pending" role="status">
+                      Updating…
+                    </span>
+                  )}
+                </WorkbenchViewBar>
+                <SplitWorkbench
+                  stackAt={600}
+                  panes={[
+                    {
+                      id: 'composition-canvas-view',
+                      minSize: '20%',
+                      visible: canvasVisible,
+                      content: (
+                        <section
+                          ref={setCanvasElement}
+                          className="function-composer__canvas"
+                          aria-label="Composition canvas"
+                        >
+                          {sourceVisible && <WorkbenchPaneHeading label="Canvas" />}
+
+                          {!editor ? (
+                            <div className="function-composer__empty">
+                              <Workflow />
+                              <h2>Compose a Rune function</h2>
+                              <p className="text-caption">
+                                Select a function from the palette or create a composition.
+                              </p>
+                              <Button onClick={() => setCreating(true)}>New composition</Button>
+                            </div>
+                          ) : !presented ? (
+                            <div className="function-composer__empty" role="status">
+                              <p>
+                                {loading
+                                  ? 'Resolving composition…'
+                                  : editor.readOnly
+                                    ? 'Reference source is read-only. Open Source to inspect it, or use Modify in Inspector.'
+                                    : 'Waiting for the current source to parse. Open Source to inspect or correct it.'}
+                              </p>
+                              <Button variant="ghost" onClick={() => setSource(true)}>
+                                Open Source
+                              </Button>
+                            </div>
+                          ) : (
+                            <CompositionCanvas
+                              key={viewKey}
+                              current={composition}
+                              presented={presented}
+                              source={presentedSource}
+                              preview={preview}
+                              wiring={wiring}
+                              active={active}
+                              vertical={vertical}
+                              selected={selected}
+                              variablesOpen={variablesOpen}
+                              viewKey={viewKey}
+                              size={canvasSize}
+                              focus={focusId}
+                              setFocus={setFocusId}
+                              positions={positions.current}
+                              viewports={viewports.current}
+                              onSelect={pick}
+                              onDraftMove={(position) => {
+                                if (draft?.adding) changeDraft({ ...draft, position });
+                              }}
+                              onConnect={connectNodes}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                const primitive = findCompositionPrimitive(event.dataTransfer.getData(PRIMITIVE_MIME));
+                                const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+                                if (primitive && primitive.id !== 'output') {
+                                  void beginAdd(undefined, position, primitive.id);
+                                  return;
+                                }
+                                const id = event.dataTransfer.getData(MIME);
+                                if (repository.byId(id)?.data.$type === 'RosettaFunction') void beginAdd(id, position);
+                              }}
+                            />
+                          )}
+                          {variablesOpen && presented?.supported && (
+                            <div
+                              className="composition-variables nodrag"
+                              role="region"
+                              aria-label="Available variables"
+                            >
+                              <div className="composition-variables__header">
+                                <strong className="section-heading">Variables</strong>
+                                <Input
+                                  aria-label="Filter variables"
+                                  placeholder="Filter variables"
+                                  value={variableQuery}
+                                  onChange={(event) => setVariableQuery(event.target.value)}
+                                />
+                                <Button size="xs" variant="ghost" onClick={() => setVariablesOpen(false)}>
+                                  Hide
+                                </Button>
+                              </div>
+                              <p className="text-caption">
+                                Drag a variable to a node input or output. Or select a tag and use Bind selected.
+                              </p>
+                              <div className="composition-variables__tags">
+                                {variables
+                                  .filter((variable) =>
+                                    variable.name.toLowerCase().includes(variableQuery.toLowerCase())
+                                  )
+                                  .map((variable) => (
+                                    <button
+                                      key={variable.id}
+                                      type="button"
+                                      className="composition-variable-tag"
+                                      aria-pressed={selectedVariable === variable.id}
+                                      draggable={writable}
+                                      title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
+                                      onClick={() => setSelectedVariable(variable.id)}
+                                      onDragStart={(event) => {
+                                        event.dataTransfer.setData(
+                                          VARIABLE_MIME,
+                                          JSON.stringify({ owner: identity, variable: variable.id })
+                                        );
+                                        event.dataTransfer.effectAllowed = 'link';
+                                      }}
+                                    >
+                                      <span>{variable.name}</span>
+                                      <small>{variable.kind === 'variable' ? variable.type : variable.kind}</small>
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </section>
+                      )
+                    },
+                    {
+                      id: 'composition-source-view',
+                      minSize: '20%',
+                      visible: sourceVisible,
+                      separatorLabel: 'Resize composition views',
+                      content: (
+                        <section className="function-composer__source-pane" aria-label="Composition source">
+                          {canvasVisible && <WorkbenchPaneHeading label="Source" />}
+                          {sourceView}
+                        </section>
+                      )
+                    }
+                  ]}
+                />
+              </section>
+            }
+            details={
+              <aside className="function-composer__side" aria-label="Composition details">
+                <Tabs
+                  className="flex min-h-0 flex-1 flex-col"
+                  value={tab}
+                  onValueChange={(value: 'step' | 'signature') => setTab(value)}
+                >
+                  <TabsList size="sm" aria-label="Composition details" className="shrink-0 px-2">
+                    <TabsTrigger value="step">Step</TabsTrigger>
+                    <TabsTrigger value="signature">Signature & details</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="signature" className="function-composer__panel-body studio-scroll">
+                    {inspector}
+                  </TabsContent>
+                  <TabsContent value="step" className="function-composer__panel-body studio-scroll">
+                    {!editor ? (
+                      <p>Select a function to inspect its steps.</p>
                     ) : !presented?.supported ? (
-                      <p>Use Source or Signature & details for this function.</p>
+                      <p className="text-caption">Use Source or Signature & details for this function.</p>
                     ) : (
                       <>
                         <label className="function-composer__step-picker">
@@ -1317,7 +1263,9 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                             onClick={() => {
                               setPortContext(selectedStep.id);
                               setDiscover(true);
-                              setPalette(true);
+                              const panel = dock.current?.getPanel('compose.palette');
+                              if (panel?.api.location.type === 'edge') panel.group.api.expand();
+                              panel?.api.setActive();
                               setQuery('');
                             }}
                           >
@@ -1384,10 +1332,10 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                         )}
                       </>
                     )}
-                  </aside>
-                )
-              }
-            ]}
+                  </TabsContent>
+                </Tabs>
+              </aside>
+            }
           />
         )}
         <Dialog

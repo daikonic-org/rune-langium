@@ -299,38 +299,13 @@ export interface ScratchTypeSpec {
   extraDeclarations?: string[];
 }
 
-/**
- * Reaches a blank scratch workspace and a cleared, focused Source editor,
- * ready for paced typing. Shared by `authorScratchType` and
- * `authorScratchFunction` below — both author a top-level declaration via
- * raw Rune DSL typing (this app has no graphical "create type"/"create
- * function" UI; see `authorScratchType`'s own doc comment for the type
- * side of that finding), so the reach-workspace + open-Source + select-all
- * + delete boilerplate is centralized here rather than duplicated per
- * declaration kind (DRY).
- *
- * Reaches a blank workspace via the same file-input flow J02/J07 already
- * use (a fresh Playwright page gets its own OPFS/IndexedDB origin, so this
- * always starts from an empty workspace on the FIRST call in a test).
- *
- * A later call in the SAME test — e.g. J9's curated-then-scratch function
- * journey, which calls `loadCdm(page)` before `authorScratchFunction(page)`
- * — is a different case: `page.goto('./')` reopens whatever workspace is
- * already active instead of showing the fresh model-loader screen the file
- * input below expects (confirmed live against production this session).
- * Force it via the same `rail-workspaces` round trip `loadCdm` itself
- * already uses to get FROM a freshly-created workspace BACK to the loader
- * screen — but only when needed, since that testid doesn't exist yet on a
- * truly first-ever page load (the model-loader renders standalone, with no
- * rail chrome, until a workspace exists).
- */
+/** Use the launcher to open a fresh scratch workspace, including after a curated journey. */
 async function reachBlankScratchSource(page: Page): Promise<Locator> {
-  await page.goto('./');
-  await page.waitForLoadState('domcontentloaded');
+  if (page.url() === 'about:blank') await page.goto('./');
   const modelLoader = page.getByTestId('workspaces-perspective');
-  if (!(await modelLoader.isVisible().catch(() => false))) {
-    await page.getByTestId('rail-workspaces').click();
-  }
+  const workspaces = page.getByTestId('rail-workspaces');
+  await expect(modelLoader.or(workspaces).first()).toBeVisible({ timeout: 20000 });
+  if (!(await modelLoader.isVisible())) await workspaces.click();
   await expect(modelLoader).toBeVisible({ timeout: 20000 });
 
   const fileInput = page.locator('input[type="file"][accept=".rosetta"]');

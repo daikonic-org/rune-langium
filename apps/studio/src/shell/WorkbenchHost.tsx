@@ -16,6 +16,7 @@ import {
   collapseAuxiliaryPanels,
   consolidateExplorePreviewPanels,
   getExploreSidePanel,
+  getWorkbenchSidePanel,
   type AuxiliaryPanelLayout
 } from './auxiliary-panel-layout.js';
 import { PanelCollapseButton } from './PanelCollapseButton.js';
@@ -103,7 +104,7 @@ function SidePanelHeaderAction({
         group.element.isConnected &&
         group.panels.length > 0 &&
         group.api.location.type === 'grid' &&
-        !getExploreSidePanel(group.panels.map((panel) => panel.api.component))
+        !getWorkbenchSidePanel(group.panels.map((panel) => panel.api.component))
       ) {
         group.api.setConstraints(sideLayout.expandedConstraints);
         group.api.setSize({ width: sideLayout.expandedWidth });
@@ -120,7 +121,7 @@ function SidePanelHeaderAction({
       if (
         element.isConnected &&
         group.panels.length > 0 &&
-        !getExploreSidePanel(group.panels.map((panel) => panel.api.component))
+        !getWorkbenchSidePanel(group.panels.map((panel) => panel.api.component))
       ) {
         setPreviewPanelTitles(group, false);
         group.api.setHeaderPosition('top');
@@ -271,7 +272,7 @@ function PreviewFocusButton({ group }: { group: IDockviewHeaderActionsProps['gro
 
 function WorkbenchHeaderActions(props: IDockviewHeaderActionsProps) {
   const { auxiliary, refresh, original: Original } = useContext(HeaderActionsContext);
-  const side = getExploreSidePanel(props.group.panels?.map((panel) => panel.api.component) ?? []);
+  const side = getWorkbenchSidePanel(props.group.panels?.map((panel) => panel.api.component) ?? []);
   if (side) return <SidePanelHeaderAction group={props.group} {...side} auxiliary={auxiliary} />;
   if (!auxiliary?.isManaged(props.group.id)) return Original ? <Original {...props} /> : null;
   const pinned = auxiliary.isPinned(props.group.id);

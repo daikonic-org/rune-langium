@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLatestRef } from '@rune-langium/visual-editor';
 import { canonicalProjectJson, readWorkflows, type WorkflowDescriptor } from '@rune-langium/project-config';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
@@ -28,12 +29,14 @@ export const WorkflowLibrary = withInstrumentation(
     open,
     onBeforeSave,
     onNew,
+    requestedWorkflow,
     disabled = false
   }: {
     capture(id: string, name: string): WorkflowDescriptor;
     open(workflow: WorkflowDescriptor): Promise<void>;
     onBeforeSave?(): void;
     onNew?(): void;
+    requestedWorkflow?: { id: string };
     disabled?: boolean;
   }) {
     const project = useProject();
@@ -122,6 +125,54 @@ export const WorkflowLibrary = withInstrumentation(
       if (!disabled)
         drafts.current.set(active ?? ':draft', capture(active ?? ':draft', current?.name ?? 'Unsaved workflow'));
     };
+    const selectWorkflow = (id: string | null) => {
+      if (!id || id === active) return;
+      try {
+        rememberDraft();
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'This draft could not be retained.');
+        return;
+      }
+      const stored = read?.workflows.find((entry) => entry.id === id);
+      const workflow = drafts.current.get(id) ?? stored;
+      if (id === ':draft' && !workflow) {
+        onNew?.();
+        setActive(undefined);
+        setSaved(undefined);
+        return;
+      }
+      if (!workflow) return;
+      const version = ++generation.current;
+      setBusy(true);
+      setError(undefined);
+      void open(workflow)
+        .then(
+          () => {
+            if (version === generation.current) {
+              setActive(id === ':draft' ? undefined : id);
+              setSaved(stored);
+            }
+          },
+          (error: unknown) => {
+            if (version === generation.current && !(error instanceof Error && error.name === 'AbortError'))
+              setError(
+                error instanceof Error ? error.message : 'The workflow could not be opened. Its recipe is retained.'
+              );
+          }
+        )
+        .finally(() => {
+          if (version === generation.current) setBusy(false);
+        });
+    };
+    const selectLatest = useLatestRef(selectWorkflow);
+    const handledRequest = useRef<typeof requestedWorkflow>(undefined);
+    useEffect(() => {
+      if (!requestedWorkflow || handledRequest.current === requestedWorkflow || busy || dialog || created || !read)
+        return;
+      handledRequest.current = requestedWorkflow;
+      selectLatest.current(requestedWorkflow.id);
+    }, [requestedWorkflow, busy, dialog, created, read, selectLatest]);
+
     const save = async () => {
       if (!project.controller || !name.trim()) return;
       const version = ++generation.current;
@@ -192,50 +243,7 @@ export const WorkflowLibrary = withInstrumentation(
               New workflow
             </Button>
           ) : null}
-          <Select
-            value={active ?? ':draft'}
-            onValueChange={(id) => {
-              if (!id || id === active) return;
-              try {
-                rememberDraft();
-              } catch (error) {
-                setError(error instanceof Error ? error.message : 'This draft could not be retained.');
-                return;
-              }
-              const stored = read?.workflows.find((entry) => entry.id === id);
-              const workflow = drafts.current.get(id) ?? stored;
-              if (id === ':draft' && !workflow) {
-                onNew?.();
-                setActive(undefined);
-                setSaved(undefined);
-                return;
-              }
-              if (!workflow) return;
-              const version = ++generation.current;
-              setBusy(true);
-              setError(undefined);
-              void open(workflow)
-                .then(
-                  () => {
-                    if (version === generation.current) {
-                      setActive(id === ':draft' ? undefined : id);
-                      setSaved(stored);
-                    }
-                  },
-                  (error: unknown) => {
-                    if (version === generation.current && !(error instanceof Error && error.name === 'AbortError'))
-                      setError(
-                        error instanceof Error
-                          ? error.message
-                          : 'The workflow could not be opened. Its recipe is retained.'
-                      );
-                  }
-                )
-                .finally(() => {
-                  if (version === generation.current) setBusy(false);
-                });
-            }}
-          >
+          <Select value={active ?? ':draft'} onValueChange={selectWorkflow}>
             <SelectTrigger
               size="sm"
               className="workflow-library__picker"

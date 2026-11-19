@@ -25,7 +25,7 @@ import { referenceCases, referenceFiles } from '../helpers/cdm-reference.js';
 import { linkedFunctions } from './python-test-utils.js';
 import { normalizePreviewInputs } from '../../src/preview-schema.js';
 import { PYTHON_RUNTIME_SOURCE } from '../../src/projection/python-runtime.js';
-import { generate } from '../../src/export.js';
+import { generate, generateSelected } from '../../src/export.js';
 
 function execute(source: string, cases: readonly { expression: string; data?: unknown }[]) {
   const result = spawnSync(
@@ -61,6 +61,44 @@ async function executableFunctions<T extends Record<string, unknown> = Record<st
 const inheritedMetadataPredicates = ['one-of', 'required choice scalar, many, flag', 'flag only exists'] as const;
 
 describe('complete Python function projections', () => {
+  it('exports and executes one selected module with its transitive function dependencies', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
+    const docs = [
+      BASICTYPES_ROSETTA,
+      `namespace demo.support
+func Double:
+  inputs: amount number (1..1)
+  output: result number (1..1)
+  set result: amount * 2
+func Unused:
+  output: result number (1..1)
+  set result: 99
+`,
+      `namespace demo.export
+import demo.support.*
+func DoubleQuote:
+  inputs: amount number (1..1)
+  output: result number (1..1)
+  set result: Double(amount)
+`
+    ].map((source, index) => factory.fromString(source, URI.parse(`file:///python-export-${index}.rosetta`)));
+    await RuneDsl.shared.workspace.DocumentBuilder.build(docs);
+    assertValidDocuments(docs);
+    const { outputs } = await generateSelected(
+      docs,
+      { namespaces: [], declarations: [{ namespace: 'demo.export', kind: 'RosettaFunction', name: 'DoubleQuote' }] },
+      { target: 'python', strict: true, headerComment: 'Python export sample' }
+    );
+    expect(outputs).toHaveLength(1);
+    const [output] = outputs;
+    expect(output?.relativePath).toBe('model.py');
+    expect(output?.namespaces).toEqual(expect.arrayContaining(['demo.export', 'demo.support']));
+    expect(output?.content).toMatch(/^# Python export sample\n/);
+    expect(output?.content).not.toContain('def Unused(');
+    expect(execute(output!.content, [{ expression: 'DoubleQuote(12)' }])).toEqual([{ value: 24 }]);
+  });
+
   it('executes standard-library Min/Max with qualified names and retains explicit native overrides', async () => {
     const funcs = await linkedFunctions(`namespace python.numeric_library
 func Minimum:

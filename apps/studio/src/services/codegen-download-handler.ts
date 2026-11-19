@@ -797,11 +797,11 @@ export const handleCodegenDownload = withInstrumentation(
       let releaseDocumentCacheConsumer: (() => void) | undefined;
       try {
         if (project) {
-          const { applyEffectiveProject, linkedProjectDocuments } =
+          const { applyEffectiveProject, projectGenerationDocuments } =
             await import('@rune-langium/project-runtime/effective');
           const graph = await applyEffectiveProject(project);
           projectGraph = graph;
-          documents = body.target === 'typescript' ? linkedProjectDocuments(graph) : [...graph.documents];
+          documents = projectGenerationDocuments(graph, body.target);
           resolvedCohorts = Object.fromEntries(
             Object.entries(project.snapshot.lock?.references ?? {}).map(([id, entry]) => [id, entry.cohort])
           );

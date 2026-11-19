@@ -20,7 +20,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
       nativeButton
       render={<button type="button" />}
       className={cn(
-        'peer size-4 shrink-0 rounded-sm border border-input bg-background shadow-sm',
+        'peer relative -top-px size-4 shrink-0 rounded-sm border border-input bg-background shadow-sm',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed disabled:opacity-50',
         'data-[checked]:border-primary data-[checked]:bg-primary data-[checked]:text-primary-foreground',

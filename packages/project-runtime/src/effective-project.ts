@@ -65,6 +65,11 @@ export function linkedProjectDocuments(graph: EffectiveProject): LangiumDocument
   return graph.services.shared.workspace.LangiumDocuments.all.toArray();
 }
 
+/** Include the linked library for targets that emit executable Rune functions. */
+export function projectGenerationDocuments(graph: EffectiveProject, target: string): LangiumDocument[] {
+  return target === 'typescript' || target === 'python' ? linkedProjectDocuments(graph) : [...graph.documents];
+}
+
 /** Host adoption verifies the captured context and acknowledges only a successfully linked graph. */
 export async function applyEffectiveProject(
   input: EffectiveProjectInput,

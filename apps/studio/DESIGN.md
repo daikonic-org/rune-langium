@@ -20,16 +20,17 @@ available; no system preference silently replaces an explicit choice.
   wordmark uses uppercase Transit Sans SemiBold 600 through `--font-title` and
   `--font-weight-semibold`, with the same tracking token as perspective names.
   The four family tokens are `--font-title`, `--font-body`, `--font-mono` and
-  `--font-code`; components must reference them rather than repeat stacks. UI text uses System Book 350 with a direct 1px size
-  reduction. Action buttons use Medium 500; primary
+  `--font-code`; components reference these tokens. UI text uses System Book 350
+  at the configured size tokens. Action buttons use Medium 500. Primary
   actions and center-pane toggles use SemiBold 600. Tabs and field labels retain System Regular 400.
-  Internal section labels use System Regular 400. Pane captions use Title/Sans
+  Internal section labels use System Regular 400. Panel headings use Title/Sans
   Medium 500; Inspector declaration names and Structure card names use Medium 500.
-  Other titles use Sans Regular 400 at their unscaled sizes; detail-pane titles use
-  Sans Medium 500 at 13px. The UI reduction leaves root rem geometry unchanged. CodeMirror uses bundled Transit Code Book 350 through `--font-code`,
-  including its line-number gutters. Studio reduces editor and other monospace
-  text by 1px via `--studio-mono-font-reduction`. Other monospace UI keeps
-  JetBrains Mono through `--font-mono`. Keywords retain italic emphasis.
+  Explanatory copy uses the shared `text-caption` style with System italic and
+  the caption foreground. Other titles use Sans Regular 400. Detail-pane titles use Sans Medium 500 at 13px.
+  CodeMirror content and gutters use bundled Transit Code Book 350 through
+  `--font-code`. Keyword emphasis uses the bundled italic face. Compact
+  JetBrains Mono labels and source metadata use `--font-mono` and
+  `--studio-mono-font-reduction`.
 - Ice `#eaf1f0` surrounds white cards. Petrol `#123f46` identifies primary actions;
   mint `#d7f5a9` is secondary action fill with dark green text. Avoid broad lilac
   washes: `#7160b5` is the focus cue.

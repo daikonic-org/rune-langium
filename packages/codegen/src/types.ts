@@ -22,6 +22,7 @@ import type { OpenApiOptions } from './options/openapi-options.js';
  * - `zod`         — FR-002–FR-014 (US1, per-namespace)
  * - `json-schema` — FR-019 (per-namespace)
  * - `typescript`  — FR-020 (per-namespace; includes `func` emission)
+ * - `python`      — whole-model standalone module including `func` emission
  * - `sql`         — 018 Phase 2 (per-namespace DDL emitter)
  * - `markdown`    — 018 Phase 2 (per-namespace docs emitter)
  * - `excel`       — 018 Phase 1 (whole-model binary emitter, .xlsx)
@@ -48,6 +49,7 @@ export type Target =
   | 'zod'
   | 'json-schema'
   | 'typescript'
+  | 'python'
   | 'sql'
   | 'markdown'
   | 'excel'
@@ -433,6 +435,12 @@ export const TARGET_DESCRIPTORS: Record<Target, TargetDescriptor> = {
     contract: 'namespace',
     desc: 'Type-only interfaces',
     extension: '.ts'
+  },
+  python: {
+    label: 'Python',
+    contract: 'whole-model',
+    desc: 'Standalone Python 3.13+ module with Rune types and functions',
+    extension: '.py'
   },
   'json-schema': {
     label: 'JSON Schema',

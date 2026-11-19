@@ -262,7 +262,7 @@ const EditorFormPanel = memo(function EditorFormPanel({
         ref={panelRef}
         data-slot="editor-form-panel"
         aria-label="Editor form"
-        className="flex items-center justify-center h-full text-sm text-muted-foreground"
+        className="flex items-center justify-center h-full text-sm text-caption"
         tabIndex={-1}
       >
         Select a node to edit

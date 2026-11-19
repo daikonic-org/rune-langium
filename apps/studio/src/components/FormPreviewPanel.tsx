@@ -536,7 +536,7 @@ export const FormPreviewPanel = withInstrumentation(
               </span>
             </div>
           ) : (
-            <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+            <p role="status" aria-live="polite" className="text-sm text-caption">
               {getStatusOnlyMessage(schema, status)}
             </p>
           )}
@@ -754,7 +754,7 @@ export const FormPreviewPanel = withInstrumentation(
                           ready={!isResolvingReferences && status.state !== 'waiting'}
                         />
                       </pre>
-                      <p role="status" aria-live="polite" className="text-2xs text-muted-foreground">
+                      <p role="status" aria-live="polite" className="text-2xs text-caption">
                         {copyFeedback ?? 'Sample data stays in-memory until you explicitly copy it.'}
                       </p>
                     </div>
