@@ -875,7 +875,7 @@ export const PrototypeWorkflow = withInstrumentation(
             </>
           ) : retainedResult ? (
             <div className="space-y-2 p-2">
-              <p role="status" className="text-xs text-muted-foreground">
+              <p role="status" className="text-xs text-caption">
                 Previous result — execute again to refresh. This result cannot be saved as a current example.
               </p>
               <pre
@@ -1070,7 +1070,7 @@ export const PrototypeWorkflow = withInstrumentation(
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-caption">
                         No transform is required. Choose one compatible function to execute.
                       </p>
                     )}
@@ -1080,7 +1080,7 @@ export const PrototypeWorkflow = withInstrumentation(
                       </p>
                     ) : null}
                     {state.error ? (
-                      <p role="alert" className="text-xs text-destructive">
+                      <p role="alert" className="workflow-node__error text-xs">
                         {state.error}
                         {state.schemaStatus === 'unavailable' && state.functionFqn ? (
                           <Button

@@ -4,6 +4,7 @@
 import { stat } from 'node:fs/promises';
 import { checkout as test, expect, loadCdm } from '../fixtures.js';
 import { ANCHOR_DATA } from '../anchors.js';
+import { codeMirrorDocument } from '../../helpers/source-editor.js';
 import { typeSelectionCheckbox } from '../../helpers/type-navigation.js';
 import type { Page } from '@playwright/test';
 
@@ -63,8 +64,9 @@ test.describe('J13 — Export perspective', () => {
         return;
       }
 
-      await expect(preview.getByLabel('Generated export code')).not.toBeEmpty();
-      await expect(preview.getByLabel('Generated export code')).toContainText('BusinessCenters');
+      const code = preview.getByLabel('Generated export code');
+      await expect(code).toBeVisible();
+      await expect.poll(() => codeMirrorDocument(code)).toContain('BusinessCenters');
       await expect(page.getByTestId('export-selection-summary')).toContainText('declarations included');
       const [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 20000 }),

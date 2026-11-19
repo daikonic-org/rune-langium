@@ -413,6 +413,13 @@
   font-size: var(--text-sm);
 }
 
+/* Explanatory copy uses the body family and a theme-relative foreground. */
+.text-caption {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: var(--caption-foreground);
+}
+
 /* ── Base layer ───────────────────────────────────────────────── */
 @layer base {
   * {

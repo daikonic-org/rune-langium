@@ -96,7 +96,7 @@
   min-height: var(--space-8);
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--border);
-  background: var(--workflow-header);
+  background: color-mix(in oklch, var(--workflow-header) 40%, transparent);
 }
 
 .workflow-node[data-type-kind="Choice"] {
@@ -122,6 +122,10 @@
   margin-right: auto;
   overflow-wrap: anywhere;
   min-width: 0;
+}
+
+.workflow-node__error {
+  color: var(--color-status-error);
 }
 
 .workflow-node__type {

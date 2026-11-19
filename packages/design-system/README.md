@@ -115,7 +115,9 @@ container centers icons independently.
 `FieldGroup` uses 8px row gaps, with 12px between nested groups/sets. Native
 selects restore platform arrows in forced-colors mode.
 Horizontal Field rows use an 8px control-to-label gap; vertical fields retain
-the 4px label-to-control gap. Descriptions align with their label column.
+the 4px label-to-control gap. Descriptions align with their label column. Use `text-caption` for explanatory
+copy, including shared field and dialog descriptions. It uses the Body italic
+face and a caption foreground 15% closer to the active theme’s foreground.
 
 Tabs, tree navigation, graph handles and multiline diagnostic rows retain their
 specific interaction and geometry. Cardinality presets and namespace picker

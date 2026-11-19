@@ -91,9 +91,7 @@ export const ExportSettingsPanel = withInstrumentation(
         <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border px-3 py-2">
           <div className="min-w-0 flex-1 basis-52">
             <h2 className="text-sm font-semibold">Export settings</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Generate the selected scope and its required dependencies.
-            </p>
+            <p className="mt-1 text-xs text-caption">Generate the selected scope and its required dependencies.</p>
           </div>
           <div
             role="group"
@@ -213,9 +211,7 @@ export const ExportSettingsPanel = withInstrumentation(
           {projectEnabled && (
             <div className="flex flex-col gap-2 border-b border-border pb-3">
               {selectedTargetName && (
-                <p className="text-xs text-muted-foreground">
-                  Uses saved namespace scope and writes output to the workspace.
-                </p>
+                <p className="text-xs text-caption">Uses saved namespace scope and writes output to the workspace.</p>
               )}
               {initialization && <ProjectInitializationEvidence status={initialization} />}
               <div className="flex min-w-0 gap-1.5">
@@ -269,7 +265,7 @@ export const ExportSettingsPanel = withInstrumentation(
                 )}
               </div>
               {targetDirty && (
-                <p className="text-xs text-muted-foreground">Unsaved target settings. Build uses the saved settings.</p>
+                <p className="text-xs text-caption">Unsaved target settings. Build uses the saved settings.</p>
               )}
               {selectedTargetName && (
                 <p className="break-words text-xs text-muted-foreground">

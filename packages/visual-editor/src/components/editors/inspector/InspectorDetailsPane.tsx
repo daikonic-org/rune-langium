@@ -180,11 +180,7 @@ export function InspectorDetailsPane({
         hidden={collapsed}
         className="studio-scroll min-h-0 flex-1 overflow-auto pb-panel-y"
       >
-        {targetName ? (
-          children
-        ) : (
-          <p className="text-xs text-muted-foreground">Select a member to inspect its details.</p>
-        )}
+        {targetName ? children : <p className="text-xs text-caption">Select a member to inspect its details.</p>}
       </div>
     </div>
   );

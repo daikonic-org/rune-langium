@@ -122,7 +122,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="field-description"
       className={cn(
-        'text-muted-foreground text-xs leading-normal font-normal group-has-[[data-orientation=horizontal]]/field:text-balance',
+        'text-caption text-xs leading-normal font-normal group-has-[[data-orientation=horizontal]]/field:text-balance',
         '[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4',
         className
       )}

@@ -13,13 +13,14 @@ import { describe, it, expect } from 'vitest';
 import { TARGET_DESCRIPTORS } from '../src/export.js';
 
 describe('TARGET_DESCRIPTORS', () => {
-  it('has all nine target entries', () => {
+  it('lists all supported export targets', () => {
     expect(Object.keys(TARGET_DESCRIPTORS).sort()).toEqual([
       'excel',
       'graphql',
       'json-schema',
       'markdown',
       'openapi',
+      'python',
       'sql',
       'typescript',
       'xsd',
@@ -27,9 +28,10 @@ describe('TARGET_DESCRIPTORS', () => {
     ]);
   });
 
-  it('marks excel and graphql as whole-model', () => {
+  it('marks Excel, GraphQL, and Python as whole-model', () => {
     expect(TARGET_DESCRIPTORS.excel.contract).toBe('whole-model');
     expect(TARGET_DESCRIPTORS.graphql.contract).toBe('whole-model');
+    expect(TARGET_DESCRIPTORS.python.contract).toBe('whole-model');
   });
 
   it('marks the others as namespace contract', () => {
@@ -38,7 +40,7 @@ describe('TARGET_DESCRIPTORS', () => {
     }
   });
 
-  it('provides a mimeType for whole-model targets', () => {
+  it('provides explicit MIME types for Excel and GraphQL', () => {
     expect(TARGET_DESCRIPTORS.excel.mimeType).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     expect(TARGET_DESCRIPTORS.graphql.mimeType).toBe('application/graphql');
   });
@@ -50,6 +52,7 @@ describe('TARGET_DESCRIPTORS', () => {
     expect(TARGET_DESCRIPTORS.sql.mimeType).toBeUndefined();
     expect(TARGET_DESCRIPTORS.markdown.mimeType).toBeUndefined();
     expect(TARGET_DESCRIPTORS.openapi.mimeType).toBeUndefined();
+    expect(TARGET_DESCRIPTORS.python.mimeType).toBeUndefined();
   });
 
   it('extensions match the spec', () => {
@@ -61,6 +64,7 @@ describe('TARGET_DESCRIPTORS', () => {
     expect(TARGET_DESCRIPTORS.excel.extension).toBe('.xlsx');
     expect(TARGET_DESCRIPTORS.graphql.extension).toBe('.graphql');
     expect(TARGET_DESCRIPTORS.openapi.extension).toBe('.openapi.json');
+    expect(TARGET_DESCRIPTORS.python.extension).toBe('.py');
   });
 
   it('every entry has a non-empty label + desc (UI rendering invariants)', () => {

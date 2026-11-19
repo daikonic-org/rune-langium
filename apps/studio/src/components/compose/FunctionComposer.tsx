@@ -70,7 +70,7 @@ import {
 } from './composition-primitives.js';
 import { FunctionPalette, COMPOSITION_FUNCTION_MIME as MIME } from './FunctionPalette.js';
 const PRIMITIVE_MIME = 'application/x-rune-composition-primitive';
-import { CompositionCanvas, DRAFT_NODE } from './CompositionCanvas.js';
+import { CompositionCanvas, DRAFT_NODE, type SavedCompositionViewport } from './CompositionCanvas.js';
 import { compositionProducerId as producerId, type CompositionWiring } from './composition-graph.js';
 
 export interface FunctionComposerProps {
@@ -163,7 +163,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
   const [draft, setDraft] = useState<Draft>();
   const [expressionEditor, setExpressionEditor] = useState<{ argument?: number }>();
   const drafts = useRef(new Map<string, Draft>());
-  const viewports = useRef(new Map<string, { x: number; y: number; zoom: number }>());
+  const viewports = useRef(new Map<string, SavedCompositionViewport>());
   const positions = useRef(new Map<string, Map<string, XYPosition>>());
   const breadcrumbs = useRef<string[]>([]);
   const selections = useRef(new Map<string, string>());
@@ -1092,7 +1092,9 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                             <div className="function-composer__empty">
                               <Workflow />
                               <h2>Compose a Rune function</h2>
-                              <p>Select a function from the palette or create a composition.</p>
+                              <p className="text-caption">
+                                Select a function from the palette or create a composition.
+                              </p>
                               <Button onClick={() => setCreating(true)}>New composition</Button>
                             </div>
                           ) : !presented ? (
@@ -1162,7 +1164,9 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                                   Hide
                                 </Button>
                               </div>
-                              <p>Drag a variable to a node input or output. Or select a tag and use Bind selected.</p>
+                              <p className="text-caption">
+                                Drag a variable to a node input or output. Or select a tag and use Bind selected.
+                              </p>
                               <div className="composition-variables__tags">
                                 {variables
                                   .filter((variable) =>
@@ -1229,7 +1233,7 @@ function Composer({ workspaceKey, editor, inspector, active, onNavigate, onSave,
                     {!editor ? (
                       <p>Select a function to inspect its steps.</p>
                     ) : !presented?.supported ? (
-                      <p>Use Source or Signature & details for this function.</p>
+                      <p className="text-caption">Use Source or Signature & details for this function.</p>
                     ) : (
                       <>
                         <label className="function-composer__step-picker">

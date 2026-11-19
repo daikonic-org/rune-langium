@@ -17,6 +17,8 @@ import {
   Background,
   Controls,
   applyNodeChanges,
+  getNodesBounds,
+  getViewportForBounds,
   useNodesInitialized,
   useReactFlow,
   type Edge,
@@ -31,9 +33,15 @@ import { CompositionNode, NodeBindingContext, type ComposerNode } from './Compos
 import { compositionEdges, type CompositionWiring } from './composition-graph.js';
 
 const FIT = { padding: 0.12, minZoom: 0.35, maxZoom: 1 };
+const FOCUS = { ...FIT, padding: 0.15 };
 const NODE_TYPES = { composition: CompositionNode };
 const FLOW_OPTIONS = { hideAttribution: true };
 export const DRAFT_NODE = 'draft:new';
+
+export interface SavedCompositionViewport {
+  viewport: Viewport;
+  width: number;
+}
 
 interface Props {
   current?: FunctionComposition;
@@ -50,7 +58,7 @@ interface Props {
   focus?: string;
   setFocus: Dispatch<SetStateAction<string | undefined>>;
   positions: Map<string, Map<string, XYPosition>>;
-  viewports: Map<string, Viewport>;
+  viewports: Map<string, SavedCompositionViewport>;
   onSelect(step: CompositionStep): void;
   onDraftMove(position: XYPosition): void;
   onConnect(connection: Connection): void;
@@ -103,6 +111,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   const actions = useContext(NodeBindingContext);
   const flow = useReactFlow<ComposerNode>();
   const initialized = useNodesInitialized();
+  const graphElement = useRef<HTMLDivElement>(null);
   const cameraKey = useRef<string | undefined>(undefined);
   const previousSize = useRef({ ...size, vertical });
   const edges = useMemo(() => compositionEdges(presented, wiring), [presented, wiring]);
@@ -159,14 +168,29 @@ export const CompositionCanvas = memo(function CompositionCanvas({
     [actions, graphCurrent]
   );
   useEffect(() => {
-    if (!active || !graphCurrent || !initialized || !nodes.length || cameraKey.current === viewKey) return;
+    if (!active || !graphCurrent || !initialized || !nodes.length || !size.width || cameraKey.current === viewKey)
+      return;
     cameraKey.current = viewKey;
     if (!focus) {
       const saved = viewports.get(viewKey);
-      if (saved) void flow.setViewport(saved);
-      else setFocus('*');
+      // A narrower canvas can remount with an older camera for its layout direction.
+      if (saved && size.width >= saved.width) void flow.setViewport(saved.viewport);
+      else setFocus(variablesOpen ? selected : '*');
     }
-  }, [active, graphCurrent, initialized, nodes, viewKey, flow, focus, viewports, setFocus]);
+  }, [
+    active,
+    graphCurrent,
+    initialized,
+    nodes,
+    viewKey,
+    flow,
+    focus,
+    size.width,
+    variablesOpen,
+    selected,
+    viewports,
+    setFocus
+  ]);
   useEffect(() => {
     const previous = previousSize.current;
     previousSize.current = { ...size, vertical };
@@ -194,11 +218,16 @@ export const CompositionCanvas = memo(function CompositionCanvas({
       return;
     let cancelled = false;
     const frame = requestAnimationFrame(() => {
-      void flow
-        .fitView(focus === '*' ? FIT : { nodes: [{ id: focus }], padding: 0.15, minZoom: 0.35, maxZoom: 1 })
-        .then((fitted) => {
-          if (fitted && !cancelled) setFocus((latest) => (latest === focus ? undefined : latest));
-        });
+      const graph = graphElement.current;
+      if (!graph?.clientWidth || !graph.clientHeight) return;
+      const targets = focus === '*' ? nodes : nodes.filter((node) => node.id === focus);
+      const { minZoom, maxZoom, padding } = focus === '*' ? FIT : FOCUS;
+      // React Flow can still hold the previous direction's positions during a remount.
+      const bounds = getNodesBounds(targets);
+      const viewport = getViewportForBounds(bounds, graph.clientWidth, graph.clientHeight, minZoom, maxZoom, padding);
+      void flow.setViewport(viewport).then((fitted) => {
+        if (fitted && !cancelled) setFocus((latest) => (latest === focus ? undefined : latest));
+      });
     });
     return () => {
       cancelled = true;
@@ -239,7 +268,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   );
   return (
     <NodeBindingContext.Provider value={bindings}>
-      <div className="function-composer__graph">
+      <div ref={graphElement} className="function-composer__graph">
         <ReactFlow<ComposerNode>
           nodes={nodes}
           edges={edges}
@@ -257,7 +286,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
           deleteKeyCode={null}
           fitViewOptions={FIT}
           proOptions={FLOW_OPTIONS}
-          onMoveEnd={(_, viewport) => viewports.set(viewKey, viewport)}
+          onMoveEnd={(_, viewport) => viewports.set(viewKey, { viewport, width: size.width })}
           onNodeClick={(_, node) => onSelect(node.data.step)}
           onNodesChange={changeNodes}
           onNodeDragStart={() => {

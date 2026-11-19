@@ -221,7 +221,7 @@ export const ExportPreviewPanel = withInstrumentation(
     if (!artifact && statusNotice) return statusNotice;
     if (!artifact) {
       return (
-        <p id="export-run-status" data-testid="export-artifact-status" className="p-3 text-sm text-muted-foreground">
+        <p id="export-run-status" data-testid="export-artifact-status" className="p-3 text-sm text-caption">
           No export artifact yet. Select declarations or a saved target, then generate.
         </p>
       );
@@ -231,7 +231,7 @@ export const ExportPreviewPanel = withInstrumentation(
         <div data-testid="export-artifact-binary" className="space-y-3 p-3">
           {statusNotice}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">This export contains binary files only.</p>
+            <p className="text-sm text-caption">This export contains binary files only.</p>
             <Button type="button" size="sm" disabled={run.status !== 'ready'} onClick={onDownload}>
               Download export
             </Button>

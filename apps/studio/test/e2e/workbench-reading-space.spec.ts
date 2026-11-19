@@ -26,15 +26,19 @@ for (const theme of ['light', 'daikonic'])
     await page.getByLabel('Theme', { exact: true }).selectOption(theme);
     await page.getByTestId('rail-explore').click();
     await expect(page.getByRole('button', { name: 'Hide Preview panel', exact: true })).toBeVisible();
-    const placeholder = await page
-      .getByTestId('namespace-search')
-      .evaluate((el) => getComputedStyle(el, '::placeholder').color);
-    const muted = await page
-      .getByTestId('namespace-explorer')
-      .locator('p')
-      .first()
-      .evaluate((el) => getComputedStyle(el).color);
+    const { placeholder, muted } = await page.getByTestId('namespace-search').evaluate((input) => {
+      const sample = document.createElement('span');
+      sample.hidden = true;
+      sample.style.color = 'var(--muted-foreground)';
+      input.parentElement!.append(sample);
+      const muted = getComputedStyle(sample).color;
+      sample.remove();
+      return { placeholder: getComputedStyle(input, '::placeholder').color, muted };
+    });
     expect(placeholder).toBe(muted);
+    const caption = page.getByTestId('namespace-explorer').locator('p').first();
+    await expect(caption).toHaveCSS('font-style', 'italic');
+    await expect(caption).not.toHaveCSS('color', muted);
     expect(
       (
         await new AxeBuilder({ page })

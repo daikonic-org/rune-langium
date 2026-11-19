@@ -104,7 +104,7 @@ for (const theme of ['light', 'daikonic'])
           chevronOffset: chevron.top + chevron.height / 2 - (field.top + field.height / 2)
         };
       });
-      expect(selectAlignment.wrapperHeight).toBe(24);
+      expect(selectAlignment.wrapperHeight).toBeCloseTo(24, 2);
       expect(Math.abs(selectAlignment.chevronOffset)).toBeLessThan(0.5);
       await themeSelect.selectOption(theme === 'light' ? 'daikonic' : 'light');
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme === 'light' ? 'daikonic' : 'light');

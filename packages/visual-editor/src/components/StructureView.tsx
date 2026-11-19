@@ -782,7 +782,7 @@ export function StructureView(props: StructureViewProps): React.ReactElement {
   if (!focusedTypeId || !adapterDoc) {
     if (unsupportedSelectedType)
       return (
-        <div data-testid="structure-unsupported-kind-state" className="rune-structure-empty">
+        <div data-testid="structure-unsupported-kind-state" className="rune-structure-empty text-caption">
           <p>
             <strong>{unsupportedSelectedType.name}</strong> is a <code>{unsupportedSelectedType.kind}</code> type and is
             not supported in Structure View.
@@ -791,14 +791,14 @@ export function StructureView(props: StructureViewProps): React.ReactElement {
         </div>
       );
     return (
-      <div data-testid="structure-empty-state" className="rune-structure-empty">
+      <div data-testid="structure-empty-state" className="rune-structure-empty text-caption">
         Select a type from the Type explorer to view its structure.
       </div>
     );
   }
   if (!graph?.nodes.size)
     return (
-      <div data-testid="structure-unsupported-root-state" className="rune-structure-empty">
+      <div data-testid="structure-unsupported-root-state" className="rune-structure-empty text-caption">
         The selected type is no longer available. Select a type from the Namespace Explorer.
       </div>
     );

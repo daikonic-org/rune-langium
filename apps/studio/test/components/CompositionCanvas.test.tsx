@@ -23,7 +23,7 @@ const harness = vi.hoisted(() => {
     palette: vi.fn(),
     inspector: vi.fn(),
     node: vi.fn(),
-    api: { getNode: vi.fn(), fitView: vi.fn(async () => true), setViewport: vi.fn() }
+    api: { setViewport: vi.fn(async () => true) }
   };
 });
 vi.mock('@xyflow/react', async (importOriginal) => ({
@@ -88,7 +88,7 @@ it('restores the saved camera on mount and after navigating away and back', () =
   harness.initialized = true;
   const props = cameraProps();
   const saved = { x: 120, y: -80, zoom: 0.6 };
-  props.viewports.set(props.viewKey, saved);
+  props.viewports.set(props.viewKey, { viewport: saved, width: props.size.width });
   const mounted = render(<CompositionCanvas {...props} />);
   expect(harness.api.setViewport).toHaveBeenLastCalledWith(saved);
   expect(props.setFocus).not.toHaveBeenCalled();
@@ -105,7 +105,7 @@ it('preserves the saved camera through initial measurement and only refocuses on
   harness.initialized = true;
   const props = { ...cameraProps(), variablesOpen: true };
   const saved = { x: 100, y: 200, zoom: 0.75 };
-  props.viewports.set(props.viewKey, saved);
+  props.viewports.set(props.viewKey, { viewport: saved, width: props.size.width });
   const { rerender } = render(<CompositionCanvas {...props} size={{ width: 0, height: 0 }} />);
   rerender(<CompositionCanvas {...props} />);
   expect(harness.api.setViewport).toHaveBeenLastCalledWith(saved);
@@ -118,7 +118,7 @@ it('preserves the saved camera through initial measurement and only refocuses on
 it('keeps explicit focus ahead of a saved camera and fits new functions without a saved camera', () => {
   harness.initialized = true;
   const props = cameraProps();
-  props.viewports.set(props.viewKey, { x: 100, y: 200, zoom: 0.75 });
+  props.viewports.set(props.viewKey, { viewport: { x: 100, y: 200, zoom: 0.75 }, width: props.size.width });
   const mounted = render(<CompositionCanvas {...props} focus="return" />);
   expect(harness.api.setViewport).not.toHaveBeenCalled();
   expect(props.setFocus).not.toHaveBeenCalled();
@@ -133,12 +133,10 @@ it('keeps explicit focus ahead of a saved camera and fits new functions without 
 it('ignores initial and repeated node measurements but refocuses a resized selected node', () => {
   harness.initialized = true;
   const props = { ...cameraProps(), variablesOpen: true };
-  props.viewports.set(props.viewKey, { x: 100, y: 200, zoom: 0.75 });
+  props.viewports.set(props.viewKey, { viewport: { x: 100, y: 200, zoom: 0.75 }, width: props.size.width });
   render(<CompositionCanvas {...props} />);
   const measure = (height: number) =>
     act(() => harness.flow.onNodesChange?.([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }]));
-  // React Flow has already measured its internal node before notifying us.
-  harness.api.getNode.mockReturnValue({ measured: { width: 280, height: 240 } });
   measure(240);
   measure(240);
   expect(props.setFocus).not.toHaveBeenCalled();
