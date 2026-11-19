@@ -366,6 +366,87 @@ test('enters Compose before selecting a function and switches between ordinary f
   expect(errors).toEqual([]);
 });
 
+test('opens existing compositions directly and keeps their call actions separate', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  const library =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*') +
+    `
+func DoubleTwice:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias doubled: Double(value)
+ set result: Double(doubled)
+
+func DoubleAgain:
+ [composition]
+ inputs: value number (1..1)
+ output: result number (1..1)
+ set result: DoubleTwice(value)
+`;
+  const composer = await openComposition(page, library);
+  const palette = composer.getByRole('complementary', { name: 'Composition palette' });
+  const compositions = palette.getByRole('region', { name: 'Compositions', exact: true });
+  const functions = palette.getByRole('region', { name: 'Function library' });
+  const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
+  const twice = compositions.getByRole('button', { name: 'Open DoubleTwice workflow', exact: true });
+  const again = compositions.getByRole('button', { name: 'Open DoubleAgain workflow', exact: true });
+
+  await composer.getByRole('button', { name: 'Browse compositions', exact: true }).click();
+  await expect(search).toBeFocused();
+  await expect(twice).toBeVisible();
+  await expect(again).toBeVisible();
+  await expect(functions.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
+  await expect(functions.getByRole('button', { name: /Open Double(?:Twice|Again)/ })).toHaveCount(0);
+
+  await search.fill('DoubleAgain');
+  await expect(again).toBeVisible();
+  await expect(twice).toHaveCount(0);
+  await search.clear();
+  await again.focus();
+  await again.press('Enter');
+  await expect(again).toHaveAttribute('aria-current', 'true');
+  await expect(composer.locator('.composition-node')).toHaveCount(2);
+  await twice.click();
+  await expect(twice).toHaveAttribute('aria-current', 'true');
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  await expect(composer.getByRole('button', { name: 'Parent', exact: true })).toHaveCount(0);
+
+  await compositions.getByRole('button', { name: 'Add DoubleAgain', exact: true }).click();
+  await expect(twice).toHaveAttribute('aria-current', 'true');
+  const draft = composer.locator('[data-composition-step="draft:new"]');
+  await expect(draft).toContainText('DoubleAgain');
+  await draft.getByRole('button', { name: 'Discard', exact: true }).click();
+
+  const graph = composer.getByRole('application', { name: 'Function dependency graph' });
+  const targetPosition = { x: 80, y: 60 };
+  const original = await projectBackingFiles(page);
+  for (const [item, text] of [
+    [again, 'DoubleAgain'],
+    [functions.getByRole('button', { name: 'Open Double workflow', exact: true }), 'Double'],
+    [palette.getByRole('button', { name: 'Branch', exact: true }), 'Branch']
+  ] as const) {
+    await item.dragTo(graph, { targetPosition });
+    await expect(twice).toHaveAttribute('aria-current', 'true');
+    await expect(draft).toContainText(text);
+    await draft.getByRole('button', { name: 'Discard', exact: true }).click();
+  }
+  await palette.getByRole('button', { name: 'Output', exact: true }).dragTo(graph, { targetPosition });
+  const output = composer.locator('[data-composition-step="return"]');
+  await expect(output).toHaveAttribute('data-selected', 'true');
+  await expect
+    .poll(async () => {
+      const canvas = await graph.boundingBox();
+      const node = await output.boundingBox();
+      return canvas && node
+        ? Math.hypot(node.x - canvas.x - targetPosition.x, node.y - canvas.y - targetPosition.y)
+        : Infinity;
+    })
+    .toBeLessThan(2);
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  expect(await projectBackingFiles(page)).toEqual(original);
+});
+
 test('browses a compact function namespace tree and searches beyond its virtual viewport at HD', async ({
   page
 }, info) => {
@@ -511,6 +592,10 @@ func Analyze:
   const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
   const search = palette.getByRole('textbox', { name: 'Search functions and primitives', exact: true });
   const draft = composer.locator('[data-composition-step="draft:new"]');
+  const canvasLabel = composer
+    .getByRole('button', { name: 'Canvas', exact: true })
+    .locator('[data-slot="button-label"]');
+  await expect(canvasLabel).toHaveCSS('text-box-edge', 'cap alphabetic');
   for (const label of [
     'Expression',
     'Branch',

@@ -27,13 +27,13 @@ const catalog: readonly StarterProject[] = Object.freeze([
   Object.freeze({
     id: 'cdm-examples',
     name: 'CDM example',
-    description: 'Check a vanilla swap, generate its accrual schedule and calculate fixed coupons with CDM.',
+    description: 'Explore CDM swap cashflows, SOFR note valuation and compounded SONIA loan interest.',
     repository: 'daikonic-org/rune-cdm-example',
-    ref: '8433ed5f48f4e82efd8ee29da4b89f9766c50a8f',
+    ref: 'bbe3ba6665ddca9fda31dc5d0480135264a79fa7',
     examples: Object.freeze([
-      'CDM 7.9.0 vanilla swap',
-      'Trade check, accrual schedule and fixed coupons',
-      'Cash and quote examples'
+      'CDM vanilla swap and product cashflows',
+      'SOFR floating-rate note valuation',
+      'Compounded SONIA facility accrual'
     ]),
     requiredCapabilities: Object.freeze(['Verified CDM release', 'Rune execution']),
     status: 'available' as const

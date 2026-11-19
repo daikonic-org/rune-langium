@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { memo, useContext, useState, type ComponentProps } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import type { ReactFlowProps } from '@xyflow/react';
@@ -33,11 +33,11 @@ vi.mock('@xyflow/react', async (importOriginal) => ({
   ReactFlow: (props: ReactFlowProps<ComposerNode>) => {
     harness.flow = props;
     return (
-      <>
+      <div onDrop={props.onDrop} aria-label="Test composition canvas">
         {props.nodes?.map((node) => (
           <Probe key={node.id} data={node.data} />
         ))}
-      </>
+      </div>
     );
   }
 }));
@@ -142,6 +142,29 @@ it('ignores initial and repeated node measurements but refocuses a resized selec
   expect(props.setFocus).not.toHaveBeenCalled();
   measure(300);
   expect(props.setFocus).toHaveBeenCalledExactlyOnceWith('return');
+});
+
+it('keeps the camera steady when a dropped Output expands on selection', () => {
+  harness.initialized = true;
+  const position = { x: 294, y: 30 };
+  const props = {
+    ...cameraProps(),
+    variablesOpen: true,
+    onDrop: vi.fn<ComponentProps<typeof CompositionCanvas>['onDrop']>((_, placeNode) => {
+      placeNode('return', position);
+    })
+  };
+  props.viewports.set(props.viewKey, { viewport: { x: -214, y: 30, zoom: 1 }, width: props.size.width });
+  const { rerender } = render(<CompositionCanvas {...props} selected="" />);
+  const measure = (height: number) =>
+    act(() => harness.flow.onNodesChange?.([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }]));
+  measure(82);
+  fireEvent.drop(screen.getByLabelText('Test composition canvas'));
+  rerender(<CompositionCanvas {...props} />);
+  measure(110);
+
+  expect(props.setFocus).not.toHaveBeenCalled();
+  expect(harness.flow.nodes?.find((node) => node.id === 'return')?.position).toEqual(position);
 });
 
 it('keeps pointer updates inside the canvas and preserves a draft position through semantic edits', () => {

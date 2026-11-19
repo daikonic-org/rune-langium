@@ -137,6 +137,7 @@ export { getAnnotationDefinitions } from './api/annotation-definitions.js';
 export type { AnnotationDefinitionIdentity } from './api/annotation-definitions.js';
 export {
   describeFunctionComposition,
+  hasCompositionAnnotation,
   COMPOSITION_ANNOTATION,
   COMPOSITION_MODEL_SOURCE
 } from './api/function-composition.js';

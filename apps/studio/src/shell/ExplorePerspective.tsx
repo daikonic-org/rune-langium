@@ -3165,6 +3165,7 @@ export const ExplorePerspective = withInstrumentation(
         <FunctionComposer
           key={inspectorScope}
           workspaceKey={inspectorScope}
+          models={models}
           active={composeActive}
           onNavigate={navigateToNode}
           onSave={async () => {

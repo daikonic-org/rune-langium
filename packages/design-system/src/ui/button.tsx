@@ -95,7 +95,7 @@ const buttonVariants = cva(
 
 function ButtonLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span data-slot="button-label" className="[text-box:trim-both_ex_alphabetic]">
+    <span data-slot="button-label" className="control-label">
       {children}
     </span>
   );

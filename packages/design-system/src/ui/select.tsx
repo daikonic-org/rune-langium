@@ -6,7 +6,7 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 
 import { cn } from '../utils';
-import { nativeFieldControlStyles, pickerOptionStyles } from './control-styles';
+import { fieldControlStyles, pickerOptionStyles } from './control-styles';
 import { PickerTrigger, pickerTriggerVariants } from './picker';
 
 /** Native selection for plain option lists, retaining platform keyboard behavior. */
@@ -23,8 +23,8 @@ function NativeSelect({
         data-slot="native-select"
         data-size={size}
         className={cn(
-          nativeFieldControlStyles,
-          'block w-full min-w-0 appearance-none pr-6 forced-colors:appearance-auto',
+          fieldControlStyles,
+          'block w-full min-w-0 appearance-none py-0 pr-6 forced-colors:appearance-auto',
           size === 'sm' ? 'h-6 pl-1.5' : 'h-7 pl-2',
           className
         )}
@@ -149,7 +149,16 @@ function SelectValue({
           });
         }
 
-        return <span {...nextProps} />;
+        const label = nextProps.children;
+        return (
+          <span {...nextProps}>
+            {typeof label === 'string' || typeof label === 'number' ? (
+              <span className="control-label truncate">{label}</span>
+            ) : (
+              label
+            )}
+          </span>
+        );
       }}
       {...props}
     >

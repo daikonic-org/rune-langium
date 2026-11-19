@@ -81,8 +81,8 @@ function parameter(attribute: Attribute): CompositionParameter {
 }
 
 /** Linked facts only: no name-based annotation guessing, parser or alternate resolver. */
-export function describeFunctionComposition(func: RosettaFunction, services?: RuneDslServices): FunctionComposition {
-  const optedIn = func.annotations.some((annotation) => {
+export function hasCompositionAnnotation(func: RosettaFunction): boolean {
+  return func.annotations.some((annotation) => {
     const target = getLinkedReferenceTarget(annotation, annotation.annotation);
     return (
       target &&
@@ -90,6 +90,10 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
       qualifiedExportPath(target.$container.name, target.name) === COMPOSITION_ANNOTATION
     );
   });
+}
+
+export function describeFunctionComposition(func: RosettaFunction, services?: RuneDslServices): FunctionComposition {
+  const optedIn = hasCompositionAnnotation(func);
   const result: FunctionComposition = { optedIn, supported: false, reasons: [], steps: [] };
   if (!optedIn) return result;
   const reason = (message: string, node = func) => result.reasons.push({ message, region: getNodeSourceRegion(node) });

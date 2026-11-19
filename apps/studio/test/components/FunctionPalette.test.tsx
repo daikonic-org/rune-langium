@@ -38,6 +38,7 @@ function props(
   overrides: Partial<ComponentProps<typeof FunctionPalette>> = {}
 ): ComponentProps<typeof FunctionPalette> {
   return {
+    compositionIds: new Set(),
     repository: repository([{ namespace: 'cdm.rates', functions: ['Accrue', 'Rate'] }]),
     query: '',
     canAdd: true,

@@ -87,8 +87,8 @@ function WorkspaceSwitcherTrigger({
             <span className="studio-topbar__ws-mark" aria-hidden="true">
               {initial}{' '}
             </span>
-            <span className="studio-topbar__ws-name">{name} </span>
-            <span className="studio-topbar__ws-sub">{fileCountLabel}</span>
+            <span className="studio-topbar__ws-name control-label truncate">{name} </span>
+            <span className="studio-topbar__ws-sub control-label">{fileCountLabel}</span>
             <ChevronDown className="size-3" />
           </button>
         }
