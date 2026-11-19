@@ -209,6 +209,122 @@ async function openComposition(page: Page, content: string, name?: string) {
   return composer;
 }
 
+test('resizes Compose side panels without editing source or replacing the canvas', async ({ page }, info) => {
+  test.setTimeout(90000);
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const composed = source
+    .replace('version "1.0.0"', 'version "1.0.0"\nimport rune.studio.*')
+    .replace('func Double:', 'func Double:\n [composition]');
+  const composer = await openComposition(page, composed, 'Double');
+  const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+  const details = composer.getByRole('complementary', { name: 'Composition details', exact: true });
+  const canvas = composer.getByRole('region', { name: 'Composition canvas', exact: true });
+  const left = composer.getByRole('separator', { name: 'Resize composition palette', exact: true });
+  const right = composer.getByRole('separator', { name: 'Resize composition details', exact: true });
+  const width = (panel: Locator) => panel.evaluate((element) => element.getBoundingClientRect().width);
+  const original = await projectBackingFiles(page);
+  await canvas.evaluate((element) => {
+    element.dataset.resizeWitness = 'retained';
+  });
+
+  const initialPalette = await width(palette);
+  const leftBox = (await left.boundingBox())!;
+  await page.mouse.move(leftBox.x + leftBox.width / 2, leftBox.y + leftBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(leftBox.x + 80, leftBox.y + leftBox.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => width(palette)).toBeGreaterThan(initialPalette + 60);
+  const paletteWidth = await width(palette);
+  const initialDetails = await width(details);
+  await right.focus();
+  await right.press('ArrowLeft');
+  await expect.poll(() => width(details)).toBeGreaterThan(initialDetails + 5);
+  const detailsWidth = await width(details);
+
+  for (const panel of ['palette', 'details']) {
+    await composer.getByRole('button', { name: `Hide ${panel}`, exact: true }).click();
+    await composer.getByRole('button', { name: `Show ${panel}`, exact: true }).click();
+  }
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
+  await expect(canvas).toHaveAttribute('data-resize-witness', 'retained');
+  const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
+  await views.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(views.getByRole('button', { name: 'Canvas', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(views.getByRole('button', { name: 'Source', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(composer.getByRole('region', { name: 'Composition source', exact: true })).toBeVisible();
+  await expect(canvas).toHaveAttribute('data-resize-witness', 'retained');
+  await page.screenshot({ path: info.outputPath('compose-shared-view-chrome.png') });
+  await views.getByRole('button', { name: 'Source', exact: true }).click();
+  // The last selected center view stays open, just as it does in Explore.
+  await views.getByRole('button', { name: 'Canvas', exact: true }).click();
+  await expect(views.getByRole('button', { name: 'Canvas', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('rail-explore').click();
+  await page.getByTestId('rail-compose').click();
+  await expect(canvas).toHaveAttribute('data-resize-witness', 'retained');
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  expect(await projectBackingFiles(page)).toEqual(original);
+  await page.screenshot({ path: info.outputPath('compose-resized-hd.png') });
+
+  await page.reload();
+  await expect(page.getByTestId('explore-workbench')).toBeVisible();
+  await page.getByTestId('rail-compose').click();
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(composer.locator('.function-composer__body')).toHaveAttribute('data-workbench-orientation', 'vertical');
+  // Narrow entry hides the palette; explicitly opening it should keep every panel reachable.
+  const showPalette = composer.getByRole('button', { name: 'Show palette', exact: true });
+  if (await showPalette.isVisible()) await showPalette.click();
+  const height = () => palette.evaluate((element) => element.getBoundingClientRect().height);
+  const initialHeight = await height();
+  await left.focus();
+  await left.press('ArrowDown');
+  await expect.poll(height).toBeGreaterThan(initialHeight + 5);
+  await expect(canvas).toBeVisible();
+  await expect(details).toBeVisible();
+  expect(await composer.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: info.outputPath('compose-resized-narrow.png') });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
+  expect(await projectBackingFiles(page)).toEqual(original);
+});
+
+for (const mode of ['unavailable', 'malformed'] as const) {
+  test(`resizing survives ${mode} personal layout preferences`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.addInitScript((mode) => {
+      const get = Storage.prototype.getItem;
+      const set = Storage.prototype.setItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.includes('rune:split-workbench:')) {
+          if (mode === 'unavailable') throw new DOMException('Preferences unavailable', 'SecurityError');
+          return get.call(this, key) ?? '{malformed';
+        }
+        return get.call(this, key);
+      };
+      Storage.prototype.setItem = function (key, value) {
+        if (mode === 'unavailable' && key.includes('rune:split-workbench:'))
+          throw new DOMException('Preferences unavailable', 'SecurityError');
+        set.call(this, key, value);
+      };
+    }, mode);
+    const composer = await openComposition(page, source, 'Double');
+    const panel = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+    const width = () => panel.evaluate((element) => element.getBoundingClientRect().width);
+    const before = await width();
+    const divider = composer.getByRole('separator', { name: 'Resize composition palette', exact: true });
+    await divider.focus();
+    await divider.press('ArrowRight');
+    await expect.poll(width).toBeGreaterThan(before + 5);
+    const resized = await width();
+    await composer.getByRole('button', { name: 'Hide palette', exact: true }).click();
+    await composer.getByRole('button', { name: 'Show palette', exact: true }).click();
+    await expect.poll(width).toBeCloseTo(resized, 0);
+    expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(source);
+  });
+}
+
 test('enters Compose before selecting a function and switches between ordinary function definitions', async ({
   page
 }) => {
@@ -473,16 +589,21 @@ func SavedCamera:
   expect(saved).not.toBe(initial);
 
   await composer.getByRole('button', { name: 'Source', exact: true }).click();
+  await expect(viewport).toHaveCount(1);
+  await settledCamera();
+  await composer.getByRole('button', { name: 'Zoom Out', exact: true }).click();
+  const splitCamera = await settledCamera();
+  await composer.getByRole('button', { name: 'Canvas', exact: true }).click();
   await expect(viewport).toHaveCount(0);
   await composer.getByRole('button', { name: 'Canvas', exact: true }).click();
   await expect(composer.locator('.composition-node')).toHaveCount(3);
-  expect(await settledCamera()).toBe(saved);
+  expect(await settledCamera()).toBe(splitCamera);
 
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
   await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
   await composer.getByRole('button', { name: 'Parent', exact: true }).click();
   await expect(composer.locator('.composition-node')).toHaveCount(3);
-  expect(await settledCamera()).toBe(saved);
+  expect(await settledCamera()).toBe(splitCamera);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
 });
 

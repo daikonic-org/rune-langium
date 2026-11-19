@@ -13,6 +13,7 @@
 import { memo, useCallback, useState, type DragEvent } from 'react';
 import { EXPRESSION_DRAG_TYPE } from '../../../hooks/expression-drag.js';
 import type { ExpressionNode } from '../../../schemas/expression-node-schema.js';
+import type { FunctionScope } from '../../../store/expression-store.js';
 import { BinaryBlock } from './blocks/BinaryBlock.js';
 import { UnaryBlock } from './blocks/UnaryBlock.js';
 import { FeatureCallBlock } from './blocks/FeatureCallBlock.js';
@@ -28,6 +29,7 @@ import { UnsupportedBlock } from './blocks/UnsupportedBlock.js';
 
 export interface BlockRendererProps {
   node: ExpressionNode;
+  scope?: FunctionScope;
   selectedNodeId?: string | null;
   onSelect?: (nodeId: string) => void;
   onEditReference?: (nodeId: string) => void;
@@ -111,6 +113,7 @@ function nodeType(node: ExpressionNode): string {
 
 function BlockRendererInner({
   node,
+  scope,
   selectedNodeId,
   onSelect,
   onActivatePlaceholder,
@@ -137,6 +140,7 @@ function BlockRendererInner({
         <span role="group" className="contents">
           <BlockRenderer
             node={child}
+            scope={scope}
             selectedNodeId={selectedNodeId}
             onSelect={onSelect}
             onEditReference={onEditReference}
@@ -147,7 +151,7 @@ function BlockRendererInner({
         </span>
       );
     },
-    [selectedNodeId, onSelect, onActivatePlaceholder, onEditReference, onDragNode, depth]
+    [scope, selectedNodeId, onSelect, onActivatePlaceholder, onEditReference, onDragNode, depth]
   );
 
   let content: React.ReactNode;
@@ -174,11 +178,11 @@ function BlockRendererInner({
   ) {
     content = <LiteralBlock node={node} />;
   } else if ($type === 'RosettaSymbolReference' || $type === 'RosettaImplicitVariable') {
-    content = <ReferenceBlock node={node} onEdit={onEditReference} />;
+    content = <ReferenceBlock node={node} scope={scope} renderChild={renderChild} onEdit={onEditReference} />;
   } else if ($type === 'ListLiteral') {
     content = <ListBlock node={node} renderChild={renderChild} />;
   } else if ($type === 'RosettaSuperCall') {
-    content = <ReferenceBlock node={node} onEdit={onEditReference} />;
+    content = <ReferenceBlock node={node} scope={scope} renderChild={renderChild} onEdit={onEditReference} />;
   } else if ($type === 'ChoiceOperation') {
     content = <UnaryBlock node={node} renderChild={renderChild} />;
   } else if ($type === 'Placeholder') {
@@ -209,7 +213,7 @@ function BlockRendererInner({
 
   return (
     <div
-      className={`expr-block inline-flex items-baseline gap-1 rounded px-1 py-0.5 transition-shadow ${
+      className={`expr-block inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-1 rounded px-1 py-0.5 transition-shadow ${
         isSelected ? 'ring-2 ring-ring' : ''
       }`}
       data-node-id={id}

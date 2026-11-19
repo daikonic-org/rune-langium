@@ -41,6 +41,21 @@ it('shows each named argument connection through the shared variable producer', 
   ]);
 });
 
+it('keeps the collection edge when a draft replaces its matching call argument with a literal', () => {
+  const mapped: FunctionComposition = {
+    ...composition,
+    steps: composition.steps.map((step) =>
+      step.kind === 'return' ? { ...step, collectionDependencies: ['alias:copy'] } : step
+    )
+  };
+  const inputEdge = expect.objectContaining({ source: 'input:value', target: 'return', targetHandle: 'input' });
+  expect(compositionEdges(mapped)).toContainEqual(inputEdge);
+  expect(compositionEdges(mapped, { step: 'return', inputs: [{ handle: 'argument:0' }] })).toEqual([
+    expect.objectContaining({ source: 'input:value', target: 'return', targetHandle: 'argument:1' }),
+    inputEdge
+  ]);
+});
+
 it('previews an unapplied input/output binding without retaining the old output edge', () => {
   expect(
     compositionEdges(composition, {

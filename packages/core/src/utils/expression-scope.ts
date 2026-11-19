@@ -21,6 +21,8 @@ export interface ExpressionScopeEntry {
   typeName?: string;
   cardinality?: string;
   argumentCount?: number;
+  /** Input names in the same authoritative order as the callable arity. */
+  argumentNames?: string[];
 }
 
 const callableTypes = new Set(['RosettaFunction', 'RosettaExternalFunction', 'RosettaRule']);
@@ -92,18 +94,22 @@ export function getExpressionScope(expression: RosettaExpression, services: Rune
     else continue;
     names.add(description.name);
     const typed = node && isAttribute(node) ? node : undefined;
+    const parameters =
+      node && isRosettaFunction(node)
+        ? getFunctionInputs(node, new Set(), declarations)
+        : node && isRosettaExternalFunction(node)
+          ? node.parameters
+          : undefined;
     entries.push({
       name: description.name,
       kind,
       declarationId: `${description.documentUri.toString()}#${description.path}`,
       ...(typed ? { typeName: typed.typeCall.type.$refText, cardinality: toConstraintString(typed.card) } : {}),
-      ...(node && isRosettaFunction(node)
-        ? { argumentCount: getFunctionInputs(node, new Set(), declarations).length }
-        : node && isRosettaExternalFunction(node)
-          ? { argumentCount: node.parameters.length }
-          : node && isRosettaRule(node)
-            ? { argumentCount: node.input ? 1 : 0 }
-            : {})
+      ...(parameters
+        ? { argumentCount: parameters.length, argumentNames: parameters.map((parameter) => parameter.name) }
+        : node && isRosettaRule(node)
+          ? { argumentCount: node.input ? 1 : 0 }
+          : {})
     });
   }
   return entries;

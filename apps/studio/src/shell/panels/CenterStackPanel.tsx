@@ -9,6 +9,7 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { GraphFilterMenu } from '../../components/GraphFilterMenu.js';
 import { useCenterPanes, type CenterPane } from '../center-panes-context.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import { WorkbenchViewBar, WorkbenchPaneHeading } from '../WorkbenchChrome.js';
 
 import { SourceNavigationFeedbackContext } from '../source-navigation-feedback-context.js';
 
@@ -147,44 +148,26 @@ export const CenterStackPanel = withInstrumentation(
     return (
       <div className="studio-center-stack-container flex flex-col h-full min-h-0">
         {/* Paneswitch pill — sits below the dockview tab strip */}
-        <div
-          className="studio-center-stack__bar"
-          role="toolbar"
-          aria-label="Center pane selector"
-          data-testid="studio-paneswitch"
-        >
-          <div className="studio-paneswitch">
-            {PANE_GROUPS.map(({ label, panes }) => (
-              <div key={label} className="studio-paneswitch__group" role="group" aria-label={label}>
-                {panes.map((pane) => {
-                  const isActive = activePanes.has(pane);
-                  const Icon = PANE_ICONS[pane];
-                  return (
-                    <button
-                      key={pane}
-                      type="button"
-                      aria-pressed={isActive}
-                      className={isActive ? 'studio-paneswitch__seg is-active' : 'studio-paneswitch__seg'}
-                      onClick={() => toggle(pane)}
-                    >
-                      <Icon
-                        className={
-                          pane === 'source' && sourcePending ? 'size-3.5 studio-navigation-pending' : 'size-3.5'
-                        }
-                        aria-hidden
-                      />
-                      <span>{PANE_LABELS[pane]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-          <div className="flex-1" />
-          <div className="studio-panel-actions" aria-label="Center stack actions">
-            <GraphFilterMenu compact align="end" />
-          </div>
-        </div>
+        <WorkbenchViewBar
+          label="Center pane selector"
+          testId="studio-paneswitch"
+          groups={PANE_GROUPS.map(({ label, panes }) => ({
+            label,
+            views: panes.map((pane) => ({
+              id: pane,
+              label: PANE_LABELS[pane],
+              icon: PANE_ICONS[pane],
+              active: activePanes.has(pane),
+              pending: pane === 'source' && sourcePending,
+              onToggle: () => toggle(pane)
+            }))
+          }))}
+          actions={
+            <div className="studio-panel-actions" aria-label="Center stack actions">
+              <GraphFilterMenu compact align="end" />
+            </div>
+          }
+        />
 
         {/* Pane body — active panes split side-by-side */}
         <div
@@ -237,8 +220,7 @@ export const CenterStackPanel = withInstrumentation(
                 }}
               >
                 {ordered.length > 1 ? (
-                  <div className="studio-center-stack__pane-heading">
-                    <span className="font-title text-xs font-medium">{PANE_LABELS[pane]}</span>
+                  <WorkbenchPaneHeading label={PANE_LABELS[pane]}>
                     <Button
                       variant="ghost"
                       size="icon-xs"
@@ -253,7 +235,7 @@ export const CenterStackPanel = withInstrumentation(
                         <Maximize2 className="size-3.5" aria-hidden="true" />
                       )}
                     </Button>
-                  </div>
+                  </WorkbenchPaneHeading>
                 ) : null}
                 <div className="studio-center-stack__pane-content">{renderPane(pane)}</div>
               </div>

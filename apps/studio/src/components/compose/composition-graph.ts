@@ -34,10 +34,11 @@ export const compositionEdges = withInstrumentation(
       .filter((step) => !step.variableSource || step.kind === 'return')
       .flatMap((step) =>
         step.dependencies.flatMap((dependency) => {
-          const arguments_ =
+          const handles =
             step.call?.argumentVariables?.flatMap((id, index) => (id === dependency ? [`argument:${index}`] : [])) ??
             [];
-          return (arguments_.length ? arguments_ : ['input']).map((handle) => ({
+          if (!handles.length || step.collectionDependencies?.includes(dependency)) handles.push('input');
+          return handles.map((handle) => ({
             id: `${dependency}->${step.id}:${handle}`,
             source: compositionProducerId(dependency, composition.steps),
             sourceHandle: 'output',

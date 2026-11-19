@@ -43,10 +43,12 @@ interface Props {
 function PerspectiveScreen({
   id,
   active = true,
+  loadingMessage,
   children
 }: {
   id: PerspectiveId;
   active?: boolean;
+  loadingMessage?: string;
   children: ReactNode;
 }) {
   return (
@@ -57,8 +59,18 @@ function PerspectiveScreen({
     >
       <div className="studio-layout-presets" data-testid={active ? 'perspective-header-row' : undefined}>
         <PerspectiveHeading perspectiveId={id} />
+        {loadingMessage && <PreparationStatus message={loadingMessage} className="min-w-0 text-xs" />}
       </div>
       <div className="min-h-0 min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+function PreparationStatus({ message, className }: { message: string; className: string }) {
+  return (
+    <div role="status" className={`flex items-center gap-2 text-muted-foreground ${className}`}>
+      <Spinner className="size-4 shrink-0" />
+      <span className="truncate">{message}</span>
     </div>
   );
 }
@@ -80,7 +92,8 @@ export const PerspectiveHost = withInstrumentation(
     // Effective-perspective fallback — shared with AppHeader via
     // resolveEffectivePerspective so the bar and the body never disagree.
     const effective = resolveEffectivePerspective(active, { hasWorkspace, hasExploreContent });
-    const contentPending = Boolean(loadingMessage) && effective !== 'workspaces' && effective !== 'settings';
+    const passivePreparation = effective === 'workspaces' || effective === 'settings';
+    const contentPending = Boolean(loadingMessage) && !passivePreparation;
     const key = workspaceId ?? ':session';
     const [prototypeWorkspace, setPrototypeWorkspace] = useState<string>();
     if (effective === 'prototype' && prototypeWorkspace !== key) setPrototypeWorkspace(key);
@@ -92,12 +105,7 @@ export const PerspectiveHost = withInstrumentation(
       // the viewport. `min-w-0` lets it honor the row width and clip/scroll inside.
       <ComposeSurfaceContext.Provider value={composeSurface}>
         <div className="flex flex-1 min-h-0 min-w-0 flex-col">
-          {loadingMessage && (
-            <div role="status" className="flex shrink-0 items-center gap-2 p-3 text-muted-foreground">
-              <Spinner className="size-4" />
-              <span>{loadingMessage}</span>
-            </div>
-          )}
+          {loadingMessage && contentPending && <PreparationStatus message={loadingMessage} className="shrink-0 p-3" />}
           {/* Dockview needs real dimensions during preparation. Inert hidden
            * content retains geometry without exposing editing controls. */}
           <div
@@ -129,7 +137,11 @@ export const PerspectiveHost = withInstrumentation(
               </PerspectiveScreen>
             ) : null}
             {effective !== 'explore' && effective !== 'prototype' && effective !== 'compose' && (
-              <PerspectiveScreen key={effective} id={effective}>
+              <PerspectiveScreen
+                key={effective}
+                id={effective}
+                loadingMessage={passivePreparation ? loadingMessage : undefined}
+              >
                 {effective === 'workspaces' && <WorkspacesPerspective />}
                 {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
                 {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}

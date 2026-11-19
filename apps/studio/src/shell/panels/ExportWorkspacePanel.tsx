@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 import type { ReactNode } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@rune-langium/design-system/ui/resizable';
+import { SplitWorkbench } from '../SplitWorkbench.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
@@ -44,26 +44,34 @@ export const ExportWorkspacePanel = withInstrumentation(
             {notice}
           </p>
         )}
-        <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
-          <ResizablePanel id="export-settings-pane" defaultSize="300px" minSize="160px">
-            <section aria-label="Export settings" className="h-full min-h-0">
-              {settings}
-            </section>
-          </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            aria-label="Resize export settings and output"
-            className="h-2 w-full bg-transparent hover:bg-border focus-visible:bg-border"
-          />
-          <ResizablePanel id="export-output-pane" minSize="25%">
-            <section aria-label="Generated output" className="flex h-full min-h-0 flex-col border-t border-border">
-              <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
-                Generated output
-              </h2>
-              <div className="min-h-0 flex-1">{output}</div>
-            </section>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <SplitWorkbench
+          orientation="vertical"
+          panes={[
+            {
+              id: 'export-settings-pane',
+              defaultSize: '300px',
+              minSize: '160px',
+              content: (
+                <section aria-label="Export settings" className="h-full min-h-0">
+                  {settings}
+                </section>
+              )
+            },
+            {
+              id: 'export-output-pane',
+              minSize: '25%',
+              separatorLabel: 'Resize export settings and output',
+              content: (
+                <section aria-label="Generated output" className="flex h-full min-h-0 flex-col border-t border-border">
+                  <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                    Generated output
+                  </h2>
+                  <div className="min-h-0 flex-1">{output}</div>
+                </section>
+              )
+            }
+          ]}
+        />
       </div>
     );
   },

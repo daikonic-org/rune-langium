@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import { render, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { ExpressionBuilder } from '../../src/components/editors/expression-builder/ExpressionBuilder.js';
 import type { FunctionScope } from '../../src/store/expression-store.js';
 
@@ -141,4 +141,44 @@ it('cancels a reference picker without changing the draft', async () => {
   await screen.findByTestId('reference-picker');
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(onChange).not.toHaveBeenCalled();
+});
+
+it('exposes and fills every argument of a selected call without replacing its surrounding condition', async () => {
+  const names = ['lowerX', 'upperX', 'lowerY', 'upperY', 'x'];
+  const onChange = vi.fn();
+  const scope: FunctionScope = {
+    inputs: names.map((name) => ({ name, typeName: 'number' })),
+    aliases: [],
+    output: null,
+    references: [{ name: 'InterpolateLinear', kind: 'callable', argumentCount: 5, argumentNames: names }]
+  };
+  const view = render(
+    <ExpressionBuilder value="lowerX < upperX and x >= lowerX and x <= upperX" scope={scope} onChange={onChange} />
+  );
+  fireEvent.click(view.getAllByRole('button', { name: 'Edit reference lowerX' })[0]!);
+  const callable = await screen.findByTestId('ref-option-InterpolateLinear');
+  fireEvent.pointerDown(callable, { pointerType: 'mouse' });
+  fireEvent.click(callable);
+  expect(view.container.querySelectorAll('[data-block="placeholder"]')).toHaveLength(5);
+  for (const name of names) {
+    const argument = view.getByRole('group', { name: `InterpolateLinear argument ${name}`, exact: true });
+    fireEvent.click(within(argument).getByRole('button', { name: 'Add expression', exact: true }));
+    fireEvent.click(await screen.findByTestId('palette-open-reference'));
+    const variable = await screen.findByTestId(`ref-option-${name}`);
+    fireEvent.pointerDown(variable, { pointerType: 'mouse' });
+    fireEvent.click(variable);
+  }
+  const completed = 'InterpolateLinear(lowerX, upperX, lowerY, upperY, x) < upperX and x >= lowerX and x <= upperX';
+  await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(completed));
+  expect(view.container.querySelectorAll('[data-block="placeholder"]')).toHaveLength(0);
+  fireEvent.keyDown(view.getByTestId('expression-builder'), { key: 'z', ctrlKey: true });
+  await waitFor(() => expect(view.container.querySelectorAll('[data-block="placeholder"]')).toHaveLength(1));
+});
+
+it('renders existing nested call arguments while keeping zero-input calls distinct from variables', () => {
+  const view = render(<ExpressionBuilder value="Wrap(value + 1, Today())" scope={testScope} onChange={vi.fn()} />);
+  expect(view.container.querySelectorAll('[data-block="call"]')).toHaveLength(2);
+  expect(view.getByRole('group', { name: 'Wrap argument 1', exact: true })).toHaveTextContent('value');
+  expect(view.getByRole('group', { name: 'Wrap argument 2', exact: true })).toHaveTextContent('Today()');
+  expect(view.container.querySelectorAll('[data-block="placeholder"]')).toHaveLength(0);
 });
