@@ -35,6 +35,8 @@ readiness or creates an additional activity/logging path.
 Workspace restoration and parsing keep the activity rail and perspective host
 mounted. Pending preparation hides workspace editing surfaces while Workspaces
 and Settings remain reachable; the shared spinner/status reports ongoing work.
+In Workspaces and Settings, preparation status occupies the existing header row
+so completion cannot move interactive controls during a pointer gesture.
 Opening a workspace chooses Explore before preparation starts. Completion does
 not replace navigation made during the wait, and existing workspace-epoch guards
 reject results from a workspace the user has left. Pending source data is not
@@ -1419,7 +1421,9 @@ analysis through the same serialized parser queue restores the captured workspac
 in a finally block, including on failure; canonical validation runs before commit.
 Named argument and collection connectors reuse the node binding actions and their
 cycle/scope guards. Core's expression parser locates the collection operand so
-rebinding preserves the operator and lambda. Draft edges are a visual overlay;
+rebinding preserves the operator and lambda. Core identifies its linked dependencies
+separately from nested call arguments so editing one port preserves the other.
+Draft edges are a visual overlay;
 Apply commits the same captured Rune edit, and Discard removes the overlay.
 Expression ellipsis buttons open the shared leaf ExpressionBuilder in the standard
 design-system dialog; closing retains the draft without publishing it.

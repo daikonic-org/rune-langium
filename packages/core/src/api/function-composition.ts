@@ -46,6 +46,8 @@ export interface CompositionStep {
   /** A reference-only variable shares its producer rather than creating another canvas node. */
   variableSource?: string;
   collection?: SourceRegion;
+  /** Linked inputs and aliases referenced by the collection operand. */
+  collectionDependencies?: string[];
   locals?: string[];
   dependencies: string[];
   parameter?: CompositionParameter;
@@ -114,6 +116,8 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
   }
   const step = (id: string, name: string, expression: RosettaExpression, statement: SourceRegion, kind?: 'return') => {
     const dependencies = new Set<string>();
+    const collection = expression.$type === 'MapOperation' ? expression.argument : undefined;
+    const collectionDependencies = new Set<string>();
     for (const node of AstUtils.streamAst(expression)) {
       for (const info of AstUtils.streamReferences(node)) {
         if (!isReference(info.reference)) continue;
@@ -129,6 +133,8 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
         const local = locals.get(target);
         if (local) {
           dependencies.add(local);
+          if (collection && AstUtils.hasContainerOfType(node, (ancestor) => ancestor === collection))
+            collectionDependencies.add(local);
           if (!seen.has(local))
             result.reasons.push({
               code: 'forward-reference',
@@ -187,7 +193,8 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
       variableSource,
       ...(expression.$type === 'MapOperation'
         ? {
-            collection: expression.argument ? getNodeSourceRegion(expression.argument) : undefined,
+            collection: collection ? getNodeSourceRegion(collection) : undefined,
+            collectionDependencies: [...collectionDependencies],
             locals: expression.function?.parameters.length
               ? expression.function.parameters.map((entry) => entry.name)
               : ['item']
