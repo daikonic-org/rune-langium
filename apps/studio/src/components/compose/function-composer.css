@@ -88,6 +88,12 @@
   color: var(--muted-foreground);
   line-height: 1.5;
 }
+.function-composer__side :is([draggable="true"], [draggable="true"] button:not(:disabled)) {
+  cursor: grab;
+}
+.function-composer__side :is([draggable="true"], [draggable="true"] button:not(:disabled)):active {
+  cursor: grabbing;
+}
 .function-composer__panel-body > button {
   align-self: flex-start;
 }

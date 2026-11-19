@@ -123,7 +123,7 @@ export const COMPOSITION_PRIMITIVES = [
   {
     id: 'output',
     label: 'Output',
-    description: 'Select the existing function output and bind its value.',
+    description: 'Click to select the output or drag it to a new position.',
     group: 'Result',
     icon: ArrowRightFromLine
   }

@@ -1419,8 +1419,10 @@ prioritize suggestions; this never blocks other calls or replaces validation.
 The palette lists linked compositions above the ordinary function tree. The
 list reads the same resolved annotation as Core's composition projection, using
 published workspace models without parsing or analyzing function bodies. Palette
-rows open a function directly, while their add buttons insert a call. Only
-following a call from the canvas adds a Parent navigation target. The compact
+rows open a function directly, while their add buttons insert a call. Dragging
+a callable or expression primitive places its draft on the canvas. Dragging
+Output repositions the existing output node in the canvas layout. Only following
+a call from the canvas adds a Parent navigation target. The compact
 `NamespaceExplorerPanel` still includes deferred function exports and reuses
 the explorer's namespace focus, expansion and virtualization. The shared search
 includes names, namespaces and available signatures, which are discovered lazily.

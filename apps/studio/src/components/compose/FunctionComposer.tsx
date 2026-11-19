@@ -389,12 +389,15 @@ function Composer({
     if (next) changeDraft(next);
   };
   const [signaturePending, setSignaturePending] = useState(false);
+  const stepAvailable = !draft && !signaturePending && !applyBusy;
+  const canAdd = writable && stepAvailable;
+  const outputStep = composition?.supported ? composition.steps.find((step) => step.kind === 'return') : undefined;
   const beginAdd = async (
     callee?: string,
     position?: XYPosition,
     primitiveId: CompositionPrimitiveId = 'expression'
   ) => {
-    if (!writable || !composition || draft || !editor || signaturePending || applyBusy) return;
+    if (!canAdd || !composition || !editor) return;
     const binding = capture();
     if (!binding) return;
     setTab('step');
@@ -493,7 +496,7 @@ function Composer({
     setSelected(next.stepId!);
     selections.current.set(identity, next.stepId!);
     setVariablesOpen(true);
-    setFocusId(DRAFT_NODE);
+    setFocusId(position ? undefined : DRAFT_NODE);
   };
   const expression = draft?.callee
     ? draft.argumentRegions
@@ -647,7 +650,7 @@ function Composer({
     onNavigate(id);
   };
   const parent = breadcrumbs.at(-1);
-  const pick = (step: CompositionStep) => {
+  const pick = (step: CompositionStep, focus = true) => {
     if (draft && step.id !== selected) {
       setError('Apply or discard the current step draft before selecting another step.');
       return;
@@ -658,7 +661,7 @@ function Composer({
     setVariablesOpen(true);
     setTab('step');
     setError(undefined);
-    setFocusId(id);
+    setFocusId(focus ? id : undefined);
   };
   const stageArgument = (step: CompositionStep, index: number, value: string, variableId?: string) => {
     const variable = variables.find((entry) => entry.id === variableId);
@@ -1034,7 +1037,7 @@ function Composer({
                     callables={composition?.callables}
                     portContext={portContext}
                     selectedNodeId={identity}
-                    canAdd={writable && !draft && !signaturePending && !applyBusy}
+                    canAdd={canAdd}
                     onOpen={openFunction}
                     onAdd={(id) => void beginAdd(id)}
                   />
@@ -1047,9 +1050,7 @@ function Composer({
                           {matchingPrimitives
                             .filter((primitive) => primitive.group === group)
                             .map(({ id, label, description, icon: Icon }) => {
-                              const disabled =
-                                !composition?.supported ||
-                                (id !== 'output' && (!writable || Boolean(draft) || signaturePending || applyBusy));
+                              const disabled = id === 'output' ? !outputStep : !canAdd;
                               return (
                                 <Button
                                   key={id}
@@ -1057,16 +1058,15 @@ function Composer({
                                   variant="ghost"
                                   title={description}
                                   disabled={disabled}
-                                  draggable={id !== 'output' && !disabled}
+                                  draggable={!disabled && stepAvailable}
                                   onDragStart={(event) => {
                                     event.dataTransfer.setData(PRIMITIVE_MIME, id);
                                     event.dataTransfer.effectAllowed = 'copy';
                                   }}
-                                  onClick={() =>
-                                    id === 'output'
-                                      ? pick(composition!.steps.find((step) => step.kind === 'return')!)
-                                      : void beginAdd(undefined, undefined, id)
-                                  }
+                                  onClick={() => {
+                                    if (id !== 'output') void beginAdd(undefined, undefined, id);
+                                    else if (outputStep) pick(outputStep);
+                                  }}
                                 >
                                   <Icon aria-hidden="true" />
                                   {label}
@@ -1187,16 +1187,21 @@ function Composer({
                                 if (draft?.adding) changeDraft({ ...draft, position });
                               }}
                               onConnect={connectNodes}
-                              onDrop={(event) => {
-                                event.preventDefault();
+                              onDrop={(event, placeNode) => {
                                 const primitive = findCompositionPrimitive(event.dataTransfer.getData(PRIMITIVE_MIME));
-                                const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-                                if (primitive && primitive.id !== 'output') {
-                                  void beginAdd(undefined, position, primitive.id);
-                                  return;
-                                }
                                 const id = event.dataTransfer.getData(MIME);
-                                if (repository.byId(id)?.data.$type === 'RosettaFunction') void beginAdd(id, position);
+                                if (!primitive && repository.byId(id)?.data.$type !== 'RosettaFunction') return;
+                                event.preventDefault();
+                                const position = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+                                if (primitive?.id === 'output') {
+                                  if (!outputStep || !stepAvailable) return;
+                                  placeNode(outputStep.id, position);
+                                  pick(outputStep, false);
+                                } else if (primitive) {
+                                  void beginAdd(undefined, position, primitive.id);
+                                } else {
+                                  void beginAdd(id, position);
+                                }
                               }}
                             />
                           )}

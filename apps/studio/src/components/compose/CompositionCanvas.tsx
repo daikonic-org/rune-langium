@@ -62,7 +62,7 @@ interface Props {
   onSelect(step: CompositionStep): void;
   onDraftMove(position: XYPosition): void;
   onConnect(connection: Connection): void;
-  onDrop(event: React.DragEvent): void;
+  onDrop(event: React.DragEvent, placeNode: (id: string, position: XYPosition) => void): void;
 }
 
 function layoutNodes(
@@ -266,6 +266,15 @@ export const CompositionCanvas = memo(function CompositionCanvas({
     },
     [variablesOpen, selectedSize, selected, edges, vertical, positions, viewKey, setFocus]
   );
+  const rememberNodePosition = (id: string, position: XYPosition) => {
+    const saved = positions.get(viewKey) ?? new Map<string, XYPosition>();
+    saved.set(id, position);
+    positions.set(viewKey, saved);
+  };
+  const placeNode = (id: string, position: XYPosition) => {
+    rememberNodePosition(id, position);
+    setNodes((previous) => applyNodeChanges([{ type: 'position', id, position }], previous));
+  };
   return (
     <NodeBindingContext.Provider value={bindings}>
       <div ref={graphElement} className="function-composer__graph">
@@ -296,16 +305,14 @@ export const CompositionCanvas = memo(function CompositionCanvas({
           onNodeDragStop={(_, node) => {
             interactingNow.current = false;
             setInteracting(false);
-            const saved = positions.get(viewKey) ?? new Map<string, XYPosition>();
-            saved.set(node.id, node.position);
-            positions.set(viewKey, saved);
+            rememberNodePosition(node.id, node.position);
             if (node.id === DRAFT_NODE) onDraftMove(node.position);
           }}
           onDragOver={(event) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = 'copy';
           }}
-          onDrop={onDrop}
+          onDrop={(event) => onDrop(event, placeNode)}
           aria-label="Function dependency graph"
         >
           <Background gap={24} />

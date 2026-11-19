@@ -414,7 +414,37 @@ func DoubleAgain:
 
   await compositions.getByRole('button', { name: 'Add DoubleAgain', exact: true }).click();
   await expect(twice).toHaveAttribute('aria-current', 'true');
-  await expect(composer.locator('[data-composition-step="draft:new"]')).toContainText('DoubleAgain');
+  const draft = composer.locator('[data-composition-step="draft:new"]');
+  await expect(draft).toContainText('DoubleAgain');
+  await draft.getByRole('button', { name: 'Discard', exact: true }).click();
+
+  const graph = composer.getByRole('application', { name: 'Function dependency graph' });
+  const targetPosition = { x: 80, y: 60 };
+  const original = await projectBackingFiles(page);
+  for (const [item, text] of [
+    [again, 'DoubleAgain'],
+    [functions.getByRole('button', { name: 'Open Double workflow', exact: true }), 'Double'],
+    [palette.getByRole('button', { name: 'Branch', exact: true }), 'Branch']
+  ] as const) {
+    await item.dragTo(graph, { targetPosition });
+    await expect(twice).toHaveAttribute('aria-current', 'true');
+    await expect(draft).toContainText(text);
+    await draft.getByRole('button', { name: 'Discard', exact: true }).click();
+  }
+  await palette.getByRole('button', { name: 'Output', exact: true }).dragTo(graph, { targetPosition });
+  const output = composer.locator('[data-composition-step="return"]');
+  await expect(output).toHaveAttribute('data-selected', 'true');
+  await expect
+    .poll(async () => {
+      const canvas = await graph.boundingBox();
+      const node = await output.boundingBox();
+      return canvas && node
+        ? Math.hypot(node.x - canvas.x - targetPosition.x, node.y - canvas.y - targetPosition.y)
+        : Infinity;
+    })
+    .toBeLessThan(2);
+  await expect(composer.locator('.composition-node')).toHaveCount(3);
+  expect(await projectBackingFiles(page)).toEqual(original);
 });
 
 test('browses a compact function namespace tree and searches beyond its virtual viewport at HD', async ({
