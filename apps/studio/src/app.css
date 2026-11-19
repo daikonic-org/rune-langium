@@ -551,9 +551,6 @@ html {
 
   .studio-app .studio-topbar__ws-name {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .studio-app .studio-topbar__ws-btn > svg {

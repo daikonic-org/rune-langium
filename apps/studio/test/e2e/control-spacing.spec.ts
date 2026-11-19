@@ -48,7 +48,7 @@ for (const theme of ['light', 'daikonic'])
       await page.screenshot({ path: info.outputPath('preview.png'), fullPage: true });
       const importModel = page.getByRole('button', { name: 'Import Model', exact: true });
       const buttonLabel = importModel.locator('[data-slot="button-label"]');
-      await expect(buttonLabel).toHaveCSS('text-box-edge', 'ex alphabetic');
+      await expect(buttonLabel).toHaveCSS('text-box-edge', 'cap alphabetic');
       const buttonAlignment = await buttonLabel.evaluate((label) => {
         const center = (element: Element) => {
           const box = element.getBoundingClientRect();
@@ -95,7 +95,7 @@ for (const theme of ['light', 'daikonic'])
       expect(privacyGeometry).toEqual({ gap: 8, helpOffset: 0 });
       const themeSelect = settings.getByRole('combobox', { name: /theme/i });
       await expect(themeSelect).toHaveCSS('height', '24px');
-      await expect(themeSelect).toHaveCSS('padding-block-end', '2px');
+      await expect(themeSelect).toHaveCSS('padding-block-end', '0px');
       const selectAlignment = await themeSelect.evaluate((control) => {
         const field = control.getBoundingClientRect();
         const wrapper = control.parentElement!.getBoundingClientRect();

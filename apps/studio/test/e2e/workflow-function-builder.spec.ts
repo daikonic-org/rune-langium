@@ -592,6 +592,10 @@ func Analyze:
   const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
   const search = palette.getByRole('textbox', { name: 'Search functions and primitives', exact: true });
   const draft = composer.locator('[data-composition-step="draft:new"]');
+  const canvasLabel = composer
+    .getByRole('button', { name: 'Canvas', exact: true })
+    .locator('[data-slot="button-label"]');
+  await expect(canvasLabel).toHaveCSS('text-box-edge', 'cap alphabetic');
   for (const label of [
     'Expression',
     'Branch',

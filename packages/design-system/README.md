@@ -108,10 +108,11 @@ chrome definition, including invalid, disabled and keyboard-focus states.
 SelectItem, CommandItem and PickerOption share option-row spacing and state
 treatments. Custom Base UI render elements retain the shared trigger variants.
 Single-line fields default to 24px; standard selectors and actions use 28px.
-Native inputs and selects share `--native-field-text-inset` to center rendered
-text inside those fixed heights. Native select chevrons are centered to the field.
-Button centers plain labels using the font's x-height and baseline. Its flex
-container centers icons independently.
+Native inputs use `--native-field-text-inset` to position text within the field.
+Native selects center their text and chevron with symmetrical vertical padding.
+For buttons, popup selectors and the workbench view switcher, `control-label`
+centers the capital letter height on the same axis as the icon. Truncated
+labels allow vertical space for accents and descenders.
 `FieldGroup` uses 8px row gaps, with 12px between nested groups/sets. Native
 selects restore platform arrows in forced-colors mode.
 Horizontal Field rows use an 8px control-to-label gap; vertical fields retain

@@ -24,6 +24,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Put capital letters on the same centerline as the control's icon. */
+@utility control-label {
+  text-box: trim-both cap alphabetic;
+
+  &:where(.truncate) {
+    /* Keep accented capitals and descenders inside the horizontal clip. */
+    padding-block: 0.5em;
+    margin-block: -0.5em;
+  }
+}
+
 /* ── shadcn semantic bridge ─────────────────────────────────────── */
 @theme inline {
   --spacing-panel-x: var(--panel-padding-inline);
