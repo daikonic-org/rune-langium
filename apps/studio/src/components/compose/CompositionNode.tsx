@@ -204,29 +204,29 @@ export const CompositionNode = memo(
                           <option value="variable">Variable</option>
                           <option value="value">Value</option>
                         </NativeSelect>
-                        {argument.mode === 'variable' ? (
-                          <NativeSelect
-                            aria-label={`${step.name} argument ${argument.name}`}
-                            aria-required={card.inf > 0}
-                            disabled={disabled}
-                            value={argument.variableId ?? ''}
-                            onChange={(event) => {
-                              const variable = variables.find((variable) => variable.id === event.target.value);
-                              if (variable) actions.argument(step, index, variable.reference, variable.id);
-                            }}
-                          >
-                            <option value="" disabled>
-                              Choose variable
-                            </option>
-                            {variables.map((variable) => (
-                              <option key={variable.id} value={variable.id}>
-                                {variable.name}
-                                {variable.kind === 'local' ? ' (scoped)' : ''}
+                        <div className="composition-node__expression-control">
+                          {argument.mode === 'variable' ? (
+                            <NativeSelect
+                              aria-label={`${step.name} argument ${argument.name}`}
+                              aria-required={card.inf > 0}
+                              disabled={disabled}
+                              value={argument.variableId ?? ''}
+                              onChange={(event) => {
+                                const variable = variables.find((variable) => variable.id === event.target.value);
+                                if (variable) actions.argument(step, index, variable.reference, variable.id);
+                              }}
+                            >
+                              <option value="" disabled>
+                                Choose variable
                               </option>
-                            ))}
-                          </NativeSelect>
-                        ) : (
-                          <div className="composition-node__expression-control">
+                              {variables.map((variable) => (
+                                <option key={variable.id} value={variable.id}>
+                                  {variable.name}
+                                  {variable.kind === 'local' ? ' (scoped)' : ''}
+                                </option>
+                              ))}
+                            </NativeSelect>
+                          ) : (
                             <Input
                               aria-label={`${step.name} argument ${argument.name}`}
                               aria-required={card.inf > 0}
@@ -235,17 +235,17 @@ export const CompositionNode = memo(
                               disabled={disabled}
                               onChange={(event) => actions.argument(step, index, event.target.value)}
                             />
-                            <Button
-                              size="icon-xs"
-                              variant="ghost"
-                              aria-label={`Edit ${step.name} ${argument.name} expression`}
-                              disabled={disabled}
-                              onClick={() => actions.editExpression(step, index)}
-                            >
-                              <Ellipsis />
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                          <Button
+                            size="icon-xs"
+                            variant="ghost"
+                            aria-label={`Edit ${step.name} ${argument.name} expression`}
+                            disabled={disabled}
+                            onClick={() => actions.editExpression(step, index)}
+                          >
+                            <Ellipsis />
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <button

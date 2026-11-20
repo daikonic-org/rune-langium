@@ -16,7 +16,13 @@ export type ExpressionRegion = Readonly<{
   expression: RosettaExpression | Dehydrated<RosettaExpression>;
 }>;
 export type ExpressionRow = ExpressionRegion & Readonly<{ statement: SourceRegion }>;
-export type ExpressionAddress = Readonly<{ root: SourceRegion; path: string; range: SourceRegion }>;
+export type ExpressionAddress = Readonly<{
+  root: SourceRegion;
+  path: string;
+  range: SourceRegion;
+  /** A missing positional argument is anchored at its containing call. */
+  argumentIndex?: number;
+}>;
 
 /** Owning document identity shared by parsed and serialized model consumers. */
 export function getModelSourceUri(model: unknown): string | undefined {

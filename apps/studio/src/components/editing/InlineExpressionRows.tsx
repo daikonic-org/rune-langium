@@ -3,7 +3,7 @@
 
 import { useCallback, useRef, type ReactNode } from 'react';
 import {
-  parseExpression,
+  parseExpressionDraft,
   type ExpressionPickerTarget,
   type ExpressionRow,
   type SourceRegion
@@ -27,6 +27,7 @@ export type InlineExpressionSession = {
 };
 
 type InlineExpressionFieldProps = {
+  compositionArgumentNames?: readonly string[];
   session: InlineExpressionSession;
   target: ExpressionPickerTarget;
   value: string;
@@ -38,6 +39,7 @@ type InlineExpressionFieldProps = {
 
 export const InlineExpressionField = withInstrumentation(
   function InlineExpressionField({
+    compositionArgumentNames,
     session,
     target,
     value,
@@ -47,28 +49,31 @@ export const InlineExpressionField = withInstrumentation(
     highlightedRange
   }: InlineExpressionFieldProps) {
     const { binding, documents, file, files, scope } = session;
-    const current = useRef({ value, files });
-    current.current = { value, files };
+    const current = useRef({ value, files, binding });
+    current.current = { value, files, binding };
+    const isCurrent = useCallback(() => {
+      const latest = documents.capture(binding.uri, binding.nodeId, binding.region);
+      return (
+        latest?.workspaceGeneration === binding.workspaceGeneration &&
+        latest.revision === binding.revision &&
+        !latest.readOnly &&
+        current.current.binding.uri === binding.uri &&
+        current.current.binding.nodeId === binding.nodeId &&
+        current.current.files === files &&
+        current.current.value === value
+      );
+    }, [binding, documents, files, value]);
     const loadPicker = useCallback(
       async (address: ExpressionPickerTarget, trail: readonly string[]) => {
-        const fresh = () => {
-          const latest = documents.capture(binding.uri, binding.nodeId, binding.region);
-          return (
-            latest?.workspaceGeneration === binding.workspaceGeneration &&
-            latest.revision === binding.revision &&
-            current.current.files === files &&
-            current.current.value === value
-          );
-        };
-        if (!fresh()) throw new Error('The source changed. Reopen this expression.');
+        if (!isCurrent()) throw new Error('The source changed. Reopen this expression.');
         let candidateSource: string | undefined;
         if ('root' in address && 'root' in target) {
           const { from, to } = target.root;
           if (binding.source.slice(from, to) !== value) {
             // Empty is a valid, same-width stand-in for a draft argument hole.
             // It exists only in the worker's private candidate.
-            const candidate = parseExpression(value).hasErrors ? value.replaceAll('(<?>)', 'empty') : value;
-            if (parseExpression(candidate).hasErrors) {
+            const { candidate, parsed } = parseExpressionDraft(value);
+            if (parsed.hasErrors) {
               address = target;
             } else candidateSource = binding.source.slice(0, from) + candidate + binding.source.slice(to);
           }
@@ -79,15 +84,16 @@ export const InlineExpressionField = withInstrumentation(
           { target: address, trail, candidateSource },
           files
         );
-        if (!fresh()) throw new Error('The source changed. Reopen this expression.');
+        if (!isCurrent()) throw new Error('The source changed. Reopen this expression.');
         return result;
       },
-      [binding, documents, file.path, files, target, value]
+      [binding, file.path, files, isCurrent, target, value]
     );
     return (
       <ExpressionBuilder
         value={value}
         presentation="inline"
+        compositionArgumentNames={compositionArgumentNames}
         onChange={onChange}
         onBlur={() => {}}
         onActiveSlot={onActiveSlot}
@@ -95,6 +101,7 @@ export const InlineExpressionField = withInstrumentation(
         highlightedRange={highlightedRange}
         sourceTarget={target}
         loadPicker={loadPicker}
+        canCommit={isCurrent}
         scope={scope ?? emptyScope}
         renderTextEditor={({ value, onChange: change }) => (
           <div className="expression-code-editor w-full min-w-0">
@@ -119,6 +126,7 @@ function expressionRowTarget(row: ExpressionRow): ExpressionPickerTarget {
 type ExpressionRowDraft = {
   region: SourceRegion;
   text: string;
+  argumentNames?: readonly string[];
   alias?: { name: string; onRename(name: string): void };
 };
 
@@ -190,6 +198,7 @@ export const InlineExpressionRows = withInstrumentation(
                   <InlineExpressionField
                     session={session}
                     target={expressionRowTarget(row)}
+                    compositionArgumentNames={matching ? draft?.argumentNames : undefined}
                     value={text}
                     onChange={(next) => onChange(row, next)}
                     onActiveSlot={onActiveSlot}
@@ -208,6 +217,7 @@ export const InlineExpressionRows = withInstrumentation(
           <div
             className="flex min-w-0 flex-wrap items-baseline gap-1 rounded border border-border px-2 py-1"
             data-testid="expression-row-new"
+            data-expression-from={draft.region.from}
           >
             <label className="flex items-center gap-1 font-code text-xs">
               alias
@@ -222,6 +232,7 @@ export const InlineExpressionRows = withInstrumentation(
             <InlineExpressionField
               session={session}
               target={{ draftAlias: true }}
+              compositionArgumentNames={draft.argumentNames}
               value={draft.text}
               onChange={(text) => onChange(undefined, text)}
               onActiveSlot={onActiveSlot}

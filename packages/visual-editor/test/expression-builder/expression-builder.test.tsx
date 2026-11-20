@@ -19,6 +19,29 @@ const testScope: FunctionScope = {
 };
 
 describe('ExpressionBuilder', () => {
+  it('retains typed text when the captured operand changes', () => {
+    const change = vi.fn();
+    const { rerender } = render(
+      <ExpressionBuilder value="a + 1" onChange={change} scope={testScope} presentation="inline" />
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Edit 1' }), { key: '2' });
+    rerender(<ExpressionBuilder value="a + 3" onChange={change} scope={testScope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
+    expect(change).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveValue('2');
+    expect(screen.getByRole('alert')).toHaveTextContent('source changed');
+  });
+
+  it('groups an operand that starts with a nested parenthesized expression', async () => {
+    const change = vi.fn();
+    render(<ExpressionBuilder value="10 / x" onChange={change} scope={testScope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit x', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Edit Rune', exact: true }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Rune expression' }), { target: { value: '(2 + 3) * 4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
+    expect(change).toHaveBeenCalledWith('10 / ((2 + 3) * 4)');
+  });
+
   it('fills a named argument placeholder in place', async () => {
     const scope: FunctionScope = {
       inputs: [{ name: 'upperX', typeName: 'number', cardinality: '(1..1)' }],

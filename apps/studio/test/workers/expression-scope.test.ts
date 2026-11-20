@@ -69,6 +69,24 @@ func UseMarket:
   );
   expect((await browse([market!.declarationId, 'unlinked'])).error).toMatch(/member path changed/);
   expect((await browse([], '/receiver')).error).toMatch(/source changed/);
+  const missingRoot = { from: root.from, to: root.to - 'inputDate'.length };
+  const missing = await worker.send({
+    type: 'expressionScope',
+    id: 'markets-missing-argument',
+    uri,
+    name: 'UseMarket',
+    files,
+    picker: {
+      target: { root: missingRoot, path: '', range: missingRoot, argumentIndex: 0 },
+      trail: [market!.declarationId, quotes!.declarationId],
+      candidateSource: source.replace('ReadDate(inputDate)', 'ReadDate()')
+    }
+  });
+  if (missing.type !== 'expressionScopeResult') throw new Error('fixture response');
+  expect(missing.error).toBeUndefined();
+  expect(missing.picker?.members).toContainEqual(
+    expect.objectContaining({ name: 'maturityDate', compatibility: 'incompatible' })
+  );
 });
 
 it('classifies compositions through the serialized parse/link transaction, including a shadowed marker', async () => {

@@ -907,7 +907,8 @@ async function handleExpressionScope(
       }
     }
     if (!expression) throw new Error('The expression source changed. Reopen the builder.');
-    const picker = req.picker && getExpressionPickerContext(expression, RuneDsl, req.picker.trail);
+    const argumentIndex = target && 'root' in target ? target.argumentIndex : undefined;
+    const picker = req.picker && getExpressionPickerContext(expression, RuneDsl, req.picker.trail, argumentIndex);
     return {
       type: 'expressionScopeResult',
       id: req.id,

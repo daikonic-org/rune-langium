@@ -1447,7 +1447,10 @@ rebinding preserves the operator and lambda. Core identifies its linked dependen
 separately from nested call arguments so editing one port preserves the other.
 Draft edges are a visual overlay;
 Apply commits the same captured Rune edit, and Discard removes the overlay.
-Expression ellipsis buttons focus the corresponding inline row in Compose Source.
+Expression ellipsis buttons open the corresponding argument picker or focus the
+expression in Compose Source. Core locates direct calls and calls inside `extract`
+for the graph and the inline argument controls. Same-width draft holes retain
+argument positions while the required inputs are incomplete.
 Source rows replace syntax within a captured statement and offer linked picker
 choices for the selected operand. Member paths resolve through the same feature
 scope as the linker. Canvas and Source publish through the retained CodeMirror

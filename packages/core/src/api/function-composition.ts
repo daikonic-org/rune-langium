@@ -97,6 +97,12 @@ export function hasCompositionAnnotation(func: RosettaFunction): boolean {
   });
 }
 
+/** A step can expose a direct call or the call inside its extract body. */
+export function getCompositionCallExpression(expression: RosettaExpression) {
+  const candidate = expression.$type === 'MapOperation' ? expression.function?.body : expression;
+  return isRosettaSymbolReference(candidate) ? candidate : undefined;
+}
+
 export function describeFunctionComposition(func: RosettaFunction, services?: RuneDslServices): FunctionComposition {
   const optedIn = hasCompositionAnnotation(func);
   const result: FunctionComposition = { optedIn, supported: false, reasons: [], steps: [] };
@@ -152,13 +158,10 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
         }
       }
     }
-    const callExpression = expression.$type === 'MapOperation' ? expression.function?.body : expression;
-    const target =
-      callExpression && isRosettaSymbolReference(callExpression)
-        ? getLinkedReferenceTarget(callExpression, callExpression.symbol)
-        : undefined;
+    const callExpression = getCompositionCallExpression(expression);
+    const target = callExpression ? getLinkedReferenceTarget(callExpression, callExpression.symbol) : undefined;
     const call: CompositionCall | undefined =
-      target && isRosettaFunction(target) && callExpression && isRosettaSymbolReference(callExpression)
+      target && isRosettaFunction(target) && callExpression
         ? {
             identity: qualifiedExportPath(target.$container.name, target.name),
             region: getNodeSourceRegion(callExpression),

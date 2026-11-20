@@ -11,6 +11,8 @@ import type { DockviewApi } from 'dockview-react';
 import { ReactFlowProvider, useReactFlow, type Connection, type XYPosition } from '@xyflow/react';
 import {
   hasCompositionAnnotation,
+  getCompositionCallExpression,
+  EXPRESSION_DRAFT_HOLE,
   findExpressionOwner,
   getExpressionRows,
   getFunctionAliasInsertion,
@@ -19,6 +21,7 @@ import {
   isRosettaFunction,
   namespaceFromModelName,
   parseExpression,
+  parseExpressionDraft,
   type CompositionStep,
   type ExpressionRow,
   type FunctionComposition,
@@ -214,7 +217,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     setViewPreferences((all) => ({ ...all, [identity]: { ...viewPreference, canvas } }));
   const [sourceHost] = useState(() => document.createElement('div'));
   const runeView = useRef<EditorView>(null);
-  const [sourceFocus, setSourceFocus] = useState<number>();
+  const [sourceFocus, setSourceFocus] = useState<{ from: number; argument?: number }>();
   const [activeSlot, setActiveSlot] = useState<ExpressionSlot>();
   const [linkedScope, setLinkedScope] = useState<{ owner: string; value: FunctionScope }>();
   const [codeHover, setCodeHover] = useState<SourceRegion>();
@@ -319,7 +322,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     return found && isRosettaFunction(found) ? found : undefined;
   }, [editor?.parsed, editor?.parseCurrent, identity]);
   const rows = useMemo(() => (owner ? getExpressionRows(owner) : []), [owner]);
-  const sourceEditable = Boolean(owner && file && !file.readOnly && !file.refOnly && !editor?.readOnly);
+  const sourceEditable = Boolean(composition && owner && file && !file.readOnly && !file.refOnly && !editor?.readOnly);
   useEffect(() => {
     if (!source || !rows.length || !file || !editor?.dependencySnapshot) return;
     let cancelled = false;
@@ -475,19 +478,19 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       setSelected(step.id);
       selections.current.set(identity, step.id);
     }
-    const parsed = next.callee && parseExpression(text);
+    const parsed = next.callee && parseExpressionDraft(text).parsed;
+    const call = parsed && !parsed.hasErrors && getCompositionCallExpression(parsed.value);
     if (
-      parsed &&
-      !parsed.hasErrors &&
-      parsed.value.$type === 'RosettaSymbolReference' &&
-      next.arguments?.length === parsed.value.rawArgs.length &&
+      call &&
+      next.arguments?.length === call.rawArgs.length &&
       [qualifiedNameFromNodeId(next.callee!), qualifiedNameFromNodeId(next.callee!).split('.').pop()].includes(
-        parsed.value.symbol.$refText
+        call.symbol.$refText
       )
     ) {
-      const arguments_ = parsed.value.rawArgs.map((argument, index) => {
+      const arguments_ = call.rawArgs.map((argument, index) => {
         const region = getNodeSourceRegion(argument);
-        const value = text.slice(region.from, region.to);
+        const argumentText = text.slice(region.from, region.to);
+        const value = argumentText === EXPRESSION_DRAFT_HOLE ? '' : argumentText;
         const previous = next.arguments![index]!;
         const parameter = variables.find(
           (entry) => entry.reference === value && entry.kind !== 'output' && entry.producer !== step?.id
@@ -657,11 +660,15 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     (draft?.callee
       ? draft.argumentRegions
         ? compositionArgumentsText(draft.binding, draft.region, [
-            ...draft.argumentRegions.map((region, index) => ({ region, value: draft.arguments?.[index]?.value ?? '' })),
+            ...draft.argumentRegions.map((region, index) => ({
+              region,
+              value: draft.arguments?.[index]?.value || EXPRESSION_DRAFT_HOLE
+            })),
             ...(draft.collectionBinding ? [draft.collectionBinding] : [])
           ])
-        : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value).join(', ') ?? ''})`
+        : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value || EXPRESSION_DRAFT_HOLE).join(', ') ?? ''})`
       : (draft?.expression ?? ''));
+  const expressionInvalid = useMemo(() => !expression.trim() || parseExpression(expression).hasErrors, [expression]);
 
   const stale = Boolean(
     draft &&
@@ -852,10 +859,14 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     setError(undefined);
     let sourceExpression: string | undefined;
     if (next.sourceExpression) {
-      const parsed = parseExpression(next.sourceExpression);
-      if (!parsed.hasErrors && parsed.value.$type === 'RosettaSymbolReference' && parsed.value.rawArgs[index]) {
-        const region = getNodeSourceRegion(parsed.value.rawArgs[index]!);
-        sourceExpression = next.sourceExpression.slice(0, region.from) + value + next.sourceExpression.slice(region.to);
+      const { parsed } = parseExpressionDraft(next.sourceExpression);
+      const argument = !parsed.hasErrors && getCompositionCallExpression(parsed.value)?.rawArgs[index];
+      if (argument) {
+        const region = getNodeSourceRegion(argument);
+        sourceExpression =
+          next.sourceExpression.slice(0, region.from) +
+          (value || EXPRESSION_DRAFT_HOLE) +
+          next.sourceExpression.slice(region.to);
       }
     }
     changeDraft({
@@ -931,7 +942,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       setSelected(step.id);
       setError(undefined);
       setSource(true);
-      setSourceFocus(step.region?.from);
+      setSourceFocus({ from: next.region.from, argument });
     },
     argument: stageArgument,
     argumentMode: (step, index, mode) => {
@@ -1078,17 +1089,22 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   useEffect(() => {
     if (!active || sourceRequest?.workspaceKey !== workspaceKey || sourceRequest.nodeId !== identity) return;
     setViewPreferences((all) => ({ ...all, [identity]: { source: true, canvas: false } }));
-    setSourceFocus(sourceRequest.target?.root.from);
+    setSourceFocus(sourceRequest.target && { from: sourceRequest.target.root.from });
     useComposeNavigationStore.getState().clearSource(sourceRequest);
   }, [active, sourceRequest, workspaceKey, identity]);
   useEffect(() => {
     if (!sourceVisible || sourceFocus === undefined) return;
-    const row = sourceHost.querySelector<HTMLElement>('[data-expression-from="' + sourceFocus + '"]');
-    if (!row) return;
+    const row = sourceHost.querySelector<HTMLElement>('[data-expression-from="' + sourceFocus.from + '"]');
+    const argument = sourceFocus.argument;
+    const trigger = row?.querySelector<HTMLButtonElement>(
+      argument === undefined ? '[data-expression-token]' : '[data-expression-argument="' + argument + '"]'
+    );
+    if (!row || !trigger) return;
     row.scrollIntoView({ block: 'nearest' });
-    row.querySelector<HTMLButtonElement>('[data-expression-token]')?.focus({ preventScroll: true });
+    trigger.focus({ preventScroll: true });
+    if (argument !== undefined) trigger.click();
     setSourceFocus(undefined);
-  }, [sourceVisible, sourceHost, sourceFocus, rows]);
+  }, [sourceVisible, sourceHost, sourceFocus, sourceEditable, rows]);
   const hasUndo = !draft && runeView.current && undoDepth(runeView.current.state) > 0;
   const undoSource = () => {
     if (runeView.current && !draft && !applyBusy && runeView.current.state.doc.toString() === file?.content) {
@@ -1123,7 +1139,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
               draggable={writable}
               title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
               onClick={() => {
-                if (sourceVisible && activeSlot && variable.kind !== 'output') activeSlot.replace(variable.reference);
+                if (sourceVisible && activeSlot && variable.kind !== 'output')
+                  activeSlot.openPicker(variable.reference);
                 else setSelectedVariable(variable.id);
               }}
               onDragStart={(event) => {
@@ -1153,6 +1170,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
           ? {
               region: draft.region,
               text: expression,
+              argumentNames: draft.arguments?.map(({ name }) => name),
               alias: draft.adding
                 ? { name: draft.name, onRename: (name) => changeDraft({ ...draft, name }) }
                 : undefined
@@ -1161,7 +1179,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       }
       pending={applyBusy}
       editable={sourceEditable && !stale}
-      invalid={!expression.trim() || expression.includes('<?>')}
+      invalid={expressionInvalid}
       onChange={changeSource}
       onAdd={addSourceAlias}
       onApply={() => void apply()}
@@ -1680,7 +1698,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                                 variant="ghost"
                                 onClick={() => {
                                   setSource(true);
-                                  setSourceFocus(draft.region.from);
+                                  setSourceFocus({ from: draft.region.from });
                                 }}
                               >
                                 Edit in Source

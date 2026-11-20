@@ -206,11 +206,13 @@ function multiplyBounds(lhs?: CardinalityBounds, rhs?: CardinalityBounds): Cardi
   };
 }
 
-function argumentShape(expression: RosettaExpression): ValueShape {
-  const call = expression.$container;
-  if (!isRosettaSymbolReference(call) || expression.$containerProperty !== 'rawArgs') return {};
+function argumentShape(expression: RosettaExpression, argumentIndex?: number): ValueShape {
+  if (argumentIndex === undefined && expression.$containerProperty !== 'rawArgs') return {};
+  const call = argumentIndex === undefined ? expression.$container : expression;
+  if (!isRosettaSymbolReference(call)) return {};
   const callee = getLinkedReferenceTarget(call, call.symbol);
-  return isRosettaFunction(callee) ? valueShape(getFunctionInputs(callee)[expression.$containerIndex ?? -1]) : {};
+  const index = argumentIndex ?? expression.$containerIndex ?? -1;
+  return isRosettaFunction(callee) ? valueShape(getFunctionInputs(callee)[index]) : {};
 }
 
 function compatibility(source: ValueShape, expected: ValueShape): ExpressionCompatibility {
@@ -223,14 +225,15 @@ function compatibility(source: ValueShape, expected: ValueShape): ExpressionComp
 export function getExpressionPickerContext(
   expression: RosettaExpression,
   services: RuneDslServices,
-  trail: readonly string[]
+  trail: readonly string[],
+  argumentIndex?: number
 ): ExpressionPickerContext {
   const resolved = expressionScopeSymbols(expression, services);
   const entries = scopeEntries(expression, services, resolved);
   const linked = new Map(resolved.map(({ description, node }) => [declarationId(description), node]));
   const memberScope = (receiver: RosettaExpression) =>
     services.references.ScopeProvider.getExpressionMemberScope(receiver).getAllElements();
-  const expected = argumentShape(expression);
+  const expected = argumentShape(expression, argumentIndex);
   const roots = new Map<string, PickerReceiver>();
   for (const entry of entries) {
     if (entry.kind === 'callable') continue;

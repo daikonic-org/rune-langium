@@ -1169,10 +1169,9 @@ func Wiring:
   const scaled = node('alias:scaled');
   await connect('input:value', 'alias:scaled', 'argument:1');
   await expect(scaled.getByRole('combobox', { name: 'scaled argument right', exact: true })).toHaveValue('input:value');
-  await scaled.getByRole('combobox', { name: 'scaled right binding mode', exact: true }).selectOption('value');
   await scaled.getByRole('button', { name: 'Edit scaled right expression', exact: true }).click();
   const row = composer.getByTestId('expression-row-alias-0');
-  await row.getByRole('button', { name: /^right argument/ }).click();
+  await expect(row.getByRole('button', { name: /^right argument/ })).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('option', { name: 'Edit Rune', exact: true }).click();
   const editor = row.getByRole('textbox', { name: 'Rune source editor', exact: true });
   await editor.fill('value + 2');
@@ -1190,4 +1189,42 @@ func Wiring:
   await expect(composer.getByRole('alert').filter({ hasText: 'cycle' })).toBeVisible();
   await expect(scaled.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('compose-wired-nodes.png') });
+});
+
+test('keeps the remaining arguments editable as an incomplete call moves between Source and Canvas', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const content =
+    source +
+    `
+func Pair:
+ inputs:
+  left number (1..1)
+  right number (1..1)
+ output: result number (1..1)
+ set result: left + right
+`;
+  const composer = await openComposition(page, content, 'Double');
+  const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+  await palette.getByRole('button', { name: 'Add Pair', exact: true }).click();
+  const draft = composer.locator('[data-composition-step="draft:new"]');
+  await draft.getByRole('button', { name: /^Edit .* left expression$/ }).click();
+  const row = composer.getByTestId('expression-row-new');
+  const left = row.getByRole('button', { name: 'left argument', exact: true });
+  await expect(left).toHaveText('left');
+  await expect(left).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('combobox', { name: 'Search values and primitives' }).fill('2');
+  await page.getByRole('option', { name: 'Use 2', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'right argument', exact: true })).toHaveText('right');
+  await expect(row.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await showCanvas(composer);
+  await expect(draft.getByRole('textbox', { name: / argument left$/ })).toHaveValue('2');
+  await draft.getByRole('textbox', { name: / argument right$/ }).fill('3');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await draft.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toContain('alias step1: workflow.Pair(2, 3)');
 });

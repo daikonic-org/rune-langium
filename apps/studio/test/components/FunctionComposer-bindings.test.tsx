@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
-import { act, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import type { CompositionStep, FunctionComposition } from '@rune-langium/core';
+import { parse, type CompositionStep, type FunctionComposition } from '@rune-langium/core';
 import type { NodeBindingActions } from '../../src/components/compose/CompositionNode.js';
 import { FunctionComposer } from '../../src/components/compose/FunctionComposer.js';
 import { ExpressionDocument } from '../../src/services/expression-document.js';
@@ -11,7 +11,8 @@ const harness = vi.hoisted((): { actions: NodeBindingActions | null } => ({ acti
 const describeComposition = vi.hoisted(() => vi.fn());
 vi.mock('../../src/services/workspace.js', async (original) => ({
   ...(await original<typeof import('../../src/services/workspace.js')>()),
-  requestFunctionComposition: describeComposition
+  requestFunctionComposition: describeComposition,
+  requestExpressionScope: vi.fn(async () => [])
 }));
 vi.mock('../../src/components/compose/CompositionCanvas.js', async () => {
   const { useContext } = await import('react');
@@ -80,6 +81,8 @@ func Owner:
     const file = { path: 'model/owner.rosetta', name: 'owner.rosetta', content: source, dirty: false };
     const onContentChange = vi.fn();
     const documents = new ExpressionDocument({ getGeneration: () => 1, getFile: () => file, onContentChange });
+    const parsed = await parse(source);
+    expect(parsed.parserErrors).toEqual([]);
     render(
       <FunctionComposer
         workspaceKey={`collection-binding-${argumentFirst}`}
@@ -88,11 +91,11 @@ func Owner:
         inspector={null}
         onNavigate={vi.fn()}
         onSave={vi.fn(async () => {})}
-        saveLabel="Saved"
         editor={{
           nodeId: 'example.Owner#RosettaFunction',
           file,
           parseCurrent: true,
+          parsed: { filePath: file.path, source, model: parsed.value },
           documents,
           dependencySnapshot: [file],
           onContentChange,
@@ -100,6 +103,7 @@ func Owner:
         }}
       />
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Canvas', exact: true }));
     await waitFor(() => expect(actions().writable).toBe(true));
     if (argumentFirst) act(() => actions().argument(step, 0, 'item + 1'));
     act(() => actions().value(step, 'replacement', 'input:replacement'));

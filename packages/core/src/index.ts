@@ -24,7 +24,7 @@ export * from './generated/domain.js';
 // Parse API
 export { parse, parseWorkspace, hasComputedScopes, getLinkedReferenceTarget } from './api/parse.js';
 export type { ParseResult } from './api/parse.js';
-export { parseExpression } from './api/parse-expression.js';
+export { EXPRESSION_DRAFT_HOLE, parseExpression, parseExpressionDraft } from './api/parse-expression.js';
 export type { ExpressionParseResult } from './api/parse-expression.js';
 
 // Shared language resources
@@ -147,6 +147,7 @@ export type { AnnotationDefinitionIdentity } from './api/annotation-definitions.
 export {
   describeFunctionComposition,
   hasCompositionAnnotation,
+  getCompositionCallExpression,
   COMPOSITION_ANNOTATION,
   COMPOSITION_MODEL_SOURCE
 } from './api/function-composition.js';

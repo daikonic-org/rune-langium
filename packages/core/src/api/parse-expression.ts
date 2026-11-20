@@ -4,6 +4,8 @@
 import type { RosettaExpression } from '../generated/ast.js';
 import { getSharedServices } from './shared-services.js';
 
+export const EXPRESSION_DRAFT_HOLE = '(<?>)';
+
 /**
  * Result of parsing a bare Rune DSL expression snippet.
  *
@@ -87,4 +89,12 @@ export function parseExpression(text: string): ExpressionParseResult {
     parserErrors,
     hasErrors: lexerErrors.length > 0 || parserErrors.length > 0
   };
+}
+
+/** Parse a private, incomplete draft without shifting later source ranges. */
+export function parseExpressionDraft(text: string): { parsed: ExpressionParseResult; candidate: string } {
+  const parsed = parseExpression(text);
+  if (!parsed.hasErrors || !text.includes('<?>')) return { parsed, candidate: text };
+  const candidate = text.replaceAll(EXPRESSION_DRAFT_HOLE, 'empty').replaceAll('<?>', '_ph');
+  return { parsed: parseExpression(candidate), candidate };
 }
