@@ -254,11 +254,6 @@ html {
      * padding (14px) / gap (6px) / height already match — only the type was a
      * rung small (was --text-2xs / 11px). */
     font-size: var(--text-xs);
-    /* Tight tracking — was +0.04em (wide), which overrode the body's negative
-     * track and made this the loosest text in the app. The reference
-     * `.rs-paneswitch-seg` carries no positive tracking; -0.01em matches the
-     * app-wide tight set. */
-    letter-spacing: -0.01em;
     cursor: pointer;
     transition:
       background 120ms ease,
@@ -1422,7 +1417,6 @@ html {
   color: inherit;
   font-size: var(--text-xs);
   font-weight: var(--font-weight-regular);
-  letter-spacing: -0.01em;
   white-space: nowrap;
   cursor: pointer;
   transition:

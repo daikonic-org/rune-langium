@@ -462,12 +462,6 @@
     font-weight: var(--font-weight-book);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* App-wide negative tracking for UI density.
-     * The handoff's -0.005em is below the perceptual threshold on its own, so
-     * we run -0.01em globally for a visibly tighter set (still conservative;
-     * mono/code opt back out where needed). Display surfaces tighten further
-     * (.font-title below). */
-    letter-spacing: -0.01em;
   }
   h1, h2, h3, h4, h5, h6 {
     /* Heading and UI families have distinct roles across shared surfaces. */
@@ -481,10 +475,6 @@
   /* Display-role opt-in for brand/marketing surfaces, using Transit Sans. */
   .font-title {
     font-family: var(--font-title);
-    /* Display/heading text tracks tighter than body (body at -0.01em). The
-     * reference pushes display/name text to -0.01..-0.02em; -0.015em keeps
-     * headings/wordmarks crisp without crowding. */
-    letter-spacing: -0.015em;
   }
 
   /* ── Global :focus-visible baseline ─────────────────────────────

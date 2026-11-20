@@ -25,10 +25,22 @@ test('Source uses Transit Code Book and enables contextual shaping', async ({ pa
 
   const editor = fullSourceEditor(page);
   const content = editor.locator('.cm-content');
+  await expect(page.locator('body')).toHaveCSS('letter-spacing', 'normal');
+  const fileTab = page.getByRole('group', { name: 'Open files' }).getByRole('button', { name: /^typeface\.rosetta/ });
+  await expect(fileTab).toHaveCSS('letter-spacing', 'normal');
+  for (const label of [
+    page.locator('.studio-brand__name'),
+    page.getByRole('heading', { name: 'Explore', exact: true }).locator('.perspective-heading')
+  ]) {
+    expect(
+      await label.evaluate((element) => Number.parseFloat(getComputedStyle(element).letterSpacing))
+    ).toBeGreaterThan(0);
+  }
   for (const text of [content, editor.locator('.cm-gutters')]) {
     await expect(text).toHaveCSS('font-family', /Daikonic Transit Code/);
     await expect(text).toHaveCSS('font-weight', '350');
     await expect(text).toHaveCSS('font-size', '12px');
+    await expect(text).toHaveCSS('letter-spacing', 'normal');
     await expect(text).toHaveCSS('font-variant-ligatures', 'common-ligatures contextual');
   }
 

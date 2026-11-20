@@ -805,7 +805,6 @@ button[data-navigable]:focus-visible {
   color: currentColor;
   font-size: var(--text-3xs);
   font-weight: var(--font-weight-regular);
-  letter-spacing: -0.02em;
   line-height: 1;
 }
 
