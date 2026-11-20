@@ -101,18 +101,21 @@ vi.mock('../../src/shell/ExplorePerspective.js', async () => {
     );
     useEffect(
       () =>
-        registerEditorSaveBarrier?.(async () => {
-          registry.flush();
-          const latest = useEditorStore.getState();
-          await source.flush({
-            nodes: latest.nodes,
-            edges: latest.edges,
-            parseEpoch: latest.parseEpoch,
-            patches: latest.pendingEditPatches,
-            inversePatches: latest.pendingInversePatches
-          });
+        registerEditorSaveBarrier?.({
+          hasPending: () => registry.hasPending() || source.hasPending(),
+          async flush() {
+            registry.flush();
+            const latest = useEditorStore.getState();
+            await source.flush({
+              nodes: latest.nodes,
+              edges: latest.edges,
+              parseEpoch: latest.parseEpoch,
+              patches: latest.pendingEditPatches,
+              inversePatches: latest.pendingInversePatches
+            });
+          }
         }),
-      [registerEditorSaveBarrier, registry, source.flush]
+      [registerEditorSaveBarrier, registry, source.flush, source.hasPending]
     );
     return node ? (
       <DataTypeForm

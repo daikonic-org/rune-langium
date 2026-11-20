@@ -69,8 +69,21 @@ export function useMetadataItemCommit(
       if (result.status === 'readOnly' || result.status === 'stale') return false;
     }
   };
-  const latest = useRef(commit);
-  latest.current = commit;
-  useEffect(() => registry?.register(() => latest.current()), [registry]);
+  const hasPending = () => {
+    if (!binding || !getFieldState(path).isDirty) return false;
+    const target = binding.currentTarget();
+    const current = target && getMetadataItems(target.expected, field)[index];
+    return !authoredValuesEqual(getValues(path), current ?? expected);
+  };
+  const latest = useRef({ commit, hasPending });
+  latest.current = { commit, hasPending };
+  useEffect(
+    () =>
+      registry?.register(
+        () => latest.current.commit(),
+        () => latest.current.hasPending()
+      ),
+    [registry]
+  );
   return commit;
 }

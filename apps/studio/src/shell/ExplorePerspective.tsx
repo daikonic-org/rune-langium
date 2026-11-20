@@ -1832,18 +1832,21 @@ export const ExplorePerspective = withInstrumentation(
 
     useEffect(
       () =>
-        registerEditorSaveBarrier?.(async () => {
-          formCommitRegistry.flush();
-          const latest = useEditorStore.getState();
-          await sourceSync.flush({
-            nodes: latest.nodes,
-            edges: latest.edges,
-            parseEpoch: latest.parseEpoch,
-            patches: latest.pendingEditPatches,
-            inversePatches: latest.pendingInversePatches
-          });
+        registerEditorSaveBarrier?.({
+          hasPending: () => formCommitRegistry.hasPending() || sourceSync.hasPending(),
+          async flush() {
+            formCommitRegistry.flush();
+            const latest = useEditorStore.getState();
+            await sourceSync.flush({
+              nodes: latest.nodes,
+              edges: latest.edges,
+              parseEpoch: latest.parseEpoch,
+              patches: latest.pendingEditPatches,
+              inversePatches: latest.pendingInversePatches
+            });
+          }
         }),
-      [registerEditorSaveBarrier, formCommitRegistry, sourceSync.flush]
+      [registerEditorSaveBarrier, formCommitRegistry, sourceSync.flush, sourceSync.hasPending]
     );
 
     useLspDiagnosticsBridge(lspClient);

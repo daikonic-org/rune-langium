@@ -326,6 +326,8 @@ export interface SourceSyncSnapshot {
 }
 export interface SourceSyncHandle {
   flush(snapshot: SourceSyncSnapshot): Promise<void>;
+  /** An editor publication is waiting for the host to accept its source snapshot. */
+  hasPending(): boolean;
 }
 
 export function useModelSourceSync(
@@ -518,5 +520,8 @@ export function useModelSourceSync(
     publish,
     renderPublicationVersion
   ]);
-  return { flush: useCallback((snapshot: SourceSyncSnapshot) => publish(snapshot, true), [publish]) };
+  return {
+    flush: useCallback((snapshot: SourceSyncSnapshot) => publish(snapshot, true), [publish]),
+    hasPending: useCallback(() => queued.current !== null, [])
+  };
 }

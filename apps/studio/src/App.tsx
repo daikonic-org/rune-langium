@@ -61,6 +61,7 @@ import { getOrCreateSyncEngine, disposeSyncEngine } from './services/git-sync.js
 import { ActivityBar } from './shell/ActivityBar.js';
 import { AppHeader } from './shell/AppHeader.js';
 import { PerspectiveHost } from './shell/perspectives/PerspectiveHost.js';
+import type { EditorSaveBarrier } from './shell/perspectives/workspace-actions-context.js';
 import { StudioProviders } from './shell/providers/StudioProviders.js';
 import { usePerspectiveStore } from './store/perspective-store.js';
 import { hydrateTelemetrySettings, useTelemetrySettingsStore } from './store/telemetry-settings.js';
@@ -281,17 +282,17 @@ function AppContent() {
     return manager;
   }, []);
 
-  const editorSaveBarriers = useRef(new Set<() => Promise<void>>());
-  const registerEditorSaveBarrier = useCallback((flush: () => Promise<void>) => {
-    editorSaveBarriers.current.add(flush);
+  const editorSaveBarriers = useRef(new Set<EditorSaveBarrier>());
+  const registerEditorSaveBarrier = useCallback((barrier: EditorSaveBarrier) => {
+    editorSaveBarriers.current.add(barrier);
     return () => {
-      editorSaveBarriers.current.delete(flush);
+      editorSaveBarriers.current.delete(barrier);
     };
   }, []);
   const flushEditorSaveBarriers = useCallback(async () => {
     // Snapshot because flushing can change mounted form registrations.
     // eslint-disable-next-line unicorn/no-useless-spread
-    for (const flush of [...editorSaveBarriers.current]) await flush();
+    for (const barrier of [...editorSaveBarriers.current]) await barrier.flush();
   }, []);
 
   const flushWorkspaceSave = useCallback(async () => {
@@ -304,7 +305,11 @@ function AppContent() {
       if (workspaceAutosave.enabled) void flushWorkspaceSave().catch(() => {});
     };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!workspaceAutosave.enabled && workspaceAutosave.hasUnsaved()) {
+      if (workspaceAutosave.enabled) return;
+      if (
+        workspaceAutosave.hasUnsaved() ||
+        Array.from(editorSaveBarriers.current).some((barrier) => barrier.hasPending())
+      ) {
         event.preventDefault();
         event.returnValue = '';
       }

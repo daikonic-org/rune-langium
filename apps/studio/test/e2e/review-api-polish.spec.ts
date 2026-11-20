@@ -203,6 +203,35 @@ test('renames output without changing implicit element field bindings', async ({
   await page.screenshot({ path: info.outputPath('implicit-field-preserved.png') });
 });
 
+test('warns on unload while a paused Inspector edit is still buffered', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await load(page);
+  await select(page, 'CurrencyTest', 'RosettaFunction');
+  await showPane(page, 'Inspector');
+  await showPane(page, 'Source');
+  const toolbar = page.getByRole('toolbar', { name: 'Center pane selector' });
+  await toolbar.getByRole('button', { name: 'Autosave on', exact: true }).click();
+  await expect(toolbar.getByRole('button', { name: 'Autosave off', exact: true })).toBeVisible();
+  const unloadAllowed = () =>
+    page.evaluate(() => window.dispatchEvent(new Event('beforeunload', { cancelable: true })));
+  expect(await unloadAllowed()).toBe(true);
+
+  const name = page.getByRole('textbox', { name: 'Attribute name: currency', exact: true });
+  const bufferedUnloadAllowed = await name.evaluate((input) => {
+    // Change the field and check unload in one turn, before the name timer can fire.
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    setValue.call(input, 'denomination');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+  });
+  expect(bufferedUnloadAllowed).toBe(false);
+
+  await toolbar.getByRole('button', { name: 'Save source', exact: true }).click();
+  await expect(toolbar.getByRole('status')).toHaveText('Saved locally');
+  await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toContain('denomination string (1..1)');
+  expect(await unloadAllowed()).toBe(true);
+});
+
 test('drops a type onto the input name and shows inherited enum values', async ({ page }, info) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await load(page);

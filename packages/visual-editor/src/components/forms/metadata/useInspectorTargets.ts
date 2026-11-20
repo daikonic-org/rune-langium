@@ -15,12 +15,13 @@ import type {
   EnumFormActions
 } from '../../../types.js';
 import type { EffectiveEntry } from '../../../hooks/useInheritedMembers.js';
+import type { EditorCommitRegistry } from '../../../hooks/editor-commit-lifecycle.js';
 
 export interface InspectorHostProps {
   scopeKey?: string;
   parseEpoch?: number;
   saveStatus?: string;
-  registerCommitFlush?: (flush: () => void) => () => void;
+  registerCommitFlush?: EditorCommitRegistry['register'];
 }
 
 /** Shared canonical row mapping before any paging or visual filtering. */

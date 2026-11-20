@@ -390,7 +390,7 @@ function DataTypeForm({
       canonicalType="Data"
       schema={DataSchema}
       registerCommitFlush={lifecycle.register}
-      additionalCommitFlush={debouncedName.flush}
+      additionalCommit={debouncedName}
     >
       <EditorActionsProvider
         nodeId={nodeId}

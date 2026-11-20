@@ -292,7 +292,7 @@ function EnumForm({
       canonicalType="RosettaEnumeration"
       schema={RosettaEnumerationSchema}
       registerCommitFlush={lifecycle.register}
-      additionalCommitFlush={debouncedName.flush}
+      additionalCommit={debouncedName}
     >
       <EditorActionsProvider {...editorActionsValue}>
         <div data-slot="enum-form" className={INSPECTOR_FORM_CLASS}>
