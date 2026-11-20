@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import type { DockviewApi } from 'dockview-react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
+import type { DockviewApi, IDockviewHeaderActionsProps } from 'dockview-react';
 import type { WorkbenchDefinition } from '../../workbench-types.js';
 import { WorkbenchHost } from '../../WorkbenchHost.js';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { InstanceCreateDialog } from '../../../components/InstanceCreateDialog.js';
 import { usePrototypeViewStore } from '../../../store/prototype-view-store.js';
 import { useWorkspaceOptional } from '../../providers/workspace-context.js';
@@ -44,6 +45,84 @@ function addWorkflowList(api: DockviewApi): void {
     inactive: true,
     position: { referenceGroup: grid.group, direction: 'within' }
   });
+}
+
+function addExampleLibraryEdge(api: DockviewApi, height = 190) {
+  const edge = api.addEdgeGroup('bottom', {
+    id: 'prototype.library',
+    initialSize: height,
+    minimumSize: 120,
+    collapsedSize: 34,
+    collapsed: false
+  });
+  edge.setHeaderPosition('top');
+  return edge;
+}
+
+function dockExampleLibrary(api: DockviewApi): void {
+  const grid = api.getPanel('prototype.grid');
+  if (!grid || grid.api.location.type !== 'grid' || api.getEdgeGroup('bottom')) return;
+  const { group } = grid;
+  if (group.panels.some((panel) => panel.id !== 'prototype.grid' && panel.id !== 'prototype.workflows')) return;
+
+  // Upgrade a full-width bottom split. Leave custom side, floating and shared groups in place.
+  const { grid: layout } = api.toJSON();
+  let { root } = layout;
+  let vertical = layout.orientation === 'VERTICAL';
+  while (
+    root.type === 'branch' &&
+    Array.isArray(root.data) &&
+    root.data.length === 1 &&
+    root.data[0]?.type === 'branch'
+  ) {
+    root = root.data[0];
+    vertical = !vertical;
+  }
+  const last = Array.isArray(root.data) ? root.data.at(-1) : undefined;
+  if (!vertical || last?.type !== 'leaf' || Array.isArray(last.data) || last.data.id !== group.id) return;
+  const active = api.activePanel;
+  const selected = group.activePanel;
+  const edge = addExampleLibraryEdge(api, Math.max(120, group.api.height || 190));
+  const target = api.groups.find((candidate) => candidate.id === edge.id);
+  if (!target) return;
+  const panels = group.panels.slice();
+  for (const panel of panels) panel.api.moveTo({ group: target, position: 'center', skipSetActive: true });
+  selected?.api.setActive();
+  active?.api.setActive();
+}
+
+function ExampleLibraryHeader({ group }: IDockviewHeaderActionsProps): ReactElement | null {
+  const subscribe = useCallback(
+    (update: () => void) => {
+      const listener = group.api.onDidCollapsedChange(update);
+      return () => listener.dispose();
+    },
+    [group]
+  );
+  const collapsed = useSyncExternalStore(subscribe, () => group.api.isCollapsed());
+  const location = group.api.location;
+  if (
+    location.type !== 'edge' ||
+    location.position !== 'bottom' ||
+    !group.panels.length ||
+    group.panels.some((panel) => panel.id !== 'prototype.grid' && panel.id !== 'prototype.workflows')
+  )
+    return null;
+  const label = collapsed ? 'Expand example library' : 'Collapse example library';
+  const Icon = collapsed ? ChevronUp : ChevronDown;
+  return (
+    <Button
+      type="button"
+      size="icon-xs"
+      variant="ghost"
+      aria-label={label}
+      aria-expanded={!collapsed}
+      title={label}
+      onClick={() => (collapsed ? group.api.expand() : group.api.collapse())}
+    >
+      <Icon className="size-3.5" aria-hidden="true" />
+    </Button>
+  );
 }
 
 export const PrototypePerspective = withInstrumentation(
@@ -152,15 +231,12 @@ export const PrototypePerspective = withInstrumentation(
             renderer: 'always'
           });
           if (view.graphVisible) addPayloadGraph(api, width);
+          const library = width < 768 ? inspector.group.id : addExampleLibraryEdge(api).id;
           api.addPanel({
             id: 'prototype.grid',
             component: 'prototype.grid',
             title: 'Data',
-            initialHeight: 190,
-            position:
-              width < 768
-                ? { referenceGroup: inspector.group, direction: 'within' }
-                : { referencePanel: inspector.id, direction: 'below' }
+            position: { referenceGroup: library, direction: 'within' }
           });
           addWorkflowList(api);
           inspector.api.setActive();
@@ -169,6 +245,7 @@ export const PrototypePerspective = withInstrumentation(
           const grid = api.getPanel('prototype.grid');
           if (grid?.api.title === 'Examples') grid.api.setTitle('Data');
           addWorkflowList(api);
+          if (width >= 768) dockExampleLibrary(api);
           if (view.graphVisible) addPayloadGraph(api, width);
           else {
             const graph = api.getPanel('prototype.payloadGraph');
@@ -224,6 +301,7 @@ export const PrototypePerspective = withInstrumentation(
           {activationReady ? (
             <WorkbenchHost
               definition={definition}
+              rightHeaderActionsComponent={ExampleLibraryHeader}
               initialNativeLayout={view.nativeLayout}
               onReady={(api) => {
                 dock.current = api;

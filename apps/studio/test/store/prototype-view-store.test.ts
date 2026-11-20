@@ -38,7 +38,7 @@ it('keeps local prototype edits when they occur during activation', async () => 
 it('rejects corrupt or unbounded persisted workflow widths', async () => {
   const { normalizeWorkflowWidths } = await import('../../src/store/prototype-view-store.js');
   for (const input of [null, [], [0, 99], [NaN, 28], [40, 40], ['32', 28]])
-    expect(normalizeWorkflowWidths(input)).toEqual([32, 28]);
+    expect(normalizeWorkflowWidths(input)).toEqual([31, 24]);
   expect(normalizeWorkflowWidths([30, 30])).toEqual([30, 30]);
 });
 

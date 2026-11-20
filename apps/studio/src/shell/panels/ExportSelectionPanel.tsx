@@ -3,7 +3,7 @@
 
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NamespaceExplorerPanel, selectNodeRepository, useEditorStore } from '@rune-langium/visual-editor';
+import { selectNodeRepository, useEditorStore } from '@rune-langium/visual-editor';
 import { declarationKey } from '@rune-langium/codegen/export';
 import type { ExportSelection } from '@rune-langium/codegen/export';
 import type { ExplorerSelectionAction } from '@rune-langium/visual-editor';
@@ -13,6 +13,7 @@ import {
   exportSelectionToExplorerSet,
   exportDeclarationFromNode
 } from '../../services/export-explorer-selection.js';
+import { StudioNamespaceExplorer } from '../../components/StudioNamespaceExplorer.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { viewTypeInExplore } from '../../services/explore-navigation.js';
 
@@ -76,7 +77,7 @@ export const ExportSelectionPanel = withInstrumentation(
           </p>
         </div>
         <div className="min-h-0 flex-1">
-          <NamespaceExplorerPanel
+          <StudioNamespaceExplorer
             nodeRepository={repository}
             expandedNamespaces={expandedNamespaces}
             hiddenNodeIds={new Set()}

@@ -33,6 +33,15 @@
   overflow-wrap: anywhere;
 }
 
+.workflow-library__picker .control-label {
+  display: block;
+  margin-block: 0;
+  padding-block: 0;
+  overflow: visible;
+  text-box: normal;
+  white-space: normal;
+}
+
 .workflow-library__options {
   max-width: min(36rem, calc(100vw - var(--space-4)));
 }
@@ -44,8 +53,8 @@
 }
 
 .workflow-stage {
-  --workflow-input-width: 32%;
-  --workflow-function-width: 28%;
+  --workflow-input-width: 31%;
+  --workflow-function-width: 24%;
   position: relative;
   isolation: isolate;
   display: grid;
@@ -117,7 +126,7 @@
 .workflow-node>header h2 {
   font-size: var(--text-sm);
   line-height: 1.4;
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   color: var(--workflow-kind);
   margin-right: auto;
   overflow-wrap: anywhere;
@@ -156,9 +165,14 @@
 }
 
 .workflow-node__fields {
-  max-height: clamp(10rem, 24dvh, 24rem);
+  max-height: clamp(10rem, 31dvh, 28rem);
   overflow: auto;
   scrollbar-gutter: stable;
+}
+
+.workflow-node__fields[data-expanded] {
+  max-height: none;
+  overflow: visible;
 }
 
 .workflow-node__fields:focus-visible {

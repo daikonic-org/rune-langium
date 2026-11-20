@@ -6,6 +6,9 @@ import { Fragment, useCallback, useContext, useEffect, useRef, useState } from '
 import type React from 'react';
 import { Network, FileCode2, Info, Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { SourceSaveControl } from '../../components/editing/SourceSaveControl.js';
+import { useWorkspaceActionsOptional } from '../perspectives/workspace-actions-context.js';
+import { useWorkspaceOptional } from '../providers/workspace-context.js';
 import { GraphFilterMenu } from '../../components/GraphFilterMenu.js';
 import { useCenterPanes, type CenterPane } from '../center-panes-context.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -50,6 +53,8 @@ export const CenterStackPanel = withInstrumentation(
     sourceNavigationPending: pendingOverride
   }: CenterStackPanelProps): React.ReactElement {
     const { activePanes, focusedPane, focus: setFocusedPane, reveal, toggle } = useCenterPanes();
+    const workspaceId = useWorkspaceOptional()?.workspaceId;
+    const workspaceActions = useWorkspaceActionsOptional();
     const showInspector = () => {
       reveal('inspector');
     };
@@ -164,6 +169,15 @@ export const CenterStackPanel = withInstrumentation(
           }))}
           actions={
             <div className="studio-panel-actions" aria-label="Center stack actions">
+              {workspaceId && workspaceActions?.flushWorkspaceSave && (
+                <SourceSaveControl
+                  key={workspaceId}
+                  state={workspaceActions.workspaceSaveState}
+                  enabled={workspaceActions.workspaceAutosaveEnabled}
+                  onEnabledChange={workspaceActions.setWorkspaceAutosave}
+                  save={workspaceActions.flushWorkspaceSave}
+                />
+              )}
               <GraphFilterMenu compact align="end" />
             </div>
           }

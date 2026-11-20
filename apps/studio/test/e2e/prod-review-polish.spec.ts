@@ -2,10 +2,66 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { expect } from '@playwright/test';
+import { fullSourceEditor } from '../helpers/source-editor.js';
 import { test } from '../helpers/studio-test.js';
 import AxeBuilder from '@axe-core/playwright';
 import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+
+test('Source uses Transit Code Book and enables contextual shaping', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'typeface.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('namespace typography\n\ntype Sample:\n  value string (1..1)\n')
+  });
+  await page.getByTestId('ns-type-link-typography.Sample#Data').click();
+  const source = page.getByRole('toolbar', { name: 'Center pane selector' }).getByRole('button', {
+    name: 'Source',
+    exact: true
+  });
+  if ((await source.getAttribute('aria-pressed')) !== 'true') await source.click();
+
+  const editor = fullSourceEditor(page);
+  const content = editor.locator('.cm-content');
+  for (const text of [content, editor.locator('.cm-gutters')]) {
+    await expect(text).toHaveCSS('font-family', /Daikonic Transit Code/);
+    await expect(text).toHaveCSS('font-weight', '350');
+    await expect(text).toHaveCSS('font-variant-ligatures', 'common-ligatures contextual');
+  }
+
+  const metrics = await content.evaluate(async (el) => {
+    const style = getComputedStyle(el);
+    const face = `${style.fontWeight} ${style.fontSize} "Daikonic Transit Code"`;
+    const [upright, italic] = await Promise.all([
+      document.fonts.load(face, '::'),
+      document.fonts.load(`italic ${face}`, 'ff')
+    ]);
+    const sample = document.createElement('span');
+    sample.style.cssText = 'position: absolute; visibility: hidden; white-space: pre';
+    sample.style.font = face;
+    sample.style.fontVariantLigatures = style.fontVariantLigatures;
+    sample.textContent = '::';
+    document.body.append(sample);
+    try {
+      const shaped = sample.getBoundingClientRect().width;
+      sample.style.fontVariantLigatures = 'none';
+      return {
+        upright: upright.some((font) => font.style === 'normal' && font.status === 'loaded'),
+        italic: italic.some((font) => font.style === 'italic' && font.status === 'loaded'),
+        shaped,
+        unshaped: sample.getBoundingClientRect().width
+      };
+    } finally {
+      sample.remove();
+    }
+  });
+  expect(metrics.upright).toBe(true);
+  expect(metrics.italic).toBe(true);
+  // This release renders contextual scope punctuation in one cell.
+  expect(metrics.shaped).toBeCloseTo(metrics.unshaped / 2, 1);
+});
 
 for (const width of [1024, 800])
   test(`recent workspace names stay readable at ${width}px with larger text`, async ({ page }, info) => {

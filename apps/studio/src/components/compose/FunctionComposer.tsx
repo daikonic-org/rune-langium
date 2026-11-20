@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
+import { SourceSaveControl } from '../editing/SourceSaveControl.js';
+import { useWorkspaceActionsOptional } from '../../shell/perspectives/workspace-actions-context.js';
 import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { DockviewApi } from 'dockview-react';
@@ -89,7 +91,6 @@ export interface FunctionComposerProps {
   active: boolean;
   onNavigate(nodeId: string): void;
   onSave(): Promise<void>;
-  saveLabel: string;
 }
 interface Draft {
   binding: DocumentBinding;
@@ -122,16 +123,7 @@ export const FunctionComposer = withInstrumentation(
   },
   { op: 'FunctionComposer', capture: 0 }
 );
-function Composer({
-  workspaceKey,
-  models,
-  editor,
-  inspector,
-  active,
-  onNavigate,
-  onSave,
-  saveLabel
-}: FunctionComposerProps) {
+function Composer({ workspaceKey, models, editor, inspector, active, onNavigate, onSave }: FunctionComposerProps) {
   const creating = useComposeNavigationStore((s) => s.creating);
   const setCreating = useComposeNavigationStore((s) => s.setCreating);
   const nodesById = useEditorStore((s) => s.nodesById);
@@ -623,6 +615,7 @@ function Composer({
   };
   const openInspector = () => usePerspectiveStore.getState().setActivePerspective('explore');
   const [saveBusy, setSaveBusy] = useState(false);
+  const workspaceActions = useWorkspaceActionsOptional();
   const save = async () => {
     setSaveBusy(true);
     setError(undefined);
@@ -928,10 +921,16 @@ function Composer({
           >
             {creating ? 'New composition' : identity ? identity.split('#')[0]?.split('.').pop() : 'Function composer'}
           </strong>
-          <span className="function-composer__save-state">{saveBusy ? 'Saving…' : saveLabel}</span>
-          <Button size="xs" variant="ghost" disabled={saveBusy} onClick={() => void save()}>
-            Save
-          </Button>
+          <div className="function-composer__save-state">
+            <SourceSaveControl
+              state={workspaceActions?.workspaceSaveState}
+              enabled={workspaceActions?.workspaceAutosaveEnabled}
+              onEnabledChange={workspaceActions?.setWorkspaceAutosave}
+              save={onSave}
+              saveLabel="Save"
+              busy={saveBusy}
+            />
+          </div>
           {stale && (
             <Button
               size="xs"

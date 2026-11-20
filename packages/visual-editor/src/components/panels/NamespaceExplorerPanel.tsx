@@ -94,6 +94,8 @@ export interface NamespaceExplorerPanelProps {
   search?: { query: string; textByNode?: ReadonlyMap<string, string> };
   /** Customize leaf actions without duplicating the explorer's tree behavior. */
   getNodePresentation?: (nodeId: string) => ExplorerNodePresentation;
+  /** Recently added or loaded namespaces, keyed by their full names. */
+  arrivingNamespaces?: ReadonlySet<string>;
   /** Total edge count for cross-namespace reference detection. */
   hiddenRefCounts?: Map<string, number>;
   /**
@@ -211,6 +213,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
   fitContent = false,
   search,
   getNodePresentation,
+  arrivingNamespaces,
   hiddenRefCounts,
   dragSourceId,
   onSetDragSource,
@@ -389,7 +392,24 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
     [selection]
   );
 
-  const virtualizer = useVirtualTree(flatRows, scrollRef);
+  const arrivalRows = useMemo(() => {
+    if (!arrivingNamespaces?.size) return undefined;
+    const headers = new Set(
+      flatRows.flatMap((row) =>
+        row.kind === 'segment' ? [row.fullPath] : row.kind === 'namespace' ? [row.namespace] : []
+      )
+    );
+    const marked = new Set<string>();
+    for (const namespace of arrivingNamespaces) {
+      // A collapsed child cues its nearest displayed ancestor.
+      let path = namespace;
+      while (!headers.has(path) && path.includes('.')) path = path.slice(0, path.lastIndexOf('.'));
+      if (headers.has(path)) marked.add(path);
+    }
+    return marked;
+  }, [arrivingNamespaces, flatRows]);
+
+  const virtualizer = useVirtualTree(flatRows, scrollRef, compact);
 
   // Expand only single-child chains. Branches require their own click;
   // collapsing clears descendants so reopening cannot reveal stale branches.
@@ -562,6 +582,11 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                 return (
                   <div
                     key={virtualRow.key}
+                    data-namespace-arrival={
+                      row.kind !== 'type' && arrivalRows?.has(row.kind === 'segment' ? row.fullPath : row.namespace)
+                        ? ''
+                        : undefined
+                    }
                     style={{
                       position: 'absolute',
                       // Position via `top`, NOT `transform: translateY(...)`.
@@ -592,6 +617,7 @@ export const NamespaceExplorerPanel = memo(function NamespaceExplorerPanel({
                         selectedIds={selectedSelectionIds}
                         onToggleSelection={toggleNamespaceSelection}
                         showSelection={selection !== undefined}
+                        compact={compact}
                       />
                     ) : row.kind === 'type' ? (
                       <TypeItemRow
@@ -701,6 +727,7 @@ interface SegmentHeaderRowProps {
   selectedIds: ReadonlySet<string>;
   onToggleSelection: (ids: readonly string[], namespaces: readonly string[], checked: boolean) => void;
   showSelection: boolean;
+  compact: boolean;
 }
 
 function SegmentHeaderRow({
@@ -711,12 +738,14 @@ function SegmentHeaderRow({
   selectionNamespaces,
   selectedIds,
   onToggleSelection,
-  showSelection
+  showSelection,
+  compact
 }: SegmentHeaderRowProps): JSX.Element {
   const state = selectionState(selectionIds, selectedIds);
   return (
     <NamespaceSegmentHeaderRow
       data-testid={`ns-seg-${row.fullPath}`}
+      compact={compact}
       fullPath={row.fullPath}
       label={row.segment || '(default)'}
       onFocus={onFocus}

@@ -36,6 +36,8 @@ export interface LspModelMetadata {
   sourceUri?: string;
   imports: string[];
   references: string[];
+  /** Namespaces named by qualified references, even before their targets are loaded. */
+  qualifiedNamespaces?: string[];
   /** Authored root declarations, excluding qualified scope aliases. */
   declarations?: Array<{ type: string; name: string }>;
   /** Older metadata omits this flag, requiring source inspection. */
@@ -62,6 +64,7 @@ export function readLspModelMetadata(json: string): LspModelMetadata {
 
 function modelMetadata(model: SerializedModel): LspModelMetadata {
   const references = new Set<string>();
+  const qualifiedNamespaces = new Set<string>();
   // A JSON reviver crosses into JavaScript for every scalar/token-span field.
   // Visit only objects and reference fields after the native parse instead.
   const pending: Array<[string, unknown]> = [['', model]];
@@ -71,11 +74,20 @@ function modelMetadata(model: SerializedModel): LspModelMetadata {
     for (const target of targets) {
       if (typeof target === 'string' && !target.startsWith('#')) references.add(target.split('#')[0]!);
     }
+    if (key === '$refText' && typeof value === 'string') {
+      const dot = value.lastIndexOf('.');
+      if (dot > 0) qualifiedNamespaces.add(value.slice(0, dot));
+    }
     if (!value || typeof value !== 'object') continue;
     const entries = Object.entries(value);
     for (let index = entries.length - 1; index >= 0; index--) {
       const entry = entries[index]!;
-      if (entry[0] === '$ref' || entry[0] === '$refs' || (entry[1] && typeof entry[1] === 'object')) {
+      if (
+        entry[0] === '$ref' ||
+        entry[0] === '$refs' ||
+        entry[0] === '$refText' ||
+        (entry[1] && typeof entry[1] === 'object')
+      ) {
         pending.push(entry);
       }
     }
@@ -85,6 +97,7 @@ function modelMetadata(model: SerializedModel): LspModelMetadata {
     sourceUri: model.$textRegion?.documentURI,
     imports: (model.imports ?? []).map((entry: { importedNamespace: string }) => entry.importedNamespace),
     references: [...references],
+    ...(qualifiedNamespaces.size > 0 ? { qualifiedNamespaces: [...qualifiedNamespaces] } : {}),
     hasImplementationSources: Object.hasOwn(model, '$implementationSources'),
     declarations: (model.elements ?? []).flatMap((node: { $type?: unknown; name?: unknown }) =>
       typeof node.$type === 'string' && typeof node.name === 'string' ? [{ type: node.$type, name: node.name }] : []

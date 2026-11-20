@@ -58,11 +58,12 @@ export const collectLspWorkspaceModels = withInstrumentation(
     const allNamespaces = new Set(uriNamespaces.values());
     const deps = new Map<string, Set<string>>();
     for (const entry of current.values()) {
-      const { namespace, imports, references } = entry.metadata;
+      const { namespace, imports, references, qualifiedNamespaces = [] } = entry.metadata;
       if (!namespace) continue;
       const targets = deps.get(namespace) ?? new Set<string>();
       for (const pattern of imports)
         for (const target of importNamespaceDependencies(pattern, allNamespaces)) targets.add(target);
+      for (const target of qualifiedNamespaces) if (allNamespaces.has(target)) targets.add(target);
       for (const reference of references) {
         const target = uriNamespaces.get(canonicalUri(reference));
         if (target) targets.add(target);

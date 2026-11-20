@@ -841,6 +841,7 @@ export const PrototypeWorkflow = withInstrumentation(
           {ready ? (
             <>
               <InstancePayloadPanel
+                key={functionSelected ? 'result' : 'instance'}
                 payload={{ kind: functionSelected ? 'result' : 'instance', value: payload }}
                 onExport={async () =>
                   downloadFile(

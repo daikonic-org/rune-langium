@@ -36,7 +36,7 @@ func External:
  output: result int (1..1)
 `;
 
-test('Source Save drains the working-copy save barrier and reports local persistence across reload', async ({
+test('workspace autosave is shared with Compose and manual Save persists drafts across reload', async ({
   page
 }, info) => {
   await page.setViewportSize({ width: 1440, height: 960 });
@@ -46,14 +46,29 @@ test('Source Save drains the working-copy save barrier and reports local persist
     mimeType: 'text/plain',
     buffer: Buffer.from(source)
   });
+  const toolbar = page.getByRole('toolbar', { name: 'Center pane selector' });
+  const autosave = toolbar.getByRole('button', { name: /^Autosave (?:on|off)$/ });
+  await expect(autosave).toHaveAttribute('aria-pressed', 'true');
+  await autosave.click();
   const showSource = page.getByRole('button', { name: 'Source', exact: true });
   if ((await showSource.getAttribute('aria-pressed')) !== 'true') await showSource.click();
   const editor = fullSourceEditor(page).getByRole('textbox', { name: 'Rune source editor' });
   await editor.click();
   await editor.press('ControlOrMeta+End');
   await page.keyboard.insertText('\n// saved with the Source action\n');
-  await page.getByRole('button', { name: 'Save source', exact: true }).click();
-  await expect(page.locator('[aria-label="Source file path"]').getByRole('status')).toHaveText('Saved locally');
+  await expect(toolbar.getByRole('status')).toHaveText('Unsaved changes');
+  expect(
+    Object.values(await projectBackingFiles(page)).some((text) => text.includes('// saved with the Source action'))
+  ).toBe(false);
+  await page.getByTestId('rail-compose').click();
+  const composer = page.getByTestId('function-composer');
+  await expect(composer.getByRole('button', { name: /^Autosave (?:on|off)$/ })).toHaveAttribute(
+    'aria-pressed',
+    'false'
+  );
+  await page.getByTestId('rail-explore').click();
+  await toolbar.getByRole('button', { name: 'Save source', exact: true }).click();
+  await expect(toolbar.getByRole('status')).toHaveText('Saved locally');
   expect(
     Object.values(await projectBackingFiles(page)).some((text) => text.includes('// saved with the Source action'))
   ).toBe(true);
@@ -127,7 +142,7 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await draft.press('ControlOrMeta+a');
   await page.keyboard.insertText('const result = extract(amount, item => 2);\nreturn result;');
   await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await expect(implementation.getByText('Unapplied draft', { exact: true })).toHaveCount(0);
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('amount extract [2]');
   await rune.press('ControlOrMeta+z');
@@ -163,7 +178,7 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await draft.press('ControlOrMeta+a');
   await page.keyboard.insertText(nestedDraft.replace('item1 + 1', 'item1 * 2'));
   await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await expect(implementation.getByText('Unapplied draft', { exact: true })).toHaveCount(0);
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('other extract [item * 2]');
   await expect(rune).not.toContainText('item1');
@@ -197,7 +212,7 @@ test('concise projections preserve contracts, private edits, undo and unavailabl
   await draft.press('ControlOrMeta+a');
   await page.keyboard.insertText('const result = trade._.amount + 1;\nreturn result;');
   await implementation.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(implementation.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await expect(implementation.getByText('Unapplied draft', { exact: true })).toHaveCount(0);
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
   await expect(rune).toContainText('trade ->> amount + 1');
   await rune.press('ControlOrMeta+z');

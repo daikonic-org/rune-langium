@@ -28,7 +28,7 @@ export const normalizeWorkflowWidths = withInstrumentation(
       value.every((width) => typeof width === 'number' && Number.isFinite(width) && width >= 22 && width <= 40) &&
       value[0] + value[1] <= 76
       ? [value[0], value[1]]
-      : [32, 28];
+      : [31, 24];
   },
   {
     op: 'normalizeWorkflowWidths',

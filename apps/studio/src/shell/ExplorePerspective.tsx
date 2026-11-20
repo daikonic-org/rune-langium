@@ -31,6 +31,7 @@ import { FunctionComposer } from '../components/compose/FunctionComposer.js';
 import { usePerspectiveStore } from '../store/perspective-store.js';
 import { DraftConditionEditor } from '../components/editing/DraftConditionEditor.js';
 import { useChangeFeedback } from '../hooks/useChangeFeedback.js';
+import { StudioNamespaceExplorer } from '../components/StudioNamespaceExplorer.js';
 import { diagramFeedbackItems, inspectorFeedbackItems } from '../services/feedback-items.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { parseCuratedCacheSeeds } from '../services/curated-cache-seeds.js';
@@ -44,7 +45,6 @@ import { useContext, useRef, useCallback, useState, useMemo, useEffect, type Key
 import type { AstNodeWithTextRegion } from 'langium';
 import {
   RuneTypeGraph,
-  NamespaceExplorerPanel,
   EditorFormPanel,
   ExpressionBuilder,
   expressionScopeFromEntries,
@@ -94,7 +94,6 @@ import {
 } from '@rune-langium/core';
 import { createScopedMetadataActions } from './inspector-metadata-actions.js';
 import { SourceEditor } from '../components/SourceEditor.js';
-import { SourceSaveControl } from '../components/editing/SourceSaveControl.js';
 import { ExpressionWorkspace } from '../components/editing/ExpressionWorkspace.js';
 import { ExpressionDocument } from '../services/expression-document.js';
 import { buildExpressionOwnerFiles } from './expression-owner-files.js';
@@ -514,8 +513,7 @@ export const ExplorePerspective = withInstrumentation(
     // Workspace actions — formerly props, now from the actions context.
     // onClose/onSwitchWorkspace/onCreateWorkspace moved to AppHeader's
     // WorkspaceSwitcherTrigger (shared-perspective-chrome plan, Task 3).
-    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier, flushWorkspaceSave, workspaceSaveState } =
-      useWorkspaceActions();
+    const { onFilesChange, loadCuratedSource, registerEditorSaveBarrier, flushWorkspaceSave } = useWorkspaceActions();
     const inspectorScope = `${workspaceId}:${workspace.workspaceEpoch ?? 0}`;
     const [composeScope, setComposeScope] = useState<string>();
     if (composeActive && composeScope !== inspectorScope) setComposeScope(inspectorScope);
@@ -2193,7 +2191,7 @@ export const ExplorePerspective = withInstrumentation(
     const FileTreePanelMounted = useCallback(
       () => (
         <div className="h-full">
-          <NamespaceExplorerPanel
+          <StudioNamespaceExplorer
             showHeading={false}
             nodeRepository={nodeRepository}
             expandedNamespaces={expandedNamespaces}
@@ -2431,9 +2429,6 @@ export const ExplorePerspective = withInstrumentation(
             {fileExt && <span className="studio-source-meta__pill">{fileExt}</span>}
             <span className="studio-source-meta__path">{activeFile?.path ?? '—'}</span>
             <span className="studio-source-meta__spacer" />
-            {activeFile && !sourcePending && !activeFile.readOnly && !activeFile.refOnly && flushWorkspaceSave && (
-              <SourceSaveControl key={workspaceId} state={workspaceSaveState} save={flushWorkspaceSave} />
-            )}
             {activeFile && !sourcePending && (
               <Button
                 variant="ghost"
@@ -2478,8 +2473,6 @@ export const ExplorePerspective = withInstrumentation(
       sourceEditorFiles,
       hideSourceDocumentation,
       workspaceId,
-      workspaceSaveState,
-      flushWorkspaceSave,
       sourceLoadError,
       activeEditorFile,
       lspClient,
@@ -3171,9 +3164,6 @@ export const ExplorePerspective = withInstrumentation(
           onSave={async () => {
             await flushWorkspaceSave?.();
           }}
-          saveLabel={
-            workspaceSaveState === 'error' ? 'Save failed' : workspaceSaveState === 'saving' ? 'Saving…' : 'Autosave on'
-          }
           inspector={renderInspectorPane()}
           editor={
             selectedNodeType === 'RosettaFunction' && selectedNodeId

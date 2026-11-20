@@ -14,6 +14,7 @@ import { createTransportProvider, type TransportState } from '../../services/tra
 import { getLspSessionId } from '../../services/lsp-session.js';
 import { config } from '../../config.js';
 import { collectLspWorkspaceModels, type LspModelCacheEntry } from '../../services/lsp-workspace-models.js';
+import { WORKSPACE_EDIT_SETTLE_MS } from '../../services/workspace-autosave.js';
 import { BUNDLE_MARKER_SUFFIX } from '../../services/workspace.js';
 import { useStudioToast } from '../../components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from '../../store/output-store.js';
@@ -132,12 +133,23 @@ export const LspProvider = withInstrumentation(
       });
     }, [semanticInput]);
 
-    // Keep full syntax trees only for the active source document.
+    // A new editor needs its syntax tree immediately. Subsequent changes to
+    // the same file are batched, including edits made through visual controls.
+    const activePath = useRef<string | null | undefined>(undefined);
     useEffect(() => {
       const active = files.filter(
         (f) => f.path === activeEditorFile && !f.path.endsWith(BUNDLE_MARKER_SUFFIX) && (!f.refOnly || f.sourceLoaded)
       );
-      lspClientRef.current?.syncWorkspaceFiles(active);
+      const path = active[0]?.path ?? null;
+      const sync = () => lspClientRef.current?.syncWorkspaceFiles(active);
+      if (activePath.current !== path) {
+        activePath.current = path;
+        sync();
+        return;
+      }
+      if (!path) return;
+      const timeout = setTimeout(sync, WORKSPACE_EDIT_SETTLE_MS);
+      return () => clearTimeout(timeout);
     }, [files, activeEditorFile]);
 
     const reconnect = useCallback(() => {

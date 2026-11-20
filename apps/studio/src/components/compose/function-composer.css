@@ -32,6 +32,9 @@
   height: 14px;
 }
 .function-composer__save-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   color: var(--muted-foreground);
   white-space: nowrap;
 }
@@ -128,7 +131,7 @@
 .composition-node[data-selected='true'] .composition-node__icon {
   color: var(--primary);
 }
-/* Embed the shared explorer at palette scale; virtual rows keep their normal density. */
+/* Embed the compact variant of the shared namespace explorer. */
 .function-composer__functions {
   min-width: 0;
   flex-shrink: 0;
@@ -201,7 +204,7 @@
 
 .composition-node {
   display: grid;
-  width: 280px;
+  width: clamp(280px, 30cqi, 360px);
   gap: var(--space-2);
   padding: var(--space-3);
   color: var(--foreground);
@@ -243,12 +246,10 @@
   .function-composer__header {
   flex-wrap: wrap;
 }
-  .function-composer__save-state {
-  display: none;
-}
 }
 
 .function-composer__graph {
+  container-type: inline-size;
   min-width: 0;
   min-height: 0;
   flex: 1;

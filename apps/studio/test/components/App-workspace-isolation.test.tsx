@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { WORKSPACE_EDIT_SETTLE_MS } from '../../src/services/workspace-autosave.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import type { ReactNode } from 'react';
@@ -301,17 +302,20 @@ describe('workspace isolation', () => {
     useActivityStore.getState().clearEntries();
     useOutputStore.getState().clearLines();
     fireEvent.click(screen.getByRole('button', { name: 'Edit from test' }));
-    await waitFor(() => {
-      const activity = useActivityStore
-        .getState()
-        .entries.filter((entry) => entry.msg.includes('edits remain in memory'));
-      const output = useOutputStore.getState().lines.filter((entry) => entry.text.includes('edits remain in memory'));
-      expect(activity).toHaveLength(1);
-      expect(output).toHaveLength(1);
-      expect(activity[0].opId).toBeDefined();
-      expect(output[0].opId).toBe(activity[0].opId);
-      expect(output[0].text).toContain('Quota exceeded');
-    });
+    await waitFor(
+      () => {
+        const activity = useActivityStore
+          .getState()
+          .entries.filter((entry) => entry.msg.includes('edits remain in memory'));
+        const output = useOutputStore.getState().lines.filter((entry) => entry.text.includes('edits remain in memory'));
+        expect(activity).toHaveLength(1);
+        expect(output).toHaveLength(1);
+        expect(activity[0].opId).toBeDefined();
+        expect(output[0].opId).toBe(activity[0].opId);
+        expect(output[0].text).toContain('Quota exceeded');
+      },
+      { timeout: WORKSPACE_EDIT_SETTLE_MS + 1000 }
+    );
   });
   it.each(['close', 'reset', 'switch', 'replace'] as const)(
     'preserves an unsaved draft when %s fails to flush, then saves it on retry',

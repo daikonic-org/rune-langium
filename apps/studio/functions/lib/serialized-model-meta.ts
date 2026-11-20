@@ -3,8 +3,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 /**
- * Cheap reader for a serialized Langium RosettaModel's namespace + import
- * declarations — JSON only, NO Langium deserialize/link. Used to compute the
+ * Cheap reader for a serialized Langium RosettaModel's namespace and dependency names — JSON only, NO Langium deserialize/link. Used to compute the
  * curated dependency closure without paying the link cost.
  *
  * Serialized shape (packages/core/src/serializer/rune-serialize.ts via Langium JsonSerializer):
@@ -13,46 +12,24 @@
  * `importedNamespace` is a QualifiedNameWithWildcard, e.g. `cdm.base.datetime`
  * or `cdm.base.*`.
  */
-import { namespaceFromModelName } from '@rune-langium/core';
-import { withInstrumentation, Capture } from '../../src/services/instrumentation/core.js';
+import { readLspModelMetadata } from '@rune-langium/core';
+import { withInstrumentation } from '../../src/services/instrumentation/core.js';
 
 export interface SerializedModelMeta {
   namespace: string;
   imports: string[];
 }
 
-function nameToNamespace(name: unknown): string | undefined {
-  return namespaceFromModelName(name);
-}
-
 export const readSerializedModelMeta = withInstrumentation(
   function readSerializedModelMeta(serializedModel: string): SerializedModelMeta | null {
-    let parsed: unknown;
     try {
-      parsed = JSON.parse(serializedModel);
+      const { namespace, imports, qualifiedNamespaces = [] } = readLspModelMetadata(serializedModel);
+      return namespace
+        ? { namespace, imports: [...new Set([...imports.filter(Boolean), ...qualifiedNamespaces])] }
+        : null;
     } catch {
       return null;
     }
-    if (!parsed || typeof parsed !== 'object') return null;
-    const m = parsed as { name?: unknown; imports?: unknown };
-    const namespace = nameToNamespace(m.name);
-    if (!namespace) return null;
-    const imports: string[] = [];
-    if (Array.isArray(m.imports)) {
-      for (const imp of m.imports) {
-        const ns = (imp as { importedNamespace?: unknown })?.importedNamespace;
-        if (typeof ns === 'string' && ns.length > 0) imports.push(ns);
-      }
-    }
-    return { namespace, imports };
-    // `serializedModel` is raw serialized AST JSON — never captured. Output
-    // namespace/imports are drawn exclusively from curated bundle documents
-    // (this reader exists specifically for curated dependency-closure
-    // computation, per this file's own doc comment) — safe.
   },
-  {
-    op: 'readSerializedModelMeta',
-    capture: Capture.Output,
-    sanitize: (value, which) => (which === 'output' ? value : undefined)
-  }
+  { op: 'readSerializedModelMeta', capture: 0 }
 );

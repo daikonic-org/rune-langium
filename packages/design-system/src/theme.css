@@ -35,6 +35,14 @@
   }
 }
 
+@utility font-book {
+  font-weight: var(--font-weight-book);
+}
+
+@utility font-regular {
+  font-weight: var(--font-weight-regular);
+}
+
 /* ── shadcn semantic bridge ─────────────────────────────────────── */
 @theme inline {
   --spacing-panel-x: var(--panel-padding-inline);
@@ -46,7 +54,7 @@
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
   --font-code: var(--font-code);
-  --font-weight-normal: var(--font-weight-regular);
+  --font-weight-normal: var(--font-weight-book);
   --radius-xs: calc(var(--radius) - 6px);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -405,7 +413,7 @@
 
 .navigation-tab {
   font-family: var(--font-body);
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-book);
 }
 
 /* Perspective names alone use the signage treatment. */
@@ -437,11 +445,13 @@
     @apply border-border outline-ring/50;
   }
   button,
-  [role='button'],
+  [role='button'] {
+    font-weight: var(--font-weight-regular);
+  }
   [role='tab'],
   [role='switch'],
   summary {
-    font-weight: var(--font-weight-regular);
+    font-weight: var(--font-weight-book);
   }
   body {
     @apply bg-background text-foreground;

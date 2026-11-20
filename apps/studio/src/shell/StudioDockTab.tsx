@@ -68,7 +68,7 @@ export const StudioDockTab = withInstrumentation(
         data-component={api.component}
         data-count={count === undefined ? undefined : String(count)}
       >
-        <span className="studio-dock-tab__label navigation-tab">{title}</span>
+        <span className="studio-dock-tab__label font-body font-regular">{title}</span>
         {count !== undefined ? (
           <>
             {' '}

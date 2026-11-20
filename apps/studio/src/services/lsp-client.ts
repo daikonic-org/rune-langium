@@ -16,7 +16,7 @@ import { LSPClient, languageServerExtensions, Workspace } from '@codemirror/lsp-
 import type { WorkspaceFile } from '@codemirror/lsp-client';
 import type { Extension } from '@codemirror/state';
 import { ChangeSet, Text } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { LSPPlugin } from '@codemirror/lsp-client';
 import {
   createTransportProvider,
@@ -27,10 +27,27 @@ import type { LspDiagnostic } from '../types/diagnostics.js';
 import { URI } from 'langium';
 import { pathToUri } from '../utils/uri.js';
 import { LSP_MODEL_SYNC_METHOD, LSP_REQUEST_TIMEOUT_MS } from '@rune-langium/core';
+import { WORKSPACE_EDIT_SETTLE_MS } from './workspace-autosave.js';
 import { withInstrumentation } from './instrumentation/core.js';
 import { canonicalProjectJson } from '@rune-langium/project-config';
 import { ProjectResolutionReceiptSchema, type ProjectResolutionContext } from '@rune-langium/core/project-contract';
 import { projectReceiptMatches } from '@rune-langium/project-runtime/receipt';
+
+const bufferedDocumentSync = ViewPlugin.fromClass(
+  class {
+    private pending: ReturnType<typeof setTimeout> | undefined;
+
+    update({ docChanged, view }: ViewUpdate): void {
+      if (!docChanged) return;
+      clearTimeout(this.pending);
+      this.pending = setTimeout(() => LSPPlugin.get(view)?.client.sync(), WORKSPACE_EDIT_SETTLE_MS);
+    }
+
+    destroy(): void {
+      clearTimeout(this.pending);
+    }
+  }
+);
 
 export type { LspDiagnostic } from '../types/diagnostics.js';
 
@@ -168,7 +185,7 @@ export class StudioWorkspace extends Workspace {
   closeFile(uri: string, view: EditorView): void {
     const file = this.files.find((candidate) => candidate.uri === uri);
     if (!file || file.view !== view) return;
-    // Flush any edits autoSync's 500ms debounce hasn't drained yet. closeFile
+    // Flush any edits the document sync buffer hasn't drained yet. closeFile
     // runs synchronously from within LSPPlugin's own destroy() — confirmed
     // via @codemirror/view's updatePlugins that the PluginInstance's `.value`
     // (this same LSPPlugin) isn't cleared until after destroy() returns, so
@@ -347,7 +364,11 @@ export const createLspClientService = withInstrumentation(
     }
 
     function buildClient(): LSPClient {
-      const extensions = [...languageServerExtensions()];
+      const extensions = languageServerExtensions().map((extension) =>
+        'notificationHandlers' in extension && extension.notificationHandlers?.['textDocument/publishDiagnostics']
+          ? { ...extension, editorExtension: bufferedDocumentSync }
+          : extension
+      );
       const publishDiagnostics = (target: LSPClient, params: unknown): boolean => {
         const { uri, diagnostics, version } = params as {
           uri: string;

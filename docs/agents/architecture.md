@@ -74,6 +74,10 @@ collector/closure, so downloads retain their ordinary dependency selection.
 Studio change feedback is presentation-only. `ChangeFeedbackBoundary` compares
 canonical rendered item snapshots after accepted authored input/model revisions;
 source positions and background reference hydration do not create edit events.
+Explore, Compose and Export cue namespace arrivals separately as the catalog adds
+declarations or deferred entries become usable. The cue follows the closest
+visible namespace header without moving virtualized rows. Filtering, expansion
+and switching workspaces do not themselves trigger a cue.
 Inspector rows expose stable presentation keys through the shared row helper.
 Structure instances share their canonical navigation key, so an edit cues every
 visible expansion of the same type. Graph cues compare authored node data, excluding
@@ -640,7 +644,7 @@ Workflow and Object builder share one session and renderer. Their view selector,
 Add and Payload graph actions occupy a single Prototype toolbar. Smooth SVG connectors are layout
 presentation over nested DOM; no independent graph semantics or canvas engine is
 introduced. Bounded pointer/keyboard dividers persist widths per workspace; narrow
-containers stack nodes. `PerspectiveHost` lazily retains Prototype after a visit
+containers stack nodes. The dedicated Data/Workflows library uses Dockview’s collapsible bottom edge group. `PerspectiveHost` lazily retains Prototype after a visit
 in the current workspace so perspective changes do not destroy drafts. The
 owning Inspector panel keys the workflow by workspace ID and activation epoch;
 that boundary disposes the session and clears drafts, bindings and results even
@@ -764,11 +768,11 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Routed parsing returns each dependency bundle's resolved manifest cohort/version. Studio registers implicit curated dependencies with that identity before merging reference-only files, so preview snapshots and restored workspace bindings retain the exact serialized reference targets. It does not replace an implicit pin with a guessed latest version.
 - Derive UI previews and validation from authoritative codegen output. A sample awaiting a worker validation result must remain visibly pending; editing alone never establishes validity.
 - `CodegenProvider` owns the shared browser worker connection. Resetting workspace/model preview data clears pending results without detaching that worker; only its provider lifecycle attaches or detaches preview dispatch.
-- Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. Presentation components do not own validation or alternate schema semantics.
+- Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. The shared form layout defaults to up to three columns, with wider timestamp fields and full-width nested objects and collections. Workflow results reuse the renderer in read-only mode, preserving navigation into objects and grid rows. Nested form sections alternate theme surfaces by depth. Presentation components do not own validation or alternate schema semantics.
 - Preview scalar formats follow the resolved Rune primitive, including aliases, arrays and Choice arms. Shared Preview/Prototype controls compose the design-system Calendar and themed time segments alongside ISO inputs. The Calendar wraps react-day-picker's date-grid and keyboard semantics with shared theme tokens. An ISO editor preserves nanosecond fractions and explicit zoned offsets/IDs; companion picker edits retain that precision and authored suffix. Workers remain authoritative validators; friendly temporal format guidance changes only presentation, leaving original diagnostics in Output/Activity.
 - Preview preparation coalesces hydration and worker-file acknowledgement independently of individual panel cancellation. A shared 30-second deadline aborts stalled preparation and allows a fresh retry. Projection display requests also have a 30-second deadline and a direct Retry generation action; execution keeps its separate 120-second deadline. Late replies cannot replace a newer retry result.
 - Routed parse results carry every resolved curated bundle's immutable cohort/version, including implicit cross-bundle dependencies. Studio retains those bundles in its workspace model bindings instead of discarding dependencies that the user did not select explicitly.
-- Workspace edits update memory immediately. Browser persistence coalesces rapid edits for 500 ms, with a two-second maximum wait while typing; pending snapshots keep their original workspace IDs and flush on workspace transitions, hidden visibility, page hide, and unmount. Parsing remains a separate debounce and does not gate saving syntactically invalid drafts.
+- Workspace edits update memory immediately. Browser persistence coalesces rapid edits for 1.8 seconds, with a six-second maximum wait while typing. The shared center-toolbar and Compose autosave controls pause timed and background writes. Explicit Save and workspace transitions still flush pending edits; pending snapshots keep their original workspace IDs and flush on workspace transitions, hidden visibility, page hide, and unmount. Parsing and language-server updates use the same settle interval and do not gate saving syntactically invalid drafts. Qualified reference text seeds curated namespace loading even before the target links.
 - Output offers an explicit local debug JSON download using the existing bounded diagnostic/operation stores. Source contents are opt-in and never lazily fetched; credentials, storage dumps, instance payloads, and serialized ASTs are not collected. Remote telemetry retains its existing closed privacy schema.
 - Recursive and deep preview objects use finite, namespace-qualified `FormPreviewSchema.definitions` generated by the same Data/Choice builders. `expandPreviewField` relocates one definition body at a time; the shared Preview/Prototype controls expand deferred objects only when a value exists or the user adds one. The eager depth cap limits schema size, not authoring or generated Zod validation depth. Invalid recursive aliases remain language errors.
 - Explorer navigation uses the graph node ID; row dragging retains the shared type-reference payload for association editing. In controlled inclusion mode, the row/name toggles the caller-provided canonical selection ID without a navigation highlight; the arrow opens the declaration. Filtering, virtualized rows, and collapsed namespace descendants must not discard explicit selections. The explorer count reports available declarations, independently of graph visibility, in a fixed footer below the scrolling tree. Global graph visibility actions belong in the Graph filter menu, leaving Explorer search and namespace navigation uncluttered.
@@ -1088,7 +1092,9 @@ reference navigation still resolves through the language service.
 
 `editor-extensions.ts` owns shared CodeMirror behavior and syntax-aware assertion
 callee decoration; `editor-theme.ts` owns its token-driven colors and typography.
-`--font-code` selects the bundled Transit Code face for content and gutters.
+`--font-code` selects the bundled Transit Code face at Book weight for content
+and gutters. The shared editor theme enables common and contextual ligatures,
+including Transit Code’s default upright hairlining and texture healing.
 The Transit System and Code faces use the shared size tokens directly.
 `--font-mono` selects JetBrains Mono for compact UI text. Assertion callees use subdued red
 without dimming their arguments or changing source text.

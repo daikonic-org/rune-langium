@@ -70,9 +70,14 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 import { copyTextToClipboard } from '../services/clipboard.js';
 import { useChangeFeedback, useFeedbackRevision } from '../hooks/useChangeFeedback.js';
 import { previewFeedbackItems } from '../services/feedback-items.js';
+import { formatPreviewNumber } from '../store/form-presentation-store.js';
 import { ChangeFeedbackText } from './ChangeFeedbackText.js';
 
-const PreviewDefinitions = createContext<FormPreviewSchema['definitions']>(undefined);
+const PreviewFieldsContext = createContext<{
+  definitions?: FormPreviewSchema['definitions'];
+  readOnly: boolean;
+  alternateSurface?: boolean;
+}>({ readOnly: false });
 interface PreviewDetailEntry {
   field: PreviewField;
   arrayIndices?: number[];
@@ -593,7 +598,7 @@ export const FormPreviewPanel = withInstrumentation(
             </div>
           </header>
         ) : null}
-        <PreviewDefinitions value={schema.definitions}>
+        <PreviewFieldsContext value={{ definitions: schema.definitions, readOnly: presentation.readOnly === true }}>
           <FormPresentation
             toolbarStart={layoutToolbarStart}
             showToolbar={presentation.showLayoutToolbar}
@@ -629,29 +634,45 @@ export const FormPreviewPanel = withInstrumentation(
             >
               <form
                 onSubmit={(event) => event.preventDefault()}
-                className="preview-fields preview-panel__body studio-scroll space-y-3 overflow-auto px-panel-x py-panel-y"
+                className="preview-fields preview-panel__body studio-scroll space-y-2 overflow-auto px-panel-x py-panel-y"
               >
                 {schema.kind === 'choice' ? (
-                  <fieldset disabled={presentation.readOnly} className="contents">
-                    <ChoiceFieldGroup
-                      fields={schema.fields}
-                      sample={activeSample}
-                      lookupFieldSource={lookupFieldSource}
-                      isResolvingReferences={isResolvingReferences}
-                      onFieldBlur={handleFieldBlur}
-                      onFieldChange={handleFieldChange}
-                      onArrayAdd={handleArrayAdd}
-                      onArrayRemove={handleArrayRemove}
-                      onObjectToggle={handleObjectToggle}
-                      onArmSelect={handleArmSelect}
-                    />
-                  </fieldset>
+                  <ChoiceFieldGroup
+                    fields={schema.fields}
+                    sample={activeSample}
+                    lookupFieldSource={lookupFieldSource}
+                    isResolvingReferences={isResolvingReferences}
+                    onFieldBlur={handleFieldBlur}
+                    onFieldChange={handleFieldChange}
+                    onArrayAdd={handleArrayAdd}
+                    onArrayRemove={handleArrayRemove}
+                    onObjectToggle={handleObjectToggle}
+                    onArmSelect={handleArmSelect}
+                  />
                 ) : (
                   <>
                     {rootArmFields.length > 0 ? (
-                      <fieldset disabled={presentation.readOnly} className="contents">
-                        <ChoiceFieldGroup
-                          fields={rootArmFields}
+                      <ChoiceFieldGroup
+                        fields={rootArmFields}
+                        sample={activeSample}
+                        lookupFieldSource={lookupFieldSource}
+                        isResolvingReferences={isResolvingReferences}
+                        onFieldBlur={handleFieldBlur}
+                        onFieldChange={handleFieldChange}
+                        onArrayAdd={handleArrayAdd}
+                        onArrayRemove={handleArrayRemove}
+                        onObjectToggle={handleObjectToggle}
+                        onArmSelect={handleArmSelect}
+                      />
+                    ) : null}
+                    <PreviewLayoutGroup
+                      symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
+                      parentPath={layoutParentPath}
+                      fields={rootOtherFields}
+                      renderField={(field) => (
+                        <PreviewFieldControl
+                          key={field.path}
+                          field={field}
                           sample={activeSample}
                           lookupFieldSource={lookupFieldSource}
                           isResolvingReferences={isResolvingReferences}
@@ -662,28 +683,6 @@ export const FormPreviewPanel = withInstrumentation(
                           onObjectToggle={handleObjectToggle}
                           onArmSelect={handleArmSelect}
                         />
-                      </fieldset>
-                    ) : null}
-                    <PreviewLayoutGroup
-                      symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
-                      parentPath={layoutParentPath}
-                      fields={rootOtherFields}
-                      renderField={(field) => (
-                        <fieldset disabled={presentation.readOnly} className="contents">
-                          <PreviewFieldControl
-                            key={field.path}
-                            field={field}
-                            sample={activeSample}
-                            lookupFieldSource={lookupFieldSource}
-                            isResolvingReferences={isResolvingReferences}
-                            onFieldBlur={handleFieldBlur}
-                            onFieldChange={handleFieldChange}
-                            onArrayAdd={handleArrayAdd}
-                            onArrayRemove={handleArrayRemove}
-                            onObjectToggle={handleObjectToggle}
-                            onArmSelect={handleArmSelect}
-                          />
-                        </fieldset>
                       )}
                     />
                   </>
@@ -782,7 +781,7 @@ export const FormPreviewPanel = withInstrumentation(
               />
             </PreviewDetailNavigation>
           </FormPresentation>
-        </PreviewDefinitions>
+        </PreviewFieldsContext>
       </section>
     );
   },
@@ -824,6 +823,7 @@ interface ChoiceFieldGroupProps {
 
 function ChoiceFieldGroup({ fields, label = 'Choose one option', ...controls }: ChoiceFieldGroupProps): ReactElement {
   const id = useId();
+  const { readOnly } = useContext(PreviewFieldsContext);
   const details = useContext(PreviewDetailNavigation);
   const activeField = fields.find(
     (field) =>
@@ -835,24 +835,28 @@ function ChoiceFieldGroup({ fields, label = 'Choose one option', ...controls }: 
         {label}
       </span>
       <div className="preview-choice__selector">
-        <Select
-          value={activeField?.path ?? null}
-          onValueChange={(path) => {
-            const field = fields.find((candidate) => candidate.path === path);
-            if (field && field.path !== activeField?.path) controls.onArmSelect(fields, field, controls.arrayIndices);
-          }}
-        >
-          <SelectTrigger size="sm" aria-labelledby={id} className="w-full">
-            <SelectValue placeholder="Choose an option" />
-          </SelectTrigger>
-          <SelectContent>
-            {fields.map((field) => (
-              <SelectItem key={field.path} value={field.path}>
-                {field.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {readOnly ? (
+          <span className="preview-field__value">{activeField?.label ?? 'Not set'}</span>
+        ) : (
+          <Select
+            value={activeField?.path ?? null}
+            onValueChange={(path) => {
+              const field = fields.find((candidate) => candidate.path === path);
+              if (field && field.path !== activeField?.path) controls.onArmSelect(fields, field, controls.arrayIndices);
+            }}
+          >
+            <SelectTrigger size="sm" aria-labelledby={id} className="w-full">
+              <SelectValue placeholder="Choose an option" />
+            </SelectTrigger>
+            <SelectContent>
+              {fields.map((field) => (
+                <SelectItem key={field.path} value={field.path}>
+                  {field.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {activeField && (activeField.kind === 'object' || activeField.kind === 'array') && (
           <Button
             type="button"
@@ -913,7 +917,7 @@ function ChoiceArmChildren({
   onArmSelect,
   arrayIndices
 }: ChoiceArmChildrenProps): ReactElement | null {
-  const definitions = useContext(PreviewDefinitions);
+  const { definitions } = useContext(PreviewFieldsContext);
   const expandedField = expandPreviewField(inputField, definitions);
   const field = metadataPreviewField(
     expandedField,
@@ -988,13 +992,14 @@ function PreviewObjectField({
   ...controls
 }: PreviewFieldControlProps & { field: Extract<PreviewField, { kind: 'object' }> }): ReactElement {
   const id = useId();
-  const definitions = useContext(PreviewDefinitions);
+  const fieldsContext = useContext(PreviewFieldsContext);
+  const { definitions, readOnly, alternateSurface } = fieldsContext;
   const [expanded, setExpanded] = useState(true);
   const details = useContext(PreviewDetailNavigation);
   const fieldPath = formatFieldPath(field.path, controls.arrayIndices);
   const value = getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices));
   const present = value !== undefined;
-  const materialized = field.definitionId ? present : field.required || present;
+  const materialized = present || (!readOnly && !field.definitionId && field.required);
   const label = resolvedFieldLabel(field, controls.arrayIndices);
   const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
   return (
@@ -1003,6 +1008,7 @@ function PreviewObjectField({
       aria-labelledby={id}
       data-field-path={fieldPath}
       data-empty={!materialized || undefined}
+      data-alternate-surface={alternateSurface || undefined}
       tabIndex={-1}
       className="preview-object"
     >
@@ -1019,7 +1025,7 @@ function PreviewObjectField({
             <span id={id}>{label}</span>
           </CollapsibleTrigger>
           <div className="flex shrink-0 items-center gap-1">
-            {!materialized && <span className="preview-object__summary">Not added</span>}
+            {!materialized && <span className="preview-object__summary">{readOnly ? 'Not set' : 'Not added'}</span>}
             {materialized && (
               <Button
                 type="button"
@@ -1032,7 +1038,7 @@ function PreviewObjectField({
                 <ArrowUpRight className="size-3.5" aria-hidden="true" />
               </Button>
             )}
-            {(!field.required || (field.definitionId && !present)) && (
+            {!readOnly && (!field.required || (field.definitionId && !present)) && (
               <Button
                 type="button"
                 variant="ghost"
@@ -1057,7 +1063,9 @@ function PreviewObjectField({
           <p className="preview-object__summary">{previewValueText(value, field, definitions)}</p>
         )}
         <CollapsibleContent>
-          <ChoiceArmChildren field={field} {...controls} />
+          <PreviewFieldsContext value={{ ...fieldsContext, alternateSurface: !alternateSurface }}>
+            <ChoiceArmChildren field={field} {...controls} />
+          </PreviewFieldsContext>
         </CollapsibleContent>
       </Collapsible>
       {error && <FieldError message={error} />}
@@ -1121,8 +1129,10 @@ function PreviewArrayField({
   ...controls
 }: PreviewFieldControlProps & { field: Extract<PreviewField, { kind: 'array' }> }): ReactElement {
   const id = useId();
+  const fieldsContext = useContext(PreviewFieldsContext);
+  const { definitions, readOnly, alternateSurface } = fieldsContext;
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const definitions = useContext(PreviewDefinitions);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const details = useContext(PreviewDetailNavigation);
   const fieldPath = formatFieldPath(field.path, controls.arrayIndices);
   const value = getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices));
@@ -1131,20 +1141,25 @@ function PreviewArrayField({
   const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
   const remove = (index: number) => {
     controls.onArrayRemove(field, index, controls.arrayIndices);
-    setSelectedIndex((current) =>
-      current === index ? null : current !== null && current > index ? current - 1 : current
-    );
+    const adjustIndex = (current: number | null) =>
+      current === index ? null : current !== null && current > index ? current - 1 : current;
+    setSelectedIndex(adjustIndex);
+    setExpandedIndex(adjustIndex);
   };
   const { armFields, otherFields } = splitChoiceArmFields(
     child?.kind === 'object' ? (child.children ?? []) : [],
     child?.kind === 'object' ? child.choiceArmPaths : undefined
   );
-  const scalarColumns = otherFields
-    .filter((column) => !['object', 'array', 'unknown'].includes(column.kind))
-    .slice(0, armFields.length ? 2 : 3);
+  const scalarFields = otherFields.filter((column) => !['object', 'array', 'unknown'].includes(column.kind));
+  const scalarColumns = readOnly ? scalarFields : scalarFields.slice(0, armFields.length ? 2 : 3);
+  const scalarByPath = new Map(scalarColumns.map((column) => [column.path, column]));
   const columns: PreviewGridColumn[] = [
     ...(armFields.length ? [{ path: '$choice', label: 'Type' }] : []),
-    ...scalarColumns.map((column) => ({ path: column.path, label: column.label, editable: column.required }))
+    ...scalarColumns.map((column) => ({
+      path: column.path,
+      label: column.label,
+      editable: !readOnly && column.required
+    }))
   ];
   if (!columns.length) columns.push({ path: '$summary', label: 'Summary' });
   const rows: PreviewGridRow[] = child
@@ -1155,7 +1170,7 @@ function PreviewArrayField({
           (arm) => getValueAtPath(controls.sample?.values ?? {}, pathToSegments(arm.path, indices)) !== undefined
         );
         const cells = columns.map((column) => {
-          const scalar = scalarColumns.find((field) => field.path === column.path);
+          const scalar = scalarByPath.get(column.path);
           const cellPath =
             column.path === '$choice'
               ? formatFieldPath(activeArm?.path ?? child.path, indices)
@@ -1174,14 +1189,15 @@ function PreviewArrayField({
             text: previewValueText(cellValue, scalar ?? (column.path === '$summary' ? child : undefined), definitions),
             empty: cellValue === undefined || cellValue === null || cellValue === '',
             error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined,
-            editor: scalar?.required ? (
-              <PreviewFieldControl
-                field={{ ...scalar, label: `${field.label} ${index + 1} ${scalar.label}` }}
-                {...controls}
-                arrayIndices={indices}
-                inline
-              />
-            ) : undefined
+            editor:
+              !readOnly && scalar?.required ? (
+                <PreviewFieldControl
+                  field={{ ...scalar, label: `${field.label} ${index + 1} ${scalar.label}` }}
+                  {...controls}
+                  arrayIndices={indices}
+                  inline
+                />
+              ) : undefined
           };
         });
         return {
@@ -1202,6 +1218,7 @@ function PreviewArrayField({
       aria-labelledby={id}
       data-field-path={fieldPath}
       data-empty={items.length === 0 || undefined}
+      data-alternate-surface={alternateSurface || undefined}
       tabIndex={-1}
       className="preview-collection"
     >
@@ -1214,30 +1231,39 @@ function PreviewArrayField({
             {items.length} {items.length === 1 ? 'item' : 'items'}
           </span>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          data-preview-validates
-          onClick={() => controls.onArrayAdd(field, controls.arrayIndices)}
-          aria-label={`Add ${field.label} item`}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-          Add
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            data-preview-validates
+            onClick={() => controls.onArrayAdd(field, controls.arrayIndices)}
+            aria-label={`Add ${field.label} item`}
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            Add
+          </Button>
+        )}
       </div>
-      {child?.kind === 'object' && items.length > 0 ? (
+      {child?.kind === 'object' && (readOnly || items.length > 0) ? (
         <PreviewObjectGrid
           label={field.label}
           columns={columns}
           rows={rows}
           selectedIndex={selectedIndex !== null && selectedIndex < items.length ? selectedIndex : null}
+          expandedIndex={expandedIndex}
+          onToggleExpanded={(index) => setExpandedIndex((current) => (current === index ? null : index))}
+          renderExpandedRow={(index) => (
+            <PreviewFieldsContext value={{ ...fieldsContext, alternateSurface: !alternateSurface }}>
+              <ChoiceArmChildren field={child} {...controls} arrayIndices={[...(controls.arrayIndices ?? []), index]} />
+            </PreviewFieldsContext>
+          )}
           onSelect={setSelectedIndex}
           onOpen={(index, origin) => {
             setSelectedIndex(index);
             details?.open(child, [...(controls.arrayIndices ?? []), index], origin);
           }}
-          onRemove={remove}
+          onRemove={readOnly ? undefined : remove}
         />
       ) : child && items.length > 0 ? (
         <div className="preview-scalar-list">
@@ -1248,17 +1274,19 @@ function PreviewArrayField({
                 {...controls}
                 arrayIndices={[...(controls.arrayIndices ?? []), index]}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                data-preview-validates
-                onClick={() => remove(index)}
-                aria-label={`Remove ${child.label} ${index + 1}`}
-                title={`Remove ${child.label} ${index + 1}`}
-              >
-                <Minus className="size-3" aria-hidden="true" />
-              </Button>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  data-preview-validates
+                  onClick={() => remove(index)}
+                  aria-label={`Remove ${child.label} ${index + 1}`}
+                  title={`Remove ${child.label} ${index + 1}`}
+                >
+                  <Minus className="size-3" aria-hidden="true" />
+                </Button>
+              )}
             </div>
           ))}
         </div>
@@ -1281,14 +1309,21 @@ function PreviewDetailsDialog({
   onBack(index: number): void;
   controls: Omit<PreviewFieldControlProps, 'field' | 'arrayIndices' | 'isChoiceArm'>;
 }): ReactElement | null {
+  const { readOnly } = useContext(PreviewFieldsContext);
+  const [editingPath, setEditingPath] = useState<string>();
   const active = stack[stack.length - 1];
   if (!active) return null;
   const title = resolvedFieldLabel(active.field, active.arrayIndices);
+  const path = formatFieldPath(active.field.path, active.arrayIndices);
+  const close = () => {
+    setEditingPath(undefined);
+    onClose();
+  };
   return (
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) close();
       }}
     >
       <DialogContent className="preview-detail-dialog" finalFocus={returnFocus}>
@@ -1313,20 +1348,24 @@ function PreviewDetailsDialog({
             </nav>
           )}
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription className="font-mono text-xs">
-            {formatFieldPath(active.field.path, active.arrayIndices)}
-          </DialogDescription>
+          <DialogDescription className="font-mono text-xs">{path}</DialogDescription>
         </DialogHeader>
         <div className="preview-detail-dialog__body preview-fields studio-scroll">
-          {active.field.kind === 'object' ? (
-            <ChoiceArmChildren field={active.field} {...controls} arrayIndices={active.arrayIndices} />
-          ) : (
-            <PreviewFieldControl field={active.field} {...controls} arrayIndices={active.arrayIndices} />
-          )}
+          <FormPresentation
+            editing={editingPath === path}
+            onEditingChange={(editing) => setEditingPath(editing ? path : undefined)}
+            showNotices={false}
+          >
+            {active.field.kind === 'object' ? (
+              <ChoiceArmChildren field={active.field} {...controls} arrayIndices={active.arrayIndices} />
+            ) : (
+              <PreviewFieldControl field={active.field} {...controls} arrayIndices={active.arrayIndices} />
+            )}
+          </FormPresentation>
         </div>
         <footer className="preview-detail-dialog__footer">
-          <span>Changes apply as you edit.</span>
-          <Button type="button" size="sm" onClick={onClose}>
+          {!readOnly && <span>Changes apply as you edit.</span>}
+          <Button type="button" size="sm" onClick={close}>
             Done
           </Button>
         </footer>
@@ -1350,7 +1389,7 @@ function PreviewFieldControl({
   isChoiceArm = false,
   inline = false
 }: PreviewFieldControlProps): ReactElement {
-  const definitions = useContext(PreviewDefinitions);
+  const { definitions, readOnly } = useContext(PreviewFieldsContext);
   const inputId = useId();
   const expandedField = expandPreviewField(inputField, definitions);
   const field = metadataPreviewField(
@@ -1402,6 +1441,18 @@ function PreviewFieldControl({
   };
   if (field.kind === 'object') return <PreviewObjectField field={field} {...controls} />;
   if (field.kind === 'array') return <PreviewArrayField field={field} {...controls} />;
+  if (readOnly) {
+    return (
+      <div className="preview-field" data-field-path={fieldPath}>
+        <span className="preview-field__label">{resolvedFieldLabel(field, arrayIndices)}</span>
+        <span className="preview-field__value">
+          {field.kind === 'number' && typeof value === 'number'
+            ? formatPreviewNumber(value, numericPresentation)
+            : previewValueText(value, field, definitions)}
+        </span>
+      </div>
+    );
+  }
 
   if (field.kind === 'enum') {
     const value = getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices));

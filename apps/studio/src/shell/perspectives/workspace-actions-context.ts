@@ -33,6 +33,8 @@ export interface WorkspaceActions {
   flushWorkspaceSave?: () => Promise<void>;
   /** Actual source persistence state; independent of uncommitted Git changes. */
   workspaceSaveState?: WorkspaceSaveState;
+  workspaceAutosaveEnabled?: boolean;
+  setWorkspaceAutosave?(enabled: boolean): void;
   registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;
   /** Called when the user loads files via drag-drop / file picker / new. */
   onFilesLoaded: (files: WorkspaceFile[]) => void;
