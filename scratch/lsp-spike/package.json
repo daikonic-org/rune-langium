@@ -14,7 +14,7 @@
     "langium": "^4.4.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261112.1",
+    "@cloudflare/workers-types": "^5.20261113.1",
     "wrangler": "^4.161.0",
     "ws": "^8.22.2"
   }
