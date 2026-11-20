@@ -55,7 +55,7 @@ test.describe('J07 — Source view + LSP diagnostics', () => {
     // activePanes seed) — Source is not active yet, so `source-editor` isn't
     // mounted/visible until we switch to it, same as production-checkout.spec.ts
     // / j04-explorer-hydration.spec.ts do before asserting on source content.
-    await page.getByRole('button', { name: 'Source' }).click();
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
 
     // Click into CodeMirror's content element (the established pattern in
     // test/e2e/source-editor.spec.ts) rather than the outer `source-editor`

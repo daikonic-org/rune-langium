@@ -314,7 +314,7 @@ async function reachBlankScratchSource(page: Page): Promise<Locator> {
   ]);
   await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 20000 });
 
-  await page.getByRole('button', { name: 'Source' }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
   const editor = fullSourceEditor(page).locator('.cm-content');
   await expect(editor).toBeVisible({ timeout: 10000 });
   await editor.click();

@@ -74,7 +74,7 @@ test.describe('production checkout smoke', () => {
     await expect(centerStack.getByRole('heading', { name: 'BusinessCenters' })).toBeVisible();
     await expect(centerStack.getByText('cdm.base.datetime', { exact: true })).toBeVisible();
     await expect(centerStack.getByText('Reference Only', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Source' }).click();
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
     await expect(page.getByLabel('Source file path')).toContainText('base-datetime-type.rosetta');
     const source = fullSourceEditor(page).locator('.cm-content');
     await expect(source).toContainText('type BusinessCenters');
@@ -114,7 +114,7 @@ test.describe('production checkout smoke', () => {
     // at least one attribute; being explicit here documents the intent clearly.
     await expect(centerStack.getByText(/Attributes \([1-9]/)).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Source' }).click();
+    await page.getByRole('button', { name: 'Source', exact: true }).click();
     await expect(page.getByLabel('Source file path')).toContainText('base-staticdata-party-type.rosetta');
     const source = fullSourceEditor(page).locator('.cm-content');
     await expect(source).toContainText('type Counterparty');
