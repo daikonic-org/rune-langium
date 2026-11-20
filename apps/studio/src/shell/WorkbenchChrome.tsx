@@ -64,7 +64,7 @@ export const WorkbenchPaneHeading = withInstrumentation(
   function WorkbenchPaneHeading({ label, children }: { label: string; children?: ReactNode }) {
     return (
       <div className="studio-center-stack__pane-heading min-h-6">
-        <span className="font-title text-xs font-medium">{label}</span>
+        <h2 className="font-title text-xs font-medium text-foreground">{label}</h2>
         {children}
       </div>
     );

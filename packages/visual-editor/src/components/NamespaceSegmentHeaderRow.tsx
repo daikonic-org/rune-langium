@@ -52,6 +52,7 @@ export interface NamespaceSegmentHeaderRowProps {
   onToggle: () => void;
   /** Left padding in px, from shared tree geometry. */
   indentPx: number;
+  compact?: boolean;
   /** Visual nesting depth; capped indentation preserves room for labels. */
   depth?: number;
   /** Optional test id for the outer wrapper (explorer uses `ns-seg-${fullPath}`). */
@@ -70,6 +71,7 @@ export function NamespaceSegmentHeaderRow({
   onToggle,
   indentPx,
   depth = 0,
+  compact = false,
   'data-testid': dataTestId
 }: NamespaceSegmentHeaderRowProps): JSX.Element {
   // Compact per-kind chips for the types directly in this namespace. Only kinds
@@ -84,7 +86,7 @@ export function NamespaceSegmentHeaderRow({
     <div data-testid={dataTestId} className="group relative">
       <NamespaceTreeGuides depth={depth} />
       <div
-        className="rune-ns-seg-header flex items-center gap-1 px-2 py-1 text-sm cursor-default text-foreground"
+        className={`rune-ns-seg-header flex items-center gap-1 cursor-default text-foreground ${compact ? 'py-px pr-1 text-xs' : 'px-2 py-1 text-sm'}`}
         style={{ paddingLeft: `${indentPx}px` }}
       >
         {leading}

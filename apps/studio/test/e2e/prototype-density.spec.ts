@@ -10,7 +10,7 @@ import { seedProjectBackingFiles } from '../helpers/project-backing.js';
 const source = `namespace density
 version "1.0.0"
 type Product:
-${Array.from({ length: 14 }, (_, i) => ` note${i} string (0..1)`).join('\n')}
+${Array.from({ length: 26 }, (_, i) => ` note${i} string (0..1)`).join('\n')}
  amount number (1..1)
 type Context:
  rate number (1..1)
@@ -24,11 +24,14 @@ func Calculate:
 `;
 const name = 'Cross-check illustrative SOFR daily and index compounding for one week';
 
-test('shows descriptive nested row summaries at desktop sizes and enlarged text', async ({ page }) => {
+test('shows inspectable collection results and keeps nested grids usable at enlarged text', async ({ page }, info) => {
   const source = `namespace summary
 version "1.0.0"
+type Origin:
+ name string (1..1)
 type Index:
  code string (1..1)
+ origin Origin (0..1)
 type Series:
  index Index (1..1)
  observations number (1..*)
@@ -57,7 +60,7 @@ func Echo:
           kind: 'literal',
           value: [
             { index: { code: 'USD-SOFR' }, observations: [0.043, 0.044] },
-            { index: { code: 'GBP-SONIA' }, observations: [0.046] }
+            { index: { code: 'GBP-SONIA', origin: { name: 'UK' } }, observations: [0.046] }
           ]
         }
       },
@@ -85,7 +88,53 @@ func Echo:
   await expect(page.getByRole('dialog').getByLabel('Code', { exact: true })).toHaveValue('GBP-SONIA');
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
-  await expect(page.getByTestId('instance-payload-output')).toContainText('GBP-SONIA');
+  const output = page.getByRole('region', { name: 'series output', exact: true });
+  const resultGrid = output.getByRole('table', { name: 'Result', exact: true });
+  const resultData = output.getByRole('button', { name: 'Result data', exact: true });
+  const functionResult = output.getByRole('button', { name: 'Function result', exact: true });
+  const json = output.getByTestId('instance-payload-output');
+  await expect(resultGrid.getByText('Index: GBP-SONIA · Observations: 1 item', { exact: true })).toBeVisible();
+  await expect(functionResult).toHaveAttribute('aria-expanded', 'false');
+  await resultGrid.getByRole('button', { name: 'Expand Result 2 in place', exact: true }).click();
+  const drilled = resultGrid.getByRole('group', { name: 'Result 2 fields', exact: true });
+  await expect(drilled.getByText('UK', { exact: true })).toBeVisible();
+  await expect(drilled.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '3');
+  await resultGrid.getByRole('button', { name: 'Collapse Result 2 in place', exact: true }).click();
+  await expect(drilled).toBeHidden();
+  await resultGrid.getByRole('button', { name: 'Open Result 2 details', exact: true }).click();
+  const details = page.getByRole('dialog');
+  await expect(details.getByText('GBP-SONIA', { exact: true })).toBeVisible();
+  const index = details.getByRole('group', { name: 'Index', exact: true });
+  const origin = index.getByRole('group', { name: 'Origin', exact: true });
+  await expect(origin).toHaveAttribute('data-alternate-surface', 'true');
+  await expect(origin.getByText('UK', { exact: true })).toBeVisible();
+  expect(await origin.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toEqual(
+    await index.evaluate((node) => getComputedStyle(node).backgroundColor)
+  );
+  await expect(details.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '3');
+  await expect(details.getByRole('button', { name: 'Edit layout', exact: true })).toBeEnabled();
+  await expect(details.getByRole('textbox')).toHaveCount(0);
+  await expect(details.getByRole('button', { name: /Add|Remove/ })).toHaveCount(0);
+  await details.getByRole('button', { name: 'Done', exact: true }).click();
+  await functionResult.click();
+  await expect(json).toBeVisible();
+  await expect(json).toContainText('GBP-SONIA');
+  await resultData.click();
+  await expect(resultGrid).toBeHidden();
+  await expect(json).toBeVisible();
+  await resultData.click();
+  await functionResult.click();
+  await expect(resultGrid).toBeVisible();
+  await expect(json).toBeHidden();
+  const library = page.getByTestId('prototype-grid');
+  await expect(library).toBeVisible();
+  await page.getByRole('button', { name: 'Collapse example library', exact: true }).click();
+  await expect(library).toBeHidden();
+  await expect(resultGrid).toBeVisible();
+  await page.getByRole('button', { name: 'Expand example library', exact: true }).click();
+  await expect(library).toBeVisible();
+  await page.evaluate(() => document.documentElement.style.removeProperty('font-size'));
+  await page.screenshot({ path: info.outputPath('workflow-result-grid.png'), animations: 'disabled' });
   expect((await new AxeBuilder({ page }).include('[aria-label="Prototype workflow"]').analyze()).violations).toEqual(
     []
   );
@@ -120,11 +169,18 @@ for (const [width, height] of [
       await expect(page.getByRole('heading', { name: 'context', exact: true })).toBeInViewport();
     }
     await expect(product.locator('[data-layout-field]').first()).toHaveAttribute('data-layout-field', 'amount');
+    const grid = product.locator('.preview-layout-grid').first();
+    await expect(grid).toHaveCSS('--requested-columns', '3');
+    await expect(grid).toHaveCSS('--layout-columns', width === 1920 ? '3' : '1');
     await product.getByLabel('Amount', { exact: true }).fill('10');
     await scroller.focus();
     await scroller.press('PageDown');
     await expect.poll(() => scroller.evaluate((n) => n.scrollTop)).toBeGreaterThan(0);
-    await product.getByLabel('Note13', { exact: true }).fill('retained after scroll');
+    await page.getByRole('button', { name: 'Expand product fields', exact: true }).click();
+    await expect(scroller).toHaveCSS('max-height', 'none');
+    await page.getByRole('button', { name: 'Restore product fields height', exact: true }).click();
+    await expect(scroller).not.toHaveCSS('max-height', 'none');
+    await product.getByLabel('Note25', { exact: true }).fill('retained after scroll');
     await page
       .getByRole('region', { name: 'context fields', exact: true })
       .getByLabel('Rate', { exact: true })
@@ -132,7 +188,7 @@ for (const [width, height] of [
     await expect(execute).toBeEnabled();
     await execute.click();
     await expect(page.getByTestId('instance-payload-output')).toContainText('15');
-    await expect(product.getByLabel('Note13', { exact: true })).toHaveValue('retained after scroll');
+    await expect(product.getByLabel('Note25', { exact: true })).toHaveValue('retained after scroll');
     await page.getByRole('button', { name: 'Save workflow…', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Save workflow', exact: true });
     await dialog.getByLabel('Workflow name').fill(name);

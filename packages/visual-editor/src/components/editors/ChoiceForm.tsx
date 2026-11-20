@@ -230,7 +230,7 @@ function ChoiceForm({
       canonicalType="Choice"
       schema={ChoiceSchema}
       registerCommitFlush={lifecycle.register}
-      additionalCommitFlush={debouncedName.flush}
+      additionalCommit={debouncedName}
     >
       <EditorActionsProvider
         nodeId={nodeId}

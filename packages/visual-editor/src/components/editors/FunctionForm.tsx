@@ -500,7 +500,7 @@ function FunctionForm({
         canonicalType="RosettaFunction"
         schema={RosettaFunctionSchema}
         registerCommitFlush={lifecycle.register}
-        additionalCommitFlush={debouncedName.flush}
+        additionalCommit={debouncedName}
       >
         <div data-slot="function-form" className={INSPECTOR_FORM_CLASS}>
           <MetadataTargetProvider value={targets.rootBinding}>

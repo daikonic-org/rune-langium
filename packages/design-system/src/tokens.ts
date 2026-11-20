@@ -77,12 +77,12 @@ export const fonts = {
 // the CSS custom properties (`var(--radius-*)`) instead.
 
 export const syntax = {
-  keyword: '#C792EA',
+  keyword: colors.status.warning,
   type: '#00D4AA',
   attribute: '#82AAFF',
   string: '#C3E88D',
   comment: '#5C5C6A',
-  number: '#E8913A',
+  number: colors.status.warning,
   function: '#82AAFF',
   operator: '#8A8A96',
   constant: '#E8913A',

@@ -8,7 +8,21 @@ import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 /** Source persistence is separate from the file's uncommitted Git modification flag. */
 export const SourceSaveControl = withInstrumentation(
-  function SourceSaveControl({ state, save }: { state?: WorkspaceSaveState; save(): Promise<void> }) {
+  function SourceSaveControl({
+    state,
+    save,
+    enabled = true,
+    onEnabledChange,
+    saveLabel = 'Save source',
+    busy = false
+  }: {
+    state?: WorkspaceSaveState;
+    save(): Promise<void>;
+    enabled?: boolean;
+    onEnabledChange?(enabled: boolean): void;
+    saveLabel?: string;
+    busy?: boolean;
+  }) {
     const [pending, setPending] = useState(false);
     const [error, setError] = useState<string>();
     const sequence = useRef(0);
@@ -21,7 +35,7 @@ export const SourceSaveControl = withInstrumentation(
     useEffect(() => {
       if (state === 'saved') setError(undefined);
     }, [state]);
-    const saving = pending || state === 'saving';
+    const saving = busy || pending || state === 'saving';
     const label =
       error || state === 'error'
         ? 'Save failed'
@@ -31,21 +45,36 @@ export const SourceSaveControl = withInstrumentation(
             ? 'Unsaved changes'
             : state === 'saved'
               ? 'Saved locally'
-              : 'Autosave on';
+              : onEnabledChange
+                ? undefined
+                : 'Autosave on';
     return (
       <>
-        <span
-          role={error || state === 'error' ? 'alert' : 'status'}
-          className="shrink-0 whitespace-nowrap"
-          title={error ?? 'Local save status. Commit and push are separate actions.'}
-        >
-          {label}
-        </span>
+        {onEnabledChange && (
+          <Button
+            variant="ghost"
+            size="xs"
+            aria-pressed={enabled}
+            title={enabled ? 'Pause automatic local saves' : 'Resume automatic local saves'}
+            onClick={() => onEnabledChange(!enabled)}
+          >
+            {enabled ? 'Autosave on' : 'Autosave off'}
+          </Button>
+        )}
+        {label && (
+          <span
+            role={error || state === 'error' ? 'alert' : 'status'}
+            className="shrink-0 whitespace-nowrap text-xs text-muted-foreground"
+            title={error ?? 'Local save status. Commit and push are separate actions.'}
+          >
+            {label}
+          </span>
+        )}
         <Button
           variant="ghost"
           size="xs"
           disabled={saving}
-          aria-label="Save source"
+          aria-label={saveLabel}
           onClick={async () => {
             const request = ++sequence.current;
             setPending(true);

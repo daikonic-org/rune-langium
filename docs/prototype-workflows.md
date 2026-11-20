@@ -9,6 +9,8 @@ Rune Studio is source-available. Prototype provides two complementary surfaces:
 - **Workflow** applies an optional Rune function to inputs and displays its output. **New workflow** starts with no function or predetermined input type. Named recipes remain in the repository; complete edited recipe drafts are retained when switching between saved recipes in the same session.
 - **Object builder** creates, imports, edits and exports one typed object without a function panel. Choose a type or select an example from the library. Switching surfaces retains their separate drafts while Prototype remains mounted.
 
+After execution, the output card opens the typed result. Lists of records show a grid. Expand a row in place or open it in a detail view. Both use the saved layout for the record type, and the detail view has its own Edit layout control. The result data and JSON can be collapsed independently. Use the arrow on the bottom Data/Workflows library to fold it and give the workflow more room. Long cards can expand their fields, and the form adjusts from one to three columns as space permits.
+
 Node menus provide **Import input**, **Use stored object** and **Clear input**.
 Clearing changes the working input, not its stored example. **Undo clear** restores
 that input without overwriting edits to other function parameters. Editing the

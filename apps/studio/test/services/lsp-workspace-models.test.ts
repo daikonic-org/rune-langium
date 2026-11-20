@@ -11,7 +11,7 @@ const raw = { path: 'a.rosetta', name: 'a.rosetta', content: 'namespace example'
 const parsed = { filePath: raw.path, model, serializedModelJson: source } as ParsedWorkspaceModel;
 
 describe('LSP workspace models', () => {
-  it('includes explicitly imported declarations before references have linked', () => {
+  it('includes explicit imports and qualified dependencies before references link', () => {
     const files = [
       {
         ...raw,
@@ -22,10 +22,11 @@ describe('LSP workspace models', () => {
           imports: [
             { importedNamespace: 'cdm.rates.FloatingRateIndexEnum' },
             { importedNamespace: 'cdm.fro.FloatingRateIndexDefinition' }
-          ]
+          ],
+          elements: [{ type: { $error: 'Not loaded', $refText: 'fpml.consolidated.loan.FacilitySummary' } }]
         })
       },
-      ...['cdm.rates', 'cdm.fro', 'unrelated'].map((name) => ({
+      ...['cdm.rates', 'cdm.fro', 'fpml.consolidated.loan', 'unrelated'].map((name) => ({
         ...raw,
         path: `${name}.rosetta`,
         serializedModelJson: JSON.stringify({ ...model, name })
@@ -34,7 +35,8 @@ describe('LSP workspace models', () => {
     expect(collectLspWorkspaceModels(files, [], new Map(), 'helper.rosetta').map((entry) => entry.uri)).toEqual([
       'file:///workspace/helper.rosetta',
       'file:///workspace/cdm.rates.rosetta',
-      'file:///workspace/cdm.fro.rosetta'
+      'file:///workspace/cdm.fro.rosetta',
+      'file:///workspace/fpml.consolidated.loan.rosetta'
     ]);
   });
   it('includes raw parser results and curated models without loading curated source', () => {

@@ -159,11 +159,16 @@ describe('useAutoSave', () => {
   it('explicitly flushes the latest pending value once and cancels its timer', () => {
     const commit = vi.fn();
     const hook = renderHook(() => useAutoSave(commit));
+    expect(hook.result.current.hasPending()).toBe(false);
     act(() => {
       hook.result.current('first');
       hook.result.current('latest');
+    });
+    expect(hook.result.current.hasPending()).toBe(true);
+    act(() => {
       hook.result.current.flush();
     });
+    expect(hook.result.current.hasPending()).toBe(false);
     act(() => vi.advanceTimersByTime(1000));
     hook.unmount();
     expect(commit).toHaveBeenCalledExactlyOnceWith('latest');

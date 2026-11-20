@@ -46,7 +46,11 @@ import {
   saveWorkspaceFiles,
   setWorkspaceFilesDeps
 } from './workspace/workspace-files.js';
-import { createWorkspaceAutosave, type WorkspaceSaveState } from './services/workspace-autosave.js';
+import {
+  createWorkspaceAutosave,
+  WORKSPACE_EDIT_SETTLE_MS,
+  type WorkspaceSaveState
+} from './services/workspace-autosave.js';
 import { WorkspaceManager } from './workspace/workspace-manager.js';
 import { StudioToastProvider, useStudioToast } from './components/StudioToastProvider.js';
 import { useOutputStore, fmtLine } from './store/output-store.js';
@@ -57,6 +61,7 @@ import { getOrCreateSyncEngine, disposeSyncEngine } from './services/git-sync.js
 import { ActivityBar } from './shell/ActivityBar.js';
 import { AppHeader } from './shell/AppHeader.js';
 import { PerspectiveHost } from './shell/perspectives/PerspectiveHost.js';
+import type { EditorSaveBarrier } from './shell/perspectives/workspace-actions-context.js';
 import { StudioProviders } from './shell/providers/StudioProviders.js';
 import { usePerspectiveStore } from './store/perspective-store.js';
 import { hydrateTelemetrySettings, useTelemetrySettingsStore } from './store/telemetry-settings.js';
@@ -198,6 +203,7 @@ function AppContent() {
   // see stale values.
   const [curatedSyncedWorkspaceId, setCuratedSyncedWorkspaceId] = useState<string | null>(null);
 
+  const editParseAbortRef = useRef<AbortController | null>(null);
   const reparseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workspaceManagerRef = useRef<WorkspaceManager | null>(null);
   // Incremented for every edit-time reparse request so stale async results
@@ -249,6 +255,15 @@ function AppContent() {
     [reportWorkspaceError]
   );
 
+  const [workspaceAutosaveEnabled, setWorkspaceAutosaveEnabled] = useState(true);
+  const setWorkspaceAutosave = useCallback(
+    (enabled: boolean) => {
+      workspaceAutosave.setEnabled(enabled);
+      setWorkspaceAutosaveEnabled(enabled);
+    },
+    [workspaceAutosave]
+  );
+
   const getWorkspaceManager = useCallback(async (): Promise<WorkspaceManager> => {
     if (workspaceManagerRef.current) return workspaceManagerRef.current;
     const opfsRoot = await navigator.storage.getDirectory();
@@ -267,17 +282,17 @@ function AppContent() {
     return manager;
   }, []);
 
-  const editorSaveBarriers = useRef(new Set<() => Promise<void>>());
-  const registerEditorSaveBarrier = useCallback((flush: () => Promise<void>) => {
-    editorSaveBarriers.current.add(flush);
+  const editorSaveBarriers = useRef(new Set<EditorSaveBarrier>());
+  const registerEditorSaveBarrier = useCallback((barrier: EditorSaveBarrier) => {
+    editorSaveBarriers.current.add(barrier);
     return () => {
-      editorSaveBarriers.current.delete(flush);
+      editorSaveBarriers.current.delete(barrier);
     };
   }, []);
   const flushEditorSaveBarriers = useCallback(async () => {
     // Snapshot because flushing can change mounted form registrations.
     // eslint-disable-next-line unicorn/no-useless-spread
-    for (const flush of [...editorSaveBarriers.current]) await flush();
+    for (const barrier of [...editorSaveBarriers.current]) await barrier.flush();
   }, []);
 
   const flushWorkspaceSave = useCallback(async () => {
@@ -287,19 +302,31 @@ function AppContent() {
 
   useEffect(() => {
     const flush = () => {
-      void flushWorkspaceSave().catch(() => {});
+      if (workspaceAutosave.enabled) void flushWorkspaceSave().catch(() => {});
+    };
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (workspaceAutosave.enabled) return;
+      if (
+        workspaceAutosave.hasUnsaved() ||
+        Array.from(editorSaveBarriers.current).some((barrier) => barrier.hasPending())
+      ) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
     };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') flush();
     };
+    window.addEventListener('beforeunload', onBeforeUnload);
     window.addEventListener('pagehide', flush);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVisibility);
       flush();
     };
-  }, [flushWorkspaceSave]);
+  }, [flushWorkspaceSave, workspaceAutosave]);
 
   useEffect(() => {
     if (!workspaceError) {
@@ -469,6 +496,7 @@ function AppContent() {
     workspaceParseAbortRef.current = new AbortController();
     invalidateCuratedCacheRecovery();
     workspaceEpochRef.current += 1;
+    editParseAbortRef.current?.abort();
     editParseTokenRef.current += 1;
     modelParseTokenRef.current += 1;
     if (reparseTimerRef.current) {
@@ -885,6 +913,7 @@ function AppContent() {
   useEffect(() => {
     return () => {
       workspaceParseAbortRef.current?.abort();
+      editParseAbortRef.current?.abort();
       if (reparseTimerRef.current) clearTimeout(reparseTimerRef.current);
     };
   }, []);
@@ -944,7 +973,7 @@ function AppContent() {
 
   /**
    * Handle file content changes (e.g., from source editor edits).
-   * Updates files immediately and debounce-reparses after 500ms idle.
+   * Updates files immediately and publishes a semantic snapshot after typing settles.
    */
   const handleFilesChange = useCallback(
     (updatedFiles: WorkspaceFile[]) => {
@@ -957,9 +986,12 @@ function AppContent() {
 
       // Debounced reparse — wait for typing to settle. Same observability
       // rationale as the save above (perf-log, not the Activity panel): the
-      // 500ms debounce plus the parse itself has no externally visible
+      // settle time plus the parse itself has no externally visible
       // completion signal otherwise, and fires up to once per keystroke.
       if (reparseTimerRef.current) clearTimeout(reparseTimerRef.current);
+      editParseAbortRef.current?.abort();
+      const abort = new AbortController();
+      editParseAbortRef.current = abort;
       editParseTokenRef.current += 1;
       const token = editParseTokenRef.current;
       const reparseOpId = allocateOpId();
@@ -968,16 +1000,18 @@ function AppContent() {
       // the debounce wait is real, user-observed latency (the time from
       // "stopped typing" to "graph reflects it"), not just the parse call
       // itself. Measuring only the callback body would systematically
-      // under-report by ~500ms.
+      // under-report by the settle time.
       const reparseStartedAt = performance.now();
       reparseTimerRef.current = setTimeout(async () => {
+        reparseTimerRef.current = null;
         try {
           const result = await parseWorkspaceFiles(updatedFiles, {
-            hydrateNamespaces: useEditorStore.getState().activeHydrationNamespaces()
+            hydrateNamespaces: useEditorStore.getState().activeHydrationNamespaces(),
+            signal: abort.signal
           });
           // Superseded by a newer edit before this one finished — not the
           // operation that settled, so no perf entry for it.
-          if (token !== editParseTokenRef.current) return;
+          if (abort.signal.aborted || token !== editParseTokenRef.current) return;
           // Preserve the last valid graph/model while the user is mid-edit on
           // syntactically invalid text. The Problems panel still updates from
           // `parseErrors`, but the semantic workbench no longer flickers into a
@@ -997,7 +1031,7 @@ function AppContent() {
           // and may well have succeeded) still recorded itself as a
           // 'reparse failed' perf entry and surfaced a misleading error
           // toast for an attempt nothing depends on anymore.
-          if (token !== editParseTokenRef.current) return;
+          if (abort.signal.aborted || token !== editParseTokenRef.current) return;
           recordPerf({
             op: 'reparse',
             ok: false,
@@ -1007,7 +1041,7 @@ function AppContent() {
           });
           reportWorkspaceError('Failed to re-parse updated files; keeping the last valid graph', error);
         }
-      }, 500);
+      }, WORKSPACE_EDIT_SETTLE_MS);
     },
     [applyParseResult, reportWorkspaceError, restoredWorkspace, workspaceAutosave]
   );
@@ -1392,6 +1426,8 @@ function AppContent() {
       files,
       registerEditorSaveBarrier,
       flushWorkspaceSave,
+      workspaceAutosaveEnabled,
+      setWorkspaceAutosave,
       workspaceSaveState: projectWorkspaceId ? workspaceSaveStates[projectWorkspaceId] : undefined,
       getProjectFileAdapter,
       getProjectInitializationFileAdapter,
@@ -1419,6 +1455,8 @@ function AppContent() {
       flushWorkspaceSave,
       projectWorkspaceId,
       workspaceSaveStates,
+      workspaceAutosaveEnabled,
+      setWorkspaceAutosave,
       getProjectFileAdapter,
       getProjectInitializationFileAdapter,
       getLegacyExampleStorage,

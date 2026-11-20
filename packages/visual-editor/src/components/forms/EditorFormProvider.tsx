@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { createContext, useContext, useMemo, useEffect } from 'react';
-import { createEditorCommitRegistry, EditorCommitProvider } from '../../hooks/editor-commit-lifecycle.js';
+import {
+  createEditorCommitRegistry,
+  EditorCommitProvider,
+  type EditorCommitRegistry
+} from '../../hooks/editor-commit-lifecycle.js';
 import { z } from 'zod';
 import { SCHEMA_BY_TYPE } from '../../schemas/schema-by-type.js';
 import { getEditorFieldSchema } from '../../schemas/editor-field-schema.js';
@@ -25,19 +29,19 @@ export function EditorFormProvider<T extends FieldValues>({
   canonicalType: suppliedCanonicalType,
   children,
   registerCommitFlush,
-  additionalCommitFlush,
+  additionalCommit,
   ...form
 }: FormProviderProps<T> & {
   schema: z.ZodObject;
   canonicalType?: string;
-  registerCommitFlush?: (flush: () => void) => () => void;
-  additionalCommitFlush?: () => void;
+  registerCommitFlush?: EditorCommitRegistry['register'];
+  additionalCommit?: Pick<EditorCommitRegistry, 'flush' | 'hasPending'>;
 }) {
   const registry = useMemo(createEditorCommitRegistry, []);
-  useEffect(() => registerCommitFlush?.(() => registry.flush()), [registry, registerCommitFlush]);
+  useEffect(() => registerCommitFlush?.(registry.flush, registry.hasPending), [registry, registerCommitFlush]);
   useEffect(
-    () => (additionalCommitFlush ? registry.register(additionalCommitFlush) : undefined),
-    [registry, additionalCommitFlush]
+    () => (additionalCommit ? registry.register(additionalCommit.flush, additionalCommit.hasPending) : undefined),
+    [registry, additionalCommit]
   );
   const getValidate = useMemo(() => {
     const tag = schema.shape.$type;

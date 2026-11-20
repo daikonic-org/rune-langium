@@ -10,6 +10,12 @@ import type { StarterProject } from '../../services/starter-registry.js';
 import type { LegacyExampleStorage } from '../../opfs/instances-fs.js';
 import type { WorkspaceSaveState } from '../../services/workspace-autosave.js';
 
+export interface EditorSaveBarrier {
+  flush(): Promise<void>;
+  /** Check editor drafts synchronously without committing them. */
+  hasPending(): boolean;
+}
+
 /**
  * Actions + data the WorkspacesPerspective launcher needs, lifted from
  * App.tsx prop-drilling via context so PerspectiveHost doesn't need
@@ -33,7 +39,9 @@ export interface WorkspaceActions {
   flushWorkspaceSave?: () => Promise<void>;
   /** Actual source persistence state; independent of uncommitted Git changes. */
   workspaceSaveState?: WorkspaceSaveState;
-  registerEditorSaveBarrier?: (flush: () => Promise<void>) => () => void;
+  workspaceAutosaveEnabled?: boolean;
+  setWorkspaceAutosave?(enabled: boolean): void;
+  registerEditorSaveBarrier?: (barrier: EditorSaveBarrier) => () => void;
   /** Called when the user loads files via drag-drop / file picker / new. */
   onFilesLoaded: (files: WorkspaceFile[]) => void;
   /**

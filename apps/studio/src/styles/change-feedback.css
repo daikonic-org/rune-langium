@@ -100,7 +100,22 @@
   }
 }
 
+[data-namespace-arrival]::before {
+  --change-ink: var(--color-status-success);
+
+  position: absolute;
+  z-index: 1;
+  inset: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  content: '';
+  animation:
+    rune-change-highlight calc(2 * var(--motion-duration-slow)) ease-out both,
+    rune-change-arrive var(--motion-duration-base) var(--motion-easing-emphasis) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  [data-namespace-arrival]::before,
   [data-change-feedback='add'],
   [data-change-feedback='remove'] {
     animation-name: rune-change-highlight;

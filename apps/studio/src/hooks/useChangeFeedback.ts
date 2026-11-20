@@ -4,10 +4,15 @@
 
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useEditorStore } from '@rune-langium/visual-editor';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEditorStore, type NodeRepository } from '@rune-langium/visual-editor';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
-import { ChangeFeedbackBoundary, feedbackSources, type FeedbackItem } from '../services/change-feedback.js';
+import {
+  CHANGE_HIGHLIGHT_MS,
+  ChangeFeedbackBoundary,
+  feedbackSources,
+  type FeedbackItem
+} from '../services/change-feedback.js';
 import '../styles/change-feedback.css';
 
 export const useFeedbackRevision = withInstrumentation(
@@ -71,4 +76,44 @@ export const useChangeFeedback = withInstrumentation(
     sanitize: () => ({}),
     sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' })
   }
+);
+
+/** Compare catalog updates independently of tree filters and authored edit feedback. */
+export const useNamespaceArrivals = withInstrumentation(
+  function useNamespaceArrivals(repository: NodeRepository): ReadonlySet<string> | undefined {
+    const workspace = useWorkspaceOptional();
+    const scope = `${workspace?.workspaceId ?? ''}:${workspace?.workspaceEpoch ?? 0}`;
+    const previous = useRef<{ scope: string; repository: NodeRepository }>(undefined);
+    const [arrival, setArrival] = useState<{ scope: string; namespaces: ReadonlySet<string> }>();
+
+    useEffect(() => {
+      const old = previous.current;
+      previous.current = { scope, repository };
+      if (!old || old.scope !== scope) return;
+
+      const arrived = repository.namespaces().filter((namespace) => {
+        const current = repository.byNamespace(namespace);
+        const prior = old.repository.byNamespace(namespace);
+        return (
+          current.length > prior.length ||
+          current.filter((node) => !node.meta.deferred).length > prior.filter((node) => !node.meta.deferred).length
+        );
+      });
+      if (arrived.length) {
+        setArrival((last) => ({
+          scope,
+          namespaces: new Set([...(last?.scope === scope ? last.namespaces : []), ...arrived])
+        }));
+      }
+    }, [scope, repository]);
+
+    useEffect(() => {
+      if (!arrival || arrival.scope !== scope) return;
+      const timeout = setTimeout(() => setArrival(undefined), CHANGE_HIGHLIGHT_MS);
+      return () => clearTimeout(timeout);
+    }, [arrival, scope]);
+
+    return arrival?.scope === scope ? arrival.namespaces : undefined;
+  },
+  { op: 'useNamespaceArrivals', capture: 0 }
 );

@@ -184,7 +184,7 @@ function SelectTrigger({
       className={(state) =>
         cn(
           render != null && pickerTriggerVariants({ size }),
-          '*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5',
+          '*:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5',
           typeof className === 'function' ? className(state) : className
         )
       }

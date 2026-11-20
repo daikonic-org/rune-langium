@@ -34,7 +34,13 @@ import { declarationKey } from '@rune-langium/core/project-contract';
 import { resolvePresentationType, workspaceDeclarationIdentities } from '../workspace/example-identity.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
-const DEFAULT_LAYOUT: ObjectFormLayout = { columns: 1, order: [], spans: {} };
+const DEFAULT_LAYOUT: ObjectFormLayout = { columns: 3, order: [], spans: {} };
+
+function defaultFieldSpan(field: PreviewField): 1 | 2 | 'full' {
+  if (field.kind === 'object' || field.kind === 'array') return 'full';
+  if (field.kind === 'string' && (field.format === 'dateTime' || field.format === 'zonedDateTime')) return 2;
+  return 1;
+}
 const DEFAULT_FORMAT: NumericPresentation = { style: 'decimal', currency: 'USD', grouping: true };
 const PresentationContext = createContext<{
   preferences: FormPreferences;
@@ -290,7 +296,10 @@ export const PreviewLayoutGroup = withInstrumentation(
     const [announcement, announce] = useState('');
     // Required fields lead by default; explicit saved order still takes precedence.
     const members = fields
-      .map((field) => ({ field, key: formMemberKey(field.declaredPath ?? field.path, parentPath) }))
+      .map((field) => {
+        const key = formMemberKey(field.declaredPath ?? field.path, parentPath);
+        return { field, key, span: layout.spans[key] ?? defaultFieldSpan(field) };
+      })
       .sort((a, b) => Number(b.field.required) - Number(a.field.required));
     const byKey = new Map(members.map((member) => [member.key, member]));
     const ordered = [
@@ -351,22 +360,14 @@ export const PreviewLayoutGroup = withInstrumentation(
           )}
           <div className="preview-layout-grid" style={{ '--requested-columns': layout.columns } as CSSProperties}>
             {children && <div className="preview-layout-fixed">{children}</div>}
-            {ordered.map(({ field, key }, index) => (
+            {ordered.map(({ field, key, span }, index) => (
               <div
                 key={field.path}
                 data-layout-field={key}
                 data-layout-owner={group}
                 data-drop={drop?.key === key ? (drop.after ? 'after' : 'before') : undefined}
                 className="preview-layout-field"
-                style={
-                  {
-                    '--requested-span':
-                      layout.spans[key] === 'full' ||
-                      (!layout.spans[key] && (field.kind === 'object' || field.kind === 'array'))
-                        ? 3
-                        : (layout.spans[key] ?? 1)
-                  } as CSSProperties
-                }
+                style={{ '--requested-span': span === 'full' ? 3 : span } as CSSProperties}
               >
                 {editable && (
                   <div className="preview-layout-field__tools">
@@ -446,9 +447,7 @@ export const PreviewLayoutGroup = withInstrumentation(
                     <span className="preview-layout-field__name">{field.label}</span>
                     <LayoutSelect
                       label={`Width of ${field.label}`}
-                      value={String(
-                        layout.spans[key] ?? (field.kind === 'object' || field.kind === 'array' ? 'full' : 1)
-                      )}
+                      value={String(span)}
                       onChange={(value) =>
                         patch({
                           spans: { ...layout.spans, [key]: value === 'full' ? 'full' : (Number(value) as 1 | 2 | 3) }

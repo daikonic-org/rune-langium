@@ -123,7 +123,7 @@ vi.mock('@rune-langium/visual-editor', async () => ({
   createEditorCommitRegistry: (
     await vi.importActual<typeof import('@rune-langium/visual-editor')>('@rune-langium/visual-editor')
   ).createEditorCommitRegistry,
-  useModelSourceSync: () => ({ flush: async () => {} }),
+  useModelSourceSync: () => ({ flush: async () => {}, hasPending: () => false }),
   useNavigationArrival: (await import('../../../../packages/visual-editor/src/hooks/useNavigationArrival.js'))
     .useNavigationArrival,
   // Mirrors the real hook: a ref synced to the latest value via

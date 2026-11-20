@@ -18,7 +18,7 @@ const SEGMENT_KINDS_ROW_HEIGHT = 18;
 const TYPE_ROW_HEIGHT = 28;
 const QUALIFIED_TYPE_ROW_HEIGHT = 44;
 
-export function useVirtualTree(rows: FlatTreeRow[], scrollRef: RefObject<HTMLDivElement | null>) {
+export function useVirtualTree(rows: FlatTreeRow[], scrollRef: RefObject<HTMLDivElement | null>, compact = false) {
   return useVirtualizer({
     count: rows.length,
     getItemKey: useCallback(
@@ -38,7 +38,7 @@ export function useVirtualTree(rows: FlatTreeRow[], scrollRef: RefObject<HTMLDiv
       if (row?.kind === 'namespace') return NAMESPACE_ROW_HEIGHT;
       if (row?.kind === 'segment') {
         const hasKindChips = Object.keys(row.kindCounts ?? {}).length > 0;
-        return SEGMENT_ROW_HEIGHT + (hasKindChips ? SEGMENT_KINDS_ROW_HEIGHT : 0);
+        return (compact ? 26 : SEGMENT_ROW_HEIGHT) + (hasKindChips ? SEGMENT_KINDS_ROW_HEIGHT : 0);
       }
       return row?.kind === 'type' && row.qualifier ? QUALIFIED_TYPE_ROW_HEIGHT : TYPE_ROW_HEIGHT;
     },

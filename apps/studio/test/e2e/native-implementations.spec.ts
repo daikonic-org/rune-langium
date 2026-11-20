@@ -848,6 +848,7 @@ for (const width of [1440, 390])
     const result = page.getByRole('region', { name: 'result output' });
     for (const date of ['2024-03-01', '2024-01-01', '2024-02-01']) await expect(result).toContainText(date);
     await expect(result).not.toContainText('2024-04-01');
+    await result.getByRole('button', { name: 'Function result', exact: true }).click();
     const payload = result.getByTestId('instance-payload-output');
     await payload.focus();
     await expect(payload).toBeFocused();

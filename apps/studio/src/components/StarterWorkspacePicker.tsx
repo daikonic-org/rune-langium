@@ -182,7 +182,7 @@ export const StarterWorkspacePicker = withInstrumentation(
                   <dd>Configuration, sources, examples and shared layouts</dd>
                 </dl>
                 {active.status === 'unavailable' && (
-                  <p className="starter-picker__notice">
+                  <p className="text-xs text-caption">
                     This proposed example is not published. It will be available after its repository and contents are
                     verified.
                   </p>
@@ -215,7 +215,7 @@ export const StarterWorkspacePicker = withInstrumentation(
                     </Button>
                   )}
                 </div>
-                <p className="starter-picker__notice">
+                <p className="text-xs text-caption">
                   View without signing in. Fork creates your own GitHub repository for saving and sharing changes.
                   {!github && ' GitHub sign-in is currently unavailable.'}
                 </p>

@@ -19,6 +19,8 @@ const syntaxColor = (key: keyof typeof syntax) => `var(--syntax-${key}, ${syntax
 const editorTextStyle = {
   fontFamily: 'var(--font-code)',
   fontWeight: 'var(--font-weight-book)',
+  // Transit Code’s upright contextual features include hairlining and texture healing.
+  fontVariantLigatures: 'common-ligatures contextual',
   fontSize: 'var(--font-size-code)',
   lineHeight: '1.45'
 };

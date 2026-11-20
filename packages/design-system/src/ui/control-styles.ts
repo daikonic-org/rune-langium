@@ -12,7 +12,7 @@ export const nativeFieldControlStyles = fieldControlStyles + ' pt-0 pb-(--native
 
 /** Common rows for native picker buttons and Base UI Select/Command items. */
 export const pickerOptionStyles =
-  'relative flex min-h-6 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-left text-xs leading-4 outline-none ' +
+  'relative flex min-h-6 w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-left text-xs font-book leading-4 outline-none ' +
   'hover:bg-accent/50 focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ' +
   'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground aria-selected:bg-accent aria-selected:text-accent-foreground ' +
   'aria-[current=true]:bg-accent aria-[current=true]:text-accent-foreground ' +

@@ -15,7 +15,7 @@ for (const theme of ['light', 'daikonic'])
         name: 'spacing.rosetta',
         mimeType: 'text/plain',
         buffer: Buffer.from(
-          'namespace spacing\nversion "1.0.0"\ntype Record:\n firstName string (0..1)\n lastName string (0..1)\n enabled boolean (0..1)\n'
+          'namespace spacing\nversion "1.0.0"\nenum Party:\n Party1\n Party2\ntype Record:\n firstName string (0..1)\n lastName string (0..1)\n enabled boolean (0..1)\n receiver Party (1..1)\n'
         )
       });
       await page.getByTestId('ns-type-link-spacing.Record#Data').click();
@@ -27,6 +27,18 @@ for (const theme of ['light', 'daikonic'])
       const firstName = preview.getByLabel('First Name', { exact: true });
       await expect(firstName).toBeVisible();
       await expect(firstName).toHaveCSS('height', '24px');
+      await expect(firstName).toHaveCSS('font-weight', '350');
+      const receiver = preview.getByRole('combobox', { name: 'Receiver', exact: true });
+      await receiver.click();
+      await page.getByRole('option', { name: 'Party1', exact: true }).click();
+      const receiverValue = receiver.locator('[data-slot="select-value"]');
+      await expect(receiverValue).toHaveText('Party1');
+      await expect(receiverValue).toHaveCSS('overflow-y', 'visible');
+      await expect(receiverValue).toHaveCSS('font-weight', '350');
+      await expect(page.getByRole('tab', { name: 'Form', exact: true }).locator('.studio-dock-tab__label')).toHaveCSS(
+        'font-weight',
+        '400'
+      );
       await expect(firstName).toHaveCSS('padding-block-end', '2px');
       await firstName.focus();
       await page.keyboard.press('Tab');
@@ -47,6 +59,7 @@ for (const theme of ['light', 'daikonic'])
       await expect(preview.locator('.preview-layout-grid').first()).toHaveCSS('row-gap', '8px');
       await page.screenshot({ path: info.outputPath('preview.png'), fullPage: true });
       const importModel = page.getByRole('button', { name: 'Import Model', exact: true });
+      await expect(importModel).toHaveCSS('font-weight', '500');
       const buttonLabel = importModel.locator('[data-slot="button-label"]');
       await expect(buttonLabel).toHaveCSS('text-box-edge', 'cap alphabetic');
       const buttonAlignment = await buttonLabel.evaluate((label) => {

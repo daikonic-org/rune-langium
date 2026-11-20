@@ -26,7 +26,7 @@ export const closeNamespacesFromManifest = withInstrumentation(
   ): Set<string> {
     const allNs = new Set(Object.keys(namespaces));
     const visited = new Set<string>();
-    const queue: string[] = [...seedNamespaces].flatMap((raw) => expandWildcard(raw, allNs));
+    const queue: string[] = [...seedNamespaces].flatMap((raw) => importNamespaceDependencies(raw, allNs));
     while (queue.length > 0) {
       const ns = queue.shift()!;
       if (!allNs.has(ns) || visited.has(ns)) continue;

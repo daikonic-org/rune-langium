@@ -4,7 +4,6 @@
 import { useId, useMemo, type DragEvent } from 'react';
 import type { FunctionComposition } from '@rune-langium/core';
 import {
-  NamespaceExplorerPanel,
   buildTypeOptions,
   selectNodeRepository,
   type NodeRepository,
@@ -14,6 +13,7 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { NumberChiclet } from '@rune-langium/design-system/ui/number-chiclet';
 import { ListCard } from '@rune-langium/design-system/ui/list-card';
 import { Plus, Workflow } from 'lucide-react';
+import { StudioNamespaceExplorer } from '../StudioNamespaceExplorer.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 
 export const COMPOSITION_FUNCTION_MIME = 'application/x-rune-composition-function';
@@ -183,7 +183,7 @@ export const FunctionPalette = withInstrumentation(
             Functions <NumberChiclet>{standardFunctions.all().length}</NumberChiclet>
           </h2>
           <div className="function-composer__catalog">
-            <NamespaceExplorerPanel
+            <StudioNamespaceExplorer
               compact
               fitContent
               nodeRepository={standardFunctions}

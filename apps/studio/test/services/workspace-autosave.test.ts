@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createWorkspaceAutosave } from '../../src/services/workspace-autosave.js';
+import {
+  createWorkspaceAutosave,
+  WORKSPACE_EDIT_SETTLE_MS,
+  WORKSPACE_SAVE_DEADLINE_MS
+} from '../../src/services/workspace-autosave.js';
 import type { WorkspaceFile } from '../../src/services/workspace.js';
 
 const files = (content: string): WorkspaceFile[] => [{ name: 'a.rosetta', path: 'a.rosetta', content, dirty: true }];
@@ -41,7 +45,7 @@ describe('workspace autosave', () => {
     const save = vi.fn().mockRejectedValue(error);
     const autosave = createWorkspaceAutosave(save, vi.fn());
     autosave.schedule('a', files('background draft'));
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
     await expect(autosave.flush()).rejects.toBe(error);
     save.mockResolvedValue(undefined);
     await autosave.flush();
@@ -78,7 +82,7 @@ describe('workspace autosave', () => {
     await autosave.flush();
     expect(save).toHaveBeenCalledExactlyOnceWith('a', files('49'));
     autosave.schedule('b', files('new workspace'));
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
     expect(save).toHaveBeenLastCalledWith('b', files('new workspace'));
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -89,9 +93,10 @@ describe('workspace autosave', () => {
     const save = vi.fn().mockRejectedValueOnce(error).mockResolvedValue(undefined);
     const onError = vi.fn();
     const autosave = createWorkspaceAutosave(save, onError);
+    const step = WORKSPACE_SAVE_DEADLINE_MS / 20;
     for (let i = 0; i < 20; i++) {
       autosave.schedule('a', files(String(i)));
-      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(step);
     }
     expect(save).toHaveBeenCalledExactlyOnceWith('a', files('19'));
     expect(onError).toHaveBeenCalledExactlyOnceWith(error);
@@ -99,6 +104,25 @@ describe('workspace autosave', () => {
     await autosave.flush();
     expect(save).toHaveBeenLastCalledWith('a', files('recovered'));
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('pauses future writes while off and flushes the latest draft on Save', async () => {
+    vi.useFakeTimers();
+    const save = vi.fn().mockResolvedValue(undefined);
+    const autosave = createWorkspaceAutosave(save, vi.fn());
+    autosave.schedule('a', files('old'));
+    autosave.setEnabled(false);
+    autosave.schedule('a', files('draft'));
+    await vi.advanceTimersByTimeAsync(WORKSPACE_SAVE_DEADLINE_MS);
+    expect(save).not.toHaveBeenCalled();
+    expect(autosave.hasUnsaved()).toBe(true);
+    await autosave.flush();
+    expect(save).toHaveBeenCalledExactlyOnceWith('a', files('draft'));
+    expect(autosave.hasUnsaved()).toBe(false);
+    autosave.schedule('a', files('next'));
+    autosave.setEnabled(true);
+    await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
+    expect(save).toHaveBeenLastCalledWith('a', files('next'));
   });
 
   it('waits for an in-flight write on flush and preserves separate workspace identities', async () => {
@@ -115,7 +139,7 @@ describe('workspace autosave', () => {
       .mockResolvedValue(undefined);
     const autosave = createWorkspaceAutosave(save, vi.fn());
     autosave.schedule('a', files('a'));
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
     autosave.schedule('b', files('b'));
     let done = false;
     const flushed = autosave.flush().then(() => {

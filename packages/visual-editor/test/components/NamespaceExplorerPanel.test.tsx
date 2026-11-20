@@ -116,6 +116,17 @@ describe('NamespaceExplorerPanel', () => {
     expect(screen.getByTestId('ns-type-nav-fresh.model.Arrival')).toBeInTheDocument();
   });
 
+  it('cues the closest displayed header when a child namespace arrives inside a folded branch', () => {
+    const { props, rerender } = renderPanel();
+    const parent = screen.getByTestId('ns-seg-com');
+    fireEvent.click(within(parent).getByRole('button', { name: 'com', exact: true }));
+    rerender(<NamespaceExplorerPanel {...props} arrivingNamespaces={new Set(['com.model'])} />);
+
+    expect(parent.parentElement).toHaveAttribute('data-namespace-arrival', '');
+    expect(screen.queryByTestId('ns-seg-com.model')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ns-seg-cdm').parentElement).not.toHaveAttribute('data-namespace-arrival');
+  });
+
   it('uses a host heading without losing counts or search controls', () => {
     renderPanel({ showHeading: false });
     expect(screen.queryByText('Type explorer')).not.toBeInTheDocument();

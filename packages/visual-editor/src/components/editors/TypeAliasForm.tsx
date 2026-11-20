@@ -234,7 +234,7 @@ function TypeAliasForm({
         canonicalType="RosettaTypeAlias"
         schema={RosettaTypeAliasSchema}
         registerCommitFlush={lifecycle.register}
-        additionalCommitFlush={debouncedName.flush}
+        additionalCommit={debouncedName}
       >
         <div data-slot="type-alias-form" className={INSPECTOR_FORM_CLASS}>
           <MetadataTargetProvider value={targets.rootBinding}>

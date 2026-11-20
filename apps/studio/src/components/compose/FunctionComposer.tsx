@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
+import { SourceSaveControl } from '../editing/SourceSaveControl.js';
+import { useWorkspaceActionsOptional } from '../../shell/perspectives/workspace-actions-context.js';
 import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { DockviewApi } from 'dockview-react';
@@ -54,6 +56,7 @@ import { usePreviewSession } from '../../shell/providers/preview-session-context
 import { SplitWorkbench } from '../../shell/SplitWorkbench.js';
 import { ComposeWorkbench } from './ComposeWorkbench.js';
 import { WorkbenchViewBar, WorkbenchPaneHeading } from '../../shell/WorkbenchChrome.js';
+import { PerspectiveHeading } from '../../shell/perspectives/PerspectiveHeading.js';
 import { ExpressionWorkspace, type ExpressionWorkspaceProps } from '../editing/ExpressionWorkspace.js';
 import { SourceEditor } from '../SourceEditor.js';
 import { WorkflowFunctionBuilder } from '../WorkflowFunctionBuilder.js';
@@ -89,7 +92,6 @@ export interface FunctionComposerProps {
   active: boolean;
   onNavigate(nodeId: string): void;
   onSave(): Promise<void>;
-  saveLabel: string;
 }
 interface Draft {
   binding: DocumentBinding;
@@ -122,16 +124,7 @@ export const FunctionComposer = withInstrumentation(
   },
   { op: 'FunctionComposer', capture: 0 }
 );
-function Composer({
-  workspaceKey,
-  models,
-  editor,
-  inspector,
-  active,
-  onNavigate,
-  onSave,
-  saveLabel
-}: FunctionComposerProps) {
+function Composer({ workspaceKey, models, editor, inspector, active, onNavigate, onSave }: FunctionComposerProps) {
   const creating = useComposeNavigationStore((s) => s.creating);
   const setCreating = useComposeNavigationStore((s) => s.setCreating);
   const nodesById = useEditorStore((s) => s.nodesById);
@@ -623,6 +616,7 @@ function Composer({
   };
   const openInspector = () => usePerspectiveStore.getState().setActivePerspective('explore');
   const [saveBusy, setSaveBusy] = useState(false);
+  const workspaceActions = useWorkspaceActionsOptional();
   const save = async () => {
     setSaveBusy(true);
     setError(undefined);
@@ -889,13 +883,13 @@ function Composer({
       {!presented?.supported && (
         <div className="function-composer__notice">
           <h2>{presented?.optedIn ? 'Source-only composition' : 'Ordinary Rune function'}</h2>
-          <p>
+          <p className="text-caption">
             {presented?.optedIn
               ? 'This body stays in Source to preserve its semantics.'
               : 'Callable as a step. Add the rune.studio.composition annotation to edit its body on the canvas.'}
           </p>
           {presented?.reasons.map((reason, index) => (
-            <p key={index}>
+            <p key={index} className="text-caption">
               Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
             </p>
           ))}
@@ -908,66 +902,73 @@ function Composer({
   return (
     <NodeBindingContext.Provider value={actions}>
       <section className="function-composer" aria-label="Function composer" data-testid="function-composer">
-        <header className="function-composer__header">
-          {parent && (
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => {
-                setBreadcrumbs((previous) => previous.slice(0, -1));
-                onNavigate(parent);
-              }}
-            >
-              <ArrowLeft className="size-3" />
-              Parent
+        <header
+          className="studio-layout-presets studio-layout-presets--compose"
+          data-testid={active ? 'perspective-header-row' : undefined}
+        >
+          <PerspectiveHeading
+            perspectiveId="compose"
+            location={!creating && identity ? qualifiedNameFromNodeId(identity) : undefined}
+          />
+          <div className="studio-layout-presets__group studio-layout-presets__group--actions flex-wrap justify-end">
+            {parent && (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  setBreadcrumbs((previous) => previous.slice(0, -1));
+                  onNavigate(parent);
+                }}
+              >
+                <ArrowLeft className="size-3" />
+                Parent
+              </Button>
+            )}
+            <SourceSaveControl
+              state={workspaceActions?.workspaceSaveState}
+              enabled={workspaceActions?.workspaceAutosaveEnabled}
+              onEnabledChange={workspaceActions?.setWorkspaceAutosave}
+              save={onSave}
+              saveLabel="Save"
+              busy={saveBusy}
+            />
+            {stale && (
+              <Button
+                size="xs"
+                variant="ghost"
+                disabled={applyBusy}
+                onClick={() => {
+                  changeDraft(undefined);
+                  setError(undefined);
+                }}
+              >
+                Discard stale draft
+              </Button>
+            )}
+            {recipe && (
+              <Button
+                size="xs"
+                disabled={Boolean(createdId) || saveBusy || !composition?.supported || Boolean(draft)}
+                variant="ghost"
+                onClick={async () => {
+                  if (await save()) {
+                    useComposeNavigationStore.getState().requestRecipe(project.workspaceId!, recipe);
+                    usePerspectiveStore.getState().setActivePerspective('prototype');
+                  }
+                }}
+              >
+                Try in Prototype
+              </Button>
+            )}
+            <Button size="xs" variant="ghost" onClick={openInspector}>
+              Inspector
+              <ArrowUpRight className="size-3" />
             </Button>
-          )}
-          <strong
-            className="truncate font-title font-medium"
-            title={creating ? 'New composition' : identity.split('#')[0] || 'Function composer'}
-          >
-            {creating ? 'New composition' : identity ? identity.split('#')[0]?.split('.').pop() : 'Function composer'}
-          </strong>
-          <span className="function-composer__save-state">{saveBusy ? 'Saving…' : saveLabel}</span>
-          <Button size="xs" variant="ghost" disabled={saveBusy} onClick={() => void save()}>
-            Save
-          </Button>
-          {stale && (
-            <Button
-              size="xs"
-              variant="ghost"
-              disabled={applyBusy}
-              onClick={() => {
-                changeDraft(undefined);
-                setError(undefined);
-              }}
-            >
-              Discard stale draft
+            <Button size="xs" onClick={() => setCreating(true)}>
+              <Plus className="size-3" />
+              New composition
             </Button>
-          )}
-          {recipe && (
-            <Button
-              size="xs"
-              disabled={Boolean(createdId) || saveBusy || !composition?.supported || Boolean(draft)}
-              variant="ghost"
-              onClick={async () => {
-                if (await save()) {
-                  useComposeNavigationStore.getState().requestRecipe(project.workspaceId!, recipe);
-                  usePerspectiveStore.getState().setActivePerspective('prototype');
-                }
-              }}
-            >
-              Try in Prototype
-            </Button>
-          )}
-          <Button size="xs" variant="ghost" onClick={openInspector}>
-            Inspector
-            <ArrowUpRight className="size-3" />
-          </Button>
-          <Button size="xs" onClick={() => setCreating(true)}>
-            <Plus className="size-3" />
-            New composition
-          </Button>
+          </div>
         </header>
         {error && (
           <div className="function-composer__error" role="alert">

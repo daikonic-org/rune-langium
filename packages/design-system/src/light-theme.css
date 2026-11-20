@@ -67,7 +67,6 @@
   --color-warning: var(--color-warning-base);
   --color-success: var(--color-success-base);
   --color-info: var(--color-info-base);
-  --syntax-keyword: #794385;
   --syntax-type: var(--color-kind-data-base);
   --syntax-attribute: var(--color-kind-func-base);
   --syntax-string: #426b21;

@@ -145,3 +145,26 @@ test('a later Inspector removal supersedes a Form value gesture and keeps the In
   await expect(inspector.locator('[data-change-feedback-ghost]')).toHaveCount(0);
   await expect(inspector.locator('[data-change-feedback]')).toHaveCount(0);
 });
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`new namespaces cue in the explorer with motion preference ${reducedMotion}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await load(page);
+    const filter = page.getByTestId('namespace-search');
+    const arrived = page.getByTestId('ns-seg-demo.arrival').locator('..');
+    await fullSourceEditor(page)
+      .locator('.cm-content')
+      .fill(source.replace('namespace demo.feedback', 'namespace demo.arrival'));
+    await expect(arrived).toHaveAttribute('data-namespace-arrival', '');
+    expect(await arrived.evaluate((element) => getComputedStyle(element, '::before').animationName)).toBe(
+      reducedMotion === 'reduce' ? 'rune-change-highlight' : 'rune-change-highlight, rune-change-arrive'
+    );
+    await expect(arrived).not.toHaveAttribute('data-namespace-arrival');
+    await expect(filter).toHaveValue('Quote');
+    await filter.fill('No matching declaration');
+    await expect(arrived).toHaveCount(0);
+    await filter.fill('Quote');
+    await expect(arrived).toBeVisible();
+    await expect(arrived).not.toHaveAttribute('data-namespace-arrival');
+  });
+}

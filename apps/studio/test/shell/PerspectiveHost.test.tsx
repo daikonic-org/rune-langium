@@ -10,7 +10,11 @@ import { usePerspectiveStore } from '../../src/store/perspective-store.js';
 // in WorkspaceActionsContext + FileLoader/ModelLoader. SettingsPerspective is
 // left real (test 1 asserts its rendered output).
 vi.mock('../../src/shell/perspectives/screens/WorkspacesPerspective.js', () => ({
-  WorkspacesPerspective: () => <div data-testid="workspaces-perspective" />
+  WorkspacesPerspective: ({ preparation }: { preparation?: import('react').ReactNode }) => (
+    <div data-testid="workspaces-perspective">
+      <header data-testid="perspective-header-row">{preparation}</header>
+    </div>
+  )
 }));
 
 // PerspectiveHost now renders the real ExplorePerspective in its keep-alive

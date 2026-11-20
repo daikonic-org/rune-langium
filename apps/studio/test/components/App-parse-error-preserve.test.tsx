@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
+import { WORKSPACE_EDIT_SETTLE_MS } from '../../src/services/workspace-autosave.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import type { ReactNode } from 'react';
@@ -219,7 +220,7 @@ describe('App parse recovery', () => {
     vi.useFakeTimers();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'break' }));
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
     });
 
     expect(screen.getByTestId('model-count').textContent).toBe('1');
@@ -270,12 +271,12 @@ describe('App parse recovery', () => {
     vi.useFakeTimers();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'break' }));
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
     });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'break' }));
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(WORKSPACE_EDIT_SETTLE_MS);
     });
 
     latestValid.resolve({

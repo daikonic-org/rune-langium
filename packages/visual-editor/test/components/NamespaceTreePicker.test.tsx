@@ -28,6 +28,10 @@ describe('shared namespace type picker', () => {
     const onSelect = vi.fn();
     render(<NamespaceTreePicker options={options} value="b" onSelect={onSelect} autoFocusSearch={false} />);
     fireEvent.change(screen.getByTestId('nstp-search'), { target: { value: 'Trade' } });
+    const header = screen.getByTestId('nstp-seg-fpml.model').parentElement!;
+    const row = screen.getByTestId('nstp-type-b').parentElement!;
+    expect(header).toHaveStyle({ height: '26px' });
+    expect(Number.parseFloat(row.style.top)).toBe(Number.parseFloat(header.style.top) + 26);
     fireEvent.click(screen.getByRole('button', { name: 'Trade product.model', exact: true }));
     expect(onSelect).toHaveBeenCalledWith('a');
     expect(screen.getByTestId('nstp-type-b')).toHaveAttribute('aria-current', 'true');

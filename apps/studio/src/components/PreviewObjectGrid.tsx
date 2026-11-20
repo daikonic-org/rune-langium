@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from '../services/instrumentation/core.js';
-import type { ReactNode } from 'react';
-import { ArrowUpRight, Ellipsis, Trash2, AlertCircle } from 'lucide-react';
+import { Fragment, useId, type ReactNode } from 'react';
+import { ArrowUpRight, ChevronRight, Ellipsis, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +31,9 @@ export const PreviewObjectGrid = withInstrumentation(
     columns,
     rows,
     selectedIndex,
+    expandedIndex,
+    renderExpandedRow,
+    onToggleExpanded,
     onSelect,
     onOpen,
     onRemove
@@ -39,12 +42,16 @@ export const PreviewObjectGrid = withInstrumentation(
     columns: PreviewGridColumn[];
     rows: PreviewGridRow[];
     selectedIndex: number | null;
+    expandedIndex: number | null;
+    renderExpandedRow(index: number): ReactNode;
+    onToggleExpanded(index: number): void;
     onSelect(index: number): void;
     onOpen(index: number, origin: HTMLElement): void;
-    onRemove(index: number): void;
+    onRemove?(index: number): void;
   }) {
+    const detailId = useId();
     return (
-      <div className="preview-object-grid studio-scroll">
+      <div className="preview-object-grid studio-scroll" data-read-only={!onRemove || undefined}>
         <table aria-label={label}>
           <thead>
             <tr>
@@ -65,79 +72,110 @@ export const PreviewObjectGrid = withInstrumentation(
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <tr
-                key={row.path}
-                aria-label={row.label}
-                data-field-path={row.path}
-                tabIndex={-1}
-                data-selected={selectedIndex === index ? 'true' : undefined}
-                onClick={() => onSelect(index)}
-                onFocusCapture={() => onSelect(index)}
-              >
-                {row.cells.map((cell, columnIndex) => (
-                  <td
-                    key={cell.path}
-                    data-summary-column={columnIndex}
-                    data-editable={cell.editor ? 'true' : undefined}
-                    data-summary={columns[columnIndex]?.path === '$summary' || undefined}
-                    data-field-path={cell.path}
-                    tabIndex={-1}
-                    title={cell.error ?? cell.text}
-                    data-empty={cell.empty ? 'true' : undefined}
-                    data-invalid={cell.error ? 'true' : undefined}
-                  >
-                    {cell.editor ?? <span className="block truncate">{cell.text}</span>}
-                  </td>
-                ))}
-                <td className="preview-object-grid__actions">
-                  <div className="flex items-center justify-end gap-1">
-                    {row.issues > 0 && (
-                      <AlertCircle
-                        className="size-3.5 shrink-0 text-destructive"
-                        aria-label={`${row.label}: ${row.issues} validation issues`}
-                      />
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={`Open ${row.label} details`}
-                      title={`Open ${row.label} details`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpen(index, event.currentTarget);
-                      }}
+              <Fragment key={row.path}>
+                <tr
+                  aria-label={row.label}
+                  data-field-path={row.path}
+                  tabIndex={-1}
+                  data-selected={selectedIndex === index ? 'true' : undefined}
+                  onClick={() => onSelect(index)}
+                  onFocusCapture={() => onSelect(index)}
+                >
+                  {row.cells.map((cell, columnIndex) => (
+                    <td
+                      key={cell.path}
+                      data-summary-column={columnIndex}
+                      data-editable={cell.editor ? 'true' : undefined}
+                      data-summary={columns[columnIndex]?.path === '$summary' || undefined}
+                      data-field-path={cell.path}
+                      tabIndex={-1}
+                      title={cell.error ?? cell.text}
+                      data-empty={cell.empty ? 'true' : undefined}
+                      data-invalid={cell.error ? 'true' : undefined}
                     >
-                      <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                    </Button>
-                    <DropdownMenu modal={false}>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label={`Actions for ${row.label}`}
-                          />
-                        }
+                      {cell.editor ?? <span className="block truncate">{cell.text}</span>}
+                    </td>
+                  ))}
+                  <td className="preview-object-grid__actions">
+                    <div className="flex items-center justify-end gap-1">
+                      {row.issues > 0 && (
+                        <AlertCircle
+                          className="size-3.5 shrink-0 text-destructive"
+                          aria-label={`${row.label}: ${row.issues} validation issues`}
+                        />
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-expanded={expandedIndex === index}
+                        aria-controls={expandedIndex === index ? `${detailId}-${index}` : undefined}
+                        aria-label={`${expandedIndex === index ? 'Collapse' : 'Expand'} ${row.label} in place`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onToggleExpanded(index);
+                        }}
                       >
-                        <Ellipsis className="size-3.5" aria-hidden="true" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem variant="destructive" onClick={() => onRemove(index)}>
-                          <Trash2 className="size-3.5" aria-hidden="true" />
-                          Remove item
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </td>
-              </tr>
+                        <ChevronRight
+                          className={`size-3.5 ${expandedIndex === index ? 'rotate-90' : ''}`}
+                          aria-hidden="true"
+                        />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`Open ${row.label} details`}
+                        title={`Open ${row.label} details`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpen(index, event.currentTarget);
+                        }}
+                      >
+                        <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                      </Button>
+                      {onRemove && (
+                        <DropdownMenu modal={false}>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label={`Actions for ${row.label}`}
+                              />
+                            }
+                          >
+                            <Ellipsis className="size-3.5" aria-hidden="true" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem variant="destructive" onClick={() => onRemove(index)}>
+                              <Trash2 className="size-3.5" aria-hidden="true" />
+                              Remove item
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+                {expandedIndex === index && (
+                  <tr className="preview-object-grid__detail">
+                    <td colSpan={columns.length + 1}>
+                      <div id={`${detailId}-${index}`} role="group" aria-label={`${row.label} fields`}>
+                        {renderExpandedRow(index)}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
         {rows.length === 0 && (
-          <p className="preview-object-grid__empty">No items yet. Add an item to edit its details.</p>
+          <p className="preview-object-grid__empty">
+            {onRemove ? 'No items yet. Add an item to edit its details.' : 'No items.'}
+          </p>
         )}
       </div>
     );

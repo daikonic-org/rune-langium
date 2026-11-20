@@ -10,7 +10,7 @@ import { fieldControlStyles, pickerOptionStyles } from './control-styles';
 const pickerTriggerVariants = cva(
   cn(
     fieldControlStyles,
-    "inline-flex min-h-6 max-h-7 w-fit min-w-0 max-w-full items-center justify-between gap-1.5 py-0 whitespace-nowrap transition-[color,box-shadow] hover:bg-accent/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3 [&_svg:not([class*='text-'])]:text-muted-foreground"
+    "inline-flex font-book min-h-6 max-h-7 w-fit min-w-0 max-w-full items-center justify-between gap-1.5 py-0 whitespace-nowrap transition-[color,box-shadow] hover:bg-accent/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3 [&_svg:not([class*='text-'])]:text-muted-foreground"
   ),
   {
     variants: { size: { sm: 'h-6 px-1.5', default: 'h-7 px-2' } },

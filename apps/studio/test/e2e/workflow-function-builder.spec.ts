@@ -93,6 +93,14 @@ func SourceOnly:
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(composition);
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
   await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+  const notice = composer.getByText('Callable as a step.', { exact: false });
+  await expect(notice).toHaveCSS('font-style', 'italic');
+  await expect(notice).toHaveCSS('font-family', /Daikonic Transit System/);
+  const sourceView = composer.getByRole('toolbar', { name: 'Composition view' }).getByRole('button', {
+    name: 'Source',
+    exact: true
+  });
+  await expect(sourceView).toHaveCSS('font-weight', '500');
   await composer.getByRole('button', { name: 'Parent', exact: true }).click();
   await expect(scaled.getByRole('textbox', { name: 'scaled argument value', exact: true })).toHaveValue('value + 1');
   await scaled.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -356,7 +364,11 @@ test('enters Compose before selecting a function and switches between ordinary f
   await expect(views.getByRole('button', { name: 'Source', exact: true })).toBeDisabled();
   for (const name of ['Double', 'OptionalTotal', 'Double']) {
     await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
-    await expect(composer.locator('.function-composer__header > strong')).toHaveText(name);
+    const header = composer.getByTestId('perspective-header-row');
+    const location = header.getByRole('navigation', { name: 'Compose location' });
+    await expect(location).toHaveAttribute('title', `workflow / ${name}`);
+    await expect(location.locator('[aria-current="location"]')).toContainText(name);
+    await expect(header.getByRole('button', { name: 'New composition', exact: true })).toBeVisible();
     await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
     const signature = composer.getByRole('tab', { name: 'Signature & details', exact: true });
     await signature.click();
@@ -514,10 +526,16 @@ func PaletteCall${i}:
     .boundingBox();
   expect(subtitle).not.toBeNull();
   await page.mouse.click(subtitle!.x + subtitle!.width / 2, subtitle!.y + subtitle!.height / 2);
-  await expect(composer.locator('.function-composer__header > strong')).toHaveText('PaletteCall124');
+  await expect(composer.getByRole('navigation', { name: 'Compose location' })).toHaveAttribute(
+    'title',
+    'workflow / PaletteCall124'
+  );
   await last.focus();
   await last.press('Enter');
-  await expect(composer.locator('.function-composer__header > strong')).toHaveText('PaletteCall124');
+  await expect(composer.getByRole('navigation', { name: 'Compose location' })).toHaveAttribute(
+    'title',
+    'workflow / PaletteCall124'
+  );
   await search.clear();
   await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toHaveCount(0);
   await search.fill('workflow');
@@ -551,15 +569,12 @@ for (const theme of ['daikonic', 'light'])
     const node = composer.locator(`[data-composition-step="alias:${variable}"]`);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
-      await expect(composer.locator('.function-composer__header > strong')).toHaveAttribute(
+      const header = composer.getByTestId('perspective-header-row');
+      await expect(header.getByRole('navigation', { name: 'Compose location' })).toHaveAttribute(
         'title',
-        `workflow.${name}`
+        `workflow / ${name}`
       );
-      await expect
-        .poll(() =>
-          composer.locator('.function-composer__header').evaluate((el) => el.scrollWidth <= el.clientWidth + 1)
-        )
-        .toBe(true);
+      await expect.poll(() => header.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       await expect.poll(() => node.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       const tray = composer.getByRole('region', { name: 'Available variables', exact: true });
       await expect(tray.getByRole('button').filter({ hasText: variable })).toBeVisible();

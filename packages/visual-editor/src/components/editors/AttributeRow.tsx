@@ -45,7 +45,7 @@ import { useFormContext } from 'react-hook-form';
 import { EditorController as Controller, useEditorFieldValidator } from '../forms/EditorFormProvider.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
-import { X } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 import { useAutoSave } from '../../hooks/useAutoSave.js';
 import { TypeReferenceField } from './TypeReferenceField.js';
 import { CardinalityPicker } from './CardinalityPicker.js';
@@ -272,14 +272,21 @@ function AttributeRow({
           : reorder?.onDrop(event)
       }
     >
-      {/* Drag handle */}
-      <span
-        data-slot="drag-handle"
-        className={`${onReorder ? 'cursor-grab' : ''} justify-self-center text-muted-foreground select-none text-xs shrink-0`}
-        aria-hidden="true"
-      >
-        {onReorder ? '⠿' : '→'}
-      </span>
+      {onReorder ? (
+        <span
+          data-slot="drag-handle"
+          className="cursor-grab justify-self-center text-muted-foreground select-none text-xs shrink-0"
+          aria-hidden="true"
+        >
+          ⠿
+        </span>
+      ) : (
+        <ArrowRight
+          data-slot="output-marker"
+          className="size-3 max-w-full justify-self-center text-muted-foreground"
+          aria-hidden="true"
+        />
+      )}
 
       {/* Name input */}
       <Controller

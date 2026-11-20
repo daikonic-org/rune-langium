@@ -37,7 +37,7 @@ import {
 } from '../../src/services/curated-workspace.js';
 import { curatedHydrationDocuments, type CuratedCacheSeed } from '../../src/services/curated-cache-seeds.js';
 import { buildDependencyGraph, expandWildcard } from '../lib/curated-closure.js';
-import { readSerializedModelMeta } from '../lib/serialized-model-meta.js';
+import { readSerializedModelMeta, type SerializedModelMeta } from '../lib/serialized-model-meta.js';
 import { withEdgeInstrumentation } from '../lib/instrumentation-sink.js';
 import { withInstrumentation, Capture } from '../../src/services/instrumentation/core.js';
 
@@ -200,10 +200,11 @@ const instrumentedOnRequestPost = withInstrumentation(
         workspaceContext = await hydrateUserWorkspace(body.files, errors, documentsForHydration, deferredExportsList);
       }
 
-      // Seed namespaces for the curated closure: the namespaces the user files
-      // import. Hoisted here (before the bundle loop) so the manifest fast-path
-      // can use them when computing which per-namespace artifacts to fetch.
-      const seeds = collectUserSeedNamespaces(workspaceContext?.userDocs ?? []);
+      const userModels = documentsForHydration.flatMap(({ serializedModel }) => {
+        const meta = readSerializedModelMeta(serializedModel);
+        return meta ? [meta] : [];
+      });
+      const seeds = collectUserSeedNamespaces(userModels);
       // Curated browsing can request namespaces beyond the user's import closure.
       const requestedHydration = Array.isArray(body.hydrateNamespaces) ? body.hydrateNamespaces : [];
       for (const ns of requestedHydration) {
@@ -277,15 +278,9 @@ const instrumentedOnRequestPost = withInstrumentation(
       }
 
       // Build the cross-namespace dep graph from precomputed manifest edges +
-      // user import declarations. No curated deserialize/link — see design
+      // user imports and qualified references. No curated deserialize/link — see design
       // 2026-06-26-curated-dep-graph-no-link.
       if (documentsForHydration.length > 0 || manifestClosureNamespaces.size > 0) {
-        const userModels: Array<{ namespace: string; imports: string[] }> = [];
-        for (const entry of documentsForHydration) {
-          if (entry.bundleId !== undefined) continue; // curated entries carry bundleId; user docs don't
-          const meta = readSerializedModelMeta(entry.serializedModel);
-          if (meta) userModels.push(meta);
-        }
         const allNamespaces = new Set<string>(manifestClosureNamespaces);
         for (const m of userModels) allNamespaces.add(m.namespace);
         // Resolved user→user edges from the already-built user docs (cheap — user
@@ -505,20 +500,8 @@ function stringifyWithBigInt(value: unknown): string {
 }
 
 export const collectUserSeedNamespaces = withInstrumentation(
-  function collectUserSeedNamespaces(userDocs: ReadonlyArray<{ parseResult?: { value?: unknown } }>): Set<string> {
-    const seeds = new Set<string>();
-    for (const doc of userDocs) {
-      const model = doc.parseResult?.value as { imports?: Array<{ importedNamespace?: unknown }> } | undefined;
-      if (!model || !Array.isArray(model.imports)) continue;
-      for (const imp of model.imports) {
-        if (typeof imp.importedNamespace === 'string' && imp.importedNamespace.length > 0) {
-          seeds.add(imp.importedNamespace);
-        }
-      }
-    }
-    return seeds;
-    // `userDocs` is raw user AST and the output namespace strings are
-    // user-imported (may or may not be curated) — never captured; only a count.
+  function collectUserSeedNamespaces(userModels: readonly SerializedModelMeta[]): Set<string> {
+    return new Set(userModels.flatMap((model) => model.imports));
   },
   {
     op: 'collectUserSeedNamespaces',

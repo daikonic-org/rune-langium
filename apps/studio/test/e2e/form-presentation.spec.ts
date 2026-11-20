@@ -17,6 +17,11 @@ type Trade:
  quantity int (1..1)
  addresses Address (0..*)
 `;
+async function showPreview(page: Page) {
+  const show = page.getByRole('button', { name: 'Show Preview panel', exact: true });
+  if (await show.isVisible()) await show.click();
+}
+
 async function load(page: Page) {
   page.setDefaultTimeout(10000);
   await page.goto('./');
@@ -24,6 +29,7 @@ async function load(page: Page) {
     .locator('input[type="file"][accept=".rosetta"]')
     .setInputFiles({ name: 'presentation.rosetta', mimeType: 'text/plain', buffer: Buffer.from(source) });
   await page.getByTestId('ns-type-link-presentation.Trade#Data').click();
+  await showPreview(page);
   await expect(page.getByTestId('panel-formPreview').getByLabel('Reference', { exact: true })).toBeVisible({
     timeout: 15000
   });
@@ -94,6 +100,7 @@ for (const width of [1440, 390])
     await form.getByRole('button', { name: 'Done editing', exact: true }).click();
     await page.reload();
     await page.getByTestId('ns-type-link-presentation.Trade#Data').click();
+    await showPreview(page);
     await expect(form.getByLabel('Amount', { exact: true })).toBeVisible({ timeout: 15000 });
     await expect
       .poll(() =>
@@ -112,7 +119,7 @@ for (const width of [1440, 390])
     const prototype = page.getByTestId('prototype-perspective');
     const tab = prototype.getByRole('tab', { name: 'Inspector', exact: true });
     if (await tab.count()) await tab.click();
-    const instance = prototype.getByTestId('panel-formPreview');
+    const instance = prototype.getByRole('region', { name: 'input fields', exact: true });
     await expect
       .poll(() =>
         instance
@@ -129,7 +136,7 @@ for (const width of [1440, 390])
           .first()
           .evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)
       )
-      .toBe(1);
+      .toBe(width === 1440 ? 2 : 1);
     await expect(instance.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '2');
     if (width === 1440) {
       await page.setViewportSize({ width: 2400, height: 1000 });
@@ -231,6 +238,13 @@ test('touch handles reorder fields and root object layouts follow list items int
         .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-layout-field')))
     )
     .toEqual(['postalCode', 'city']);
+  await dialog.getByRole('button', { name: 'Edit layout', exact: true }).click();
+  const layoutColumns = dialog.getByRole('combobox', { name: 'Layout columns', exact: true });
+  await expect(layoutColumns).toHaveText('3 columns');
+  await layoutColumns.click();
+  await page.getByRole('option', { name: '2 columns', exact: true }).click();
+  await expect(dialog.getByText('Saved in repository', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Done editing', exact: true }).click();
   await dialog.getByLabel('City', { exact: true }).fill('London');
   await dialog.getByLabel('Postal Code', { exact: true }).fill('E1');
   expect((await new AxeBuilder({ page }).include('.preview-detail-dialog').analyze()).violations).toEqual([]);
@@ -246,4 +260,6 @@ test('touch handles reorder fields and root object layouts follow list items int
   await scale.evaluate((element) => element.remove());
   await dialog.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(form.getByTestId('sample-data-output')).toContainText('London');
+  await page.getByTestId('ns-type-link-presentation.Address#Data').click();
+  await expect(form.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '2');
 });

@@ -21,8 +21,8 @@ export interface HeadingProps extends React.HTMLAttributes<HTMLHeadingElement> {
 }
 
 const SIZE_CLASS: Record<HeadingLevel, string> = {
-  1: 'text-3xl font-normal tracking-tight',
-  2: 'text-2xl font-normal tracking-tight',
+  1: 'text-3xl font-normal',
+  2: 'text-2xl font-normal',
   3: 'text-xl font-normal',
   4: 'text-lg font-normal'
 };

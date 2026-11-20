@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { DisclosureButton } from '@rune-langium/design-system/ui/collapsible';
 import type { PayloadView } from './FormPreviewPanel.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { copyTextToClipboard } from '../services/clipboard.js';
@@ -18,6 +19,8 @@ export const InstancePayloadPanel = withInstrumentation(
     const [exportFeedback, setExportFeedback] = useState<string | null>(null);
     const [exporting, setExporting] = useState(false);
     const [copying, setCopying] = useState(false);
+    const [open, setOpen] = useState(payload.kind !== 'result');
+    const payloadId = useId();
     const scope = useRef(0);
     const exportPending = useRef(false);
     const copyPending = useRef(false);
@@ -74,7 +77,16 @@ export const InstancePayloadPanel = withInstrumentation(
     return (
       <section aria-label="Example payload" className="border-t border-border px-panel-x py-panel-y">
         <header className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{title}</h3>
+          <h3 className="min-w-0 flex-1">
+            <DisclosureButton
+              aria-expanded={open}
+              aria-controls={payloadId}
+              className="font-medium"
+              onClick={() => setOpen(!open)}
+            >
+              {title}
+            </DisclosureButton>
+          </h3>
           <div className="flex gap-1.5">
             <Button type="button" variant="ghost" size="xs" disabled={copying} onClick={() => void copyPayload()}>
               {copying ? 'Copying…' : 'Copy'}
@@ -85,6 +97,8 @@ export const InstancePayloadPanel = withInstrumentation(
           </div>
         </header>
         <pre
+          id={payloadId}
+          hidden={!open}
           tabIndex={0}
           aria-label={`${title} JSON`}
           className="studio-scroll mt-2 max-h-56 overflow-auto text-2xs leading-5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"

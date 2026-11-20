@@ -226,8 +226,8 @@ describe('POST /api/parse — manifest fast-path (v2), manifest required (no v1 
     // DO NOT give bundleSpy a mock impl — we assert it is never called
     const bundleSpy = vi.spyOn(mod, 'fetchCuratedBundle');
 
-    // User file imports cdm.trade → closure = {cdm.trade, cdm.base.datetime, cdm.base.math}
-    const userContent = 'namespace app\nimport cdm.trade\n';
+    // A qualified type must load its namespace before its reference can link.
+    const userContent = 'namespace app\ntype Imported:\n  trade cdm.trade.Trade (1..1)\n';
     const res = await onRequestPost({
       request: makeRequest({
         files: [{ name: 'app.rune', content: userContent }],
@@ -274,7 +274,7 @@ describe('POST /api/parse — manifest fast-path (v2), manifest required (no v1 
     expect(body.dependencyGraph['cdm.base.math']).toEqual(['cdm.base.math']);
     expect(body.dependencyGraph['cdm.base.datetime']).toEqual(['cdm.base.datetime', 'cdm.base.math'].sort());
     expect(body.dependencyGraph['cdm.trade']).toEqual(['cdm.base.datetime', 'cdm.base.math', 'cdm.trade'].sort());
-    // app imports cdm.trade → its closure pulls the whole chain (import-based).
+    // A qualified reference to cdm.trade pulls in the whole chain.
     expect(body.dependencyGraph['app']).toEqual(['app', 'cdm.base.datetime', 'cdm.base.math', 'cdm.trade'].sort());
     expect(body.dependencyGraph).not.toHaveProperty('cdm.other');
   });

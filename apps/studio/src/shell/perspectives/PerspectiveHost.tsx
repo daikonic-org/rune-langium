@@ -67,10 +67,12 @@ function PerspectiveScreen({
       aria-hidden={!active || undefined}
       className="flex h-full min-h-0 min-w-0 flex-col studio-perspective-enter"
     >
-      <div className="studio-layout-presets" data-testid={active ? 'perspective-header-row' : undefined}>
-        <PerspectiveHeading perspectiveId={id} />
-        {loadingMessage && <PreparationStatus message={loadingMessage} className="min-w-0 text-xs" />}
-      </div>
+      {id !== 'compose' && id !== 'workspaces' && (
+        <div className="studio-layout-presets" data-testid={active ? 'perspective-header-row' : undefined}>
+          <PerspectiveHeading perspectiveId={id} />
+          {loadingMessage && <PreparationStatus message={loadingMessage} className="min-w-0 text-xs" />}
+        </div>
+      )}
       <div className="min-h-0 min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -152,7 +154,13 @@ export const PerspectiveHost = withInstrumentation(
                 id={effective}
                 loadingMessage={passivePreparation ? loadingMessage : undefined}
               >
-                {effective === 'workspaces' && <WorkspacesPerspective />}
+                {effective === 'workspaces' && (
+                  <WorkspacesPerspective
+                    preparation={
+                      loadingMessage && <PreparationStatus message={loadingMessage} className="min-w-0 text-xs" />
+                    }
+                  />
+                )}
                 {effective === 'git' && <GitSyncPerspective workspaceId={workspaceId} workspaceKind={workspaceKind} />}
                 {effective === 'export' && <ExportPerspective files={files} workspaceId={workspaceId} />}
                 {effective === 'settings' && <SettingsPerspective workspaceForm={WorkspaceDirectoriesFormAdapter} />}

@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { FormPreviewSchema } from '@rune-langium/codegen/export';
 import { type TypeChipKind } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
+import { DisclosureButton } from '@rune-langium/design-system/ui/collapsible';
 import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-system/ui/popover';
-import { ArrowUpRight, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpRight, Maximize2, Minimize2, MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { FormPreviewPanel } from './FormPreviewPanel.js';
-import { FormPresentation, useFormPresentationState } from './FormPresentation.js';
+import { useFormPresentationState } from './FormPresentation.js';
 import { WorkflowValidation } from './WorkflowValidation.js';
 import type { WorkflowValidation as Validation } from '../services/workflow-validation.js';
 import { WorkflowTypeLink, useWorkflowTypeNavigation } from './WorkflowTypeLink.js';
@@ -66,11 +67,31 @@ export const WorkflowNode = withInstrumentation(
     const navigation = useWorkflowTypeNavigation(typeNodeId);
     const root = useRef<HTMLElement>(null);
     const [requestedEditing, setEditing] = useState(false);
+    const [dataOpen, setDataOpen] = useState(true);
+    const fieldsId = useId();
+    const fieldsRef = useRef<HTMLDivElement>(null);
+    const [fieldsExpanded, setFieldsExpanded] = useState(false);
+    const [fieldsOverflow, setFieldsOverflow] = useState(false);
     const [beforeClear, setBeforeClear] = useState<{ restore(): void }>();
     const conditionIssue = validation?.diagnostics.find((diagnostic) => diagnostic.conditionName);
     useEffect(() => setBeforeClear(undefined), [schema?.targetId, sourceId, sourcePath, undoScope]);
     const { ready, entry, saveLabel } = useFormPresentationState();
     const editing = ready && requestedEditing;
+    const showFields = kind !== 'output' || dataOpen;
+    const fieldsMounted = Boolean(schema);
+    useEffect(() => {
+      const element = fieldsRef.current;
+      if (!fieldsMounted || !showFields || !element || typeof ResizeObserver === 'undefined') return;
+      const measure = () => setFieldsOverflow(element.scrollHeight > element.clientHeight + 1);
+      const observer = new ResizeObserver(measure);
+      observer.observe(element);
+      if (element.firstElementChild) observer.observe(element.firstElementChild);
+      measure();
+      return () => observer.disconnect();
+    }, [fieldsMounted, showFields]);
+    const fieldsLabel = kind === 'output' ? `${name} result fields` : `${name} fields`;
+    const resizeLabel = fieldsExpanded ? `Restore ${name} fields height` : `Expand ${name} fields`;
+    const ResizeIcon = fieldsExpanded ? Minimize2 : Maximize2;
     return (
       <section
         ref={root}
@@ -114,6 +135,20 @@ export const WorkflowNode = withInstrumentation(
             />
           ) : null}
           {actions}
+          {schema && showFields && (fieldsOverflow || fieldsExpanded) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={resizeLabel}
+              aria-controls={fieldsId}
+              aria-pressed={fieldsExpanded}
+              title={resizeLabel}
+              onClick={() => setFieldsExpanded((expanded) => !expanded)}
+            >
+              <ResizeIcon className="size-3.5" aria-hidden="true" />
+            </Button>
+          )}
           {schema ? (
             <Button
               variant="ghost"
@@ -123,7 +158,10 @@ export const WorkflowNode = withInstrumentation(
               title={editing ? 'Finish editing layout' : 'Edit layout'}
               aria-pressed={editing}
               disabled={!ready || (editing && entry?.saving)}
-              onClick={() => setEditing(!editing)}
+              onClick={() => {
+                if (!editing) setDataOpen(true);
+                setEditing(!editing);
+              }}
             >
               <SlidersHorizontal className="size-3.5" aria-hidden="true" />
             </Button>
@@ -220,15 +258,31 @@ export const WorkflowNode = withInstrumentation(
             />
           </div>
         ) : null}
-        {schema && (!readOnly || editing) ? (
+        {schema && kind === 'output' && (
+          <h3 className="px-2 pt-1">
+            <DisclosureButton
+              aria-expanded={showFields}
+              aria-controls={fieldsId}
+              className="font-medium"
+              onClick={() => setDataOpen((open) => !open)}
+            >
+              Result data
+            </DisclosureButton>
+          </h3>
+        )}
+        {schema ? (
           <div
+            id={fieldsId}
+            ref={fieldsRef}
+            data-expanded={fieldsExpanded || undefined}
+            hidden={!showFields}
             className="workflow-node__fields studio-scroll"
             role="group"
-            aria-label={`Scroll ${name} fields`}
+            aria-label={`Scroll ${fieldsLabel}`}
             tabIndex={0}
           >
             <FormPreviewPanel
-              ariaLabel={`${name} fields`}
+              ariaLabel={fieldsLabel}
               schema={schema}
               status={{ state: 'ready', targetId: schema.targetId }}
               values={values}
@@ -258,8 +312,6 @@ export const WorkflowNode = withInstrumentation(
               }}
             />
           </div>
-        ) : schema ? (
-          <FormPresentation showToolbar={false}>{null}</FormPresentation>
         ) : null}
         {children}
       </section>

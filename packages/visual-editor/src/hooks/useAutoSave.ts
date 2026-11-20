@@ -33,7 +33,7 @@ import { useEditorCommitRegistry } from './editor-commit-lifecycle.js';
 export function useAutoSave<T>(
   onCommit: (value: T) => void | boolean,
   delay = 500
-): ((value: T) => void) & { flush(): void | boolean } {
+): ((value: T) => void) & { flush(): void | boolean; hasPending(): boolean } {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRef = useRef<T | undefined>(undefined);
   const pendingRef = useRef(false);
@@ -41,6 +41,7 @@ export function useAutoSave<T>(
   const commitRef = useLatestRef(onCommit);
 
   const registry = useEditorCommitRegistry();
+  const hasPending = useCallback(() => pendingRef.current, []);
   const flush = useCallback(() => {
     if (timerRef.current !== null) clearTimeout(timerRef.current);
     timerRef.current = null;
@@ -68,12 +69,12 @@ export function useAutoSave<T>(
     },
     [delay, flush]
   );
-  useEffect(() => registry?.register(flush), [registry, flush]);
+  useEffect(() => registry?.register(flush, hasPending), [registry, flush, hasPending]);
   useEffect(
     () => () => {
       flush();
     },
     [flush]
   );
-  return Object.assign(debouncedSet, { flush });
+  return Object.assign(debouncedSet, { flush, hasPending });
 }
