@@ -285,17 +285,18 @@ function AddConditionForm({
   const [definition, setDefinition] = useState('');
   const [expression, setExpression] = useState('');
   const [isPost, setIsPost] = useState(false);
-  const complete = Boolean(expression.trim() && !parseExpression(expression).hasErrors);
+  const [editing, setEditing] = useState(false);
+  const canAdd = !editing && Boolean(expression.trim() && !parseExpression(expression).hasErrors);
 
   const handleSubmit = useCallback(() => {
-    if (!complete) return;
+    if (!canAdd) return;
     onAdd({
       name: name.trim() || undefined,
       definition: definition.trim() || undefined,
       expressionText: expression.trim(),
       isPostCondition: isPost || undefined
     });
-  }, [complete, name, definition, expression, isPost, onAdd]);
+  }, [canAdd, name, definition, expression, isPost, onAdd]);
 
   return (
     <div className="border-t border-border pt-3 space-y-2">
@@ -325,6 +326,7 @@ function AddConditionForm({
         renderExpressionEditor({
           value: expression,
           onChange: setExpression,
+          onEditingChange: setEditing,
           onBlur: () => {},
           error: null,
           placeholder: 'Add an expression',
@@ -345,7 +347,7 @@ function AddConditionForm({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-        <Button size="sm" onClick={handleSubmit} disabled={!complete}>
+        <Button size="sm" onClick={handleSubmit} disabled={!canAdd}>
           Add
         </Button>
       </div>

@@ -74,6 +74,7 @@ function cameraProps(): ComponentProps<typeof CompositionCanvas> {
     variablesOpen: false,
     viewKey: 'example:TB',
     size: { width: 900, height: 600 },
+    onGraphElement: vi.fn(),
     setFocus: vi.fn(),
     positions: new Map(),
     viewports: new Map(),
@@ -90,12 +91,14 @@ it('restores the saved camera on mount and after navigating away and back', () =
   const saved = { x: 120, y: -80, zoom: 0.6 };
   props.viewports.set(props.viewKey, { viewport: saved, width: props.size.width });
   const mounted = render(<CompositionCanvas {...props} />);
+  expect(props.onGraphElement).toHaveBeenLastCalledWith(mounted.container.firstElementChild);
   expect(harness.api.setViewport).toHaveBeenLastCalledWith(saved);
   expect(props.setFocus).not.toHaveBeenCalled();
 
   const moved = { x: -300, y: 250, zoom: 0.8 };
   act(() => harness.flow.onMoveEnd?.(null, moved));
   mounted.unmount();
+  expect(props.onGraphElement).toHaveBeenLastCalledWith(null);
   render(<CompositionCanvas {...props} />);
   expect(harness.api.setViewport).toHaveBeenLastCalledWith(moved);
   expect(props.setFocus).not.toHaveBeenCalled();
@@ -198,6 +201,7 @@ it('keeps pointer updates inside the canvas and preserves a draft position throu
     discard: vi.fn()
   };
   const moved = vi.fn();
+  const onGraphElement = vi.fn();
   let editPreview: (expression: string) => void = () => {};
   function Parent() {
     harness.parent();
@@ -223,6 +227,7 @@ it('keeps pointer updates inside the canvas and preserves a draft position throu
           variablesOpen
           viewKey="example:TB"
           size={{ width: 0, height: 0 }}
+          onGraphElement={onGraphElement}
           focus={focus}
           setFocus={setFocus}
           positions={new Map()}

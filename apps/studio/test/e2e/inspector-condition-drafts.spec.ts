@@ -36,7 +36,15 @@ test('a condition built from empty stays singular after parsing and reference ed
   await page.getByRole('button', { name: 'Add expression', exact: true }).click();
   await page.getByRole('option', { name: /^currency string/ }).click();
   await expect(page.getByRole('button', { name: 'Edit currency', exact: true }).last()).toBeVisible();
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  const add = page.getByRole('button', { name: 'Add', exact: true });
+  await expect(add).toBeEnabled();
+  await page.getByRole('button', { name: 'Edit currency', exact: true }).last().press('i');
+  await page.getByRole('textbox', { name: 'Edit currency', exact: true }).fill('identifier');
+  await expect(add).toBeDisabled();
+  expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(source);
+  await page.getByRole('textbox', { name: 'Edit currency', exact: true }).press('Escape');
+  await expect(add).toBeEnabled();
+  await add.click();
   await expect(
     page.getByText('Structural editing waits for the current Rune draft to parse.', { exact: true })
   ).toBeHidden();
@@ -56,6 +64,38 @@ test('a condition built from empty stays singular after parsing and reference ed
   await condition.getByRole('button', { name: 'Discard', exact: true }).click();
   await expect(move).toBeEnabled();
   expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(committed);
+});
+
+test('repairs conditions independently while another reference remains unresolved', async ({ page }) => {
+  const model = source.replace(
+    'condition Existing: currency exists',
+    'condition First: missingIdentifier exists\n condition Second: missingCurrency exists'
+  );
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'repairs.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(model)
+  });
+  await page.getByTestId('ns-type-link-drafts.Cash#Data').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+  const condition = page.getByRole('region', { name: 'Condition expression' });
+  let expected = model;
+  for (const [name, unresolved, replacement] of [
+    ['First', 'missingIdentifier', 'identifier'],
+    ['Second', 'missingCurrency', 'currency']
+  ]) {
+    await page.getByRole('tab', { name, exact: true }).click();
+    await condition.getByRole('button', { name: `Edit ${unresolved}`, exact: true }).press(replacement[0]!);
+    await condition.getByRole('textbox', { name: `Edit ${unresolved}`, exact: true }).fill(replacement);
+    await condition.getByRole('button', { name: 'Done', exact: true }).click();
+    await condition.getByRole('button', { name: 'Apply', exact: true }).click();
+    expected = expected.replace(unresolved, replacement);
+    await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toBe(expected);
+  }
 });
 
 test('call selection exposes named argument slots and commits only a complete private draft', async ({

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   parseExpressionDraft,
   type ExpressionPickerTarget,
   type ExpressionRow,
   type SourceRegion
 } from '@rune-langium/core';
-import { ExpressionBuilder, type ExpressionSlot, type FunctionScope } from '@rune-langium/visual-editor';
+import { ExpressionBuilder, useLatestRef, type ExpressionSlot, type FunctionScope } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { SourceEditor } from '../SourceEditor.js';
 import { requestExpressionPickerContext, type WorkspaceFile } from '../../services/workspace.js';
@@ -51,8 +51,7 @@ export const InlineExpressionField = withInstrumentation(
     highlightedRange
   }: InlineExpressionFieldProps) {
     const { binding, documents, file, files, scope } = session;
-    const current = useRef({ value, files, binding });
-    current.current = { value, files, binding };
+    const current = useLatestRef({ value, files, binding });
     const isCurrent = useCallback(() => {
       const latest = documents.capture(binding.uri, binding.nodeId, binding.region);
       return (
@@ -64,7 +63,7 @@ export const InlineExpressionField = withInstrumentation(
         current.current.files === files &&
         current.current.value === value
       );
-    }, [binding, documents, files, value]);
+    }, [binding, current, documents, files, value]);
     const loadPicker = useCallback(
       async (address: ExpressionPickerTarget, trail: readonly string[]) => {
         if (!isCurrent()) throw new Error('The source changed. Reopen this expression.');

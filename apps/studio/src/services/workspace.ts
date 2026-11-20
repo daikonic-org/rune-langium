@@ -1326,20 +1326,6 @@ export const requestFunctionComposition = withInstrumentation(
   { op: 'requestFunctionComposition', capture: 0 }
 );
 
-export const validateExpressionCandidate = withInstrumentation(
-  async function validateExpressionCandidate(
-    uri: string,
-    nodeId: string,
-    files: readonly WorkspaceFile[],
-    compositionCandidate: string
-  ): Promise<void> {
-    const result = await requestFunctionContext(uri, nodeId, { validateCandidate: true, compositionCandidate }, files);
-    if (!result.candidateErrors) throw new Error('Expression validation is unavailable.');
-    if (result.candidateErrors.length > 0) throw new Error(result.candidateErrors[0]);
-  },
-  { op: 'validateExpressionCandidate', capture: 0 }
-);
-
 async function requestFunctionContext(
   uri: string,
   nodeId: string,
@@ -1347,7 +1333,6 @@ async function requestFunctionContext(
     | SourceRegion
     | { draftCondition: 'precondition' | 'postcondition' }
     | { picker: ExpressionPickerRequest }
-    | { validateCandidate: true; compositionCandidate: string }
     | { composition: true; compositionCallables?: boolean; compositionCandidate?: string },
   files?: readonly WorkspaceFile[]
 ): Promise<ExpressionScopeResponse> {

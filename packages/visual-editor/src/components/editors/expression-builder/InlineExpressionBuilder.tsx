@@ -30,6 +30,7 @@ import { Input } from '@rune-langium/design-system/ui/input';
 import type { ExpressionBuilderProps } from './ExpressionBuilder.js';
 import { astToExpressionNode, expressionNodeSource } from '../../../adapters/ast-to-expression-node.js';
 import { expressionNodeToDslPreview } from '../../../adapters/expression-node-to-dsl.js';
+import { useLatestRef } from '../../../hooks/useLatestRef.js';
 import type { ExpressionNode } from '../../../schemas/expression-node-schema.js';
 import { getChildren, replaceInTree, type FunctionScope } from '../../../store/expression-store.js';
 import { OPERATOR_CATALOG, type OperatorDefinition } from './operator-catalog.js';
@@ -359,8 +360,7 @@ export function InlineExpressionBuilder({
   const rootAst = expressionNodeSource(tree);
   const compositionCall = rootAst && getCompositionCallExpression(rootAst);
   const root = useRef<HTMLDivElement>(null);
-  const liveSource = useRef(source);
-  liveSource.current = source;
+  const liveSource = useLatestRef(source);
   const [active, setActive] = useState<{ id: string; query?: string }>();
   const [editing, setEditing] = useState<SlotEdit>();
   const editField = useRef<HTMLSpanElement>(null);

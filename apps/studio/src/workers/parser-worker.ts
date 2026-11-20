@@ -125,7 +125,6 @@ export interface ExpressionScopeRequest {
   composition?: boolean;
   compositionCallables?: boolean;
   compositionCandidate?: string;
-  validateCandidate?: boolean;
   files?: ParseWorkspaceRequest['files'];
 }
 export interface ExpressionScopeResponse {
@@ -134,7 +133,6 @@ export interface ExpressionScopeResponse {
   entries: ExpressionScopeEntry[];
   composition?: FunctionComposition;
   picker?: ExpressionPickerContext;
-  candidateErrors?: string[];
   error?: string;
 }
 
@@ -828,33 +826,20 @@ async function handleExpressionScope(
     const owner = model && findExpressionOwner(model, req);
     if (!owner || (owner.$type !== 'RosettaFunction' && owner.$type !== 'Data'))
       throw new Error('The expression owner is unavailable.');
-    const validateOwner = async () => {
-      const region = getNodeSourceRegion(owner);
-      const diagnostics = await RuneDsl.validation.DocumentValidator.validateDocument(doc!);
-      return diagnostics.flatMap((diagnostic) => {
-        const from = doc!.textDocument.offsetAt(diagnostic.range.start);
-        const to = doc!.textDocument.offsetAt(diagnostic.range.end);
-        if (diagnostic.severity !== 1 || from < region.from || to > region.to) return [];
-        const message = typeof diagnostic.message === 'string' ? diagnostic.message : diagnostic.message.value;
-        return [{ message, region: { from, to } }];
-      });
-    };
-    if (req.validateCandidate) {
-      const diagnostics = await validateOwner();
-      return {
-        type: 'expressionScopeResult',
-        id: req.id,
-        entries: [],
-        candidateErrors: diagnostics.map(({ message }) => message)
-      };
-    }
     if (req.composition) {
       if (owner.$type !== 'RosettaFunction') throw new Error('Select a function to compose.');
       const composition = describeFunctionComposition(owner, req.compositionCallables ? RuneDsl : undefined);
       if (privateCandidate && composition.supported && doc) {
         // Reuse the language validator; unrelated declarations do not block a node edit.
-        for (const diagnostic of await validateOwner())
-          composition.reasons.push({ ...diagnostic, code: 'unsupported' });
+        const region = getNodeSourceRegion(owner);
+        const diagnostics = await RuneDsl.validation.DocumentValidator.validateDocument(doc);
+        for (const diagnostic of diagnostics) {
+          const from = doc.textDocument.offsetAt(diagnostic.range.start);
+          const to = doc.textDocument.offsetAt(diagnostic.range.end);
+          if (diagnostic.severity !== 1 || from < region.from || to > region.to) continue;
+          const message = typeof diagnostic.message === 'string' ? diagnostic.message : diagnostic.message.value;
+          composition.reasons.push({ message, region: { from, to }, code: 'unsupported' });
+        }
         composition.supported = composition.reasons.length === 0;
       }
       return {

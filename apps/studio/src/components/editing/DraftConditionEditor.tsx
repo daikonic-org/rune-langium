@@ -58,6 +58,7 @@ export const DraftConditionEditor = withInstrumentation(
         target={{ draftCondition: kind }}
         value={props.value ?? ''}
         onChange={props.onChange}
+        onEditingChange={props.onEditingChange}
       />
     ) : (
       <ExpressionBuilder {...props} presentation="inline" scope={result.scope} error={props.error ?? result.error} />

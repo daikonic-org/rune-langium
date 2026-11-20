@@ -1200,7 +1200,11 @@ other send failures and request failures continue to propagate.
 
 ConditionSection uses the same expression-editor slot during creation and editing.
 A new condition passes `draftCondition` rather than a source target: its Builder/Text
-state stays local until Add, and Cancel publishes nothing. Studio's
+state stays local until Add, and Cancel publishes nothing. Add waits for the
+inline slot edit to finish. Inspector applies edits to existing conditions
+using Core syntax checks and the captured source revision. The normal
+diagnostic pipeline then reports semantic issues, allowing separate conditions
+to be repaired independently. Studio's
 DraftConditionEditor requests a detached condition probe through the parser worker;
 `getExpressionScope` and the linked ScopeProvider remain authoritative for inherited
 attributes, function inputs/output and imported references. The probe never changes

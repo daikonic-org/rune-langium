@@ -5,7 +5,7 @@
 import { useEffect, useState, useRef, useId } from 'react';
 import type { EditorView } from '@codemirror/view';
 import type { ReactNode } from 'react';
-import type { ExpressionEditorSlotProps, FunctionScope } from '@rune-langium/visual-editor';
+import { useLatestRef, type ExpressionEditorSlotProps, type FunctionScope } from '@rune-langium/visual-editor';
 import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import {
   getFunctionImplementationRegion,
@@ -22,7 +22,7 @@ import {
   type ExpressionRow
 } from '@rune-langium/core';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
-import { parseFile, validateExpressionCandidate } from '../../services/workspace.js';
+import { parseFile } from '../../services/workspace.js';
 import {
   applyExpressionDocumentEdit,
   type DocumentBinding,
@@ -39,7 +39,7 @@ import { useExpressionProjection } from './use-expression-projection.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { protectedRegion } from '../../lang/document-extensions.js';
 import { setExpressionHighlight } from '../../lang/source-navigation-highlight.js';
-import { compositionCandidate, compositionExpressionEdit } from '../../services/composition-edit.js';
+import { compositionExpressionEdit } from '../../services/composition-edit.js';
 import { InlineExpressionRows } from './InlineExpressionRows.js';
 
 // Condition editors in the same readonly file share its coordinate parse.
@@ -103,8 +103,7 @@ export const ExpressionWorkspace = withInstrumentation(
     target,
     dependencySnapshot
   }: ExpressionWorkspaceProps) {
-    const dependenciesRef = useRef(dependencySnapshot);
-    dependenciesRef.current = dependencySnapshot;
+    const dependenciesRef = useLatestRef(dependencySnapshot);
     const [binding, setBinding] = useState<DocumentBinding | null>(null);
     const [expanded, setExpanded] = useState(false);
     const [raw, setRaw] = useState(false);
@@ -115,7 +114,6 @@ export const ExpressionWorkspace = withInstrumentation(
       dependencies: readonly WorkspaceFile[];
     }>();
     const [conditionScope, setConditionScope] = useState<FunctionScope>();
-    const [conditionBusy, setConditionBusy] = useState(false);
     const [conditionTyping, setConditionTyping] = useState(false);
     const [conditionError, setConditionError] = useState<string>();
     const [conditionHover, setConditionHover] = useState<SourceRegion>();
@@ -336,13 +334,13 @@ export const ExpressionWorkspace = withInstrumentation(
         session={{ binding: conditionBinding, documents, file, files: dependencySnapshot, scope: conditionScope }}
         rows={[conditionRow]}
         draft={conditionDraft && { region: conditionDraft.row.region, text: conditionDraft.text }}
-        pending={conditionBusy}
+        pending={false}
         editable={Boolean(active && !active.readOnly && !readOnly && !file.readOnly)}
         invalid={Boolean(conditionDraft && parseExpression(conditionDraft.text).hasErrors)}
         showStatement={false}
         onEditingChange={setConditionTyping}
         onChange={(row, text) => {
-          if (!row || !active || conditionBusy) return;
+          if (!row || !active) return;
           setConditionDraft((previous) => ({
             binding: active,
             row,
@@ -352,22 +350,17 @@ export const ExpressionWorkspace = withInstrumentation(
           }));
           setConditionError(undefined);
         }}
-        onApply={async () => {
-          if (!conditionDraft || conditionBusy) return;
-          setConditionBusy(true);
+        onApply={() => {
+          if (!conditionDraft || conditionTyping) return;
           setConditionError(undefined);
           try {
             const { binding, row, text, dependencies } = conditionDraft;
             const edit = compositionExpressionEdit(binding, row.region, text);
-            const candidate = compositionCandidate(binding, [edit]);
-            await validateExpressionCandidate(file.path, nodeId, dependencies, candidate);
             const result = applyExpressionEdit(edit, dependencies);
             if (!result.ok) throw new Error('The source changed. Discard this draft to reload the condition.');
             setConditionDraft(undefined);
           } catch (error) {
             setConditionError(error instanceof Error ? error.message : 'Could not apply this expression.');
-          } finally {
-            setConditionBusy(false);
           }
         }}
         onDiscard={() => {

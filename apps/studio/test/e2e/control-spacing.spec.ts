@@ -29,10 +29,13 @@ test('loads Transit Code Book Narrow for Source and inline editing', async ({ pa
   await expect(chip).toHaveCSS('font-weight', '350');
   const metrics = await chip.evaluate(async (element) => {
     const family = getComputedStyle(element).fontFamily.split(',')[0]!.trim();
-    const metrics = (style: '' | 'italic') => {
+    // Measure at one CSS pixel per font unit so layout rounding stays below the advance change.
+    const uprightFont = '350 1043px ' + family;
+    const italicFont = 'italic ' + uprightFont;
+    const metrics = (font: string) => {
       const sample = document.createElement('span');
       sample.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;letter-spacing:normal;';
-      sample.style.font = [style, '350 50px', family].filter(Boolean).join(' ');
+      sample.style.font = font;
       sample.style.fontVariantLigatures = 'common-ligatures contextual';
       element.parentElement!.append(sample);
       const width = (value: string) => {
@@ -43,12 +46,12 @@ test('loads Transit Code Book Narrow for Source and inline editing', async ({ pa
       sample.remove();
       return result;
     };
-    const upright = await document.fonts.load('350 50px ' + family, 'm >=');
-    const italic = await document.fonts.load('italic 350 50px ' + family, 'm >=');
+    const upright = await document.fonts.load(uprightFont, 'm >=');
+    const italic = await document.fonts.load(italicFont, 'm >=');
     const tokens = getComputedStyle(document.documentElement);
     return {
-      upright: metrics(''),
-      italic: metrics('italic'),
+      upright: metrics(uprightFont),
+      italic: metrics(italicFont),
       loaded: upright.some((face) => face.status === 'loaded') && italic.some((face) => face.status === 'loaded'),
       mono: tokens.getPropertyValue('--font-mono'),
       title: tokens.getPropertyValue('--font-title'),
@@ -56,8 +59,8 @@ test('loads Transit Code Book Narrow for Source and inline editing', async ({ pa
     };
   });
   expect(metrics.loaded).toBe(true);
-  expect(metrics.upright.cells).toBeCloseTo((10 * 50 * 564) / 1043, 1);
-  expect(metrics.italic.cells).toBeCloseTo(metrics.upright.cells, 1);
+  expect(metrics.upright.cells / 10).toBeCloseTo(564, 1);
+  expect(metrics.italic.cells / 10).toBeCloseTo(564, 1);
   expect(metrics.upright.arrow).toBeCloseTo(metrics.upright.single, 1);
   expect(metrics.mono).toContain('JetBrains Mono');
   expect(metrics.title).toContain('Daikonic Transit Sans');
