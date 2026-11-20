@@ -150,6 +150,8 @@ func Pattern:
         .filter({ has: page.locator('summary', { hasText: 'Condition details' }) });
       await expect(details).not.toHaveAttribute('open', '');
       await expect(page.getByLabel('Condition name', { exact: true })).toBeHidden();
+      await expect(condition.getByRole('button', { name: 'Edit periodMultiplier', exact: true })).toBeVisible();
+      await condition.getByRole('button', { name: 'Edit Rune text', exact: true }).click();
       await expectEditorExpansion(condition);
       const rune = condition.getByTestId('implementation-editor').locator('.cm-content');
       await expect(rune).toContainText('periodMultiplier > 0');
@@ -165,7 +167,8 @@ func Pattern:
       await page.getByRole('tab', { name: 'TermPeriod', exact: true }).click();
       await expect(condition).toContainText('PeriodExtendedEnum');
       await page.getByRole('tab', { name: 'PositivePeriodMultiplier', exact: true }).click();
-      await expect(condition).toContainText('periodMultiplier > 1');
+      await condition.getByRole('button', { name: 'Rune', exact: true }).click();
+      await expect(condition.getByRole('button', { name: 'Edit 1', exact: true })).toBeVisible();
       await evidence.checkpoint('condition-edit-retained');
     }
   );

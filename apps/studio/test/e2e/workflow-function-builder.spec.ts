@@ -20,8 +20,12 @@ func OptionalTotal:
  set result: values sum
 `;
 
-test('edits an ordinary function in Source and shares the draft and undo with Canvas', async ({ page }) => {
-  const content = `namespace workflow
+for (const ending of ['LF', 'CRLF']) {
+  test(
+    'edits an ordinary function in Source and shares the draft and undo with Canvas (' + ending + ')',
+    async ({ page }) => {
+      const newline = ending === 'CRLF' ? '\r\n' : '\n';
+      const content = `namespace workflow
 type Note:
  payout number (1..1)
 func Accrue:
@@ -29,41 +33,43 @@ func Accrue:
   note Note (1..1)
   fallbackPayout number (1..1)
  output: result number (1..1)
- // Keep the authored alias comment
+ // Keep the authored alias comment 😀
  alias leg: fallbackPayout
  condition Positive: leg >= 0
  set result: leg
-`;
-  const composer = await openComposition(page, content);
-  await composer.getByRole('button', { name: 'Open Accrue workflow', exact: true }).click();
-  const row = composer.getByTestId('expression-row-alias-0');
-  await row.getByRole('button', { name: 'Edit fallbackPayout', exact: true }).click();
-  await page.getByRole('option', { name: /^note Note/ }).click();
-  await page.getByRole('option', { name: /^payout number/ }).click();
-  await expect(row.getByRole('button', { name: 'Edit note -> payout' })).toBeVisible();
-  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
-  const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
-  await views.getByRole('button', { name: 'Canvas', exact: true }).click();
-  const node = composer.locator('[data-composition-step="alias:leg"]');
-  await expect(node.getByRole('textbox', { name: 'leg expression', exact: true })).toHaveValue('note -> payout');
-  await node.getByRole('button', { name: 'Apply', exact: true }).click();
-  await composer.getByRole('button', { name: 'Save', exact: true }).click();
-  const edited = content.replace('alias leg: fallbackPayout', 'alias leg: note -> payout');
-  await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(edited);
-  await composer.getByRole('button', { name: 'Undo expression edit', exact: true }).click();
-  await composer.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
-  await composer.getByRole('button', { name: '+ Expression', exact: true }).click();
-  const added = composer.getByTestId('expression-row-new');
-  await added.getByRole('textbox', { name: 'Alias name', exact: true }).fill('rate');
-  await added.getByRole('button', { name: 'Add expression', exact: true }).press('1');
-  await added.getByRole('textbox', { name: 'Add expression', exact: true }).press('Enter');
-  await added.getByRole('button', { name: 'Apply', exact: true }).click();
-  await composer.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect
-    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
-    .toBe(content.replace(' condition Positive:', ' alias rate: 1\n condition Positive:'));
-});
+`.replaceAll('\n', newline);
+      const composer = await openComposition(page, content);
+      await composer.getByRole('button', { name: 'Open Accrue workflow', exact: true }).click();
+      const row = composer.getByTestId('expression-row-alias-0');
+      await row.getByRole('button', { name: 'Edit fallbackPayout', exact: true }).click();
+      await page.getByRole('option', { name: /^note Note/ }).click();
+      await page.getByRole('option', { name: /^payout number/ }).click();
+      await expect(row.getByRole('button', { name: 'Edit note -> payout' })).toBeVisible();
+      expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+      const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
+      await views.getByRole('button', { name: 'Canvas', exact: true }).click();
+      const node = composer.locator('[data-composition-step="alias:leg"]');
+      await expect(node.getByRole('textbox', { name: 'leg expression', exact: true })).toHaveValue('note -> payout');
+      await node.getByRole('button', { name: 'Apply', exact: true }).click();
+      await composer.getByRole('button', { name: 'Save', exact: true }).click();
+      const edited = content.replace('alias leg: fallbackPayout', 'alias leg: note -> payout');
+      await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(edited);
+      await composer.getByRole('button', { name: 'Undo expression edit', exact: true }).click();
+      await composer.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+      await composer.getByRole('button', { name: '+ Expression', exact: true }).click();
+      const added = composer.getByTestId('expression-row-new');
+      await added.getByRole('textbox', { name: 'Alias name', exact: true }).fill('rate');
+      await added.getByRole('button', { name: 'Add expression', exact: true }).press('1');
+      await added.getByRole('textbox', { name: 'Add expression', exact: true }).press('Enter');
+      await added.getByRole('button', { name: 'Apply', exact: true }).click();
+      await composer.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect
+        .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+        .toBe(content.replace(' condition Positive:', ' alias rate: 1' + newline + ' condition Positive:'));
+    }
+  );
+}
 
 test('edits the shared Rune body, retains nested drafts and separates graph layout from source', async ({
   page
