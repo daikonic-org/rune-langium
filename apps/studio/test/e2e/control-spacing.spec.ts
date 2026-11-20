@@ -6,6 +6,64 @@ import { test } from '../helpers/studio-test.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
 import { waitForEntranceAnimations } from '../prod-ux/readiness.js';
 
+test('loads Transit Code Book Narrow for Source and inline editing', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'type-width.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'namespace typography\nfunc Check:\n inputs: amount number (1..1)\n output: result boolean (1..1)\n set result: amount >= 1\n'
+    )
+  });
+  await page.getByTestId('ns-type-link-typography.Check#RosettaFunction').click();
+  const inspector = page.getByRole('button', { name: 'Inspector', exact: true });
+  if ((await inspector.getAttribute('aria-pressed')) !== 'true') await inspector.click();
+  await dismissLocalTransportNotices(page);
+  await expect(page.getByRole('region', { name: 'Function implementation' }).locator('.cm-content')).toHaveCSS(
+    'font-weight',
+    '350'
+  );
+  await page.getByRole('button', { name: 'Open in Compose', exact: true }).click();
+  const chip = page.getByRole('button', { name: 'Edit amount', exact: true });
+  await expect(chip).toHaveCSS('font-family', /Daikonic Transit Code/);
+  await expect(chip).toHaveCSS('font-weight', '350');
+  const metrics = await chip.evaluate(async (element) => {
+    const family = getComputedStyle(element).fontFamily.split(',')[0]!.trim();
+    const metrics = (style: '' | 'italic') => {
+      const sample = document.createElement('span');
+      sample.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;letter-spacing:normal;';
+      sample.style.font = [style, '350 50px', family].filter(Boolean).join(' ');
+      sample.style.fontVariantLigatures = 'common-ligatures contextual';
+      element.parentElement!.append(sample);
+      const width = (value: string) => {
+        sample.textContent = value;
+        return sample.getBoundingClientRect().width;
+      };
+      const result = { cells: width('mmmmmmmmmm'), arrow: width('>='), single: width('m') };
+      sample.remove();
+      return result;
+    };
+    const upright = await document.fonts.load('350 50px ' + family, 'm >=');
+    const italic = await document.fonts.load('italic 350 50px ' + family, 'm >=');
+    const tokens = getComputedStyle(document.documentElement);
+    return {
+      upright: metrics(''),
+      italic: metrics('italic'),
+      loaded: upright.some((face) => face.status === 'loaded') && italic.some((face) => face.status === 'loaded'),
+      mono: tokens.getPropertyValue('--font-mono'),
+      title: tokens.getPropertyValue('--font-title'),
+      body: tokens.getPropertyValue('--font-body')
+    };
+  });
+  expect(metrics.loaded).toBe(true);
+  expect(metrics.upright.cells).toBeCloseTo((10 * 50 * 564) / 1043, 1);
+  expect(metrics.italic.cells).toBeCloseTo(metrics.upright.cells, 1);
+  expect(metrics.upright.arrow).toBeCloseTo(metrics.upright.single, 1);
+  expect(metrics.mono).toContain('JetBrains Mono');
+  expect(metrics.title).toContain('Daikonic Transit Sans');
+  expect(metrics.body).toContain('Daikonic Transit System');
+});
+
 for (const theme of ['light', 'daikonic'])
   for (const width of [1280, 800]) {
     test(`compact form rhythm and checkbox labels at ${width}px in ${theme}`, async ({ page }, info) => {
