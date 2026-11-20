@@ -887,7 +887,7 @@ export const PrototypeWorkflow = withInstrumentation(
               </pre>
             </div>
           ) : (
-            <p role="status" className="p-3 text-xs text-muted-foreground">
+            <p role="status" className="p-3 text-xs text-caption">
               {functionSelected
                 ? (state.error ??
                   (state.status === 'running'
@@ -1164,7 +1164,7 @@ export const PrototypeWorkflow = withInstrumentation(
                   ) : null}
                 </WorkflowNode>
               ) : (
-                <div className="workflow-empty">
+                <div className="workflow-empty text-caption">
                   {mode === 'panels'
                     ? 'Choose an object type, or select an example below.'
                     : 'Add an object or choose a function.'}

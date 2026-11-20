@@ -10,12 +10,13 @@ import { FileLoader } from '../../../components/FileLoader.js';
 import { WorkspaceSwitcher } from '../../../components/WorkspaceSwitcher.js';
 import { ReferenceModelPicker } from '../../../components/ReferenceModelPicker.js';
 import { useProject } from '../../providers/project-context.js';
+import { PerspectiveHeading } from '../PerspectiveHeading.js';
 import { useWorkspaceActions } from '../workspace-actions-context.js';
 import { withInstrumentation } from '../../../services/instrumentation/core.js';
 import { config } from '../../../config.js';
 
 export const WorkspacesPerspective = withInstrumentation(
-  function WorkspacesPerspective(): React.ReactElement {
+  function WorkspacesPerspective({ preparation }: { preparation?: React.ReactNode }): React.ReactElement {
     const {
       files,
       onFilesLoaded,
@@ -35,11 +36,16 @@ export const WorkspacesPerspective = withInstrumentation(
     const section = usePerspectiveStore((state) => state.workspaceSection);
     const setSection = usePerspectiveStore((state) => state.setWorkspaceSection);
     return (
-      <section data-testid="workspaces-perspective" className="studio-launcher h-full">
-        <div className="studio-launcher__body">
-          <nav className="studio-launcher__navigation" aria-label="Project launcher">
+      <section data-testid="workspaces-perspective" className="flex h-full min-h-0 min-w-0 flex-col">
+        <header className="studio-layout-presets flex-wrap" data-testid="perspective-header-row">
+          <PerspectiveHeading perspectiveId="workspaces" />
+          {preparation}
+          <nav
+            className="studio-layout-presets__group studio-layout-presets__group--actions"
+            aria-label="Project launcher"
+          >
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               aria-pressed={section === 'workspaces'}
               onClick={() => setSection('workspaces')}
@@ -47,7 +53,7 @@ export const WorkspacesPerspective = withInstrumentation(
               Workspaces
             </Button>
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               aria-pressed={section === 'references'}
               onClick={() => setSection('references')}
@@ -55,70 +61,72 @@ export const WorkspacesPerspective = withInstrumentation(
               Reference models
             </Button>
           </nav>
-          <div hidden={section !== 'workspaces'} className="studio-launcher__workspaces">
-            <FileLoader
-              onFilesLoaded={onFilesLoaded}
-              existingFiles={files}
-              onNewWorkspace={onStartBlankWorkspace ?? onCreateWorkspace}
-              onOpenFolder={onOpenFolder}
-              createGitBackedWorkspace={createGitBackedWorkspace}
-              onGitHubWorkspaceCreated={onGitHubWorkspaceCreated}
-              openProjectInitialization={openProjectInitialization}
-            />
-            <WorkspaceSwitcher
-              onOpen={onOpenWorkspace}
-              onCreate={onCreateWorkspace}
-              onDelete={onDeleteWorkspace}
-              onRename={onRenameWorkspace}
-            />
-            <StarterWorkspacePicker
-              open={onOpenStarter}
-              github={
-                config.githubAuthEnabled
-                  ? {
-                      createWorkspace: createGitBackedWorkspace,
-                      onCreated: onGitHubWorkspaceCreated,
-                      openProjectInitialization
-                    }
-                  : undefined
-              }
-            />
-          </div>
-          <div hidden={section !== 'references'} className="studio-launcher__references">
-            <h2 className="text-sm font-semibold mb-2">Reference models</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Read-only model dependencies belong to the active workspace.
-            </p>
-            {[
-              ...project.diagnostics,
-              ...(project.runtime?.diagnostics ?? []),
-              ...(project.referenceView?.diagnostics ?? [])
-            ].map((issue, index) => (
-              <p key={index} role="alert" className="text-xs mb-2">
-                {issue.code}: {issue.message}
-              </p>
-            ))}
-            {(project.runtime?.retry || project.referenceView?.status === 'unavailable') && (
-              <Button
-                size="xs"
-                variant="outline"
-                className="mb-3"
-                onClick={() => {
-                  project.runtime?.retry?.();
-                  project.referenceView?.retry();
-                }}
-              >
-                Retry reference loading
-              </Button>
-            )}
-            <ReferenceModelPicker
-              key={project.workspaceId ?? 'no-workspace'}
-              controller={project.controller}
-              snapshot={project.snapshot}
-              activeBaseline={project.runtime?.input}
-              dependenciesLoading={project.runtime?.status === 'loading'}
-              onAccepted={project.runtime?.refresh}
-            />
+        </header>
+        <div className="studio-launcher flex-1">
+          <div className="studio-launcher__body">
+            <div hidden={section !== 'workspaces'} className="studio-launcher__workspaces">
+              <FileLoader
+                onFilesLoaded={onFilesLoaded}
+                existingFiles={files}
+                onNewWorkspace={onStartBlankWorkspace ?? onCreateWorkspace}
+                onOpenFolder={onOpenFolder}
+                createGitBackedWorkspace={createGitBackedWorkspace}
+                onGitHubWorkspaceCreated={onGitHubWorkspaceCreated}
+                openProjectInitialization={openProjectInitialization}
+              />
+              <WorkspaceSwitcher
+                onOpen={onOpenWorkspace}
+                onCreate={onCreateWorkspace}
+                onDelete={onDeleteWorkspace}
+                onRename={onRenameWorkspace}
+              />
+              <StarterWorkspacePicker
+                open={onOpenStarter}
+                github={
+                  config.githubAuthEnabled
+                    ? {
+                        createWorkspace: createGitBackedWorkspace,
+                        onCreated: onGitHubWorkspaceCreated,
+                        openProjectInitialization
+                      }
+                    : undefined
+                }
+              />
+            </div>
+            <div hidden={section !== 'references'} className="studio-launcher__references">
+              <h2 className="text-sm font-semibold mb-2">Reference models</h2>
+              <p className="text-sm text-caption mb-4">Read-only model dependencies belong to the active workspace.</p>
+              {[
+                ...project.diagnostics,
+                ...(project.runtime?.diagnostics ?? []),
+                ...(project.referenceView?.diagnostics ?? [])
+              ].map((issue, index) => (
+                <p key={index} role="alert" className="text-xs mb-2">
+                  {issue.code}: {issue.message}
+                </p>
+              ))}
+              {(project.runtime?.retry || project.referenceView?.status === 'unavailable') && (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  className="mb-3"
+                  onClick={() => {
+                    project.runtime?.retry?.();
+                    project.referenceView?.retry();
+                  }}
+                >
+                  Retry reference loading
+                </Button>
+              )}
+              <ReferenceModelPicker
+                key={project.workspaceId ?? 'no-workspace'}
+                controller={project.controller}
+                snapshot={project.snapshot}
+                activeBaseline={project.runtime?.input}
+                dependenciesLoading={project.runtime?.status === 'loading'}
+                onAccepted={project.runtime?.refresh}
+              />
+            </div>
           </div>
         </div>
       </section>

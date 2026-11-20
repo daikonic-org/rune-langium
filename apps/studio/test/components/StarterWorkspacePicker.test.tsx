@@ -21,6 +21,7 @@ it('clears filtered-out details and restores the selected example after clearing
   render(<StarterWorkspacePicker catalog={catalog} open={vi.fn()} />);
   await user.click(screen.getByRole('button', { name: /Model authoring/ }));
   expect(screen.getByRole('heading', { name: 'Model authoring' })).toBeVisible();
+  expect(screen.getByText(/^View without signing in\./)).toHaveClass('text-caption');
   await user.type(screen.getByRole('textbox', { name: 'Search example projects' }), 'missing');
   expect(screen.queryByRole('heading', { name: 'Model authoring' })).toBeNull();
   await user.click(screen.getByRole('button', { name: 'Clear search' }));

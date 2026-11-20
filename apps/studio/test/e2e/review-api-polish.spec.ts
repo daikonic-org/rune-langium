@@ -110,6 +110,11 @@ test('keeps member-name inputs aligned with compact Inspector controls', async (
   await load(page);
   await select(page, 'CurrencyTest', 'RosettaFunction');
   await showPane(page, 'Inspector');
+  const title = page.getByRole('heading', { name: 'Inspector', exact: true });
+  await expect(title).toHaveCSS('font-family', /Daikonic Transit Sans/);
+  await expect(title).toHaveCSS('font-weight', '500');
+  const panes = page.getByRole('toolbar', { name: 'Center pane selector' });
+  await expect(panes.getByRole('button', { name: 'Structure', exact: true })).toHaveCSS('font-weight', '500');
   const reference = page.getByRole('textbox', { name: 'Output name: result', exact: true });
   const geometry = (element: Element) => ({
     height: element.getBoundingClientRect().height,

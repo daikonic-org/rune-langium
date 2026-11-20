@@ -258,7 +258,6 @@
 .workflow-empty {
   padding: var(--space-5);
   font-size: var(--text-sm);
-  color: var(--muted-foreground);
   border: 1px dashed var(--input);
   border-radius: var(--radius-lg);
 }

@@ -21,7 +21,7 @@ const buttonVariants = cva(
   // the affordance. Icon controls retain stationary hit targets: an edge pointer must not
   // repeatedly enter and leave hover as a compact button lifts. They keep
   // the same color feedback; text buttons also lift and settle on press.
-  'inline-flex min-h-6 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-regular cursor-pointer ' +
+  'inline-flex min-h-6 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium cursor-pointer ' +
     // cursor-pointer is unconditional above; restore the not-allowed cursor for
     // disabled / aria-disabled states (the disabled:/aria-disabled: variants have
     // higher specificity than the bare cursor-pointer, so they win for those

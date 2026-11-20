@@ -541,7 +541,7 @@ export const FormPreviewPanel = withInstrumentation(
               </span>
             </div>
           ) : (
-            <p role="status" aria-live="polite" className="text-sm text-caption">
+            <p role="status" aria-live="polite" className="text-xs text-caption">
               {getStatusOnlyMessage(schema, status)}
             </p>
           )}

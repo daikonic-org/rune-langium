@@ -133,7 +133,9 @@ export const ReferenceModelDetails = withInstrumentation(
     ]);
     return (
       <div className="space-y-2 text-xs text-muted-foreground" data-testid="reference-model-details">
-        {repositoryDetails?.description && <p>{repositoryDetails.description}</p>}
+        {repositoryDetails?.description && (
+          <p className="reference-model-details__description text-caption">{repositoryDetails.description}</p>
+        )}
         <a
           href={`${href}#readme`}
           target="_blank"

@@ -5,7 +5,8 @@
  * chrome row directly below the app header (the same row that carries
  * Explore's "Show utilities" / "Reset layout" actions). Every perspective
  * shows this heading in the same location: Explore embeds it in DockShell's
- * layout-presets bar; the other screens get it via PerspectiveHost.
+ * layout-presets bar and Compose renders it alongside the composer actions.
+ * The other screens get it via PerspectiveHost.
  */
 import type React from 'react';
 import { withInstrumentation } from '@rune-langium/instrumentation-core';
@@ -13,14 +14,9 @@ import { useEditorStore } from '@rune-langium/visual-editor';
 import { PERSPECTIVES } from './perspective-registry.js';
 import type { PerspectiveId } from './perspective-types.js';
 
-function ExploreLocationPath(): React.ReactElement | null {
-  const selected = useEditorStore((state) =>
-    state.selectedNodeId ? state.nodesById.get(state.selectedNodeId) : undefined
-  );
-  if (!selected) return null;
-  const parts = [...selected.meta.namespace.split('.').filter(Boolean), selected.data.name];
+function PerspectiveLocationPath({ label, parts }: { label: string; parts: readonly string[] }) {
   return (
-    <nav className="studio-explore-location" aria-label="Explore location" title={parts.join(' / ')}>
+    <nav className="studio-perspective-location" aria-label={label} title={parts.join(' / ')}>
       <ol dir="ltr">
         {parts.map((part, index) => (
           <li key={index} aria-current={index === parts.length - 1 ? 'location' : undefined}>
@@ -33,10 +29,21 @@ function ExploreLocationPath(): React.ReactElement | null {
   );
 }
 
+function ExploreLocationPath(): React.ReactElement | null {
+  const selected = useEditorStore((state) =>
+    state.selectedNodeId ? state.nodesById.get(state.selectedNodeId) : undefined
+  );
+  if (!selected) return null;
+  const parts = [...selected.meta.namespace.split('.').filter(Boolean), selected.data.name];
+  return <PerspectiveLocationPath label="Explore location" parts={parts} />;
+}
+
 export const PerspectiveHeading = withInstrumentation(function PerspectiveHeading({
-  perspectiveId
+  perspectiveId,
+  location
 }: {
   perspectiveId: PerspectiveId;
+  location?: string;
 }): React.ReactElement | null {
   const perspective = PERSPECTIVES.find((p) => p.id === perspectiveId);
   if (!perspective) return null;
@@ -55,7 +62,11 @@ export const PerspectiveHeading = withInstrumentation(function PerspectiveHeadin
           {perspective.title ?? perspective.label}
         </span>
       </h1>
-      {perspectiveId === 'explore' && <ExploreLocationPath />}
+      {perspectiveId === 'explore' ? (
+        <ExploreLocationPath />
+      ) : location ? (
+        <PerspectiveLocationPath label={`${perspective.label} location`} parts={location.split('.').filter(Boolean)} />
+      ) : null}
     </div>
   );
 });

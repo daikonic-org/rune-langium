@@ -553,6 +553,7 @@ acknowledged without a new file update.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.
 - `apps/studio/src/shell/providers/StudioProviders.tsx` composes provider responsibilities; `LspProvider.tsx` owns the LSP client and transport lifecycle.
 - `WorkbenchHost` owns Dockview mounting, stable panel bridges, native-layout restore, serialization subscriptions, and disposal. Each perspective supplies a `WorkbenchDefinition` with its panels, titles, and default builder. Its optional idempotent reconciler runs after restore and definition updates, preserving existing panel instances when conditional panels appear or disappear. `DockShell` remains Explore's adapter: it owns migration of `PanelLayoutRecord`, the Explore factory layout, toolbar/shortcuts, center-pane policy, and utility-tray collapse behavior. Per-workspace perspective preferences use versioned workbench settings; they must contain UI state only, never model payloads or generated artifacts.
+- Explore and Compose share the perspective location path. Compose renders its path and actions in the perspective header within the existing portaled composer, so its selection and save controls stay with the active document. Workspaces uses the same header for its section switcher.
 - **Studio LSP is network-only.** `apps/studio/src/services/transport-provider.ts` defaults to session-token minting followed by a token-gated WebSocket to the hosted LSP. Only an explicit `wsUri` opts into direct WebSocket, with token-gated fallback after failure. Configured endpoints can differ between local, preview, and production environments.
 - Hosted dependency snapshots compute exports and local scopes without eagerly
   linking every function body. Live source still links and validates through
@@ -1095,7 +1096,7 @@ callee decoration; `editor-theme.ts` owns its token-driven colors and typography
 `--font-code` selects the bundled Transit Code face at Book weight for content
 and gutters. The shared editor theme enables common and contextual ligatures,
 including Transit Code’s default upright hairlining and texture healing.
-The Transit System and Code faces use the shared size tokens directly.
+System and Code use the shared size tokens. Rune source uses the compact size for its content and line numbers.
 `--font-mono` selects JetBrains Mono for compact UI text. Assertion callees use subdued red
 without dimming their arguments or changing source text.
 

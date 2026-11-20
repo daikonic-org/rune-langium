@@ -78,6 +78,10 @@ for (const theme of ['daikonic', 'light'])
     await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('rail-export').click();
     await expect(page.getByTestId('export-perspective')).toBeVisible();
+    await expect(page.getByTestId('export-selection').getByText(/^Select declarations or namespaces\./)).toHaveCSS(
+      'margin-top',
+      '4px'
+    );
     await typeSelectionCheckbox(page.getByTestId('export-perspective'), 'demo.Party').click();
     await page.getByRole('button', { name: 'Generate target' }).click();
     await expect(page.getByTestId('export-artifact-preview')).toBeVisible();

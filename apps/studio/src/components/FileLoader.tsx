@@ -150,7 +150,7 @@ export const FileLoader = withInstrumentation(
         aria-label="File loader"
       >
         <div className="w-full min-w-0">
-          <p className="text-sm text-muted-foreground mb-3">Open your work or start with an example project.</p>
+          <p className="text-sm text-caption mb-3">Open your work or start with an example project.</p>
           {error && (
             <p role="alert" className="text-sm text-destructive mb-2">
               {error}

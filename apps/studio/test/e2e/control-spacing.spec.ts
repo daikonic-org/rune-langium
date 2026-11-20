@@ -59,7 +59,7 @@ for (const theme of ['light', 'daikonic'])
       await expect(preview.locator('.preview-layout-grid').first()).toHaveCSS('row-gap', '8px');
       await page.screenshot({ path: info.outputPath('preview.png'), fullPage: true });
       const importModel = page.getByRole('button', { name: 'Import Model', exact: true });
-      await expect(importModel).toHaveCSS('font-weight', '400');
+      await expect(importModel).toHaveCSS('font-weight', '500');
       const buttonLabel = importModel.locator('[data-slot="button-label"]');
       await expect(buttonLabel).toHaveCSS('text-box-edge', 'cap alphabetic');
       const buttonAlignment = await buttonLabel.evaluate((label) => {

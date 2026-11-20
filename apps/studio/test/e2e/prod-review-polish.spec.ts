@@ -28,6 +28,7 @@ test('Source uses Transit Code Book and enables contextual shaping', async ({ pa
   for (const text of [content, editor.locator('.cm-gutters')]) {
     await expect(text).toHaveCSS('font-family', /Daikonic Transit Code/);
     await expect(text).toHaveCSS('font-weight', '350');
+    await expect(text).toHaveCSS('font-size', '12px');
     await expect(text).toHaveCSS('font-variant-ligatures', 'common-ligatures contextual');
   }
 
@@ -67,6 +68,13 @@ for (const width of [1024, 800])
   test(`recent workspace names stay readable at ${width}px with larger text`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('./');
+    const launcher = page.getByTestId('workspaces-perspective');
+    const header = launcher.getByTestId('perspective-header-row');
+    await expect(header.getByRole('navigation', { name: 'Project launcher' })).toBeVisible();
+    await expect(launcher.getByText('Open your work or start with an example project.')).toHaveCSS(
+      'font-style',
+      'italic'
+    );
     for (const name of ['Collateral agreement — desk examples', 'Clearing agreement — desk examples']) {
       await page.getByRole('button', { name: 'New workspace', exact: true }).click();
       await expect(page.getByTestId('explore-workbench')).toBeVisible();
