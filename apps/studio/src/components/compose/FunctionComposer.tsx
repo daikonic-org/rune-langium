@@ -45,11 +45,7 @@ import { Button } from '@rune-langium/design-system/ui/button';
 import { Input, SearchInput } from '@rune-langium/design-system/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
 import { ArrowLeft, Plus, Workflow, Code, Network, ArrowUpRight } from 'lucide-react';
-import {
-  requestExpressionScope,
-  requestFunctionComposition,
-  validateExpressionCandidate
-} from '../../services/workspace.js';
+import { requestExpressionScope, requestFunctionComposition } from '../../services/workspace.js';
 import {
   compositionReference,
   buildAliasEdit,
@@ -95,6 +91,7 @@ import {
 } from './composition-primitives.js';
 import { FunctionPalette, COMPOSITION_FUNCTION_MIME as MIME } from './FunctionPalette.js';
 const PRIMITIVE_MIME = 'application/x-rune-composition-primitive';
+const centerStackWidth = 600;
 import { CompositionCanvas, DRAFT_NODE, type SavedCompositionViewport } from './CompositionCanvas.js';
 import { compositionProducerId as producerId, type CompositionWiring } from './composition-graph.js';
 
@@ -113,7 +110,7 @@ interface Draft {
   region: SourceRegion;
   scopeRegion?: SourceRegion;
   expression: string;
-  sourceExpression?: string;
+  sourceCall?: { text: string; arguments: SourceRegion[]; collection?: SourceRegion };
   expressionType?: CompositionStep['expressionType'];
   name: string;
   stepId?: string;
@@ -219,6 +216,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const runeView = useRef<EditorView>(null);
   const [sourceFocus, setSourceFocus] = useState<{ from: number; argument?: number }>();
   const [activeSlot, setActiveSlot] = useState<ExpressionSlot>();
+  const [inlineEditing, setInlineEditing] = useState(false);
   const [linkedScope, setLinkedScope] = useState<{ owner: string; value: FunctionScope }>();
   const [codeHover, setCodeHover] = useState<SourceRegion>();
   const attachSource = useCallback(
@@ -254,6 +252,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   useEffect(() => {
     setDraft(drafts.current.get(identity));
     setActiveSlot(undefined);
+    setInlineEditing(false);
     setSourceFocus(undefined);
     setSelected(selections.current.get(identity) ?? drafts.current.get(identity)?.stepId ?? 'return');
     setPortContext(undefined);
@@ -478,8 +477,9 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       setSelected(step.id);
       selections.current.set(identity, step.id);
     }
-    const parsed = next.callee && parseExpressionDraft(text).parsed;
-    const call = parsed && !parsed.hasErrors && getCompositionCallExpression(parsed.value);
+    const parsed = next.callee ? parseExpressionDraft(text).parsed : undefined;
+    const root = parsed && !parsed.hasErrors ? parsed.value : undefined;
+    const call = root && getCompositionCallExpression(root);
     if (
       call &&
       next.arguments?.length === call.rawArgs.length &&
@@ -487,8 +487,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
         call.symbol.$refText
       )
     ) {
-      const arguments_ = call.rawArgs.map((argument, index) => {
-        const region = getNodeSourceRegion(argument);
+      const regions = call.rawArgs.map(getNodeSourceRegion);
+      const arguments_ = regions.map((region, index) => {
         const argumentText = text.slice(region.from, region.to);
         const value = argumentText === EXPRESSION_DRAFT_HOLE ? '' : argumentText;
         const previous = next.arguments![index]!;
@@ -502,7 +502,28 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
           mode: parameter ? ('variable' as const) : ('value' as const)
         };
       });
-      changeDraft({ ...next, arguments: arguments_, expression: text, sourceExpression: text });
+      const collection =
+        root?.$type === 'MapOperation' && root.argument ? getNodeSourceRegion(root.argument) : undefined;
+      const inputVariable = collection
+        ? variables.find(
+            (entry) =>
+              entry.reference === text.slice(collection.from, collection.to) &&
+              entry.kind !== 'output' &&
+              entry.producer !== step?.id
+          )?.id
+        : undefined;
+      changeDraft({
+        ...next,
+        arguments: arguments_,
+        expression: text,
+        sourceCall: {
+          text,
+          arguments: regions,
+          collection
+        },
+        inputVariable,
+        collectionBinding: undefined
+      });
     } else {
       changeDraft({
         ...next,
@@ -510,7 +531,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
         argumentRegions: undefined,
         arguments: undefined,
         expression: text,
-        sourceExpression: undefined,
+        sourceCall: undefined,
+        collectionBinding: undefined,
         inputVariable: undefined
       });
     }
@@ -546,7 +568,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     if (next) changeDraft(next);
   };
   const [signaturePending, setSignaturePending] = useState(false);
-  const stepAvailable = !draft && !signaturePending && !applyBusy;
+  const stepAvailable = !draft && !signaturePending && !applyBusy && !inlineEditing;
   const canAdd = writable && stepAvailable;
   const outputStep = composition?.supported ? composition.steps.find((step) => step.kind === 'return') : undefined;
   const beginAdd = async (
@@ -655,19 +677,23 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     setVariablesOpen(true);
     setFocusId(position ? undefined : DRAFT_NODE);
   };
-  const expression =
-    draft?.sourceExpression ??
-    (draft?.callee
-      ? draft.argumentRegions
-        ? compositionArgumentsText(draft.binding, draft.region, [
-            ...draft.argumentRegions.map((region, index) => ({
+  const sourceCall = draft?.sourceCall;
+  const argumentRegions = sourceCall?.arguments ?? draft?.argumentRegions;
+  const expression = draft?.callee
+    ? argumentRegions
+      ? compositionArgumentsText(
+          sourceCall ? { source: sourceCall.text } : draft.binding,
+          sourceCall ? { from: 0, to: sourceCall.text.length } : draft.region,
+          [
+            ...argumentRegions.map((region, index) => ({
               region,
               value: draft.arguments?.[index]?.value || EXPRESSION_DRAFT_HOLE
             })),
             ...(draft.collectionBinding ? [draft.collectionBinding] : [])
-          ])
-        : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value || EXPRESSION_DRAFT_HOLE).join(', ') ?? ''})`
-      : (draft?.expression ?? ''));
+          ]
+        )
+      : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value || EXPRESSION_DRAFT_HOLE).join(', ') ?? ''})`
+    : (draft?.expression ?? '');
   const expressionInvalid = useMemo(() => !expression.trim() || parseExpression(expression).hasErrors, [expression]);
 
   const stale = Boolean(
@@ -747,9 +773,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       }
       let candidate = compositionCandidate(binding, edits);
       let checked = composition;
-      if (candidate !== binding.source && draft.sourceOnly) {
-        await validateExpressionCandidate(file.path, binding.nodeId, draft.dependencies ?? [file], candidate);
-      } else if (candidate !== binding.source) {
+      if (candidate !== binding.source && !draft.sourceOnly) {
         const dependencies = draft.dependencies ?? [file];
         const inspect = (source: string) =>
           requestFunctionComposition(file.path, binding.nodeId, dependencies, false, source);
@@ -822,6 +846,12 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     setQuery('');
   };
   const openFunction = (id: string, followStep = false) => {
+    if (inlineEditing) {
+      setError('Finish or cancel the current expression before opening another function.');
+      return;
+    }
+    if (window.matchMedia?.(`(max-width: ${centerStackWidth - 1}px)`).matches)
+      dock.current?.getEdgeGroup('left')?.collapse();
     if (id === identity) return;
     setBreadcrumbs((previous) => (followStep && identity ? [...previous, identity] : []));
     onNavigate(id);
@@ -857,21 +887,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     const next = makeDraft(step);
     if (!next?.arguments) return;
     setError(undefined);
-    let sourceExpression: string | undefined;
-    if (next.sourceExpression) {
-      const { parsed } = parseExpressionDraft(next.sourceExpression);
-      const argument = !parsed.hasErrors && getCompositionCallExpression(parsed.value)?.rawArgs[index];
-      if (argument) {
-        const region = getNodeSourceRegion(argument);
-        sourceExpression =
-          next.sourceExpression.slice(0, region.from) +
-          (value || EXPRESSION_DRAFT_HOLE) +
-          next.sourceExpression.slice(region.to);
-      }
-    }
     changeDraft({
       ...next,
-      sourceExpression,
       arguments: next.arguments.map((argument, i) =>
         i === index ? { ...argument, value, variableId, mode: variableId ? 'variable' : 'value' } : argument
       )
@@ -899,7 +916,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       : undefined);
   const actions: NodeBindingActions = {
     owner: identity,
-    writable: writable && !stale,
+    writable: writable && !stale && !inlineEditing,
     busy: applyBusy,
     selectedVariable,
     draftId: draft?.stepId,
@@ -911,7 +928,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     outputTarget: draft?.outputBinding?.variableId,
     variables,
     arguments: (step) => {
-      if (draft?.stepId === step.id && draft.arguments) return draft.arguments;
+      if (draft?.stepId === step.id) return draft.arguments ?? [];
       return (
         step.call?.inputs.map((input, index) => {
           const variableId = step.call!.argumentVariables?.[index];
@@ -979,17 +996,18 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       const next = makeDraft(step);
       if (!next) return;
       try {
-        if (variableId && step.collection && next.argumentRegions) {
-          // Both edits retain coordinates in the same capture, regardless of replacement length.
+        const collection = next.sourceCall ? next.sourceCall.collection : step.collection;
+        if (variableId && collection && next.arguments) {
           changeDraft({
             ...next,
             inputVariable: variableId,
-            collectionBinding: { region: step.collection, value }
+            collectionBinding: { region: collection, value }
           });
         } else {
           changeDraft({
             ...next,
             expression: variableId ? compositionInputText(actions.expression(step), value) : value,
+            sourceCall: undefined,
             inputVariable: variableId,
             callee: undefined,
             argumentRegions: undefined,
@@ -1105,9 +1123,15 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     if (argument !== undefined) trigger.click();
     setSourceFocus(undefined);
   }, [sourceVisible, sourceHost, sourceFocus, sourceEditable, rows]);
-  const hasUndo = !draft && runeView.current && undoDepth(runeView.current.state) > 0;
+  const hasUndo = !draft && !inlineEditing && runeView.current && undoDepth(runeView.current.state) > 0;
   const undoSource = () => {
-    if (runeView.current && !draft && !applyBusy && runeView.current.state.doc.toString() === file?.content) {
+    if (
+      runeView.current &&
+      !draft &&
+      !inlineEditing &&
+      !applyBusy &&
+      runeView.current.state.doc.toString() === file?.content
+    ) {
       undo(runeView.current);
     }
   };
@@ -1188,6 +1212,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
         setError(undefined);
       }}
       onActiveSlot={setActiveSlot}
+      onEditingChange={setInlineEditing}
       onHighlightRange={(range) => runeView.current?.dispatch({ effects: setExpressionHighlight.of(range) })}
       highlightedRange={codeHover}
       after={!canvasVisible && presented?.supported && (activeSlot || variablesOpen) ? variableTray : undefined}
@@ -1257,6 +1282,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
               <Button
                 size="xs"
                 variant="ghost"
+                disabled={inlineEditing}
                 onClick={() => {
                   setBreadcrumbs((previous) => previous.slice(0, -1));
                   onNavigate(parent);
@@ -1393,17 +1419,17 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                     onOpen={openFunction}
                     onAdd={(id) => {
                       if (activeSlot && sourceVisible) {
+                        const name = qualifiedNameFromNodeId(id);
                         const callable = selectedScope?.references?.find(
-                          (entry) =>
-                            entry.kind === 'callable' &&
-                            (entry.name === qualifiedNameFromNodeId(id) ||
-                              entry.name === qualifiedNameFromNodeId(id).split('.').pop())
+                          (entry) => entry.kind === 'callable' && entry.name === name
                         );
-                        if (callable?.argumentCount !== undefined)
+                        if (callable?.argumentCount !== undefined) {
                           activeSlot.replace(
-                            callable.name + '(' + Array(callable.argumentCount).fill('(<?>)').join(', ') + ')'
+                            name + '(' + Array(callable.argumentCount).fill(EXPRESSION_DRAFT_HOLE).join(', ') + ')'
                           );
-                        else void beginAdd(id);
+                        } else {
+                          setError('This function’s linked signature is unavailable at the current expression.');
+                        }
                       } else void beginAdd(id);
                     }}
                   />
@@ -1490,18 +1516,14 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                   )}
                 </WorkbenchViewBar>
                 <SplitWorkbench
-                  stackAt={600}
+                  stackAt={centerStackWidth}
                   panes={[
                     {
                       id: 'composition-canvas-view',
                       minSize: '20%',
                       visible: canvasVisible,
                       content: (
-                        <section
-                          ref={setCanvasElement}
-                          className="function-composer__canvas"
-                          aria-label="Composition canvas"
-                        >
+                        <section className="function-composer__canvas" aria-label="Composition canvas">
                           {sourceVisible && <WorkbenchPaneHeading label="Canvas" />}
 
                           {!editor ? (
@@ -1548,6 +1570,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                               variablesOpen={variablesOpen}
                               viewKey={viewKey}
                               size={canvasSize}
+                              onGraphElement={setCanvasElement}
                               focus={focusId}
                               setFocus={setFocusId}
                               positions={positions.current}

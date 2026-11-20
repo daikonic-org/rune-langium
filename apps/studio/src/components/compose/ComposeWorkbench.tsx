@@ -20,7 +20,7 @@ function buildDefault(api: DockviewApi, width: number) {
     id: 'compose.center',
     component: 'compose.center',
     title: 'Composition',
-    renderer: 'always'
+    renderer: 'onlyWhenVisible'
   });
   for (const side of sides) {
     const edge = api.addEdgeGroup(side.position, {
@@ -220,6 +220,8 @@ export const ComposeWorkbench = withInstrumentation(
             definition={definition}
             initialNativeLayout={restored.layout}
             onReady={(api) => {
+              // Keep the center inside its dock group as the surrounding rails move.
+              api.getPanel('compose.center')?.api.setRenderer('onlyWhenVisible');
               setDock(api);
               onReady(api);
             }}

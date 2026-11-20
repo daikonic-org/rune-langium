@@ -5,6 +5,7 @@ import {
   getSourceComments,
   getNodeSourceRegion,
   parseExpression,
+  parseExpressionDraft,
   type FunctionComposition,
   type SourceRegion
 } from '@rune-langium/core';
@@ -15,14 +16,15 @@ import { minimalDocumentChange } from '../lang/document-extensions.js';
 /** A collection connector replaces its operand, retaining the operator, lambda and authored trivia. */
 export const compositionInputText = withInstrumentation(
   function compositionInputText(expression: string, reference: string): string {
-    const parsed = parseExpression(expression);
+    const { parsed } = parseExpressionDraft(expression);
     if (parsed.hasErrors) throw new Error('Complete the expression before connecting its input.');
     const value = parsed.value;
     const operand = 'argument' in value ? value.argument : value.$type === 'DefaultOperation' ? value.left : undefined;
     if (!operand) return reference;
     const region = getNodeSourceRegion(operand);
     const replacement = expression.slice(0, region.from) + reference + expression.slice(region.to);
-    if (parseExpression(replacement).hasErrors) throw new Error('Open the expression editor to bind this input.');
+    if (parseExpressionDraft(replacement).parsed.hasErrors)
+      throw new Error('Open the expression editor to bind this input.');
     return replacement;
   },
   { op: 'compositionInputText', capture: 0 }
@@ -124,7 +126,7 @@ export const compositionBindingCycle = withInstrumentation(
 /** Replace only argument bytes, retaining the authored call spelling and surrounding trivia. */
 export const compositionArgumentsText = withInstrumentation(
   function compositionArgumentsText(
-    binding: DocumentBinding,
+    binding: Pick<DocumentBinding, 'source'>,
     region: SourceRegion,
     arguments_: readonly { region: SourceRegion; value: string }[]
   ): string {

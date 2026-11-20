@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 
-import { useCallback, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   parseExpressionDraft,
   type ExpressionPickerTarget,
@@ -33,6 +33,7 @@ type InlineExpressionFieldProps = {
   value: string;
   onChange(value: string): void;
   onActiveSlot?(slot: ExpressionSlot | undefined): void;
+  onEditingChange?(editing: boolean): void;
   onHighlightRange?(range: SourceRegion | undefined): void;
   highlightedRange?: SourceRegion;
 };
@@ -45,6 +46,7 @@ export const InlineExpressionField = withInstrumentation(
     value,
     onChange,
     onActiveSlot,
+    onEditingChange,
     onHighlightRange,
     highlightedRange
   }: InlineExpressionFieldProps) {
@@ -97,6 +99,7 @@ export const InlineExpressionField = withInstrumentation(
         onChange={onChange}
         onBlur={() => {}}
         onActiveSlot={onActiveSlot}
+        onEditingChange={onEditingChange}
         onHighlightRange={onHighlightRange}
         highlightedRange={highlightedRange}
         sourceTarget={target}
@@ -140,6 +143,7 @@ export const InlineExpressionRows = withInstrumentation(
     onApply,
     onDiscard,
     onActiveSlot,
+    onEditingChange,
     onHighlightRange,
     highlightedRange,
     pending,
@@ -156,6 +160,7 @@ export const InlineExpressionRows = withInstrumentation(
     onApply(): void;
     onDiscard(): void;
     onActiveSlot?(slot: ExpressionSlot | undefined): void;
+    onEditingChange?(editing: boolean): void;
     onHighlightRange?(range: SourceRegion | undefined): void;
     highlightedRange?: SourceRegion;
     pending: boolean;
@@ -164,21 +169,32 @@ export const InlineExpressionRows = withInstrumentation(
     showStatement?: boolean;
     after?: ReactNode;
   }) {
+    const [editingRow, setEditingRow] = useState<string>();
+    const editing = editingRow !== undefined;
+    useEffect(() => {
+      onEditingChange?.(editing);
+    }, [editing, onEditingChange]);
     const source = session.binding.source;
     const sameRegion = (region: SourceRegion) => draft?.region.from === region.from && draft?.region.to === region.to;
     const controls = (
-      <div className="flex items-center gap-1">
-        <Button size="sm" onClick={onApply} disabled={pending || invalid || !editable}>
+      <div className="flex flex-wrap items-center gap-1">
+        <Button size="sm" onClick={onApply} disabled={pending || invalid || !editable || editing}>
           {pending ? 'Applying…' : 'Apply'}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onDiscard} disabled={pending}>
+        <Button size="sm" variant="ghost" onClick={onDiscard} disabled={pending || editing}>
           Discard
         </Button>
+        {!pending && (
+          <span role="status" className="text-caption text-xs">
+            Unapplied
+          </span>
+        )}
       </div>
     );
     return (
       <div className="flex min-w-0 flex-col gap-1">
         {rows.map((row, index) => {
+          const rowKey = row.kind + '-' + row.index;
           const previousEnd = rows[index - 1]?.statement.to ?? session.binding.region.from;
           const matching = sameRegion(row.region);
           const text = matching ? draft!.text : source.slice(row.region.from, row.region.to);
@@ -186,15 +202,15 @@ export const InlineExpressionRows = withInstrumentation(
           const trivia = source.slice(previousEnd, row.statement.from).trim();
           return (
             <div
-              key={row.kind + '-' + row.index}
-              data-testid={'expression-row-' + row.kind + '-' + row.index}
+              key={rowKey}
+              data-testid={'expression-row-' + rowKey}
               data-expression-from={row.region.from}
               className="min-w-0 rounded border border-border px-2 py-1"
             >
               {trivia && <pre className="whitespace-pre-wrap font-code text-xs text-caption">{trivia}</pre>}
               <div className="flex min-w-0 flex-wrap items-baseline gap-1">
                 {showStatement && <span className="whitespace-pre-wrap font-code text-xs text-primary">{prefix}</span>}
-                {editable && (!draft || matching) ? (
+                {editable && (!draft || matching) && (!editing || editingRow === rowKey) ? (
                   <InlineExpressionField
                     session={session}
                     target={expressionRowTarget(row)}
@@ -202,6 +218,7 @@ export const InlineExpressionRows = withInstrumentation(
                     value={text}
                     onChange={(next) => onChange(row, next)}
                     onActiveSlot={onActiveSlot}
+                    onEditingChange={(active) => setEditingRow(active ? rowKey : undefined)}
                     onHighlightRange={onHighlightRange}
                     highlightedRange={highlightedRange}
                   />
@@ -236,12 +253,13 @@ export const InlineExpressionRows = withInstrumentation(
               value={draft.text}
               onChange={(text) => onChange(undefined, text)}
               onActiveSlot={onActiveSlot}
+              onEditingChange={(active) => setEditingRow(active ? 'new' : undefined)}
             />
             {controls}
           </div>
         )}
         {onAdd && !draft && editable && (
-          <Button variant="ghost" size="sm" className="self-start" onClick={onAdd}>
+          <Button variant="ghost" size="sm" className="self-start" onClick={onAdd} disabled={editing}>
             + Expression
           </Button>
         )}

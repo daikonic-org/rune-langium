@@ -30,9 +30,9 @@ const actions = () => {
   return harness.actions;
 };
 
-it.each([true, false])(
-  'keeps nested call arguments editable across a collection rebind (argument first: %s)',
-  async (argumentFirst) => {
+it.each(['Canvas argument', 'collection', 'Source argument'])(
+  'keeps nested call arguments editable across a collection rebind (starting with %s)',
+  async (firstEdit) => {
     harness.actions = null;
     const expression = 'values /* keep collection trivia */ extract [Double( item )]';
     const source = `namespace example
@@ -85,7 +85,7 @@ func Owner:
     expect(parsed.parserErrors).toEqual([]);
     render(
       <FunctionComposer
-        workspaceKey={`collection-binding-${argumentFirst}`}
+        workspaceKey={`collection-binding-${firstEdit}`}
         models={[]}
         active
         inspector={null}
@@ -105,8 +105,17 @@ func Owner:
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Canvas', exact: true }));
     await waitFor(() => expect(actions().writable).toBe(true));
-    if (argumentFirst) act(() => actions().argument(step, 0, 'item + 1'));
+    if (firstEdit === 'Canvas argument') act(() => actions().argument(step, 0, 'item + 1'));
+    if (firstEdit === 'Source argument') {
+      fireEvent.keyDown(await screen.findByRole('button', { name: 'Edit item', exact: true }), { key: 'i' });
+      fireEvent.change(screen.getByRole('textbox', { name: 'Edit item', exact: true }), {
+        target: { value: 'item + 1' }
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
+      expect(actions().expression(step)).toBe('values /* keep collection trivia */ extract [Double( item + 1 )]');
+    }
     act(() => actions().value(step, 'replacement', 'input:replacement'));
+    act(() => actions().argument(step, 0, '['));
     act(() => actions().argument(step, 0, 'item + 2'));
     expect(actions().arguments(step)[0]?.value).toBe('item + 2');
     expect(actions().expression(step)).toBe('replacement /* keep collection trivia */ extract [Double( item + 2 )]');

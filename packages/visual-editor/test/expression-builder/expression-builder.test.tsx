@@ -114,7 +114,7 @@ describe('ExpressionBuilder', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Edit fallbackPayout' }));
-    fireEvent.click(await screen.findByRole('option', { name: 'note', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'note · Browse', exact: true }));
     fireEvent.click(await screen.findByRole('option', { name: 'payout', exact: true }));
     expect(onChange).toHaveBeenLastCalledWith('note -> payout');
     rerender(

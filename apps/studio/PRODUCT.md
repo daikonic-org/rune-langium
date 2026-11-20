@@ -56,8 +56,9 @@ approximations. See [architecture and invariants](../../docs/agents/architecture
 - Keep generated projections readable for correctly typed inputs. Native language
   constructs and enum members are preferred; executable generation must retain
   guards needed by its actual runtime contract.
-- Compose explicitly marked Rune functions using a function palette, dependency
+- Compose graph-eligible Rune functions using a function palette, dependency
   canvas, direct node bindings and a searchable variable tray in the current project.
+  The composition annotation makes functions easier to find in the palette.
   Grouped primitive starters cover values, decisions, collection transforms and
   totals, with consistent palette/canvas icons and canonical expression editing.
 - Preview forms, structural validation and function execution using sample data.

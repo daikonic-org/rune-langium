@@ -3,6 +3,8 @@
 
 import { AstUtils, type AstNode, type AstNodeDescription } from 'langium';
 import {
+  isData,
+  isRosettaBasicType,
   isRosettaFunction,
   isRosettaExternalFunction,
   isRosettaRule,
@@ -19,7 +21,7 @@ import {
   type RosettaType
 } from '../generated/ast.js';
 import type { RuneDslServices } from '../services/rune-dsl-module.js';
-import { getFunctionSignature, getFunctionInputs, getFunctionOutput } from './expression-utils.js';
+import { getFunctionSignature, getFunctionInputs, getFunctionOutput, resolveTypeAliases } from './expression-utils.js';
 import { cardinalityFits, toConstraintString, type CardinalityBounds } from './cardinality-utils.js';
 import type { ExpressionAddress } from './source-regions.js';
 import { getLinkedReferenceTarget } from '../api/parse.js';
@@ -59,6 +61,7 @@ export interface ExpressionMemberChoice {
 export interface ExpressionPickerContext {
   entries: ExpressionScopeEntry[];
   members: ExpressionMemberChoice[];
+  expected?: Pick<ExpressionScopeEntry, 'name' | 'typeName' | 'cardinality'>;
 }
 
 function declarationId(description: AstNodeDescription): string {
@@ -114,6 +117,7 @@ function scopeEntries(
     .toArray();
   const signature = owner ? getFunctionSignature(owner, declarations) : undefined;
   const currentAlias = AstUtils.getContainerOfType(expression, isShortcutDeclaration);
+  const aliasIndex = owner && currentAlias ? owner.shortcuts.indexOf(currentAlias) : -1;
   const entries: ExpressionScopeEntry[] = [];
   const names = new Set<string>();
   const closure = AstUtils.getContainerOfType(expression, isInlineFunction);
@@ -131,12 +135,7 @@ function scopeEntries(
     if (names.has(description.name)) continue;
     let kind: ExpressionScopeEntry['kind'];
     if (node && isShortcutDeclaration(node)) {
-      if (
-        currentAlias &&
-        owner &&
-        owner.shortcuts.includes(node) &&
-        owner.shortcuts.indexOf(node) >= owner.shortcuts.indexOf(currentAlias)
-      )
+      if (aliasIndex >= 0 && owner && owner.shortcuts.includes(node) && owner.shortcuts.indexOf(node) >= aliasIndex)
         continue;
       kind = 'alias';
     } else if (node && isAttribute(node)) {
@@ -206,19 +205,29 @@ function multiplyBounds(lhs?: CardinalityBounds, rhs?: CardinalityBounds): Cardi
   };
 }
 
-function argumentShape(expression: RosettaExpression, argumentIndex?: number): ValueShape {
-  if (argumentIndex === undefined && expression.$containerProperty !== 'rawArgs') return {};
+function argumentParameter(expression: RosettaExpression, argumentIndex?: number) {
+  if (argumentIndex === undefined && expression.$containerProperty !== 'rawArgs') return undefined;
   const call = argumentIndex === undefined ? expression.$container : expression;
-  if (!isRosettaSymbolReference(call)) return {};
+  if (!isRosettaSymbolReference(call)) return undefined;
   const callee = getLinkedReferenceTarget(call, call.symbol);
   const index = argumentIndex ?? expression.$containerIndex ?? -1;
-  return isRosettaFunction(callee) ? valueShape(getFunctionInputs(callee)[index]) : {};
+  return isRosettaFunction(callee) ? getFunctionInputs(callee)[index] : undefined;
 }
+
+const scalarTypes = new Set(['boolean', 'number', 'string']);
 
 function compatibility(source: ValueShape, expected: ValueShape): ExpressionCompatibility {
   if (!source.bounds || !expected.bounds) return 'unknown';
   if (!cardinalityFits(source.bounds, expected.bounds)) return 'incompatible';
-  return source.type && source.type === expected.type ? 'compatible' : 'unknown';
+  if (source.type && source.type === expected.type) return 'compatible';
+  const from = resolveTypeAliases(source.type);
+  const to = resolveTypeAliases(expected.type);
+  const fromScalar = isRosettaBasicType(from) && scalarTypes.has(from.name);
+  const toScalar = isRosettaBasicType(to) && scalarTypes.has(to.name);
+  // Flag only disjoint linked shapes. Candidate validation still checks constraints.
+  if ((isData(from) && toScalar) || (fromScalar && isData(to)) || (fromScalar && toScalar && from.name !== to.name))
+    return 'incompatible';
+  return 'unknown';
 }
 
 /** Build suggestions at a linked expression and resolve each navigation segment through Rune's feature scope. */
@@ -233,7 +242,13 @@ export function getExpressionPickerContext(
   const linked = new Map(resolved.map(({ description, node }) => [declarationId(description), node]));
   const memberScope = (receiver: RosettaExpression) =>
     services.references.ScopeProvider.getExpressionMemberScope(receiver).getAllElements();
-  const expected = argumentShape(expression, argumentIndex);
+  const parameter = argumentParameter(expression, argumentIndex);
+  const expected = valueShape(parameter);
+  const expectedHint = parameter && {
+    name: parameter.name,
+    typeName: expected.typeName,
+    cardinality: toConstraintString(parameter.card)
+  };
   const roots = new Map<string, PickerReceiver>();
   for (const entry of entries) {
     if (entry.kind === 'callable') continue;
@@ -256,7 +271,7 @@ export function getExpressionPickerContext(
     entry.compatibility = compatibility(shape, expected);
     roots.set(entry.declarationId, { receiver, shape, text: entry.name });
   }
-  if (!trail.length) return { entries, members: [] };
+  if (!trail.length) return { entries, members: [], expected: expectedHint };
   const root = roots.get(trail[0]!);
   if (!root) throw new Error('The member path changed. Reopen the picker.');
   const features = (parent: PickerReceiver) => {
@@ -292,6 +307,7 @@ export function getExpressionPickerContext(
   }
   return {
     entries,
+    expected: expectedHint,
     members: features(active)
       .map(({ id, name, receiver, shape, text }) => ({
         declarationId: id,

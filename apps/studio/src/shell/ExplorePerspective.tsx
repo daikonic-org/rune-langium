@@ -2658,6 +2658,7 @@ export const ExplorePerspective = withInstrumentation(
             nodeId={props.target.nodeId}
             target={props.target}
             inlineCondition
+            onEditingChange={props.onEditingChange}
             readOnly={Boolean(props.readOnly)}
             sourceOwner={
               selectedNodeData?.$type === 'RosettaFunction' || selectedNodeData?.$type === 'Data'

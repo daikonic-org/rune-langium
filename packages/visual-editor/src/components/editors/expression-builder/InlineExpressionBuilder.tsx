@@ -50,6 +50,7 @@ export interface InlineExpressionOptions {
   loadPicker?(target: ExpressionPickerTarget, trail: readonly string[]): Promise<ExpressionPickerContext>;
   canCommit?(): boolean;
   onActiveSlot?(slot: ExpressionSlot | undefined): void;
+  onEditingChange?(editing: boolean): void;
   onHighlightRange?(range: SourceRegion | undefined): void;
   highlightedRange?: SourceRegion;
 }
@@ -115,7 +116,7 @@ type SlotControl = {
   placeholder?: boolean;
   operators?: readonly OperatorDefinition[];
 };
-type SlotEdit = { slot: SlotControl; text: string; raw: boolean; stale?: boolean };
+type SlotEdit = { slot: SlotControl; text: string; raw: boolean; error?: string };
 
 type PickerAction = { kind: 'value'; text: string } | { kind: 'browse'; id: string; label: string } | { kind: 'raw' };
 
@@ -167,12 +168,14 @@ function InlinePicker({
     value: { kind: 'value', text }
   });
   const browse = (label: string, id: string): CommandEntry<PickerAction> => ({
-    label,
+    label: label + ' · Browse',
     value: { kind: 'browse', id, label }
   });
   const entries = context
     ? context.entries.map((entry) => ({ ...entry, origin: entry.kind }))
-    : scopedReferences(scope);
+    : loadPicker
+      ? []
+      : scopedReferences(scope);
   const choices = entries.flatMap((entry) => {
     const label = [entry.name, entry.typeName, entry.cardinality].filter(Boolean).join(' ');
     const canBrowse = 'canBrowse' in entry && entry.canBrowse && entry.declarationId;
@@ -226,6 +229,11 @@ function InlinePicker({
         ];
   return (
     <>
+      {context?.expected && (
+        <div className="px-2 pt-1 text-xs text-caption">
+          {[context.expected.name, context.expected.typeName, context.expected.cardinality].filter(Boolean).join(' · ')}
+        </div>
+      )}
       {trail.length > 0 && (
         <div className="flex items-center gap-2 border-b border-border px-2 py-1">
           <Button
@@ -254,7 +262,9 @@ function InlinePicker({
         }}
       >
         <CommandInput
-          aria-label={slot.operators ? 'Search operators' : 'Search values and primitives'}
+          aria-label={
+            slot.operators ? 'Search operators' : trail.length ? 'Search members' : 'Search values and primitives'
+          }
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
@@ -322,10 +332,10 @@ function regionOf(node: ExpressionNode, fallback: SourceRegion): SourceRegion {
 function needsOperandGrouping(expression: RosettaExpression | undefined, source: string): boolean {
   if (!expression || !('left' in expression || expression.$type === 'RosettaConditionalExpression')) return false;
   const left = 'left' in expression ? expression.left : undefined;
-  const start = left ? getNodeSourceRegion(left).from : getExpressionOperatorRegion(expression)?.from;
-  const { from } = getNodeSourceRegion(expression);
+  const start = left?.$cstNode?.offset ?? getExpressionOperatorRegion(expression)?.from;
+  const from = expression.$cstNode?.offset;
   // A leading parenthesis around the first operand is not a group around this expression.
-  return start === undefined || !source.slice(from, start).trimStart().startsWith('(');
+  return start === undefined || from === undefined || !source.slice(from, start).trimStart().startsWith('(');
 }
 
 export function InlineExpressionBuilder({
@@ -337,6 +347,7 @@ export function InlineExpressionBuilder({
   error,
   sourceTarget = { draftAlias: true },
   onActiveSlot,
+  onEditingChange,
   loadPicker,
   canCommit,
   onHighlightRange,
@@ -352,6 +363,7 @@ export function InlineExpressionBuilder({
   liveSource.current = source;
   const [active, setActive] = useState<{ id: string; query?: string }>();
   const [editing, setEditing] = useState<SlotEdit>();
+  const editField = useRef<HTMLSpanElement>(null);
   let editingRendered = false;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const whole = { from: 0, to: source.length };
@@ -391,24 +403,40 @@ export function InlineExpressionBuilder({
   };
   const commit = (slot: SlotControl, text: string, edit?: SlotEdit) => {
     if (!slot.replace(text)) {
-      if (edit) setEditing({ ...edit, stale: true });
+      if (edit) setEditing({ ...edit, error: 'The source changed. Discard this edit to continue.' });
       return;
     }
     close(true);
     setEditing(undefined);
+    onEditingChange?.(false);
     focusSlot(slot.id);
+  };
+  const beginEdit = (edit: SlotEdit) => {
+    close(true);
+    setEditing(edit);
+    onEditingChange?.(true);
   };
   const renderEdit = (editing: SlotEdit) => {
     const { slot } = editing;
-    const change = (text: string) => setEditing({ ...editing, text });
-    const finish = () => commit(slot, editing.text, editing);
+    const change = (text: string) => setEditing({ ...editing, text, error: undefined });
+    const finish = () => {
+      const { parsed } = parseExpressionDraft(editing.text);
+      if (parsed.hasErrors || !editing.text.trim()) {
+        setEditing({ ...editing, error: 'Complete the Rune expression before continuing.' });
+        editField.current?.querySelector<HTMLElement>('input, textarea, [contenteditable="true"]')?.focus();
+        return;
+      }
+      commit(slot, editing.text, editing);
+    };
     const cancel = () => {
       setEditing(undefined);
+      onEditingChange?.(false);
       focusSlot(slot.id);
     };
     return (
       <span
         key={slot.id}
+        ref={editField}
         data-testid={editing.raw ? 'inline-rune-draft' : undefined}
         className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-1 font-code"
       >
@@ -417,6 +445,7 @@ export function InlineExpressionBuilder({
         ) : (
           <Input
             aria-label={editing.raw ? 'Rune expression' : slot.label}
+            aria-invalid={Boolean(editing.error)}
             autoFocus
             className="w-36 font-code text-xs"
             value={editing.text}
@@ -439,9 +468,9 @@ export function InlineExpressionBuilder({
         <Button size="sm" variant="ghost" onClick={cancel}>
           Cancel
         </Button>
-        {editing.stale && (
+        {editing.error && (
           <span role="alert" className="text-destructive">
-            The source changed. Discard this edit to continue.
+            {editing.error}
           </span>
         )}
       </span>
@@ -505,8 +534,7 @@ export function InlineExpressionBuilder({
                   commit(slot, '(' + (slot.text ?? slot.display) + ')');
                 } else if (event.key.length === 1 && event.key !== ' ') {
                   event.preventDefault();
-                  close(true);
-                  setEditing({ slot, text: event.key, raw: false });
+                  beginEdit({ slot, text: event.key, raw: false });
                 }
               }}
             >
@@ -515,7 +543,7 @@ export function InlineExpressionBuilder({
           }
         />
         {active?.id === slot.id && (
-          <PopoverContent className="w-72 max-w-[calc(100vw-2rem)] p-0" align="start">
+          <PopoverContent aria-label={slot.label} className="w-72 max-w-[calc(100vw-2rem)] p-0" align="start">
             <InlinePicker
               key={JSON.stringify([slot.target, active.query])}
               slot={slot}
@@ -524,10 +552,8 @@ export function InlineExpressionBuilder({
               initialQuery={active.query}
               choose={(action) => {
                 if (action.kind === 'value') commit(slot, action.text);
-                else if (action.kind === 'raw') {
-                  close(true);
-                  setEditing({ slot, text: slot.placeholder ? '' : (slot.text ?? slot.display), raw: true });
-                }
+                else if (action.kind === 'raw')
+                  beginEdit({ slot, text: slot.placeholder ? '' : (slot.text ?? slot.display), raw: true });
               }}
             />
           </PopoverContent>

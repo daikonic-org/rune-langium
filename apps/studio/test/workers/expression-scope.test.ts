@@ -89,6 +89,34 @@ func UseMarket:
   );
 });
 
+it('offers every earlier alias at a new alias insertion point', async () => {
+  const worker = createParserWorkerHarness();
+  const uri = 'file:///aliases.rosetta';
+  const source = `namespace example
+func Owner:
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias earlier: value + 1
+ alias later: earlier * 2
+ set result: later
+`;
+  const files = [{ name: uri, content: source }];
+  const result = await worker.send({
+    type: 'expressionScope',
+    id: 'new-alias-scope',
+    uri,
+    name: 'Owner',
+    kind: 'RosettaFunction',
+    files,
+    picker: { target: { draftAlias: true }, trail: [] }
+  });
+  if (result.type !== 'expressionScopeResult') throw new Error('fixture response');
+  expect(result.error).toBeUndefined();
+  expect(result.entries.filter(({ kind }) => kind === 'alias').map(({ name }) => name)).toEqual(
+    expect.arrayContaining(['earlier', 'later'])
+  );
+});
+
 it('classifies compositions through the serialized parse/link transaction, including a shadowed marker', async () => {
   const worker = createParserWorkerHarness();
   const source =

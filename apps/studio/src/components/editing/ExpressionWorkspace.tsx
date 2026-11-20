@@ -67,6 +67,7 @@ export interface ExpressionWorkspaceProps {
   onOpenComposer?(target?: ExpressionAddress): void;
   inlineRune?: ReactNode;
   inlineCondition?: boolean;
+  onEditingChange?: ExpressionEditorSlotProps['onEditingChange'];
   onRuneView?(view: EditorView): void;
   onRuneHover?(offset?: number): void;
   lspClient?: LspClientService;
@@ -91,6 +92,7 @@ export const ExpressionWorkspace = withInstrumentation(
     onOpenComposer,
     inlineRune,
     inlineCondition,
+    onEditingChange,
     onRuneView,
     onRuneHover,
     lspClient,
@@ -114,8 +116,14 @@ export const ExpressionWorkspace = withInstrumentation(
     }>();
     const [conditionScope, setConditionScope] = useState<FunctionScope>();
     const [conditionBusy, setConditionBusy] = useState(false);
+    const [conditionTyping, setConditionTyping] = useState(false);
     const [conditionError, setConditionError] = useState<string>();
     const [conditionHover, setConditionHover] = useState<SourceRegion>();
+    const conditionEditing = conditionTyping || Boolean(conditionDraft);
+    useEffect(() => {
+      onEditingChange?.(conditionEditing);
+    }, [conditionEditing, onEditingChange]);
+    useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
     const editorId = useId();
     const viewRef = useRef<EditorView | null>(null);
     const [selection, setSelection] = useState<SourceRegion | null>(null);
@@ -332,6 +340,7 @@ export const ExpressionWorkspace = withInstrumentation(
         editable={Boolean(active && !active.readOnly && !readOnly && !file.readOnly)}
         invalid={Boolean(conditionDraft && parseExpression(conditionDraft.text).hasErrors)}
         showStatement={false}
+        onEditingChange={setConditionTyping}
         onChange={(row, text) => {
           if (!row || !active || conditionBusy) return;
           setConditionDraft((previous) => ({
@@ -524,7 +533,7 @@ export const ExpressionWorkspace = withInstrumentation(
             </p>
           )}
         </div>
-        {language === 'rune' && inlineContent}
+        {inlineContent && <div hidden={language !== 'rune'}>{inlineContent}</div>}
         {language !== 'rune' && !originalSourceCurrent && (
           <p role="status" className="text-xs text-muted-foreground">
             {sourceStatus}

@@ -55,6 +55,7 @@ interface Props {
   variablesOpen: boolean;
   viewKey: string;
   size: { width: number; height: number };
+  onGraphElement(element: HTMLDivElement | null): void;
   focus?: string;
   setFocus: Dispatch<SetStateAction<string | undefined>>;
   positions: Map<string, Map<string, XYPosition>>;
@@ -96,6 +97,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   variablesOpen,
   viewKey,
   size,
+  onGraphElement,
   focus,
   setFocus,
   positions,
@@ -112,6 +114,13 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   const flow = useReactFlow<ComposerNode>();
   const initialized = useNodesInitialized();
   const graphElement = useRef<HTMLDivElement>(null);
+  const attachGraph = useCallback(
+    (element: HTMLDivElement | null) => {
+      graphElement.current = element;
+      onGraphElement(element);
+    },
+    [onGraphElement]
+  );
   const cameraKey = useRef<string | undefined>(undefined);
   const previousSize = useRef({ ...size, vertical });
   const edges = useMemo(() => compositionEdges(presented, wiring), [presented, wiring]);
@@ -281,7 +290,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   };
   return (
     <NodeBindingContext.Provider value={bindings}>
-      <div ref={graphElement} className="function-composer__graph">
+      <div ref={attachGraph} className="function-composer__graph">
         <ReactFlow<ComposerNode>
           nodes={nodes}
           edges={edges}

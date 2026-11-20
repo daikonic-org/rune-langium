@@ -54,6 +54,11 @@ func Accrue:
       await composer.getByRole('button', { name: 'Save', exact: true }).click();
       const edited = content.replace('alias leg: fallbackPayout', 'alias leg: note -> payout');
       await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(edited);
+      const sourceView = views.getByRole('button', { name: 'Source', exact: true });
+      if ((await sourceView.getAttribute('aria-pressed')) !== 'true') await sourceView.click();
+      await row.getByRole('button', { name: 'Edit note -> payout', exact: true }).press('1');
+      await expect(composer.getByRole('button', { name: 'Undo expression edit', exact: true })).toHaveCount(0);
+      await row.getByRole('textbox', { name: 'Edit note -> payout', exact: true }).press('Escape');
       await composer.getByRole('button', { name: 'Undo expression edit', exact: true }).click();
       await composer.getByRole('button', { name: 'Save', exact: true }).click();
       await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
@@ -242,13 +247,14 @@ func SourceOnly:
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
 });
 
-async function openComposition(page: Page, content: string, name?: string) {
+async function openComposition(page: Page, content: string, name?: string, extraFiles?: Record<string, string>) {
   await page.goto('./');
   await page
     .locator('input[type="file"][accept=".rosetta"]')
     .setInputFiles({ name: 'workflow.rosetta', mimeType: 'text/plain', buffer: Buffer.from(source) });
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
   await seedProjectBackingFiles(page, {
+    ...extraFiles,
     'rune-config.yml': 'model: { name: Composition }\n',
     'build-config.yml': 'schemaVersion: 1\nsources: ["**/*.rosetta"]\ntargets: {}\n',
     'studio-config.yml': 'schemaVersion: 1\n',
@@ -789,8 +795,12 @@ func SavedCamera:
   expect(await settledCamera()).toBe(splitCamera);
 
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
-  await expect(composer.getByTestId('expression-row-operation-0')).toBeVisible();
-  await composer.getByRole('button', { name: 'Parent', exact: true }).click();
+  const operation = composer.getByTestId('expression-row-operation-0');
+  await operation.getByRole('button', { name: 'Edit 2', exact: true }).press('9');
+  const parent = composer.getByRole('button', { name: 'Parent', exact: true });
+  await expect(parent).toBeDisabled();
+  await operation.getByRole('textbox', { name: 'Edit 2', exact: true }).press('Escape');
+  await parent.click();
   await expect(composer.locator('.composition-node')).toHaveCount(3);
   expect(await settledCamera()).toBe(splitCamera);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
@@ -1227,4 +1237,82 @@ func Pair:
   await expect
     .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
     .toContain('alias step1: workflow.Pair(2, 3)');
+});
+
+test('repairs one Source expression while an unrelated alias remains unresolved', async ({ page }) => {
+  const content =
+    source +
+    `
+func Repair:
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias unresolved: missingValue
+ alias stable: value + 1
+ set result: stable
+`;
+  const composer = await openComposition(page, content);
+  await composer.getByRole('button', { name: 'Open Repair workflow', exact: true }).click();
+  const row = composer.getByTestId('expression-row-alias-1');
+  await row.getByRole('button', { name: 'Edit 1', exact: true }).press('2');
+  const value = row.getByRole('textbox', { name: 'Edit 1', exact: true });
+  await value.fill('2 +');
+  await value.press('Enter');
+  await expect(row.getByRole('alert')).toContainText('Complete the Rune expression');
+  await expect(value).toBeFocused();
+  await expect(composer.getByRole('button', { name: 'Edit missingValue', exact: true })).toHaveCount(0);
+  await value.fill('2');
+  await value.press('Enter');
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(content.replace('alias stable: value + 1', 'alias stable: value + 2'));
+});
+
+test('the compact palette gives Source its full width after choosing a function or closing it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const composer = await openComposition(page, source);
+  const show = composer.getByRole('button', { name: 'Show palette', exact: true });
+  await show.click();
+  await composer.getByRole('button', { name: 'Open Double workflow', exact: true }).click();
+  await expect(show).toBeVisible();
+  const row = composer.getByTestId('expression-row-operation-0');
+  const width = async () => (await row.boundingBox())?.width ?? 0;
+  await expect.poll(width).toBeGreaterThan(230);
+  await show.click();
+  await composer.getByRole('button', { name: 'Hide palette', exact: true }).click();
+  await expect.poll(width).toBeGreaterThan(230);
+});
+
+test('the Source palette binds the selected qualified function when names collide', async ({ page }) => {
+  const content =
+    source.replace('version "1.0.0"', 'version "1.0.0"\nimport other.*') +
+    `
+func Work:
+ inputs: x number (1..1)
+ output: result number (1..1)
+ set result: x
+`;
+  const composer = await openComposition(page, content, undefined, {
+    'other.rosetta': `namespace other
+func Double:
+ inputs: remote number (1..1)
+ output: result number (1..1)
+ set result: remote * 3
+`
+  });
+  await composer.getByRole('button', { name: 'Open Work workflow', exact: true }).click();
+  const row = composer.getByTestId('expression-row-operation-0');
+  await row.getByRole('button', { name: 'Edit x', exact: true }).click();
+  const remote = composer.getByRole('button', { name: 'Open Double other', exact: true });
+  await remote.locator('xpath=../..').getByRole('button', { name: 'Add Double', exact: true }).click();
+  await row.getByRole('button', { name: 'remote argument', exact: true }).click();
+  await expect(page.getByText('remote · number · (1..1)', { exact: true })).toBeVisible();
+  await page.getByRole('option', { name: /^x number/ }).click();
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(content.replace('set result: x', 'set result: other.Double(x)'));
 });

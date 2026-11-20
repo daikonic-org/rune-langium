@@ -50,7 +50,11 @@ test('a condition built from empty stays singular after parsing and reference ed
   await condition.getByRole('button', { name: 'Edit currency', exact: true }).click();
   await page.getByRole('option', { name: /^identifier string/ }).click();
   await expect(condition.getByRole('button', { name: 'Edit identifier', exact: true })).toBeVisible();
+  const move = page.getByRole('button', { name: 'Move condition up', exact: true });
+  await expect(move).toBeDisabled();
+  await expect(page.getByRole('tab', { name: 'Existing', exact: true })).toBeDisabled();
   await condition.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(move).toBeEnabled();
   expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(committed);
 });
 

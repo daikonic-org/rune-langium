@@ -98,6 +98,8 @@ export interface ConditionSectionProps {
 
 interface ConditionRowProps {
   target?: ExpressionEditorSlotProps['target'];
+  structureLocked?: boolean;
+  onEditingChange?: ExpressionEditorSlotProps['onEditingChange'];
   sourceReadOnly?: boolean;
   condition: ConditionDisplayInfo;
   index: number;
@@ -111,6 +113,8 @@ interface ConditionRowProps {
 
 function ConditionRow({
   target,
+  structureLocked,
+  onEditingChange,
   sourceReadOnly,
   condition,
   index,
@@ -166,6 +170,7 @@ function ConditionRow({
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
+          disabled={structureLocked}
           className="text-xs text-muted-foreground hover:text-foreground"
           aria-label={isExpanded ? 'Collapse condition' : 'Expand condition'}
         >
@@ -184,7 +189,7 @@ function ConditionRow({
               variant="ghost"
               size="icon-xs"
               className="size-5"
-              disabled={index === 0}
+              disabled={structureLocked || index === 0}
               onClick={() => onReorder?.(index, index - 1)}
               aria-label="Move condition up"
             >
@@ -194,7 +199,7 @@ function ConditionRow({
               variant="ghost"
               size="icon-xs"
               className="size-5"
-              disabled={index === total - 1}
+              disabled={structureLocked || index === total - 1}
               onClick={() => onReorder?.(index, index + 1)}
               aria-label="Move condition down"
             >
@@ -204,6 +209,7 @@ function ConditionRow({
               variant="ghost"
               size="icon-xs"
               className="size-5 text-destructive hover:text-destructive/80"
+              disabled={structureLocked}
               onClick={() => onRemove?.(index)}
               aria-label={`Remove condition ${condition.name ?? index}`}
             >
@@ -232,6 +238,7 @@ function ConditionRow({
               placeholder: 'Condition expression...',
               expressionAst: condition.expressionAst,
               target,
+              onEditingChange,
               readOnly: sourceReadOnly ?? readOnly
             })
           ) : (
@@ -366,6 +373,7 @@ export function ConditionSection({
 }: ConditionSectionProps) {
   const sectionId = useId();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [structureLocked, setStructureLocked] = useState(false);
   const [selection, setSelection] = useState<{ raw?: unknown; index: number }>({ index: 0 });
 
   // ------ Declarative-path fallbacks (Phase 7 / US5) ----------------------
@@ -434,10 +442,11 @@ export function ConditionSection({
 
   const handleAdd = useCallback(
     (condition: { name?: string; definition?: string; expressionText: string; isPostCondition?: boolean }) => {
+      if (structureLocked) return;
       effectiveOnAdd(condition);
       setShowAddForm(false);
     },
-    [effectiveOnAdd]
+    [effectiveOnAdd, structureLocked]
   );
 
   if (conditions.length === 0 && effectiveReadOnly) return null;
@@ -453,6 +462,7 @@ export function ConditionSection({
             variant="ghost"
             size="icon-xs"
             onClick={() => setShowAddForm(!showAddForm)}
+            disabled={structureLocked}
             className="size-5 text-muted-foreground hover:text-foreground"
             aria-label="Add condition"
           >
@@ -471,9 +481,11 @@ export function ConditionSection({
               id={`${sectionId}-rule-${index}`}
               aria-controls={`${sectionId}-panel`}
               tabIndex={index === activeIndex ? 0 : -1}
+              disabled={structureLocked && index !== activeIndex}
               aria-selected={index === activeIndex}
               className={`rounded px-2 py-1 text-xs ${index === activeIndex ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted'}`}
               onKeyDown={(event) => {
+                if (structureLocked) return;
                 let next: number;
                 if (event.key === 'ArrowRight') next = (index + 1) % conditions.length;
                 else if (event.key === 'ArrowLeft') next = (index - 1 + conditions.length) % conditions.length;
@@ -507,6 +519,8 @@ export function ConditionSection({
                 index={i}
                 total={conditions.length}
                 readOnly={effectiveReadOnly}
+                structureLocked={structureLocked}
+                onEditingChange={compactRules ? setStructureLocked : undefined}
                 onUpdate={effectiveOnUpdate}
                 onRemove={effectiveOnRemove}
                 onReorder={(from, to) => {
