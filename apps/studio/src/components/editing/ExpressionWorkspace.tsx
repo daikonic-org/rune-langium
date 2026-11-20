@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useRef, useId } from 'react';
 import type { EditorView } from '@codemirror/view';
+import type { ReactNode } from 'react';
 import type { ExpressionEditorSlotProps, FunctionScope } from '@rune-langium/visual-editor';
 import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import {
@@ -14,7 +15,8 @@ import {
   type Data,
   type Dehydrated,
   type SourceRegion,
-  type ExpressionRegion
+  type ExpressionRegion,
+  type ExpressionAddress
 } from '@rune-langium/core';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
 import { parseFile } from '../../services/workspace.js';
@@ -56,7 +58,10 @@ export interface ExpressionWorkspaceProps {
   readOnly: boolean;
   onContentChange(path: string, fullSource: string): void;
   onOpenSource(): void;
-  onOpenComposer?(): void;
+  onOpenComposer?(target?: ExpressionAddress): void;
+  inlineRune?: ReactNode;
+  onRuneView?(view: EditorView): void;
+  onRuneHover?(offset?: number): void;
   lspClient?: LspClientService;
   lspReady?: boolean;
   sourceError?: string;
@@ -77,6 +82,9 @@ export const ExpressionWorkspace = withInstrumentation(
     onContentChange,
     onOpenSource,
     onOpenComposer,
+    inlineRune,
+    onRuneView,
+    onRuneHover,
     lspClient,
     lspReady,
     sourceError,
@@ -89,6 +97,7 @@ export const ExpressionWorkspace = withInstrumentation(
     dependenciesRef.current = dependencySnapshot;
     const [binding, setBinding] = useState<DocumentBinding | null>(null);
     const [expanded, setExpanded] = useState(false);
+    const [raw, setRaw] = useState(false);
     const editorId = useId();
     const viewRef = useRef<EditorView | null>(null);
     const [selection, setSelection] = useState<SourceRegion | null>(null);
@@ -329,26 +338,40 @@ export const ExpressionWorkspace = withInstrumentation(
           </div>
           <div role="group" aria-label="Expression actions" className="flex flex-wrap items-center gap-1">
             {onOpenComposer && !target && (
-              <Button size="xs" variant="ghost" onClick={onOpenComposer}>
-                Open composer
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  const region = captureTarget()?.target.region;
+                  onOpenComposer(region ? { root: region, range: region, path: '' } : undefined);
+                }}
+              >
+                Open in Compose
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={
-                !active ||
-                !parseCurrent ||
-                readOnly ||
-                file?.readOnly ||
-                active?.readOnly ||
-                !loadScope ||
-                builderPending
-              }
-              onClick={openBuilder}
-            >
-              {builderPending ? 'Opening…' : 'Builder'}
-            </Button>
+            {inlineRune && language === 'rune' && (
+              <Button size="xs" variant="ghost" aria-expanded={raw} onClick={() => setRaw(!raw)}>
+                {raw ? 'Hide Rune text' : 'Edit Rune text'}
+              </Button>
+            )}
+            {!inlineRune && !onOpenComposer && (
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={
+                  !active ||
+                  !parseCurrent ||
+                  readOnly ||
+                  file?.readOnly ||
+                  active?.readOnly ||
+                  !loadScope ||
+                  builderPending
+                }
+                onClick={openBuilder}
+              >
+                {builderPending ? 'Opening…' : 'Builder'}
+              </Button>
+            )}
             <Button variant="ghost" size="xs" onClick={onOpenSource}>
               Open in Source
             </Button>
@@ -363,7 +386,17 @@ export const ExpressionWorkspace = withInstrumentation(
             </Button>
           </div>
         </div>
-        <div aria-hidden={language !== 'rune'} className={language === 'rune' ? 'flex shrink-0 flex-col' : 'hidden'}>
+        <div
+          aria-hidden={language !== 'rune' || Boolean(inlineRune && !raw)}
+          className={language === 'rune' && (!inlineRune || raw) ? 'flex shrink-0 flex-col' : 'hidden'}
+          onMouseMove={
+            onRuneHover
+              ? (event) =>
+                  onRuneHover(viewRef.current?.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined)
+              : undefined
+          }
+          onMouseLeave={onRuneHover ? () => onRuneHover(undefined) : undefined}
+        >
           {displayed && coordinateError && (
             <p role="status" className="text-xs text-muted-foreground">
               {coordinateError}
@@ -384,6 +417,7 @@ export const ExpressionWorkspace = withInstrumentation(
               lspReady={lspReady}
               onViewCreated={(view) => {
                 viewRef.current = view;
+                onRuneView?.(view);
               }}
               onSelectionChange={(range) => setSelection(range)}
             />
@@ -393,6 +427,7 @@ export const ExpressionWorkspace = withInstrumentation(
             </p>
           )}
         </div>
+        {language === 'rune' && inlineRune}
         {language !== 'rune' && !originalSourceCurrent && (
           <p role="status" className="text-xs text-muted-foreground">
             {sourceStatus}

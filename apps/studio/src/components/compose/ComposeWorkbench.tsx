@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import type { DockviewApi } from 'dockview-react';
 import { WorkbenchHost } from '../../shell/WorkbenchHost.js';
 import { COLLAPSED_SIDE_WIDTH } from '../../shell/responsive-layout.js';
@@ -112,6 +112,7 @@ function nameEdgeSashes(dock: DockviewApi, host: HTMLElement) {
 export const ComposeWorkbench = withInstrumentation(
   function ComposeWorkbench({
     workspaceKey,
+    layoutKey,
     active,
     onReady,
     palette,
@@ -119,6 +120,7 @@ export const ComposeWorkbench = withInstrumentation(
     details
   }: {
     workspaceKey: string;
+    layoutKey: string;
     active: boolean;
     onReady(api: DockviewApi): void;
     palette: ReactElement;
@@ -128,13 +130,42 @@ export const ComposeWorkbench = withInstrumentation(
     const [restored, setRestored] = useState<{ key: string; layout: unknown }>();
     const [dock, setDock] = useState<DockviewApi>();
     const host = useRef<HTMLDivElement>(null);
+    const persistLayout = useCallback(
+      (layout: unknown) => {
+        if (active && !window.matchMedia?.(compactQuery).matches)
+          void writeWorkbenchSettings(layoutKey, preference, layout).catch(() => undefined);
+      },
+      [active, layoutKey]
+    );
     useEffect(() => {
       if (dock && host.current) return nameEdgeSashes(dock, host.current);
     }, [dock]);
 
     useEffect(() => {
+      if (!dock || !active) return;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const scheduleSave = () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => persistLayout(dock.toJSON()), 150);
+      };
+      const listeners = sides.flatMap((side) => {
+        const group = dock.getPanel(side.id)?.group;
+        return group ? [group.api.onDidDimensionsChange(scheduleSave)] : [];
+      });
+      return () => {
+        clearTimeout(timer);
+        listeners.forEach((listener) => listener.dispose());
+      };
+    }, [dock, active, persistLayout]);
+
+    useEffect(() => {
       let current = true;
-      void readWorkbenchSettings<unknown>(workspaceKey, preference, undefined)
+      void readWorkbenchSettings<unknown>(layoutKey, preference, undefined)
+        .then(
+          (layout) =>
+            layout ??
+            (workspaceKey === layoutKey ? undefined : readWorkbenchSettings(workspaceKey, preference, undefined))
+        )
         .catch(() => undefined)
         .then((layout) => {
           if (current) setRestored({ key: workspaceKey, layout });
@@ -142,7 +173,7 @@ export const ComposeWorkbench = withInstrumentation(
       return () => {
         current = false;
       };
-    }, [workspaceKey]);
+    }, [workspaceKey, layoutKey]);
 
     useEffect(() => {
       if (!dock) return;
@@ -192,10 +223,7 @@ export const ComposeWorkbench = withInstrumentation(
               setDock(api);
               onReady(api);
             }}
-            onNativeLayoutChange={(layout) => {
-              if (active && !window.matchMedia?.(compactQuery).matches)
-                void writeWorkbenchSettings(workspaceKey, preference, layout).catch(() => undefined);
-            }}
+            onNativeLayoutChange={persistLayout}
           />
         ) : (
           <p role="status" className="p-3">

@@ -144,8 +144,8 @@ export const applyExpressionDocumentEdit = withInstrumentation(
     view: EditorView,
     edit: DocumentEdit
   ): CommitResult {
-    if (view.state.readOnly) return { ok: false, reason: 'read-only' };
     if (view.state.doc.toString() !== edit.binding.source) return { ok: false, reason: 'stale' };
+    if (view.state.readOnly) return { ok: false, reason: 'read-only' };
     return documents.applyDocumentEdit(edit, (_, content) => {
       const transaction = view.state.update({
         changes: minimalDocumentChange(edit.binding.source, content),

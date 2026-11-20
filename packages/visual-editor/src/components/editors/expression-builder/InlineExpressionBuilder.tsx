@@ -44,6 +44,7 @@ export interface InlineExpressionOptions {
   loadPicker?(target: ExpressionPickerTarget, trail: readonly string[]): Promise<ExpressionPickerContext>;
   onActiveSlot?(slot: ExpressionSlot | undefined): void;
   onHighlightRange?(range: SourceRegion | undefined): void;
+  highlightedRange?: SourceRegion;
 }
 
 const hole = '(<?>)';
@@ -319,6 +320,7 @@ export function InlineExpressionBuilder({
   onActiveSlot,
   loadPicker,
   onHighlightRange,
+  highlightedRange,
   renderTextEditor
 }: ExpressionBuilderProps) {
   const source = value ?? '';
@@ -337,9 +339,9 @@ export function InlineExpressionBuilder({
         .find((token) => token.dataset['expressionToken'] === id)
         ?.focus()
     );
-  const close = () => {
+  const close = (releaseSlot = false) => {
     setActive(undefined);
-    onActiveSlot?.(undefined);
+    if (releaseSlot) onActiveSlot?.(undefined);
   };
   const update = (range: SourceRegion, text: string) => {
     // An open popover or toolbar action may belong to a prior draft.
@@ -363,11 +365,18 @@ export function InlineExpressionBuilder({
   };
   const commit = (slot: SlotControl, text: string) => {
     slot.replace(text);
-    close();
+    close(true);
     setEditing(undefined);
     focusSlot(slot.id);
   };
   const renderSlot = (slot: SlotControl) => {
+    const from = 'root' in sourceTarget ? sourceTarget.root.from : undefined;
+    const highlighted =
+      from !== undefined &&
+      highlightedRange &&
+      highlightedRange.from >= from + slot.range.from &&
+      highlightedRange.to <= from + slot.range.to &&
+      highlightedRange.from < from + slot.range.to;
     if (editing?.id === slot.id) {
       const change = (text: string) => setEditing({ ...editing, text });
       const finish = () => commit(slot, editing.text);
@@ -427,6 +436,7 @@ export function InlineExpressionBuilder({
               aria-label={slot.label}
               className={
                 'h-auto min-h-6 overflow-hidden rounded px-1.5 font-code text-xs font-book ' +
+                (highlighted ? 'ring-1 ring-primary ' : '') +
                 (slot.placeholder
                   ? 'border-dashed text-caption'
                   : slot.operators
@@ -463,7 +473,7 @@ export function InlineExpressionBuilder({
               choose={(action) => {
                 if (action.kind === 'value') commit(slot, action.text);
                 else if (action.kind === 'raw') {
-                  close();
+                  close(true);
                   setEditing({ id: slot.id, text: slot.placeholder ? '' : slot.display, raw: true });
                 }
               }}

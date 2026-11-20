@@ -107,6 +107,7 @@ export interface SourceEditorProps {
 
 /** Imperative handle exposed by SourceEditor for programmatic navigation. */
 export interface SourceEditorRef {
+  readSelection?(filePath: string): SourceRegion | undefined;
   /** Reveal a line without focus; returns true only when applied to the matching live view. */
   revealLine(line: number, filePath?: string): boolean;
   /** Scroll to a source position in the specified (or current) file and place the cursor there. */
@@ -324,6 +325,11 @@ const renderSourceEditor = withInstrumentation(
         }
       };
       return {
+        readSelection(filePath) {
+          if (editorViewPathRef.current !== filePath) return undefined;
+          const range = editorViewRef.current?.state.selection.main;
+          return range && { from: range.from, to: range.to };
+        },
         revealLine(line: number, filePath?: string) {
           // Explorer selection synchronizes source position without moving
           // keyboard focus away from the type filter or another active pane.

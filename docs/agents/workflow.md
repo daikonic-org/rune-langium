@@ -110,6 +110,13 @@ manual backfills, offline v1 imports and activation variables.
 
 ## Browser CI Dependencies
 
+For expression and composition edits, run the core source-region and linked-scope
+tests, Studio parser-worker and expression-document tests, and the visual-editor
+expression builder and round-trip suites. In managed Chromium, use
+`test/e2e/workflow-function-builder.spec.ts` to exercise Source and Canvas
+against a local workspace. Verify the published file and Undo against the original
+bytes, including comments and line endings.
+
 Change feedback: run Studio's `change-feedback`, `ChangeFeedbackText`, SourceEditor,
 CodePreviewPanel and FormPreviewPanel unit suites. The real-browser
 `test/e2e/change-feedback.spec.ts` checks both edit directions, quiet origins,

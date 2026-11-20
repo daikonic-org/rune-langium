@@ -1414,9 +1414,10 @@ variables tray is open, as on subsequent resizes.
 Retained composition diagnostics use the source captured with their facts, even
 when reference publication temporarily removes the current file. This invariant
 also applies while the kept-alive Composer is hidden behind another perspective.
-Core's `describeFunctionComposition` matches the directly resolved
-`rune.studio.composition` annotation and projects acyclic aliases, calls, scoped
-`extract` calls and one whole-output set. It returns original UTF-16 regions and
+Core's `describeFunctionComposition` projects eligible linked bodies with acyclic
+aliases, calls, scoped `extract` calls and one whole-output set. The resolved
+`rune.studio.composition` annotation identifies compositions in the palette.
+Core returns original UTF-16 regions and
 located reasons for unsupported/unresolved bodies. Conditions and metadata stay
 in Source/Inspector. The parser worker supplies these facts through its existing
 serialized parse/link context transaction, without a UI resolver or evaluator. Callable discovery is lazy: search or a port
@@ -1446,8 +1447,12 @@ rebinding preserves the operator and lambda. Core identifies its linked dependen
 separately from nested call arguments so editing one port preserves the other.
 Draft edges are a visual overlay;
 Apply commits the same captured Rune edit, and Discard removes the overlay.
-Expression ellipsis buttons open the shared leaf ExpressionBuilder in the standard
-design-system dialog; closing retains the draft without publishing it.
+Expression ellipsis buttons focus the corresponding inline row in Compose Source.
+Source rows replace syntax within a captured statement and offer linked picker
+choices for the selected operand. Member paths resolve through the same feature
+scope as the linker. Canvas and Source publish through the retained CodeMirror
+view, which gives each successful Apply a single undo entry. A private candidate
+can supply picker scope while unfinished work remains in the draft.
 Stable topological source-block ordering retains comments and condition placement.
 The canvas remains mounted but inert while source reparses, preserving camera state.
 Core retains the outer AST `expressionType` in composition facts. Studio's shared
@@ -2110,7 +2115,8 @@ slots. Perspective state still decides which views are available. Compose allows
 Canvas, Source or both, retaining at least one center view; bodies outside its
 supported composition subset stay in Source. Compose uses `WorkbenchHost` for
 its center and native Dockview Palette and Details edges. It stores the desktop
-layout as workspace-local view preferences. At constrained widths, side edges
+layout under the stable workspace ID. The live component remounts on workspace
+generation changes. At constrained widths, side edges
 collapse into labeled rails. The composer stays measurable and inert while
 inactive. Canvas and Source retain their independent center split using
 `SplitWorkbench`, which also backs Export's settings/output split.

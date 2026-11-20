@@ -4,9 +4,26 @@
 import { StateEffect, StateField, type Extension } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+import type { SourceRegion } from '@rune-langium/core';
 
 /** A source offset to highlight after navigation, or null to cancel the cue. */
 export const setSourceReveal = StateEffect.define<number | null>();
+
+export const setExpressionHighlight = StateEffect.define<SourceRegion | undefined>();
+const expressionRange = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(highlight, transaction) {
+    for (const effect of transaction.effects) {
+      if (!effect.is(setExpressionHighlight)) continue;
+      const range = effect.value;
+      return range && range.from >= 0 && range.to > range.from && range.to <= transaction.newDoc.length
+        ? Decoration.set([Decoration.mark({ class: 'cm-expression-highlight' }).range(range.from, range.to)])
+        : Decoration.none;
+    }
+    return transaction.docChanged ? Decoration.none : highlight;
+  },
+  provide: (field) => EditorView.decorations.from(field)
+});
 
 const revealLine = Decoration.line({ class: 'cm-source-reveal-line' });
 const sourceReveal = StateField.define<DecorationSet>({
@@ -42,6 +59,7 @@ export const clearSourceReveal = withInstrumentation(
 /** One static destination cue per live editor, including CodeMirror LSP jumps. */
 export const sourceNavigationHighlight: Extension = [
   sourceReveal,
+  expressionRange,
   ViewPlugin.fromClass(
     class {
       private timeout: ReturnType<typeof setTimeout> | undefined;
@@ -65,7 +83,7 @@ export const sourceNavigationHighlight: Extension = [
     }
   ),
   EditorView.theme({
-    '.cm-line.cm-source-reveal-line': {
+    '.cm-line.cm-source-reveal-line, .cm-expression-highlight': {
       backgroundColor: 'color-mix(in srgb, var(--primary) 16%, transparent)'
     }
   })
