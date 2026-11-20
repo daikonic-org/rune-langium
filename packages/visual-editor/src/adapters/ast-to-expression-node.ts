@@ -30,7 +30,14 @@
  * @module
  */
 
+import type { RosettaExpression } from '@rune-langium/core';
 import type { ExpressionNode } from '../schemas/expression-node-schema.js';
+
+const sourceNodes = new WeakMap<ExpressionNode, RosettaExpression>();
+
+export function expressionNodeSource(node: ExpressionNode): RosettaExpression | undefined {
+  return sourceNodes.get(node);
+}
 
 /** Generate a unique node id. */
 function uid(): string {
@@ -197,6 +204,12 @@ function unsupportedRawText(ast: Record<string, unknown>, sourceText: string): s
 
 /** Main conversion function. */
 function convertNode(ast: Record<string, unknown>, sourceText: string): ExpressionNode {
+  const node = convertExpression(ast, sourceText);
+  if (ast['$cstNode']) sourceNodes.set(node, ast as unknown as RosettaExpression);
+  return node;
+}
+
+function convertExpression(ast: Record<string, unknown>, sourceText: string): ExpressionNode {
   const $type = g(ast, '$type') as string;
 
   if (!KNOWN_TYPES.has($type)) {

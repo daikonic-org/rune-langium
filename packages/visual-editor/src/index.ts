@@ -163,6 +163,7 @@ export type { TrackedState } from './store/history.js';
 // Expression builder
 export { ExpressionBuilder } from './components/editors/expression-builder/ExpressionBuilder.js';
 export type { ExpressionBuilderProps } from './components/editors/expression-builder/ExpressionBuilder.js';
+export type { ExpressionSlot } from './components/editors/expression-builder/InlineExpressionBuilder.js';
 export type { FunctionScope, FunctionScopeEntry } from './store/expression-store.js';
 export { createExpressionStarter } from './adapters/expression-starters.js';
 export type { ExpressionStarterType } from './adapters/expression-starters.js';

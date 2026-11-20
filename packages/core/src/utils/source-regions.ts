@@ -3,7 +3,7 @@
 
 import type { Data, RosettaFunction, RosettaExpression, RosettaModel } from '../generated/ast.js';
 import type { Dehydrated } from '../serializer/dehydrated.js';
-import { CstUtils, isLeafCstNode } from 'langium';
+import { CstUtils, GrammarUtils, isLeafCstNode } from 'langium';
 import { namespaceFromModelName } from '../naming/namespace.js';
 import { selectNamespaceOverrideModels } from '../references/project-resolution.js';
 import { getSourceComments } from '../api/source-comments.js';
@@ -84,6 +84,14 @@ export function getNodeSourceRegion(node: LocatedNode): SourceRegion {
     throw new Error('Source coordinates are unavailable for this declaration');
   }
   return { from: range.offset, to: range.end };
+}
+
+export function getExpressionOperatorRegion(node: RosettaExpression): SourceRegion | undefined {
+  const token =
+    node.$type === 'RosettaConditionalExpression'
+      ? GrammarUtils.findNodeForKeyword(node.$cstNode, 'if')
+      : GrammarUtils.findNodeForProperty(node.$cstNode, 'operator');
+  return token && { from: token.offset, to: token.end };
 }
 
 /** Implementation range excludes the signature and retains preceding body comments. */

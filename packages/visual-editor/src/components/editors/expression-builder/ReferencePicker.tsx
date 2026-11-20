@@ -22,29 +22,35 @@ export interface ReferencePickerProps {
   onClose: () => void;
 }
 
-export function ReferencePicker({ open, scope, onSelect, onClose }: ReferencePickerProps) {
-  const allEntries = [
+export function scopedReferences(scope: FunctionScope) {
+  return [
     ...scope.inputs.map((e) => ({ ...e, origin: 'input' as const })),
     ...(scope.output ? [{ ...scope.output, origin: 'output' as const }] : []),
     ...scope.aliases.map((e) => ({ ...e, origin: 'alias' as const })),
     ...(scope.attributes ?? []).map((e) => ({ ...e, origin: 'attribute' as const })),
     ...(scope.references ?? []).map((e) => ({ ...e, origin: e.kind ?? 'callable' }))
   ].filter((entry) => entry.origin !== 'callable' || entry.argumentCount !== undefined);
+}
+
+export function referenceNode(entry: FunctionScopeEntry): ExpressionNode {
+  const rawArgs =
+    entry.kind === 'callable' && entry.argumentCount !== undefined
+      ? Array.from({ length: entry.argumentCount }, () => ({ $type: 'Placeholder' as const, id: crypto.randomUUID() }))
+      : undefined;
+  return {
+    $type: 'RosettaSymbolReference',
+    id: crypto.randomUUID(),
+    symbol: entry.name,
+    ...(rawArgs ? { explicitArguments: true, rawArgs } : {})
+  } as ExpressionNode;
+}
+
+export function ReferencePicker({ open, scope, onSelect, onClose }: ReferencePickerProps) {
+  const allEntries = scopedReferences(scope);
   const handleValueChange = (value: string) => {
     const entry: FunctionScopeEntry | undefined = allEntries.find(({ origin, name }) => `${origin}:${name}` === value);
     if (!entry) return;
-    let rawArgs: ExpressionNode[] | undefined;
-    if (entry.kind === 'callable') {
-      const count = entry.argumentCount;
-      if (count === undefined) return;
-      rawArgs = Array.from({ length: count }, () => ({ $type: 'Placeholder', id: crypto.randomUUID() }));
-    }
-    onSelect({
-      $type: 'RosettaSymbolReference',
-      id: crypto.randomUUID(),
-      symbol: entry.name,
-      ...(rawArgs ? { explicitArguments: true, rawArgs } : {})
-    } as unknown as ExpressionNode);
+    onSelect(referenceNode(entry));
   };
 
   return (

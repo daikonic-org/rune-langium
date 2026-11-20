@@ -74,6 +74,7 @@ export type { HydrateServices, HydrateOptions } from './serializer/hydrate-model
 // Utility functions
 export {
   getNodeSourceRegion,
+  getExpressionOperatorRegion,
   getModelSourceUri,
   getFunctionImplementationRegion,
   getFunctionAliasInsertion,
