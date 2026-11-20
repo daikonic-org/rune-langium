@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 import {
-  isRosettaSymbolReference,
   getSourceComments,
   getNodeSourceRegion,
   parseExpression,
@@ -9,6 +8,7 @@ import {
   type FunctionComposition,
   type SourceRegion
 } from '@rune-langium/core';
+import { escapeRuneIdentifier } from '@rune-langium/core/rune-identifiers';
 import { withInstrumentation } from './instrumentation/core.js';
 import type { DocumentBinding, DocumentEdit } from './expression-document.js';
 import { minimalDocumentChange } from '../lang/document-extensions.js';
@@ -30,16 +30,10 @@ export const compositionInputText = withInstrumentation(
   { op: 'compositionInputText', capture: 0 }
 );
 
-/** Core's parser decides when a display name needs Rune's identifier escape. */
-export const compositionReference = withInstrumentation(
-  function compositionReference(name: string): string {
-    const parsed = parseExpression(name);
-    return !parsed.hasErrors && isRosettaSymbolReference(parsed.value) && !parsed.value.explicitArguments
-      ? name
-      : `^${name}`;
-  },
-  { op: 'compositionReference', capture: 0 }
-);
+export const compositionReference = withInstrumentation(escapeRuneIdentifier, {
+  op: 'compositionReference',
+  capture: 0
+});
 
 /** Compose independent exact edits against one capture; no writes happen during preparation. */
 export const compositionCandidate = withInstrumentation(

@@ -23,6 +23,7 @@ import {
 import type { RuneDslServices } from '../services/rune-dsl-module.js';
 import { getFunctionSignature, getFunctionInputs, getFunctionOutput, resolveTypeAliases } from './expression-utils.js';
 import { cardinalityFits, toConstraintString, type CardinalityBounds } from './cardinality-utils.js';
+import { escapeRuneIdentifier } from './rune-identifiers.js';
 import type { ExpressionAddress } from './source-regions.js';
 import { getLinkedReferenceTarget } from '../api/parse.js';
 
@@ -35,6 +36,8 @@ export interface ExpressionScopeEntry {
   argumentCount?: number;
   /** Input names in the same authoritative order as the callable arity. */
   argumentNames?: string[];
+  /** Source spelling produced by the linked picker for a reference value. */
+  referenceText?: string;
   canBrowse?: boolean;
   compatibility?: ExpressionCompatibility;
 }
@@ -269,7 +272,9 @@ export function getExpressionPickerContext(
     const shape = implicit ? { bounds: single } : valueShape(node);
     entry.canBrowse = !memberScope(receiver).isEmpty();
     entry.compatibility = compatibility(shape, expected);
-    roots.set(entry.declarationId, { receiver, shape, text: entry.name });
+    const text = implicit ? 'item' : escapeRuneIdentifier(entry.name);
+    entry.referenceText = text;
+    roots.set(entry.declarationId, { receiver, shape, text });
   }
   if (!trail.length) return { entries, members: [], expected: expectedHint };
   const root = roots.get(trail[0]!);
@@ -294,7 +299,7 @@ export function getExpressionPickerContext(
           name: description.name,
           receiver,
           shape,
-          text: `${parent.text} -> ${description.name}`
+          text: `${parent.text} -> ${escapeRuneIdentifier(description.name)}`
         }
       ];
     });

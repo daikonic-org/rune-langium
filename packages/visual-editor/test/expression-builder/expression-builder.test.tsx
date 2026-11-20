@@ -91,13 +91,15 @@ describe('ExpressionBuilder', () => {
   it('browses linked object members and swaps a collection operation in place', async () => {
     const onChange = vi.fn();
     const loadPicker = vi.fn(async (_, trail) => ({
-      entries: [{ name: 'note', declarationId: 'note', kind: 'input' as const, canBrowse: true }],
+      entries: [
+        { name: 'default', referenceText: '^default', declarationId: 'note', kind: 'input' as const, canBrowse: true }
+      ],
       members: trail.length
         ? [
             {
-              name: 'payout',
+              name: 'type',
               declarationId: 'payout',
-              expressionText: 'note -> payout',
+              expressionText: '^default -> ^type',
               canBrowse: false,
               compatibility: 'compatible' as const
             }
@@ -114,9 +116,12 @@ describe('ExpressionBuilder', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Edit fallbackPayout' }));
-    fireEvent.click(await screen.findByRole('option', { name: 'note · Browse', exact: true }));
-    fireEvent.click(await screen.findByRole('option', { name: 'payout', exact: true }));
-    expect(onChange).toHaveBeenLastCalledWith('note -> payout');
+    fireEvent.click(await screen.findByRole('option', { name: 'Use default', exact: true }));
+    expect(onChange).toHaveBeenLastCalledWith('^default');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit fallbackPayout' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'default · Browse', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'type', exact: true }));
+    expect(onChange).toHaveBeenLastCalledWith('^default -> ^type');
     rerender(
       <ExpressionBuilder
         value="periods filter [startDate < asOf] then last"

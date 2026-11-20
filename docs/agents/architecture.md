@@ -1391,6 +1391,11 @@ may retain a clearly labeled previous result for matching workspace/function/inp
 but that history never re-enters session state, the current payload graph or the
 Save-as-example path.
 
+Core's browser-safe `rune-identifiers` export owns keyword escaping for both
+linked expression pickers and Rune serialization. Picker entries retain their
+display name and the source spelling used to insert a value. Member paths escape
+each identifier as they are built, and the implicit receiver retains bare `item`.
+
 Workflow function composition uses ordinary Rune source as its only executable
 definition. Codegen's browser-safe `/rosetta` entry exposes
 `renderWorkflowFunction`: its authoring draft has typed/cardinality-aware inputs

@@ -5,12 +5,12 @@ import { describe, it, expect } from 'vitest';
 import { getExpressionRegions, getNodeSourceRegion, COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
 import { createParserWorkerHarness } from './parser-worker-harness.js';
 
-it('browses inherited and collection members in a scalar argument slot', async () => {
+it('browses inherited and collection members with Rune keyword escapes in a scalar argument slot', async () => {
   const worker = createParserWorkerHarness();
   const uri = 'file:///markets.rosetta';
   const source = `namespace markets
 type MarketDates:
- asOf date (1..1)
+ ^type date (1..1)
 type Market extends MarketDates:
  quotes Quote (1..*)
 type Quote:
@@ -21,7 +21,7 @@ func ReadDate:
  set result: dateValue
 func UseMarket:
  inputs:
-  market Market (1..1)
+  ^default Market (1..1)
   inputDate date (1..1)
  output: result date (1..1)
  set result: ReadDate(inputDate)
@@ -32,6 +32,7 @@ func UseMarket:
   ];
   const parsed = await worker.send({ type: 'parseWorkspace', id: 'markets', files });
   if (parsed.type !== 'parseWorkspaceResult') throw new Error('fixture response');
+  expect(parsed.errors[uri] ?? []).toEqual([]);
   const owner = parsed.models[0]!.elements.find((element) => element.name === 'UseMarket')!;
   if (owner.$type !== 'RosettaFunction') throw new Error('fixture function');
   const call = owner.operations[0]!.expression;
@@ -51,18 +52,24 @@ func UseMarket:
   };
   const initial = await browse([]);
   expect(initial.error).toBeUndefined();
-  const market = initial.picker?.entries.find((entry) => entry.name === 'market');
-  expect(market).toMatchObject({ canBrowse: true });
+  const market = initial.picker?.entries.find((entry) => entry.name === 'default');
   const first = await browse([market!.declarationId]);
+  expect(first.error).toBeUndefined();
   expect(first.picker?.members).toContainEqual(
-    expect.objectContaining({ expressionText: 'market -> asOf', cardinality: '(1..1)', compatibility: 'compatible' })
+    expect.objectContaining({
+      name: 'type',
+      expressionText: '^default -> ^type',
+      cardinality: '(1..1)',
+      compatibility: 'compatible'
+    })
   );
+  expect(market).toMatchObject({ canBrowse: true, referenceText: '^default' });
   const quotes = first.picker?.members.find((entry) => entry.name === 'quotes');
   expect(quotes).toMatchObject({ canBrowse: true });
   const second = await browse([market!.declarationId, quotes!.declarationId]);
   expect(second.picker?.members).toContainEqual(
     expect.objectContaining({
-      expressionText: 'market -> quotes -> maturityDate',
+      expressionText: '^default -> quotes -> maturityDate',
       cardinality: '(1..*)',
       compatibility: 'incompatible'
     })

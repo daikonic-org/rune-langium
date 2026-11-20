@@ -19,6 +19,10 @@
       "types": "./dist/references/project-contract.d.ts",
       "import": "./dist/references/project-contract.js"
     },
+    "./rune-identifiers": {
+      "types": "./dist/utils/rune-identifiers.d.ts",
+      "import": "./dist/utils/rune-identifiers.js"
+    },
     "./serialization": {
       "types": "./dist/serialization/rune-json.d.ts",
       "import": "./dist/serialization/rune-json.js"

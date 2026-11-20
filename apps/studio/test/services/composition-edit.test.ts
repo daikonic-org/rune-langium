@@ -226,4 +226,5 @@ it('uses canonical Rune spelling for escaped variable names instead of pasting t
   expect(compositionReference('first')).toBe('^first');
   expect(compositionReference('item')).toBe('^item');
   expect(compositionReference('^first')).toBe('^first');
+  expect(compositionReference('example.type')).toBe('example.^type');
 });

@@ -179,11 +179,17 @@ function InlinePicker({
       : scopedReferences(scope);
   const choices = entries.flatMap((entry) => {
     const label = [entry.name, entry.typeName, entry.cardinality].filter(Boolean).join(' ');
-    const canBrowse = 'canBrowse' in entry && entry.canBrowse && entry.declarationId;
+    const browseId = 'canBrowse' in entry && entry.canBrowse === true ? entry.declarationId : undefined;
     const compatible = !('compatibility' in entry) || entry.compatibility !== 'incompatible';
-    if (canBrowse)
-      return [browse(label, entry.declarationId!), ...(compatible ? [value('Use ' + entry.name, entry.name)] : [])];
-    return compatible ? [value(label, expressionNodeToDslPreview(referenceNode(entry)))] : [];
+    const direct = compatible
+      ? [
+          value(
+            browseId ? 'Use ' + entry.name : label,
+            entry.referenceText ?? expressionNodeToDslPreview(referenceNode(entry))
+          )
+        ]
+      : [];
+    return browseId ? [browse(label, browseId), ...direct] : direct;
   });
   const members = (context?.members ?? []).flatMap((member) => {
     const label = [member.name, member.typeName, member.cardinality].filter(Boolean).join(' ');
