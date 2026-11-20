@@ -2,8 +2,74 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect } from 'vitest';
-import { getExpressionRegions, COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
+import { getExpressionRegions, getNodeSourceRegion, COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
 import { createParserWorkerHarness } from './parser-worker-harness.js';
+
+it('browses inherited and collection members in a scalar argument slot', async () => {
+  const worker = createParserWorkerHarness();
+  const uri = 'file:///markets.rosetta';
+  const source = `namespace markets
+type MarketDates:
+ asOf date (1..1)
+type Market extends MarketDates:
+ quotes Quote (1..*)
+type Quote:
+ maturityDate date (1..1)
+func ReadDate:
+ inputs: dateValue date (1..1)
+ output: result date (1..1)
+ set result: dateValue
+func UseMarket:
+ inputs:
+  market Market (1..1)
+  inputDate date (1..1)
+ output: result date (1..1)
+ set result: ReadDate(inputDate)
+`;
+  const files = [
+    { name: uri, content: source },
+    { name: 'file:///basic-types.rosetta', content: 'namespace com.rosetta.model\nbasicType date\n' }
+  ];
+  const parsed = await worker.send({ type: 'parseWorkspace', id: 'markets', files });
+  if (parsed.type !== 'parseWorkspaceResult') throw new Error('fixture response');
+  const owner = parsed.models[0]!.elements.find((element) => element.name === 'UseMarket')!;
+  if (owner.$type !== 'RosettaFunction') throw new Error('fixture function');
+  const call = owner.operations[0]!.expression;
+  if (call.$type !== 'RosettaSymbolReference') throw new Error('fixture call');
+  const root = getNodeSourceRegion(call);
+  const target = { root, path: '/rawArgs@0', range: getNodeSourceRegion(call.rawArgs[0]!) };
+  const browse = async (trail: string[], path = target.path) => {
+    const response = await worker.send({
+      type: 'expressionScope',
+      id: 'markets-picker',
+      uri,
+      name: 'UseMarket',
+      picker: { target: { ...target, path }, trail }
+    });
+    if (response.type !== 'expressionScopeResult') throw new Error('fixture response');
+    return response;
+  };
+  const initial = await browse([]);
+  expect(initial.error).toBeUndefined();
+  const market = initial.picker?.entries.find((entry) => entry.name === 'market');
+  expect(market).toMatchObject({ canBrowse: true });
+  const first = await browse([market!.declarationId]);
+  expect(first.picker?.members).toContainEqual(
+    expect.objectContaining({ expressionText: 'market -> asOf', cardinality: '(1..1)', compatibility: 'compatible' })
+  );
+  const quotes = first.picker?.members.find((entry) => entry.name === 'quotes');
+  expect(quotes).toMatchObject({ canBrowse: true });
+  const second = await browse([market!.declarationId, quotes!.declarationId]);
+  expect(second.picker?.members).toContainEqual(
+    expect.objectContaining({
+      expressionText: 'market -> quotes -> maturityDate',
+      cardinality: '(1..*)',
+      compatibility: 'incompatible'
+    })
+  );
+  expect((await browse([market!.declarationId, 'unlinked'])).error).toMatch(/member path changed/);
+  expect((await browse([], '/receiver')).error).toMatch(/source changed/);
+});
 
 it('classifies compositions through the serialized parse/link transaction, including a shadowed marker', async () => {
   const worker = createParserWorkerHarness();

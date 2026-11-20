@@ -10,7 +10,7 @@ export function expressionScopeFromEntries(entries: readonly ExpressionScopeEntr
     inputs: entries.filter((entry) => entry.kind === 'input'),
     output: entries.find((entry) => entry.kind === 'output') ?? null,
     aliases: entries.filter((entry) => entry.kind === 'alias'),
-    attributes: entries.filter((entry) => entry.kind === 'attribute'),
+    attributes: entries.filter((entry) => entry.kind === 'attribute' || entry.kind === 'local'),
     references: entries.filter((entry) => entry.kind === 'callable' || entry.kind === 'enum' || entry.kind === 'choice')
   };
 }

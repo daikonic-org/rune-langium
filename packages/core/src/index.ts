@@ -129,8 +129,14 @@ export {
   CODE_LIST_ENUM_SOURCE
 } from './utils/enum-utils.js';
 
-export { getExpressionScope } from './utils/expression-scope.js';
-export type { ExpressionScopeEntry } from './utils/expression-scope.js';
+export { getExpressionScope, getExpressionPickerContext } from './utils/expression-scope.js';
+export type {
+  ExpressionScopeEntry,
+  ExpressionPickerTarget,
+  ExpressionPickerRequest,
+  ExpressionPickerContext,
+  ExpressionMemberChoice
+} from './utils/expression-scope.js';
 
 export { getSourceComments } from './api/source-comments.js';
 export type { SourceComment } from './api/source-comments.js';

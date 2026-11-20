@@ -18,12 +18,17 @@ import type { DecodedReferenceArtifact } from '@rune-langium/project-runtime/ref
 import { isRecord } from '../services/message-guards.js';
 import {
   getExpressionScope,
+  getExpressionPickerContext,
   describeFunctionComposition,
   type FunctionComposition,
   getExpressionRegions,
   getNodeSourceRegion,
   findExpressionOwner,
   type ExpressionScopeEntry,
+  type ExpressionPickerContext,
+  type ExpressionPickerRequest,
+  type RosettaExpression,
+  isRosettaExpression,
   type SourceRegion,
   createRuneDslServices,
   collectNamespaceDependencies,
@@ -116,6 +121,7 @@ export interface ExpressionScopeRequest {
   kind?: string;
   region?: SourceRegion;
   draftCondition?: 'precondition' | 'postcondition';
+  picker?: ExpressionPickerRequest;
   composition?: boolean;
   compositionCallables?: boolean;
   compositionCandidate?: string;
@@ -126,6 +132,7 @@ export interface ExpressionScopeResponse {
   id: string;
   entries: ExpressionScopeEntry[];
   composition?: FunctionComposition;
+  picker?: ExpressionPickerContext;
   error?: string;
 }
 
@@ -783,7 +790,8 @@ async function handleExpressionScope(
   privateCandidate = false
 ): Promise<ExpressionScopeResponse> {
   try {
-    if (req.compositionCandidate !== undefined) {
+    const candidateSource = req.compositionCandidate ?? req.picker?.candidateSource;
+    if (candidateSource !== undefined) {
       if (!req.files) throw new Error('A candidate requires the captured workspace.');
       const originals = req.files;
       const owner = URI.parse(req.uri).toString();
@@ -791,13 +799,14 @@ async function handleExpressionScope(
       const files = originals.map((file) => {
         if (URI.parse(file.name).toString() !== owner) return file;
         found = true;
-        return { ...file, content: req.compositionCandidate!, serializedModelJson: undefined };
+        return { ...file, content: candidateSource, serializedModelJson: undefined };
       });
       if (!found) throw new Error('The captured function source is unavailable.');
       // This handler owns the existing serialized worker queue until restoration.
       // No queued request or published model can observe a private node draft.
       try {
-        return await handleExpressionScope({ ...req, compositionCandidate: undefined, files }, true);
+        const picker = req.picker && { ...req.picker, candidateSource: undefined };
+        return await handleExpressionScope({ ...req, picker, compositionCandidate: undefined, files }, true);
       } finally {
         await handleParseWorkspace({ type: 'parseWorkspace', id: req.id, files: originals });
       }
@@ -843,35 +852,55 @@ async function handleExpressionScope(
         composition
       };
     }
-    // A detached probe asks the canonical ScopeProvider about a new condition.
-    // It never changes the loaded owner or publishes an incomplete source edit.
-    if (req.draftCondition) {
-      const condition = {
-        $type: 'Condition',
-        postCondition: req.draftCondition === 'postcondition',
-        $container: owner,
-        $containerProperty: req.draftCondition === 'postcondition' ? 'postConditions' : 'conditions'
-      };
-      const probe = {
+    const target = req.picker?.target;
+    const draftCondition = target && 'draftCondition' in target ? target.draftCondition : req.draftCondition;
+    const draftAlias = target && 'draftAlias' in target;
+    let expression: RosettaExpression | undefined;
+    if (draftCondition || draftAlias) {
+      if (draftAlias && owner.$type !== 'RosettaFunction') throw new Error('Select a function to add an alias.');
+      const postCondition = draftCondition === 'postcondition';
+      // This synthetic node supplies scope at the insertion point without editing the linked document.
+      expression = {
         $type: 'RosettaBooleanLiteral',
         value: true,
-        $container: condition,
+        $container: {
+          $type: draftAlias ? 'ShortcutDeclaration' : 'Condition',
+          postCondition,
+          $container: owner,
+          $containerProperty: draftAlias ? 'shortcuts' : postCondition ? 'postConditions' : 'conditions'
+        },
         $containerProperty: 'expression'
-      };
-      return {
-        type: 'expressionScopeResult',
-        id: req.id,
-        entries: getExpressionScope(probe as unknown as import('@rune-langium/core').RosettaExpression, RuneDsl)
-      };
+      } as unknown as RosettaExpression;
+    } else {
+      const address = target && 'root' in target ? target : undefined;
+      const root = address?.root ?? req.region;
+      const row = getExpressionRegions(owner).find(
+        (entry) => entry.region.from === root?.from && entry.region.to === root?.to
+      );
+      if (row && isRosettaExpression(row.expression)) {
+        expression = row.expression;
+        if (address) {
+          const locator = RuneDsl.workspace.AstNodeLocator;
+          const prefix = locator.getAstNodePath(expression);
+          expression = AstUtils.streamAst(expression).find((node): node is RosettaExpression => {
+            if (!isRosettaExpression(node)) return false;
+            const region = getNodeSourceRegion(node);
+            return (
+              region.from === address.range.from &&
+              region.to === address.range.to &&
+              locator.getAstNodePath(node) === prefix + address.path
+            );
+          });
+        }
+      }
     }
-    const target = getExpressionRegions(owner).find(
-      (entry) => entry.region.from === req.region?.from && entry.region.to === req.region?.to
-    );
-    if (!target) throw new Error('The expression source changed. Reopen the builder.');
+    if (!expression) throw new Error('The expression source changed. Reopen the builder.');
+    const picker = req.picker && getExpressionPickerContext(expression, RuneDsl, req.picker.trail);
     return {
       type: 'expressionScopeResult',
       id: req.id,
-      entries: getExpressionScope(target.expression as import('@rune-langium/core').RosettaExpression, RuneDsl)
+      entries: picker?.entries ?? getExpressionScope(expression, RuneDsl),
+      picker
     };
   } catch (error) {
     return {
