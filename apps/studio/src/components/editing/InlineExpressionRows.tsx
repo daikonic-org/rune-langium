@@ -137,6 +137,7 @@ export const InlineExpressionRows = withInstrumentation(
     pending,
     editable,
     invalid,
+    showStatement = true,
     after
   }: {
     session: InlineExpressionSession;
@@ -152,6 +153,7 @@ export const InlineExpressionRows = withInstrumentation(
     pending: boolean;
     editable: boolean;
     invalid?: boolean;
+    showStatement?: boolean;
     after?: ReactNode;
   }) {
     const source = session.binding.source;
@@ -183,7 +185,7 @@ export const InlineExpressionRows = withInstrumentation(
             >
               {trivia && <pre className="whitespace-pre-wrap font-code text-xs text-caption">{trivia}</pre>}
               <div className="flex min-w-0 flex-wrap items-baseline gap-1">
-                <span className="whitespace-pre-wrap font-code text-xs text-primary">{prefix}</span>
+                {showStatement && <span className="whitespace-pre-wrap font-code text-xs text-primary">{prefix}</span>}
                 {editable && (!draft || matching) ? (
                   <InlineExpressionField
                     session={session}

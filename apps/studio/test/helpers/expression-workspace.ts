@@ -68,28 +68,30 @@ export async function loadPinnedFunction(page: Page) {
   await expect(page.getByTestId('implementation-editor')).toBeVisible();
 }
 
-export async function openBuilder(page: Page) {
+export async function openComposeExpression(page: Page) {
   await dismissLocalTransportNotices(page);
-
-  await page.getByTestId('implementation-editor').locator('.cm-content').press('ControlOrMeta+End');
-  await page
-    .getByRole('region', { name: 'Function implementation' })
-    .getByRole('button', { name: 'Builder', exact: true })
-    .click();
-  const dialog = page.getByRole('dialog', { name: 'Expression builder' });
-  await expect(dialog).toBeVisible();
-  await expect
-    .poll(() =>
-      dialog.evaluate((el) =>
-        el.getAnimations({ subtree: true }).every((animation) => animation.playState !== 'running')
-      )
-    )
-    .toBe(true);
-  return dialog;
+  const composer = page.getByTestId('function-composer');
+  if (!(await composer.isVisible())) {
+    await page
+      .getByRole('region', { name: 'Function implementation' })
+      .getByRole('button', { name: 'Open in Compose', exact: true })
+      .click();
+  }
+  const row = composer.getByTestId('expression-row-operation-0');
+  await expect(row).toBeVisible();
+  return row;
 }
 
-export async function enlargeDialogText(page: Page, dialog: Locator) {
-  const cancel = dialog.getByRole('button', { name: 'Cancel', exact: true });
+export async function openInlineRuneDraft(page: Page, row: Locator) {
+  await row.getByRole('button', { name: 'Expression actions', exact: true }).click();
+  await page.getByRole('option', { name: 'Edit Rune', exact: true }).click();
+  const draft = row.getByTestId('inline-rune-draft');
+  await expect(draft).toBeVisible();
+  return draft;
+}
+
+export async function enlargeExpressionText(page: Page, expression: Locator) {
+  const cancel = expression.getByRole('button', { name: 'Expression actions', exact: true });
   const originalSize = await cancel.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   await page.evaluate(() => {
     const root = document.documentElement;

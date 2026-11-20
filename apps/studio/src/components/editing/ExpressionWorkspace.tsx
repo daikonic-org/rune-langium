@@ -10,16 +10,19 @@ import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/iden
 import {
   getFunctionImplementationRegion,
   getExpressionRegions,
+  getExpressionRows,
+  parseExpression,
   findExpressionOwner,
   type RosettaFunction,
   type Data,
   type Dehydrated,
   type SourceRegion,
   type ExpressionRegion,
-  type ExpressionAddress
+  type ExpressionAddress,
+  type ExpressionRow
 } from '@rune-langium/core';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
-import { parseFile } from '../../services/workspace.js';
+import { parseFile, validateExpressionCandidate } from '../../services/workspace.js';
 import {
   applyExpressionDocumentEdit,
   type DocumentBinding,
@@ -35,6 +38,9 @@ import { GeneratedExpressionView } from './GeneratedExpressionView.js';
 import { useExpressionProjection } from './use-expression-projection.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
 import { protectedRegion } from '../../lang/document-extensions.js';
+import { setExpressionHighlight } from '../../lang/source-navigation-highlight.js';
+import { compositionCandidate, compositionExpressionEdit } from '../../services/composition-edit.js';
+import { InlineExpressionRows } from './InlineExpressionRows.js';
 
 // Condition editors in the same readonly file share its coordinate parse.
 // Immutable file snapshots are weak keys, so changing source replaces the entry
@@ -60,6 +66,7 @@ export interface ExpressionWorkspaceProps {
   onOpenSource(): void;
   onOpenComposer?(target?: ExpressionAddress): void;
   inlineRune?: ReactNode;
+  inlineCondition?: boolean;
   onRuneView?(view: EditorView): void;
   onRuneHover?(offset?: number): void;
   lspClient?: LspClientService;
@@ -83,6 +90,7 @@ export const ExpressionWorkspace = withInstrumentation(
     onOpenSource,
     onOpenComposer,
     inlineRune,
+    inlineCondition,
     onRuneView,
     onRuneHover,
     lspClient,
@@ -98,6 +106,16 @@ export const ExpressionWorkspace = withInstrumentation(
     const [binding, setBinding] = useState<DocumentBinding | null>(null);
     const [expanded, setExpanded] = useState(false);
     const [raw, setRaw] = useState(false);
+    const [conditionDraft, setConditionDraft] = useState<{
+      binding: DocumentBinding;
+      row: ExpressionRow;
+      text: string;
+      dependencies: readonly WorkspaceFile[];
+    }>();
+    const [conditionScope, setConditionScope] = useState<FunctionScope>();
+    const [conditionBusy, setConditionBusy] = useState(false);
+    const [conditionError, setConditionError] = useState<string>();
+    const [conditionHover, setConditionHover] = useState<SourceRegion>();
     const editorId = useId();
     const viewRef = useRef<EditorView | null>(null);
     const [selection, setSelection] = useState<SourceRegion | null>(null);
@@ -284,6 +302,86 @@ export const ExpressionWorkspace = withInstrumentation(
       if (!view || dependenciesRef.current !== dependencies) return { ok: false as const, reason: 'stale' as const };
       return applyExpressionDocumentEdit(documents, view, edit);
     };
+    const condition = (() => {
+      if (!inlineCondition || !target || !active || !parsed || !parseCurrent) return undefined;
+      const owner = findExpressionOwner(parsed.model, { name: nameFromNodeId(nodeId), kind: kindFromNodeId(nodeId) });
+      return owner && getExpressionRows(owner).find((row) => row.kind === target.kind && row.index === target.index);
+    })();
+    useEffect(() => {
+      if (!inlineCondition || !condition || !loadScope) return;
+      let cancelled = false;
+      void loadScope(condition.region)
+        .then((scope) => {
+          if (!cancelled) setConditionScope(scope);
+        })
+        .catch(() => {
+          /* Scope is also loaded on demand for individual slots. */
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [inlineCondition, condition?.region.from, condition?.region.to, dependencySnapshot, loadScope]);
+    const conditionBinding = conditionDraft?.binding ?? active;
+    const conditionRow = conditionDraft?.row ?? condition;
+    const conditionEditor = conditionBinding && conditionRow && file && dependencySnapshot && (
+      <InlineExpressionRows
+        session={{ binding: conditionBinding, documents, file, files: dependencySnapshot, scope: conditionScope }}
+        rows={[conditionRow]}
+        draft={conditionDraft && { region: conditionDraft.row.region, text: conditionDraft.text }}
+        pending={conditionBusy}
+        editable={Boolean(active && !active.readOnly && !readOnly && !file.readOnly)}
+        invalid={Boolean(conditionDraft && parseExpression(conditionDraft.text).hasErrors)}
+        showStatement={false}
+        onChange={(row, text) => {
+          if (!row || !active || conditionBusy) return;
+          setConditionDraft((previous) => ({
+            binding: active,
+            row,
+            dependencies: dependencySnapshot,
+            ...previous,
+            text
+          }));
+          setConditionError(undefined);
+        }}
+        onApply={async () => {
+          if (!conditionDraft || conditionBusy) return;
+          setConditionBusy(true);
+          setConditionError(undefined);
+          try {
+            const { binding, row, text, dependencies } = conditionDraft;
+            const edit = compositionExpressionEdit(binding, row.region, text);
+            const candidate = compositionCandidate(binding, [edit]);
+            await validateExpressionCandidate(file.path, nodeId, dependencies, candidate);
+            const result = applyExpressionEdit(edit, dependencies);
+            if (!result.ok) throw new Error('The source changed. Discard this draft to reload the condition.');
+            setConditionDraft(undefined);
+          } catch (error) {
+            setConditionError(error instanceof Error ? error.message : 'Could not apply this expression.');
+          } finally {
+            setConditionBusy(false);
+          }
+        }}
+        onDiscard={() => {
+          setConditionDraft(undefined);
+          setConditionError(undefined);
+        }}
+        onHighlightRange={(range) => viewRef.current?.dispatch({ effects: setExpressionHighlight.of(range) })}
+        highlightedRange={conditionHover}
+        after={
+          conditionError && (
+            <p role="alert" className="text-xs text-destructive">
+              {conditionError}
+            </p>
+          )
+        }
+      />
+    );
+    const inlineContent = inlineRune || (inlineCondition ? conditionEditor : undefined);
+    const hoverRune =
+      onRuneHover ??
+      (inlineCondition
+        ? (offset?: number) => setConditionHover(offset === undefined ? undefined : { from: offset, to: offset })
+        : undefined);
     const projectionEdit =
       language === 'typescript' &&
       active &&
@@ -349,12 +447,12 @@ export const ExpressionWorkspace = withInstrumentation(
                 Open in Compose
               </Button>
             )}
-            {inlineRune && language === 'rune' && (
+            {inlineContent && language === 'rune' && (
               <Button size="xs" variant="ghost" aria-expanded={raw} onClick={() => setRaw(!raw)}>
                 {raw ? 'Hide Rune text' : 'Edit Rune text'}
               </Button>
             )}
-            {!inlineRune && !onOpenComposer && (
+            {!inlineContent && !onOpenComposer && !inlineCondition && (
               <Button
                 variant="ghost"
                 size="xs"
@@ -387,15 +485,14 @@ export const ExpressionWorkspace = withInstrumentation(
           </div>
         </div>
         <div
-          aria-hidden={language !== 'rune' || Boolean(inlineRune && !raw)}
-          className={language === 'rune' && (!inlineRune || raw) ? 'flex shrink-0 flex-col' : 'hidden'}
+          aria-hidden={language !== 'rune' || Boolean(inlineContent && !raw)}
+          className={language === 'rune' && (!inlineContent || raw) ? 'flex shrink-0 flex-col' : 'hidden'}
           onMouseMove={
-            onRuneHover
-              ? (event) =>
-                  onRuneHover(viewRef.current?.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined)
+            hoverRune
+              ? (event) => hoverRune(viewRef.current?.posAtCoords({ x: event.clientX, y: event.clientY }) ?? undefined)
               : undefined
           }
-          onMouseLeave={onRuneHover ? () => onRuneHover(undefined) : undefined}
+          onMouseLeave={hoverRune ? () => hoverRune(undefined) : undefined}
         >
           {displayed && coordinateError && (
             <p role="status" className="text-xs text-muted-foreground">
@@ -427,7 +524,7 @@ export const ExpressionWorkspace = withInstrumentation(
             </p>
           )}
         </div>
-        {language === 'rune' && inlineRune}
+        {language === 'rune' && inlineContent}
         {language !== 'rune' && !originalSourceCurrent && (
           <p role="status" className="text-xs text-muted-foreground">
             {sourceStatus}

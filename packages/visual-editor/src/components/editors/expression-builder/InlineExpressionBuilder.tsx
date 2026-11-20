@@ -106,6 +106,7 @@ type SlotControl = {
   id: string;
   label: string;
   display: string;
+  text?: string;
   target: ExpressionPickerTarget;
   range: SourceRegion;
   replace(text: string): void;
@@ -205,14 +206,16 @@ function InlinePicker({
                   value(operator.label, operatorText(operator), operator.label + ' ' + operator.description)
                 ];
                 if (!slot.placeholder && firstHole(operator.createNode(() => 'new'))) {
-                  items.push(value('Wrap in ' + operator.label, operatorText(operator, '(' + slot.display + ')')));
+                  items.push(
+                    value('Wrap in ' + operator.label, operatorText(operator, '(' + (slot.text ?? slot.display) + ')'))
+                  );
                 }
                 return items;
               })
             )
           ),
           group('Edit', [
-            ...(!slot.placeholder ? [value('Wrap in parentheses', '(' + slot.display + ')')] : []),
+            ...(!slot.placeholder ? [value('Wrap in parentheses', '(' + (slot.text ?? slot.display) + ')')] : []),
             { label: 'Edit Rune', value: { kind: 'raw' } }
           ])
         ];
@@ -385,7 +388,11 @@ export function InlineExpressionBuilder({
         focusSlot(slot.id);
       };
       return (
-        <span key={slot.id} className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-1 font-code">
+        <span
+          key={slot.id}
+          data-testid={editing.raw ? 'inline-rune-draft' : undefined}
+          className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-1 font-code"
+        >
           {editing.raw && renderTextEditor ? (
             renderTextEditor({ value: editing.text, onChange: change, onBlur: () => {} })
           ) : (
@@ -452,7 +459,7 @@ export function InlineExpressionBuilder({
                 if (slot.operators || event.ctrlKey || event.metaKey || event.altKey) return;
                 if (event.key === '(' && !slot.placeholder) {
                   event.preventDefault();
-                  commit(slot, '(' + slot.display + ')');
+                  commit(slot, '(' + (slot.text ?? slot.display) + ')');
                 } else if (event.key.length === 1 && event.key !== ' ') {
                   event.preventDefault();
                   setEditing({ id: slot.id, text: event.key, raw: false });
@@ -474,7 +481,7 @@ export function InlineExpressionBuilder({
                 if (action.kind === 'value') commit(slot, action.text);
                 else if (action.kind === 'raw') {
                   close(true);
-                  setEditing({ id: slot.id, text: slot.placeholder ? '' : slot.display, raw: true });
+                  setEditing({ id: slot.id, text: slot.placeholder ? '' : (slot.text ?? slot.display), raw: true });
                 }
               }}
             />
@@ -542,6 +549,7 @@ export function InlineExpressionBuilder({
         id: path + '/operator',
         label: predicate ? 'Edit condition' : 'Change ' + word,
         display: word,
+        text: predicate ? source.slice(predicate.range.from, predicate.range.to) : undefined,
         range: gap,
         target: predicate ? targetAt(predicate.node, predicate.range) : target,
         operators: predicate ? undefined : operators,
@@ -696,6 +704,16 @@ export function InlineExpressionBuilder({
       }}
     >
       {renderNode(tree, 0)}
+      {getChildren(tree).length > 0 &&
+        renderSlot({
+          id: 'root/actions',
+          label: 'Expression actions',
+          display: '…',
+          text: source,
+          range: whole,
+          target: targetAt(tree, whole),
+          replace: (text) => update(whole, text)
+        })}
       {error && (
         <span role="alert" className="text-destructive">
           {error}

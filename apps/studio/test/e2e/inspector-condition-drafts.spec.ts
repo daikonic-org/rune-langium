@@ -32,11 +32,10 @@ test('a condition built from empty stays singular after parsing and reference ed
   await page.getByRole('button', { name: 'Add condition', exact: true }).click();
   await page.getByLabel('New condition name').fill('CurrencyPresent');
   await page.getByRole('button', { name: 'Add expression', exact: true }).click();
-  await page.getByTestId('palette-option-exists').click();
+  await page.getByRole('option', { name: 'exists', exact: true }).click();
   await page.getByRole('button', { name: 'Add expression', exact: true }).click();
-  await page.getByTestId('palette-open-reference').click();
-  await page.getByTestId('ref-option-currency').click();
-  await expect(page.getByTestId('dsl-preview').locator('pre')).toHaveText('currency exists');
+  await page.getByRole('option', { name: /^currency string/ }).click();
+  await expect(page.getByRole('button', { name: 'Edit currency', exact: true }).last()).toBeVisible();
   await page.getByRole('button', { name: 'Add', exact: true }).click();
   await expect(
     page.getByText('Structural editing waits for the current Rune draft to parse.', { exact: true })
@@ -44,16 +43,14 @@ test('a condition built from empty stays singular after parsing and reference ed
   await expect(page.getByRole('tab', { name: 'CurrencyPresent', exact: true })).toHaveCount(1);
   await page.getByRole('tab', { name: 'CurrencyPresent', exact: true }).click();
   const condition = page.getByRole('region', { name: 'Condition expression' });
-  await expect(condition.getByRole('button', { name: 'Builder', exact: true })).toBeEnabled();
+  await expect(condition.getByRole('button', { name: 'Edit currency', exact: true })).toBeEnabled();
   await expect(page.getByRole('tab', { name: 'CurrencyPresent', exact: true })).toHaveCount(1);
   const committed = await codeMirrorDocument(fullSourceEditor(page));
   expect(committed.match(/condition CurrencyPresent:/g)).toHaveLength(1);
-  await condition.getByRole('button', { name: 'Builder', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Expression builder', exact: true });
-  await dialog.getByRole('button', { name: 'Edit reference currency', exact: true }).click();
-  await page.getByTestId('ref-option-identifier').click();
-  await expect(dialog.getByTestId('dsl-preview').locator('pre')).toHaveText('identifier exists');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await condition.getByRole('button', { name: 'Edit currency', exact: true }).click();
+  await page.getByRole('option', { name: /^identifier string/ }).click();
+  await expect(condition.getByRole('button', { name: 'Edit identifier', exact: true })).toBeVisible();
+  await condition.getByRole('button', { name: 'Discard', exact: true }).click();
   expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(committed);
 });
 
@@ -85,39 +82,30 @@ ${names.map((name) => `  ${name} number (1..1)`).join('\n')}
   await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
   await page.getByRole('tab', { name: 'Range', exact: true }).click();
   const original = await codeMirrorDocument(fullSourceEditor(page));
+  const condition = page.getByRole('region', { name: 'Condition expression' });
   for (const commit of [false, true]) {
-    await page
-      .getByRole('region', { name: 'Condition expression' })
-      .getByRole('button', { name: 'Builder', exact: true })
-      .click();
-    const dialog = page.getByRole('dialog', { name: 'Expression builder', exact: true });
-    await dialog.getByRole('button', { name: 'Edit reference lowerX', exact: true }).click();
-    await page.getByTestId('ref-option-InterpolateLinear').click();
-    await expect(dialog.locator('[data-block="placeholder"]')).toHaveCount(5);
+    await condition.getByRole('button', { name: 'Edit lowerX', exact: true }).click();
+    await page.getByRole('option', { name: 'InterpolateLinear', exact: true }).click();
+    await expect(condition.getByRole('button', { name: /^(?:lowerX|upperX|lowerY|upperY|x) argument$/ })).toHaveCount(
+      5
+    );
     await page.screenshot({ path: info.outputPath('empty-argument-slots.png') });
-    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(dialog).toBeVisible();
+    await expect(condition.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
     expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(original);
     if (!commit) {
-      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await condition.getByRole('button', { name: 'Discard', exact: true }).click();
       expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(original);
       continue;
     }
     for (const name of names) {
-      const argument = dialog.getByRole('group', { name: `InterpolateLinear argument ${name}`, exact: true });
-      await argument.getByRole('button', { name: 'Add expression', exact: true }).click();
-      await page.getByTestId('palette-open-reference').click();
-      await page.getByTestId(`ref-option-${name}`).click();
+      await condition.getByRole('button', { name: `${name} argument`, exact: true }).click();
+      await page.getByRole('option', { name: new RegExp('^' + name + ' number') }).click();
     }
     const expression = 'InterpolateLinear(lowerX, upperX, lowerY, upperY, x) < upperX';
-    await expect(page.getByTestId('reference-picker')).toBeHidden();
-    await expect(dialog.getByTestId('dsl-preview').locator('pre')).toHaveText(expression);
-    await expect(dialog.getByRole('alert')).toBeHidden();
-    await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
-    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(condition.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
+    expect(await condition.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('named-argument-slots.png') });
-    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(dialog).toBeHidden();
+    await condition.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toContain(expression);
   }
 });

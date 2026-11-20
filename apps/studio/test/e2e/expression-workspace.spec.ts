@@ -9,10 +9,11 @@ import { fullSourceEditor, codeMirrorDocument } from '../helpers/source-editor.j
 import { expectEditorExpansion } from '../helpers/body-projection.js';
 import {
   loadPinnedFunction,
-  openBuilder,
+  openComposeExpression,
+  openInlineRuneDraft,
   expectCenterPaneBounds,
   dismissLocalTransportNotices,
-  enlargeDialogText
+  enlargeExpressionText
 } from '../helpers/expression-workspace.js';
 
 function captureLsp(page: Page) {
@@ -38,12 +39,11 @@ function captureLsp(page: Page) {
   return { sent, errors };
 }
 
-test('Builder Text draft grows to its cap and shrinks without remounting', async ({ page }, info) => {
+test('Inline Rune draft grows to its cap and shrinks without remounting', async ({ page }, info) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await loadPinnedFunction(page);
-  const dialog = await openBuilder(page);
-  await dialog.getByRole('button', { name: 'Text', exact: true }).click();
-  const editor = dialog.getByTestId('text-editor');
+  const row = await openComposeExpression(page);
+  const editor = await openInlineRuneDraft(page, row);
   const content = editor.locator('.cm-content');
   const scroller = editor.locator('.cm-scroller');
   const original = await editor.locator('.cm-editor').elementHandle();
@@ -63,7 +63,7 @@ test('Builder Text draft grows to its cap and shrinks without remounting', async
   await page.keyboard.insertText('1 + 2');
   await expect.poll(async () => (await scroller.boundingBox())!.height).toBeCloseTo(short, 0);
   expect(await editor.locator('.cm-editor').evaluate((element, previous) => element === previous, original)).toBe(true);
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   await original?.dispose();
 });
 
@@ -106,9 +106,12 @@ for (const width of [1280, 800, 390]) {
     await implementation.getByRole('button', { name: 'TypeScript', exact: true }).click();
     const generated = implementation.getByRole('textbox', { name: 'Generated typescript' });
     await expect(generated).toContainText('amount');
-    expect(
-      await generated.evaluate((element) => element.closest('.cm-scroller')!.getBoundingClientRect().height)
-    ).toBeCloseTo(geometry.minimum, 0);
+    const projectionGeometry = await generated.evaluate((element) => ({
+      height: element.closest('.cm-scroller')!.getBoundingClientRect().height,
+      lineHeight: parseFloat(getComputedStyle(element).lineHeight)
+    }));
+    expect(projectionGeometry.height).toBeGreaterThanOrEqual(geometry.minimum - 0.5);
+    expect(projectionGeometry.height).toBeLessThan(geometry.minimum + projectionGeometry.lineHeight);
     await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
     await expect(editor.locator('.cm-content')).toContainText('set result: amount + 1');
   });
@@ -280,17 +283,23 @@ func Compute(kind: Kind -> Cash):
       if (language === 'Python' && baseFirst) await projection.press('PageDown');
       await expect(projection).toContainText('10');
       await expect(implementation.getByRole('alert')).toHaveCount(0);
-      const caption = await implementation.getByText('Generated · read-only', { exact: true }).boundingBox();
+      const caption = await implementation
+        .getByText(
+          language === 'TypeScript' ? 'Edit expressions in place · Apply to update Rune' : 'Generated · read-only',
+          { exact: true }
+        )
+        .boundingBox();
       const openSource = implementation.getByRole('button', { name: 'Open in Source', exact: true });
       const toolbarButton = await openSource.boundingBox();
       expect(caption!.y).toBeGreaterThanOrEqual(toolbarButton!.y + toolbarButton!.height);
       await openSource.click({ trial: true });
     }
     await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
-    const dialog = await openBuilder(page);
-    await dialog.getByTestId('tab-text').click();
-    await expect(dialog.getByTestId('text-editor')).toContainText('amount + 10');
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    const row = await openComposeExpression(page);
+    const draft = await openInlineRuneDraft(page, row);
+    await expect(draft.getByRole('textbox', { name: 'Rune source editor' })).toContainText('amount + 10');
+    await draft.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByTestId('rail-explore').click();
     await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Source', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Inspector', exact: true }).click();
@@ -374,6 +383,7 @@ test('Data conditions have independent active editors and typed projections', as
   const condition = page.getByRole('region', { name: 'Condition expression' });
   await expect(condition.getByTestId('implementation-editor')).toHaveCount(1);
   await expect(condition).toContainText('periodMultiplier > 0');
+  await condition.getByRole('button', { name: 'Edit Rune text', exact: true }).click();
   const editor = condition.getByTestId('implementation-editor').locator('.cm-content');
   const session = await editor.elementHandle();
   await editor.press('ControlOrMeta+a');
@@ -467,23 +477,25 @@ test('pinned function display, private builder draft, Apply and one undo stay co
     await expect(generated).not.toContainText('rune.compare');
     await expect(generated).not.toContainText('rune.binary');
     await expect(generated).not.toContainText('rune.normalize');
-    await expect(generated).toHaveAttribute('contenteditable', 'false');
+    await expect(generated).toHaveAttribute('contenteditable', language === 'TypeScript' ? 'true' : 'false');
     await expect(implementation.getByText(/can't be shown|not renderable/i)).toHaveCount(0);
   }
   await implementation.getByRole('button', { name: 'Rune', exact: true }).click();
-  let dialog = await openBuilder(page);
-  await dialog.getByRole('button', { name: 'Text', exact: true }).click();
-  await dialog.getByRole('textbox').fill('if arg < 0 then -2 * arg else arg');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(rune).toContainText('-1 * arg');
-  dialog = await openBuilder(page);
-  await dialog.getByRole('button', { name: 'Text', exact: true }).click();
-  await expect(dialog.getByRole('textbox')).toContainText('-1 * arg');
-  await dialog.getByRole('textbox').fill('if arg < 0 then -2 * arg else arg');
-  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(rune).toContainText('-2 * arg');
-  await rune.locator('.cm-content').press('ControlOrMeta+z');
-  await expect(rune).toContainText('-1 * arg');
+  const row = await openComposeExpression(page);
+  const typeDraft = async () => {
+    const raw = await openInlineRuneDraft(page, row);
+    await expect(raw.getByRole('textbox', { name: 'Rune source editor' })).toContainText('-1 * arg');
+    await raw.getByRole('textbox', { name: 'Rune source editor' }).fill('if arg < 0 then -2 * arg else arg');
+    await raw.getByRole('button', { name: 'Done', exact: true }).click();
+  };
+  await typeDraft();
+  await row.getByRole('button', { name: 'Discard', exact: true }).click();
+  await typeDraft();
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'Edit -2', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Undo expression edit', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'Edit -1', exact: true })).toBeVisible();
+  await page.getByTestId('rail-explore').click();
   await implementation.getByRole('button', { name: 'Open in Source', exact: true }).click();
   await expect(fullSourceEditor(page)).toBeVisible();
 });
@@ -498,30 +510,32 @@ for (const width of [1280, 800]) {
     while ((await fontScale.getAttribute('data-font-scale-current')) !== 'lg') await fontScale.click();
     await expect(fontScale).toHaveAttribute('data-font-scale-current', 'lg');
     const implementation = page.getByRole('region', { name: 'Function implementation' });
-    await implementation.getByRole('button', { name: 'Builder', exact: true }).scrollIntoViewIfNeeded();
-    await expect(implementation.getByRole('button', { name: 'Builder', exact: true })).toBeInViewport();
+    await implementation.getByRole('button', { name: 'Open in Compose', exact: true }).scrollIntoViewIfNeeded();
+    await expect(implementation.getByRole('button', { name: 'Open in Compose', exact: true })).toBeInViewport();
     await expectCenterPaneBounds(page);
     await dismissLocalTransportNotices(page);
     await page.screenshot({ path: testInfo.outputPath(`inspector-${width}.png`) });
 
-    const dialog = await openBuilder(page);
-    await enlargeDialogText(page, dialog);
-    const issues = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa']).analyze();
+    const row = await openComposeExpression(page);
+    await enlargeExpressionText(page, row);
+    const issues = await new AxeBuilder({ page })
+      .include('[aria-label="Composition source"]')
+      .withTags(['wcag2a', 'wcag2aa'])
+      .analyze();
     expect(issues.violations).toEqual([]);
-    const bounds = await dialog.boundingBox();
+    const bounds = await row.boundingBox();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-    await dismissLocalTransportNotices(page);
     await page.screenshot({ path: testInfo.outputPath(`builder-${width}.png`) });
-    await dialog.getByRole('button', { name: 'Text', exact: true }).click();
+    const raw = await openInlineRuneDraft(page, row);
     const textIssues = await new AxeBuilder({ page })
-      .include('[role="dialog"]')
+      .include('[data-testid="inline-rune-draft"]')
       .withTags(['wcag2a', 'wcag2aa'])
       .analyze();
     expect(textIssues.violations).toEqual([]);
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).press('Escape');
-    await expect(dialog).not.toBeVisible();
-    await expect(page.getByTestId('implementation-editor').locator('.cm-content')).toBeFocused();
+    await raw.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(raw).toBeHidden();
+    await expect(row.getByRole('button', { name: 'Expression actions', exact: true })).toBeFocused();
     expect(errors.filter((message) => /ResizeObserver|Expression|CodeMirror/.test(message))).toEqual([]);
   });
 }

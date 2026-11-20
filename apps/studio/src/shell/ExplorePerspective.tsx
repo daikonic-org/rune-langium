@@ -2650,12 +2650,14 @@ export const ExplorePerspective = withInstrumentation(
             {...props}
             filePath={selectedExpressionFile?.path}
             files={files}
+            documents={expressionDocuments}
           />
         ) : props.target ? (
           <ExpressionWorkspace
             key={`${workspaceId}:${props.target.nodeId}:${props.target.kind}:${props.target.index}`}
             nodeId={props.target.nodeId}
             target={props.target}
+            inlineCondition
             readOnly={Boolean(props.readOnly)}
             sourceOwner={
               selectedNodeData?.$type === 'RosettaFunction' || selectedNodeData?.$type === 'Data'

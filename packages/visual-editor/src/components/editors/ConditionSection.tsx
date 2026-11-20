@@ -30,6 +30,7 @@ import type { ReactNode } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Plus, X, ChevronUp, ChevronDown } from 'lucide-react';
 import type { ExpressionEditorSlotProps } from '../../types.js';
+import { parseExpression } from '@rune-langium/core';
 import { Disclosure } from '@rune-langium/design-system/ui/collapsible';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
@@ -277,16 +278,17 @@ function AddConditionForm({
   const [definition, setDefinition] = useState('');
   const [expression, setExpression] = useState('');
   const [isPost, setIsPost] = useState(false);
+  const complete = Boolean(expression.trim() && !parseExpression(expression).hasErrors);
 
   const handleSubmit = useCallback(() => {
-    if (!expression.trim()) return;
+    if (!complete) return;
     onAdd({
       name: name.trim() || undefined,
       definition: definition.trim() || undefined,
       expressionText: expression.trim(),
       isPostCondition: isPost || undefined
     });
-  }, [name, definition, expression, isPost, onAdd]);
+  }, [complete, name, definition, expression, isPost, onAdd]);
 
   return (
     <div className="border-t border-border pt-3 space-y-2">
@@ -318,7 +320,7 @@ function AddConditionForm({
           onChange: setExpression,
           onBlur: () => {},
           error: null,
-          placeholder: 'Build an expression or switch to Text. Changes stay here until Add.',
+          placeholder: 'Add an expression',
           draftCondition: nodeId ? { nodeId, kind: isPost ? 'postcondition' : 'precondition' } : undefined
         })
       ) : (
@@ -336,7 +338,7 @@ function AddConditionForm({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           Cancel
         </Button>
-        <Button size="sm" onClick={handleSubmit} disabled={!expression.trim()}>
+        <Button size="sm" onClick={handleSubmit} disabled={!complete}>
           Add
         </Button>
       </div>
