@@ -143,6 +143,14 @@ test('edits a named output alongside inputs and synchronizes source', async ({ p
   await expect(output.locator('[data-slot="attribute-cardinality"]')).toContainText('1..1');
   const editor = fullSourceEditor(page);
   const name = output.locator('[data-slot="attribute-name"]');
+  const marker = output.locator('svg[data-slot="output-marker"]');
+  await expect(marker).toHaveCSS('width', '12px');
+  await expect(marker).toHaveAttribute('aria-hidden', 'true');
+  const separation = await name.evaluate((input) => {
+    const arrow = input.parentElement?.querySelector('[data-slot="output-marker"]');
+    return arrow ? input.getBoundingClientRect().left - arrow.getBoundingClientRect().right : 0;
+  });
+  expect(separation).toBeGreaterThanOrEqual(4);
   await name.fill('accepted');
   await name.blur();
   await expect.poll(() => codeMirrorDocument(editor)).toContain('accepted boolean (1..1)');
