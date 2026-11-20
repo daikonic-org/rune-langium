@@ -110,13 +110,16 @@ export function NamespaceTreePicker({
   const labels = useMemo(() => namespaceTypeLabels(compactRoots, !!searchQuery.trim()), [compactRoots, searchQuery]);
   const flatRows = useMemo(
     () =>
-      flattenSegmentedTree(visibleRoots, effectiveExpanded).map((row) =>
-        row.kind === 'type' ? { ...row, qualifier: labels.get(row.nodeId)?.qualifier } : row
-      ),
+      flattenSegmentedTree(visibleRoots, effectiveExpanded).map((row) => {
+        if (row.kind === 'type') return { ...row, qualifier: labels.get(row.nodeId)?.qualifier };
+        // The picker shows only the total. Its virtual heights must match the displayed rows.
+        if (row.kind === 'segment') return { ...row, kindCounts: {} };
+        return row;
+      }),
     [visibleRoots, effectiveExpanded, labels]
   );
 
-  const virtualizer = useVirtualTree(flatRows, scrollRef);
+  const virtualizer = useVirtualTree(flatRows, scrollRef, true);
 
   return (
     <div className={cn('flex w-64 flex-col', className)} data-slot="namespace-tree-picker">
@@ -167,6 +170,7 @@ export function NamespaceTreePicker({
                   {row.kind === 'segment' ? (
                     <NamespaceSegmentHeaderRow
                       data-testid={`nstp-seg-${row.fullPath}`}
+                      compact
                       fullPath={row.fullPath}
                       label={row.segment || '(default)'}
                       onFocus={() => focusNamespace(row.fullPath)}

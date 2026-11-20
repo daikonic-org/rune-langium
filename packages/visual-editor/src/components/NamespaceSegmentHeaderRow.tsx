@@ -86,7 +86,7 @@ export function NamespaceSegmentHeaderRow({
     <div data-testid={dataTestId} className="group relative">
       <NamespaceTreeGuides depth={depth} />
       <div
-        className={`rune-ns-seg-header flex items-center gap-1 text-sm cursor-default text-foreground ${compact ? 'py-px pr-1' : 'px-2 py-1'}`}
+        className={`rune-ns-seg-header flex items-center gap-1 cursor-default text-foreground ${compact ? 'py-px pr-1 text-xs' : 'px-2 py-1 text-sm'}`}
         style={{ paddingLeft: `${indentPx}px` }}
       >
         {leading}

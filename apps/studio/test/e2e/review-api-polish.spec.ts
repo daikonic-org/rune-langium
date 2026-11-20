@@ -98,6 +98,10 @@ for (const theme of ['dark', 'light'] as const) {
     await select(page, 'Entry');
     await showPane(page, 'Inspector');
     await expect(page.getByRole('group', { name: 'Metadata semantics' })).toContainText('metadata key');
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    const annotations = page.locator('[data-slot="annotation-section"]');
+    await expect(annotations.getByText('Annotations', { exact: true })).toHaveCSS('font-size', '12px');
+    await expect(annotations.locator('[data-slot="badge"]')).toHaveCSS('font-size', '11px');
     await page.setViewportSize({ width: 1280, height: 900 });
     const sourcePane = page.getByTestId('center-stack').locator('[data-pane="source"]');
     await expect.poll(() => sourcePane.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -143,6 +147,17 @@ test('edits a named output alongside inputs and synchronizes source', async ({ p
   await showPane(page, 'Inspector');
   await showPane(page, 'Source');
   await expect(page.getByRole('textbox', { name: 'New input parameter name', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'No parent function', exact: true }).click();
+  const namespaceHeader = page.getByTestId('nstp-seg-review.polish').locator('.rune-ns-seg-header');
+  await expect(namespaceHeader).toHaveCSS('font-size', '12px');
+  const optionId = 'nstp-type-review.polish.ImplicitResult#RosettaFunction';
+  await expect(page.getByTestId(optionId)).toBeVisible();
+  const rowGap = await namespaceHeader.evaluate((header, id) => {
+    const option = header.closest('[data-testid="nstp-tree"]')?.querySelector(`[data-testid="${id}"]`);
+    return option ? Math.abs(option.getBoundingClientRect().top - header.getBoundingClientRect().bottom) : Infinity;
+  }, optionId);
+  expect(rowGap).toBeLessThanOrEqual(1);
+  await page.keyboard.press('Escape');
   const output = page.getByRole('group', { name: 'Output', exact: true });
   await expect(output.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
   await expect(output.locator('[data-slot="attribute-cardinality"]')).toContainText('1..1');

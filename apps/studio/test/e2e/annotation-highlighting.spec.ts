@@ -53,6 +53,8 @@ func IncreaseCash:
   await expect(token('IncreaseCash')).toBeVisible();
   await expect(token('increase')).toBeVisible();
   const color = (text: string) => token(text).evaluate((el) => getComputedStyle(el).color);
+  await expect(token('namespace')).toHaveCSS('color', await color('1'));
+  expect(await color('namespace')).not.toBe(await color('roles'));
   expect(await color('money')).not.toBe(await color('amount'));
   expect(await color('increase')).not.toBe(await color('money'));
   await page.screenshot({ path: info.outputPath('rune-syntax-roles.png') });
@@ -89,7 +91,7 @@ for (const width of [1440, 390])
     await page.getByRole('button', { name: 'Source', exact: true }).click();
     if (width === 390) {
       await page.getByRole('button', { name: 'Hide Type explorer' }).click();
-      await page.getByRole('button', { name: 'Hide Preview panel' }).click();
+      await expect(page.getByRole('button', { name: 'Show Preview panel', exact: true })).toBeVisible();
     }
     const paneSwitch = page.getByTestId('studio-paneswitch');
     for (const paneButton of await paneSwitch.getByRole('button').all()) {
@@ -106,6 +108,7 @@ for (const width of [1440, 390])
         .first();
     for (const head of ['docReference', 'metadata', 'synonym']) await expect(token(head)).toBeVisible();
     const color = (text: string) => token(text).evaluate((el) => getComputedStyle(el).color);
+    await expect(token('namespace')).toHaveCSS('color', await color('1'));
     expect(await color('metadata')).toBe(await color('docReference'));
     expect(await color('scheme')).not.toBe(await color('metadata'));
     const comment = editor

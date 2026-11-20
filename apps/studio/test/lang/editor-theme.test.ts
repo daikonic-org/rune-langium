@@ -31,7 +31,7 @@ describe('design-system syntax tokens (canonical values)', () => {
   // the 10 per-key `it` blocks it replaces.
   it('syntax tokens match the canonical palette', () => {
     expect(syntax).toEqual({
-      keyword: '#C792EA',
+      keyword: '#E8913A',
       type: '#00D4AA',
       attribute: '#82AAFF',
       string: '#C3E88D',
@@ -81,11 +81,9 @@ describe('studio editor theme uses design-system syntax tokens', () => {
     expect(rule(t.keyword)?.fontStyle).toBe('italic');
   });
 
-  // Anti-regression: #C792EA (keyword) and #C3E88D (string) are unique to the
-  // syntax palette; if either reappears as a literal, someone reverted to
-  // hardcoded hex.
   it('does not reintroduce the hardcoded syntax hex it replaced', () => {
     expect(THEME_SRC).not.toMatch(/#C792EA/i);
+    expect(THEME_SRC).not.toMatch(/#E8913A/i);
     expect(THEME_SRC).not.toMatch(/#C3E88D/i);
   });
 

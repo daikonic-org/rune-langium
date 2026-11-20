@@ -176,7 +176,7 @@ export function AnnotationSection({
       {/* Existing annotations */}
       <div className="flex flex-wrap gap-1">
         {annotations.map((ann, i) => (
-          <Badge key={getKey(ann)} variant="annotation" className="gap-1 text-3xs h-5 pl-1.5 pr-1">
+          <Badge key={getKey(ann)} variant="annotation" className="gap-1 text-2xs h-5 pl-1.5 pr-1">
             [{ann.name}]{ann.attribute && <span className="opacity-60">.{ann.attribute}</span>}
             {binding?.guarded && !effectiveReadOnly && (
               <button

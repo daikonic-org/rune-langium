@@ -169,7 +169,7 @@
   --sidebar-width-default: 280px;
   --sidebar-width-min: 220px;
   --sidebar-width-max: 360px;
-  --syntax-keyword: oklch(0.7427 0.1348 311.06);
+  --syntax-keyword: var(--syntax-number);
   --syntax-type: oklch(0.7747 0.1507 171.66);
   --syntax-attribute: oklch(0.7441 0.1311 264.28);
   --syntax-string: oklch(0.8837 0.1236 126.81);
