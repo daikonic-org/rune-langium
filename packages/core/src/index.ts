@@ -76,11 +76,13 @@ export {
   getNodeSourceRegion,
   getModelSourceUri,
   getFunctionImplementationRegion,
+  getFunctionAliasInsertion,
+  getExpressionRows,
   getExpressionRegions,
   findExpressionOwner,
   getExpressionOwners
 } from './utils/source-regions.js';
-export type { SourceRegion, ExpressionRegion } from './utils/source-regions.js';
+export type { SourceRegion, ExpressionRegion, ExpressionRow, ExpressionAddress } from './utils/source-regions.js';
 export { isOptional, isSingular, isPlural, isRequired, toConstraintString } from './utils/cardinality-utils.js';
 export {
   getOptions,

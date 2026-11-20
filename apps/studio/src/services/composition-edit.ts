@@ -166,6 +166,33 @@ export const compositionExpressionEdit = withInstrumentation(
   { op: 'compositionExpressionEdit', capture: 0 }
 );
 
+export const buildAliasEdit = withInstrumentation(
+  function buildAliasEdit(
+    binding: DocumentBinding,
+    insertion: SourceRegion,
+    name: string,
+    expression: string
+  ): DocumentEdit {
+    const identifier = parseExpression(name);
+    if (!/^[A-Za-z_]\w*$/.test(name) || identifier.hasErrors || identifier.value.$type !== 'RosettaSymbolReference')
+      throw new Error('Enter a Rune identifier for the step.');
+    const from = insertion.from;
+    const line = binding.source.lastIndexOf('\n', from - 1) + 1;
+    const before = binding.source.slice(line, from);
+    const onOwnLine = !before.trim();
+    const indent = onOwnLine ? before : '    ';
+    const edit = compositionExpressionEdit(binding, insertion, expression);
+    const newline = binding.source.includes('\r\n') ? '\r\n' : '\n';
+    const after = binding.source.slice(from);
+    const suffix = /^(?:\r?\n|$)/.test(after) ? '' : newline + indent;
+    return {
+      ...edit,
+      replacement: `${onOwnLine ? '' : newline + indent}alias ${name}: ${edit.replacement}${suffix}`
+    };
+  },
+  { op: 'buildAliasEdit', capture: 0 }
+);
+
 export const compositionAliasEdit = withInstrumentation(
   function compositionAliasEdit(
     binding: DocumentBinding,
@@ -175,21 +202,9 @@ export const compositionAliasEdit = withInstrumentation(
   ): DocumentEdit {
     if (!composition.supported || composition.insertion === undefined)
       throw new Error('This body must be edited in Source.');
-    const identifier = parseExpression(name);
-    if (!/^[A-Za-z_]\w*$/.test(name) || identifier.hasErrors || identifier.value.$type !== 'RosettaSymbolReference')
-      throw new Error('Enter a Rune identifier for the step.');
     if (composition.steps.some((step) => step.name === name))
       throw new Error('This name is already used in the function.');
-    const from = composition.insertion;
-    const line = binding.source.lastIndexOf('\n', from - 1) + 1;
-    const before = binding.source.slice(line, from);
-    const indent = /^\s*$/.test(before) ? before : '    ';
-    const edit = compositionExpressionEdit(binding, { from, to: from }, expression);
-    const newline = binding.source.includes('\r\n') ? '\r\n' : '\n';
-    return {
-      ...edit,
-      replacement: `${before.trim() ? newline + indent : ''}alias ${name}: ${edit.replacement}${newline}${indent}`
-    };
+    return buildAliasEdit(binding, { from: composition.insertion, to: composition.insertion }, name, expression);
   },
   { op: 'compositionAliasEdit', capture: 0 }
 );

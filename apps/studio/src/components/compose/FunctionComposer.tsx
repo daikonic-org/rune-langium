@@ -572,7 +572,6 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
         const inspect = (source: string) =>
           requestFunctionComposition(file.path, binding.nodeId, dependencies, false, source);
         let facts = await inspect(candidate);
-        if (!facts.optedIn) throw new Error('The composition marker or function identity changed. Reload this node.');
         const ordered = reorderCompositionVariables(candidate, facts);
         if (ordered !== candidate) {
           candidate = ordered;
@@ -880,15 +879,10 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const sourceVisible = Boolean(editor && (source || sourceOnly));
   const sourceView = editor ? (
     <div className="function-composer__source studio-scroll">
-      {!presented?.supported && (
+      {presented && sourceOnly && (
         <div className="function-composer__notice">
-          <h2>{presented?.optedIn ? 'Source-only composition' : 'Ordinary Rune function'}</h2>
-          <p className="text-caption">
-            {presented?.optedIn
-              ? 'This body stays in Source to preserve its semantics.'
-              : 'Callable as a step. Add the rune.studio.composition annotation to edit its body on the canvas.'}
-          </p>
-          {presented?.reasons.map((reason, index) => (
+          <h2>Source-only function</h2>
+          {presented.reasons.map((reason, index) => (
             <p key={index} className="text-caption">
               Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
             </p>

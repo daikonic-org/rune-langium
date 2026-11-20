@@ -1,5 +1,7 @@
 # Inline expression editing in Compose
 
+[Implementation plan](../plans/2026-11-20-compose-inline-expressions.md)
+
 ## Outcome
 
 Authors can open a function in Compose, see which expressions are editable, and
@@ -37,12 +39,18 @@ for steps and connections. Both views reflect one draft for the same function.
 - Keep alias values, preconditions, `set` and `add` values, and postconditions
   in source order. Each row and argument group can be collapsed. Open rows render
   lightweight chips and mount text editing on demand.
-- A normal click selects the expression or opens the clicked token’s dropdown.
+- Clicking or tapping an editable slot opens its dropdown. The slot itself is
+  the control. Clicking the surrounding row selects the expression. On touch,
+  opening a dropdown presents its choices and the search field can be tapped
+  to type. Keep the search field visible when choices scroll.
   The `if` chip chooses the branch primitive. The predicate chip can switch
   between `is absent` and `exists` with the same branch values. A filter exposes
   its input, predicate fields and operators, and the operation that consumes its
   result. Only offer transformations whose existing operands can be preserved or
   whose new required slots can be shown explicitly.
+- An empty argument slot shows its parameter name as a muted italic
+  placeholder. Choosing or typing a value replaces the placeholder in place.
+  The picker and accessible slot name retain the parameter name.
 - **+ Expression** starts a new alias at the grammar-valid insertion point in
   a function body. It accepts a typed expression or a starter from the palette.
   In a data condition, the equivalent action uses the condition creation flow.
@@ -90,8 +98,10 @@ and for aliases in declaration order. Keep the existing document identity and
 map each expression and token to the captured Rune range. Highlight the matching
 range in the visible Rune view on hover or focus. Flatten visual chains without
 changing the parsed tree, and show grouping where precedence or collection
-scope changes. Moving focus goes across visible chips. Enter opens a slot,
-Escape returns focus, and ordinary text-editing keys work inside the inputs.
+scope changes. Dark outer expression rows give way to progressively less
+filled inner groups, with outlines or guides marking nesting. Arrow keys move
+focus across visible chips. Enter or Space opens a slot, Escape returns focus,
+and ordinary text-editing keys work inside the inputs.
 
 Reuse the guarded source edit transaction. One function owns one active
 expression or step draft at a time. Changing views preserves the draft and
@@ -109,7 +119,8 @@ normal Source pipeline. This lets authors repair one expression at a time.
 Scope, member and validation responses are compared against the current
 declaration, file revision and dependency snapshot. Read-only source remains
 browsable. Each rendered expression uses the `code` font token with Daikonic
-Transit Code Book, including chips, argument labels and text fields.
+Transit Code Book, including chips, argument placeholders and text fields.
+The design preview uses the published width trial at 94% (Narrow).
 [Expression document](../../../apps/studio/src/services/expression-document.ts)
 [Rune source regions](../../../packages/core/src/utils/source-regions.ts)
 
@@ -117,9 +128,9 @@ Function Source editing is available for ordinary functions with a uniquely
 resolved expression owner, including functions with nested assignments or
 accumulation. A dispatch variant keeps its concrete declaration in full-file
 Rune Source since the current expression owner lookup resolves the base
-declaration of a dispatch group. Graph editing uses the linked body eligibility
-check. Whether the `[composition]` marker becomes optional for Canvas
-eligibility is a separate delivery decision.
+declaration of a dispatch group. The linked body determines Canvas eligibility.
+The `[composition]` annotation still identifies authored compositions in the
+palette.
 [Canvas eligibility](../../../packages/core/src/api/function-composition.ts)
 
 ## Acceptance
@@ -134,7 +145,9 @@ eligibility is a separate delivery decision.
    portions of the expression. Selecting a primitive or a predicate leaves
    the other branch values intact. A text fallback opens only through an
    intentional edit action and preserves the current expression.
-4. Typing and primitive insertion work from the same row. Validate named slots,
-   new aliases, keyboard navigation, touch selection and narrow wrapping.
+4. Typing and primitive insertion work from the same row. Verify that filling
+   and undoing an argument swaps between its parameter placeholder and value.
+   Exercise new aliases, keyboard navigation, touch selection and narrow
+   wrapping.
 5. Exercise multi-file ownership, CRLF ranges, undo, stale and invalid drafts,
    and read-only references through the existing Studio and core test seams.

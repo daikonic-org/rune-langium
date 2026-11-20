@@ -4,7 +4,6 @@
 
 import { useEffect, useState, useRef, useId } from 'react';
 import type { EditorView } from '@codemirror/view';
-import { isolateHistory } from '@codemirror/commands';
 import type { ExpressionEditorSlotProps, FunctionScope } from '@rune-langium/visual-editor';
 import { nameFromNodeId, kindFromNodeId } from '@rune-langium/visual-editor/identifiers';
 import {
@@ -19,7 +18,12 @@ import {
 } from '@rune-langium/core';
 import type { WorkspaceFile, ParsedWorkspaceModel } from '../../services/workspace.js';
 import { parseFile } from '../../services/workspace.js';
-import type { DocumentBinding, DocumentEdit, ExpressionDocument } from '../../services/expression-document.js';
+import {
+  applyExpressionDocumentEdit,
+  type DocumentBinding,
+  type DocumentEdit,
+  type ExpressionDocument
+} from '../../services/expression-document.js';
 import type { LspClientService } from '../../services/lsp-client.js';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { pathToUri } from '../../utils/uri.js';
@@ -268,15 +272,8 @@ export const ExpressionWorkspace = withInstrumentation(
     };
     const applyExpressionEdit = (edit: DocumentEdit, dependencies: unknown) => {
       const view = viewRef.current;
-      if (!view || view.state.doc.toString() !== edit.binding.source || dependenciesRef.current !== dependencies)
-        return { ok: false as const, reason: 'stale' as const };
-      return documents.applyDocumentEdit(edit, () =>
-        view.dispatch({
-          changes: { ...edit.region, insert: edit.replacement },
-          annotations: isolateHistory.of('full'),
-          userEvent: 'input.expression-dialog'
-        })
-      );
+      if (!view || dependenciesRef.current !== dependencies) return { ok: false as const, reason: 'stale' as const };
+      return applyExpressionDocumentEdit(documents, view, edit);
     };
     const projectionEdit =
       language === 'typescript' &&

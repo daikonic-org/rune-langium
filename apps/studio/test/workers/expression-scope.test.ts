@@ -29,7 +29,7 @@ it('classifies compositions through the serialized parse/link transaction, inclu
     if (result.type !== 'expressionScopeResult') throw new Error('fixture response');
     expect(result.error).toBeUndefined();
     expect(result.composition?.optedIn).toBe(namespace === 'rune.studio');
-    expect(result.composition?.supported).toBe(namespace === 'rune.studio');
+    expect(result.composition?.supported).toBe(true);
   }
 });
 

@@ -92,10 +92,7 @@ func SourceOnly:
   await scaled.getByRole('textbox', { name: 'scaled argument value', exact: true }).fill('value + 1');
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(composition);
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
-  const notice = composer.getByText('Callable as a step.', { exact: false });
-  await expect(notice).toHaveCSS('font-style', 'italic');
-  await expect(notice).toHaveCSS('font-family', /Daikonic Transit System/);
+  await expect(composer.locator('.composition-node')).toHaveCount(2);
   const sourceView = composer.getByRole('toolbar', { name: 'Composition view' }).getByRole('button', {
     name: 'Source',
     exact: true
@@ -186,8 +183,11 @@ func SourceOnly:
   expect((await new AxeBuilder({ page }).include('.function-composer').analyze()).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('compose-canvas-light-hd.png') });
   await composer.getByRole('button', { name: 'Open SourceOnly workflow', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Source-only composition', exact: true })).toBeVisible();
-  await expect(composer.getByText(/one whole-output set/)).toBeVisible();
+  await expect(composer.getByRole('heading', { name: 'Source-only function', exact: true })).toBeVisible();
+  const notice = composer.getByText(/one whole-output set/);
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveCSS('font-style', 'italic');
+  await expect(notice).toHaveCSS('font-family', /Daikonic Transit System/);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
 });
 
@@ -369,7 +369,7 @@ test('enters Compose before selecting a function and switches between ordinary f
     await expect(location).toHaveAttribute('title', `workflow / ${name}`);
     await expect(location.locator('[aria-current="location"]')).toContainText(name);
     await expect(header.getByRole('button', { name: 'New composition', exact: true })).toBeVisible();
-    await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+    await expect(composer.locator('.composition-node')).toHaveCount(2);
     const signature = composer.getByRole('tab', { name: 'Signature & details', exact: true });
     await signature.click();
     await expect(signature).toHaveAttribute('aria-selected', 'true');
@@ -724,21 +724,19 @@ func SavedCamera:
   expect(await settledCamera()).toBe(splitCamera);
 
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+  await expect(composer.locator('.composition-node')).toHaveCount(2);
   await composer.getByRole('button', { name: 'Parent', exact: true }).click();
   await expect(composer.locator('.composition-node')).toHaveCount(3);
   expect(await settledCamera()).toBe(splitCamera);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
 });
 
-test('replaces zero-argument calls with entered expressions and variable bindings', async ({ page }) => {
+test('edits zero-argument calls and variable bindings on an unannotated Canvas', async ({ page }) => {
   const content = `namespace workflow
-import rune.studio.*
 func Constant:
  output: result number (1..1)
  set result: 7
 func ReplaceConstant:
- [composition]
  inputs: value number (1..1)
  output: result number (1..1)
  set result: Constant()

@@ -24,15 +24,22 @@ async function describe(source: string, marker = COMPOSITION_MODEL_SOURCE) {
   const func = parsed[1]!.value.elements.find(isRosettaFunction)!;
   return { func, result: describeFunctionComposition(func), source };
 }
-it('uses the exact linked annotation identity and does not infer eligibility from names', async () => {
+it('uses the exact marker for discovery and admits representable ordinary functions to Canvas', async () => {
   const { result } = await describe(header + ' set result: value * 2');
   expect(result).toMatchObject({ optedIn: true, supported: true });
   const wrong = await describe(
     (header + ' set result: value').replace('rune.studio', 'other'),
     COMPOSITION_MODEL_SOURCE.replace('rune.studio', 'other')
   );
-  expect(wrong.result.optedIn).toBe(false);
-  expect((await describe((header + ' set result: value').replace(' [composition]\n', ''))).result.optedIn).toBe(false);
+  expect(wrong.result).toMatchObject({ optedIn: false, supported: true });
+  const ordinary = await describe((header + ' set result: value').replace(' [composition]\n', ''));
+  expect(ordinary.result).toMatchObject({ optedIn: false, supported: true });
+  expect(ordinary.result.steps.map((step) => step.id)).toEqual(['input:value', 'return']);
+  const sourceOnly = await describe(
+    (header + ' set result: value\n add result: value').replace(' [composition]\n', '')
+  );
+  expect(sourceOnly.result).toMatchObject({ optedIn: false, supported: false });
+  expect(sourceOnly.result.reasons[0]?.message).toContain('whole-output');
 });
 it('projects dependencies and exact expression ranges without modifying source or trivia', async () => {
   const source =

@@ -2,8 +2,11 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import type { SourceRegion } from '@rune-langium/core';
+import { isolateHistory } from '@codemirror/commands';
 import { ChangeSet } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 import { minimalDocumentChange } from '../lang/document-extensions.js';
+import { withInstrumentation } from './instrumentation/core.js';
 
 export type DocumentBinding = Readonly<{
   workspaceGeneration: number;
@@ -113,7 +116,7 @@ export class ExpressionDocument {
 
   applyDocumentEdit(
     { binding, region, expectedText, replacement }: DocumentEdit,
-    commit = this.options.onContentChange
+    commit: (path: string, content: string) => void | false = this.options.onContentChange
   ): CommitResult {
     const file = this.options.getFile(binding.uri);
     if (!file || file.sourceLoaded === false) return { ok: false, reason: 'missing-source' };
@@ -129,7 +132,29 @@ export class ExpressionDocument {
     )
       return { ok: false, reason: 'stale' };
     const content = file.content.slice(0, region.from) + replacement + file.content.slice(region.to);
-    if (content !== file.content) commit(file.path, content);
+    if (content !== file.content && commit(file.path, content) === false) return { ok: false, reason: 'invalid-range' };
     return { ok: true };
   }
 }
+
+/** Apply through the owning editor so publishing and undo use the same transaction. */
+export const applyExpressionDocumentEdit = withInstrumentation(
+  function applyExpressionDocumentEdit(
+    documents: ExpressionDocument,
+    view: EditorView,
+    edit: DocumentEdit
+  ): CommitResult {
+    if (view.state.readOnly) return { ok: false, reason: 'read-only' };
+    if (view.state.doc.toString() !== edit.binding.source) return { ok: false, reason: 'stale' };
+    return documents.applyDocumentEdit(edit, (_, content) => {
+      const transaction = view.state.update({
+        changes: minimalDocumentChange(edit.binding.source, content),
+        annotations: isolateHistory.of('full'),
+        userEvent: 'input.expression'
+      });
+      if (transaction.newDoc.toString() !== content) return false;
+      view.dispatch(transaction);
+    });
+  },
+  { op: 'applyExpressionDocumentEdit', capture: 0 }
+);
