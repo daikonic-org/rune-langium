@@ -44,12 +44,15 @@ export interface ExpressionScopeEntry {
 
 export type ExpressionPickerTarget =
   | ExpressionAddress
-  | { draftAlias: true }
-  | { draftCondition: 'precondition' | 'postcondition' };
+  | (({ draftAlias: true } | { draftCondition: 'precondition' | 'postcondition' }) & {
+      /** Coordinates within the draft expression, before insertion into a private document. */
+      draftAddress?: ExpressionAddress;
+    });
 export interface ExpressionPickerRequest {
   target: ExpressionPickerTarget;
   trail: readonly string[];
   candidateSource?: string;
+  draftSource?: string;
 }
 type ExpressionCompatibility = 'compatible' | 'incompatible' | 'unknown';
 export interface ExpressionMemberChoice {

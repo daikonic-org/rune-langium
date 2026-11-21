@@ -105,6 +105,8 @@ export interface FunctionComposerProps {
   onNavigate(nodeId: string): void;
   onSave(): Promise<void>;
 }
+type SourceRows = { binding: DocumentBinding; rows: readonly ExpressionRow[] };
+
 interface Draft {
   binding: DocumentBinding;
   dependencies?: ExpressionWorkspaceProps['dependencySnapshot'];
@@ -123,6 +125,7 @@ interface Draft {
   position?: XYPosition;
   bindingOnly?: boolean;
   sourceOnly?: boolean;
+  sourceRows?: SourceRows;
   inputVariable?: string;
   collectionBinding?: { region: SourceRegion; value: string };
 }
@@ -217,7 +220,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const runeView = useRef<EditorView>(null);
   const [sourceFocus, setSourceFocus] = useState<{ from: number; argument?: number }>();
   const [activeSlot, setActiveSlot] = useState<ExpressionSlot>();
-  const [inlineEditing, setInlineEditing] = useState(false);
+  const [typingRows, setTypingRows] = useState<SourceRows>();
+  const inlineEditing = typingRows?.binding.nodeId === identity;
   const [linkedScope, setLinkedScope] = useState<{ owner: string; value: FunctionScope }>();
   const [codeHover, setCodeHover] = useState<SourceRegion>();
   const attachSource = useCallback(
@@ -253,7 +257,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   useEffect(() => {
     setDraft(drafts.current.get(identity));
     setActiveSlot(undefined);
-    setInlineEditing(false);
+    setTypingRows(undefined);
     setSourceFocus(undefined);
     setSelected(selections.current.get(identity) ?? drafts.current.get(identity)?.stepId ?? 'return');
     setPortContext(undefined);
@@ -322,6 +326,15 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     return found && isRosettaFunction(found) ? found : undefined;
   }, [editor?.parsed, editor?.parseCurrent, identity]);
   const rows = useMemo(() => (owner ? getExpressionRows(owner) : []), [owner]);
+  const sourceRows = useMemo(() => {
+    if (!owner || !editor || !file) return undefined;
+    const binding = editor.documents.capture(
+      pathToUri(file.path),
+      identity,
+      getFunctionImplementationRegion(owner, file.content)
+    );
+    return binding && { binding, rows };
+  }, [owner, editor?.documents, file, identity, rows]);
   const sourceEditable = Boolean(composition && owner && file && !file.readOnly && !file.refOnly && !editor?.readOnly);
   useEffect(() => {
     if (!source || !rows.length || !file || !editor?.dependencySnapshot) return;
@@ -400,6 +413,9 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     ];
   }, [presented, selectedStep?.id, selectedStep?.locals]);
   const changeDraft = (value: Draft | undefined) => {
+    if (value && !value.sourceRows && value.binding.revision === sourceRows?.binding.revision) {
+      value = { ...value, sourceRows };
+    }
     if (value) drafts.current.set(identity, value);
     else drafts.current.delete(identity);
     setDraft(value);
@@ -1094,13 +1110,10 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const sourceOnly = Boolean(presented && !presented.supported);
   const canvasVisible = !editor || (canvasOpen && !sourceOnly);
   const sourceVisible = Boolean(editor && (source || sourceOnly));
-  const sourceBinding = useMemo(
-    () =>
-      owner && editor && file
-        ? editor.documents.capture(pathToUri(file.path), identity, getFunctionImplementationRegion(owner, file.content))
-        : undefined,
-    [owner, editor?.documents, file, identity]
-  );
+  const displayedRows =
+    (draft?.binding.nodeId === identity ? draft.sourceRows : undefined) ??
+    (inlineEditing ? typingRows : undefined) ??
+    sourceRows;
   useEffect(() => {
     if (!sourceVisible) setActiveSlot(undefined);
   }, [sourceVisible]);
@@ -1180,16 +1193,16 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       </div>
     </div>
   );
-  const expressionRows = sourceBinding && editor && file && (
+  const expressionRows = displayedRows && editor && file && (
     <InlineExpressionRows
       session={{
-        binding: sourceBinding,
+        binding: displayedRows.binding,
         documents: editor.documents,
         file,
         files: editor.dependencySnapshot ?? [file],
         scope: selectedScope
       }}
-      rows={rows}
+      rows={displayedRows.rows}
       draft={
         draft && !draft.bindingOnly
           ? {
@@ -1203,7 +1216,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
           : undefined
       }
       pending={applyBusy}
-      editable={sourceEditable && !stale}
+      editable={sourceEditable && !stale && displayedRows.binding.revision === sourceRows?.binding.revision}
       invalid={expressionInvalid}
       onChange={changeSource}
       onAdd={addSourceAlias}
@@ -1213,7 +1226,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
         setError(undefined);
       }}
       onActiveSlot={setActiveSlot}
-      onEditingChange={setInlineEditing}
+      onEditingChange={(editing) => setTypingRows(editing ? displayedRows : undefined)}
       onHighlightRange={(range) => runeView.current?.dispatch({ effects: setExpressionHighlight.of(range) })}
       highlightedRange={codeHover}
       after={!canvasVisible && presented?.supported && (activeSlot || variablesOpen) ? variableTray : undefined}

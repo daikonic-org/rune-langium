@@ -1205,7 +1205,12 @@ inline slot edit to finish. Inspector applies edits to existing conditions
 using Core syntax checks and the captured source revision. The normal
 diagnostic pipeline then reports semantic issues, allowing separate conditions
 to be repaired independently. Studio's
-DraftConditionEditor requests a detached condition probe through the parser worker;
+DraftConditionEditor requests a detached condition probe through the parser worker.
+Once a new alias or condition contains a parsed expression, its picker inserts a
+temporary statement at the owning declaration's grammar-valid position. The
+worker translates the draft-relative row and slot coordinates into that private
+document and restores the captured workspace after linking. This gives nested
+slots their actual lambda scope, including implicit `item`.
 `getExpressionScope` and the linked ScopeProvider remain authoritative for inherited
 attributes, function inputs/output and imported references. The probe never changes
 the loaded owner or writes a placeholder condition to source. Late scope replies
@@ -1398,6 +1403,9 @@ each identifier as they are built, and the implicit receiver retains bare `item`
 Canvas and Source palette calls share the same escaped spelling. Draft picker
 addresses use the parsed expression's span within the source and retain the
 offsets of nested operands through surrounding whitespace.
+Compose retains the rows and source revision captured by a staged draft or
+active token edit during reparse. Stale edits stay visible for cancellation and
+discard, and the exact-revision guard prevents them from publishing.
 
 Workflow function composition uses ordinary Rune source as its only executable
 definition. Codegen's browser-safe `/rosetta` entry exposes

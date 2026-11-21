@@ -212,3 +212,15 @@ export function getFunctionAliasInsertion(
   const offset = leading ? from + leading.offset : next;
   return { from: offset, to: offset };
 }
+
+/** Format a statement insertion and locate its expression without rewriting the expression's bytes. */
+export function formatExpressionInsertion(source: string, from: number, header: string, expression: string) {
+  const line = source.lastIndexOf('\n', from - 1) + 1;
+  const before = source.slice(line, from);
+  const onOwnLine = !before.trim();
+  const indent = onOwnLine ? before : '    ';
+  const newline = source.includes('\r\n') ? '\r\n' : '\n';
+  const prefix = (onOwnLine ? '' : newline + indent) + header;
+  const suffix = /^(?:\r?\n|$)/.test(source.slice(from)) ? '' : newline + indent;
+  return { text: prefix + expression + suffix, expressionFrom: from + prefix.length };
+}

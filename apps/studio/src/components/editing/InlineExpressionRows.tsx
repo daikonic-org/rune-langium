@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   parseExpressionDraft,
   type ExpressionPickerTarget,
@@ -30,6 +30,7 @@ type InlineExpressionFieldProps = {
   compositionArgumentNames?: readonly string[];
   session: InlineExpressionSession;
   target: ExpressionPickerTarget;
+  editable?: boolean;
   value: string;
   onChange(value: string): void;
   onActiveSlot?(slot: ExpressionSlot | undefined): void;
@@ -43,6 +44,7 @@ export const InlineExpressionField = withInstrumentation(
     compositionArgumentNames,
     session,
     target,
+    editable = true,
     value,
     onChange,
     onActiveSlot,
@@ -51,10 +53,11 @@ export const InlineExpressionField = withInstrumentation(
     highlightedRange
   }: InlineExpressionFieldProps) {
     const { binding, documents, file, files, scope } = session;
-    const current = useLatestRef({ value, files, binding });
+    const current = useLatestRef({ value, files, binding, editable });
     const isCurrent = useCallback(() => {
       const latest = documents.capture(binding.uri, binding.nodeId, binding.region);
       return (
+        current.current.editable &&
         latest?.workspaceGeneration === binding.workspaceGeneration &&
         latest.revision === binding.revision &&
         !latest.readOnly &&
@@ -82,7 +85,12 @@ export const InlineExpressionField = withInstrumentation(
         const result = await requestExpressionPickerContext(
           file.path,
           binding.nodeId,
-          { target: address, trail, candidateSource },
+          {
+            target: address,
+            trail,
+            candidateSource,
+            draftSource: 'draftAddress' in address && address.draftAddress ? value : undefined
+          },
           files
         );
         if (!isCurrent()) throw new Error('The source changed. Reopen this expression.');
@@ -170,9 +178,10 @@ export const InlineExpressionRows = withInstrumentation(
   }) {
     const [editingRow, setEditingRow] = useState<string>();
     const editing = editingRow !== undefined;
-    useEffect(() => {
-      onEditingChange?.(editing);
-    }, [editing, onEditingChange]);
+    const updateEditingRow = (row: string | undefined) => {
+      setEditingRow(row);
+      onEditingChange?.(row !== undefined);
+    };
     const source = session.binding.source;
     const sameRegion = (region: SourceRegion) => draft?.region.from === region.from && draft?.region.to === region.to;
     const controls = (
@@ -209,15 +218,16 @@ export const InlineExpressionRows = withInstrumentation(
               {trivia && <pre className="whitespace-pre-wrap font-code text-xs text-caption">{trivia}</pre>}
               <div className="flex min-w-0 flex-wrap items-baseline gap-1">
                 {showStatement && <span className="whitespace-pre-wrap font-code text-xs text-primary">{prefix}</span>}
-                {editable && (!draft || matching) && (!editing || editingRow === rowKey) ? (
+                {editingRow === rowKey || (editable && (!draft || matching) && !editing) ? (
                   <InlineExpressionField
                     session={session}
+                    editable={editable}
                     target={expressionRowTarget(row)}
                     compositionArgumentNames={matching ? draft?.argumentNames : undefined}
                     value={text}
                     onChange={(next) => onChange(row, next)}
                     onActiveSlot={onActiveSlot}
-                    onEditingChange={(active) => setEditingRow(active ? rowKey : undefined)}
+                    onEditingChange={(active) => updateEditingRow(active ? rowKey : undefined)}
                     onHighlightRange={onHighlightRange}
                     highlightedRange={highlightedRange}
                   />
@@ -247,12 +257,13 @@ export const InlineExpressionRows = withInstrumentation(
             </label>
             <InlineExpressionField
               session={session}
+              editable={editable}
               target={{ draftAlias: true }}
               compositionArgumentNames={draft.argumentNames}
               value={draft.text}
               onChange={(text) => onChange(undefined, text)}
               onActiveSlot={onActiveSlot}
-              onEditingChange={(active) => setEditingRow(active ? 'new' : undefined)}
+              onEditingChange={(active) => updateEditingRow(active ? 'new' : undefined)}
             />
             {controls}
           </div>

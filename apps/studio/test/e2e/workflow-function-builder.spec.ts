@@ -6,6 +6,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { test } from '../helpers/studio-test.js';
 import { projectBackingFiles, seedProjectBackingFiles } from '../helpers/project-backing.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+import { codeMirrorDocument } from '../helpers/source-editor.js';
 import { COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
 
 const source = `namespace workflow
@@ -1273,6 +1274,65 @@ func Repair:
   await expect
     .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
     .toBe(content.replace('alias stable: value + 1', 'alias stable: value + 2'));
+});
+
+test('retains a token draft when the raw source changes and lets the user cancel and discard it', async ({ page }) => {
+  const body = ' alias unresolved: missingValue\n alias stable: value + 1\n set result: stable';
+  const content =
+    source + '\nfunc Repair:\n inputs: value number (1..1)\n output: result number (1..1)\n' + body + '\n';
+  const composer = await openComposition(page, content);
+  await composer.getByRole('button', { name: 'Open Repair workflow', exact: true }).click();
+  const row = composer.getByTestId('expression-row-alias-1');
+  await row.getByRole('button', { name: 'Edit 1', exact: true }).press('2');
+  await row.getByRole('textbox', { name: 'Edit 1', exact: true }).press('Enter');
+  await row.getByRole('button', { name: 'Edit 2', exact: true }).press('3');
+  const token = row.getByRole('textbox', { name: 'Edit 2', exact: true });
+  await token.fill('345');
+  await composer.getByRole('button', { name: 'Edit Rune text', exact: true }).click();
+  const raw = composer.getByTestId('implementation-editor').locator('.cm-content');
+  await raw.press('ControlOrMeta+a');
+  await page.keyboard.insertText(body.replace('+ 1', '+ 4'));
+  const changed = content.replace('+ 1', '+ 4');
+  await expect.poll(() => codeMirrorDocument(raw)).toBe(changed);
+  await expect(token).toHaveValue('345');
+  await expect(row.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await token.press('Enter');
+  await expect(row.getByRole('alert')).toContainText('The source changed');
+  await token.press('Escape');
+  await row.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'Edit 4', exact: true })).toBeEnabled();
+  expect(await codeMirrorDocument(raw)).toBe(changed);
+});
+
+test('browses a named lambda parameter inside a new alias draft', async ({ page }) => {
+  const content = `namespace workflow
+type PeriodBase:
+ endDate date (1..1)
+type Period extends PeriodBase:
+ rate number (1..1)
+func Select:
+ inputs: periods Period (0..*)
+ output: result Period (0..*)
+ set result: periods
+`;
+  const composer = await openComposition(page, content);
+  await composer.getByRole('button', { name: 'Open Select workflow', exact: true }).click();
+  await composer.getByRole('button', { name: '+ Expression', exact: true }).click();
+  const row = composer.getByTestId('expression-row-new');
+  await row.getByRole('textbox', { name: 'Alias name', exact: true }).fill('selected');
+  await row.getByRole('button', { name: 'Add expression', exact: true }).press('p');
+  const draft = row.getByRole('textbox', { name: 'Add expression', exact: true });
+  await draft.fill('periods filter p [p -> rate exists]');
+  await draft.press('Enter');
+  await row.getByRole('button', { name: 'Edit p -> rate', exact: true }).click();
+  await page.getByRole('option', { name: /^p\b.*Browse/ }).click();
+  await page.getByRole('option', { name: 'Use endDate', exact: true }).click();
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(content.replace(' set result:', ' alias selected: periods filter p [p -> endDate exists]\n set result:'));
 });
 
 test('the compact palette gives Source its full width after choosing a function or closing it', async ({ page }) => {

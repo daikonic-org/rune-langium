@@ -393,14 +393,16 @@ export function InlineExpressionBuilder({
     onChange?.(source.slice(0, range.from) + text + source.slice(range.to));
     return true;
   };
-  const targetAt = (node: ExpressionNode, range: SourceRegion): ExpressionPickerTarget => {
-    if (!('root' in sourceTarget)) return sourceTarget;
-    const from = sourceTarget.root.from;
-    return {
+  const targetAt = (node: ExpressionNode, range: SourceRegion, argumentIndex?: number): ExpressionPickerTarget => {
+    const from = 'root' in sourceTarget ? sourceTarget.root.from : 0;
+    const address = {
       root: { from: from + rootRegion.from, to: from + rootRegion.to },
       path: relativePath(expressionNodeSource(node)),
-      range: { from: from + range.from, to: from + range.to }
+      range: { from: from + range.from, to: from + range.to },
+      argumentIndex
     };
+    if ('root' in sourceTarget) return address;
+    return rootAst ? { ...sourceTarget, draftAddress: address } : sourceTarget;
   };
   const highlight = (range: SourceRegion | undefined) => {
     const offset = 'root' in sourceTarget ? sourceTarget.root.from : undefined;
@@ -729,7 +731,7 @@ export function InlineExpressionBuilder({
                     argumentIndex: ast === compositionCall ? position : undefined,
                     label: name + ' argument',
                     display: name,
-                    target: 'root' in target ? { ...target, argumentIndex: position } : target,
+                    target: targetAt(node, range, position),
                     range,
                     placeholder: true,
                     replace: (text) => {

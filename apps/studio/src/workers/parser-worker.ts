@@ -21,13 +21,17 @@ import {
   getExpressionPickerContext,
   describeFunctionComposition,
   type FunctionComposition,
+  formatExpressionInsertion,
   getExpressionRegions,
+  getFunctionAliasInsertion,
+  getFunctionImplementationRegion,
   getNodeSourceRegion,
   findExpressionOwner,
   type ExpressionScopeEntry,
   type ExpressionPickerContext,
   type ExpressionPickerRequest,
   type RosettaExpression,
+  parseExpressionDraft,
   isRosettaExpression,
   type SourceRegion,
   createRuneDslServices,
@@ -785,6 +789,40 @@ async function handleHydrate(req: HydrateRequest): Promise<HydrateResponse> {
   }
 }
 
+function prepareDraftPicker(
+  owner: Parameters<typeof getExpressionRegions>[0],
+  source: string,
+  { target, draftSource, trail }: ExpressionPickerRequest
+): ExpressionPickerRequest | undefined {
+  if ('root' in target || !target.draftAddress || draftSource === undefined) return;
+  const alias = 'draftAlias' in target;
+  const postCondition = 'draftCondition' in target && target.draftCondition === 'postcondition';
+  if ((alias || postCondition) && owner.$type !== 'RosettaFunction')
+    throw new Error('Select a function to edit this expression.');
+  const { candidate, parsed } = parseExpressionDraft(draftSource);
+  if (parsed.hasErrors) return;
+  const from =
+    owner.$type === 'Data'
+      ? getNodeSourceRegion(owner).to
+      : postCondition
+        ? getFunctionImplementationRegion(owner, source).to
+        : getFunctionAliasInsertion(owner, source).from;
+  let header = postCondition ? 'post-condition: ' : 'condition: ';
+  if (alias) {
+    let name = '_studioDraft';
+    while (source.includes(name) || draftSource.includes(name)) name += '_';
+    header = `alias ${name}: `;
+  }
+  const { text, expressionFrom } = formatExpressionInsertion(source, from, header, candidate);
+  const translate = ({ from, to }: SourceRegion) => ({ from: expressionFrom + from, to: expressionFrom + to });
+  const address = target.draftAddress;
+  return {
+    target: { ...address, root: translate(address.root), range: translate(address.range) },
+    trail,
+    candidateSource: source.slice(0, from) + text + source.slice(from)
+  };
+}
+
 async function handleExpressionScope(
   req: ExpressionScopeRequest,
   privateCandidate = false
@@ -849,6 +887,8 @@ async function handleExpressionScope(
         composition
       };
     }
+    const draft = req.picker && doc && prepareDraftPicker(owner, doc.textDocument.getText(), req.picker);
+    if (draft) return handleExpressionScope({ ...req, picker: draft });
     const target = req.picker?.target;
     const draftCondition = target && 'draftCondition' in target ? target.draftCondition : req.draftCondition;
     const draftAlias = target && 'draftAlias' in target;

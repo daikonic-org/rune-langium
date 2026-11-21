@@ -78,6 +78,7 @@ export {
   getModelSourceUri,
   getFunctionImplementationRegion,
   getFunctionAliasInsertion,
+  formatExpressionInsertion,
   getExpressionRows,
   getExpressionRegions,
   findExpressionOwner,

@@ -66,6 +66,42 @@ test('a condition built from empty stays singular after parsing and reference ed
   expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(committed);
 });
 
+test('browses implicit item members in a new condition draft', async ({ page }) => {
+  const model = `namespace drafts
+type Period:
+ startDate date (1..1)
+ endDate date (1..1)
+type Schedule:
+ periods Period (0..*)
+`;
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'schedule.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(model)
+  });
+  await page.getByTestId('ns-type-link-drafts.Schedule#Data').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+  await page.getByRole('button', { name: 'Add condition', exact: true }).click();
+  await page.getByLabel('New condition name').fill('HasPeriod');
+  await page.getByRole('button', { name: 'Add expression', exact: true }).press('p');
+  const draft = page.getByRole('textbox', { name: 'Add expression', exact: true });
+  const expression = '(periods filter [item -> startDate exists]) exists';
+  await draft.fill(expression);
+  await draft.press('Enter');
+  await page.getByRole('button', { name: 'Edit item -> startDate', exact: true }).click();
+  await page.getByRole('option', { name: /^item\b.*Browse/ }).click();
+  await page.getByRole('option', { name: 'Use endDate', exact: true }).click();
+  expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(model);
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect
+    .poll(() => codeMirrorDocument(fullSourceEditor(page)))
+    .toContain(expression.replace('startDate', 'endDate'));
+});
+
 test('repairs conditions independently while another reference remains unresolved', async ({ page }) => {
   const model = source.replace(
     'condition Existing: currency exists',
