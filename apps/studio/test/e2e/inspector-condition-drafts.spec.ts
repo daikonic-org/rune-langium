@@ -102,6 +102,42 @@ type Schedule:
     .toContain(expression.replace('startDate', 'endDate'));
 });
 
+test('retains unfinished condition token text when the Rune source changes', async ({ page }) => {
+  const model = source + ' condition IdentifierPresent: identifier exists\n';
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'conditions.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(model)
+  });
+  await page.getByTestId('ns-type-link-drafts.Cash#Data').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+
+  const condition = page.getByRole('region', { name: 'Condition expression' });
+  const other = page.getByRole('tab', { name: 'IdentifierPresent', exact: true });
+  await condition.getByRole('button', { name: 'Edit currency', exact: true }).press('u');
+  const token = condition.getByRole('textbox', { name: 'Edit currency', exact: true });
+  await token.fill('unfinished');
+  await expect(other).toBeDisabled();
+  await condition.getByRole('button', { name: 'Edit Rune text', exact: true }).click();
+  const raw = condition.getByTestId('implementation-editor').locator('.cm-content');
+  await raw.press('ControlOrMeta+a');
+  await page.keyboard.insertText('identifier exists');
+
+  const changed = model.replace('Existing: currency exists', 'Existing: identifier exists');
+  await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toBe(changed);
+  await expect(token).toHaveValue('unfinished');
+  await token.press('Enter');
+  await expect(condition.getByRole('alert')).toContainText('The source changed');
+  await condition.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(other).toBeEnabled();
+  await expect(condition.getByRole('button', { name: 'Edit identifier', exact: true })).toBeEnabled();
+  expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(changed);
+});
+
 test('repairs conditions independently while another reference remains unresolved', async ({ page }) => {
   const model = source.replace(
     'condition Existing: currency exists',

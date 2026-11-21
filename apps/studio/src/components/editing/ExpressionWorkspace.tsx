@@ -79,6 +79,13 @@ export interface ExpressionWorkspaceProps {
   dependencySnapshot?: readonly WorkspaceFile[];
 }
 
+type ConditionSnapshot = {
+  binding: DocumentBinding;
+  row: ExpressionRow;
+  dependencies: readonly WorkspaceFile[];
+};
+const staleConditionMessage = 'The source changed. Discard this draft to reload the condition.';
+
 export const ExpressionWorkspace = withInstrumentation(
   function ExpressionWorkspace({
     nodeId,
@@ -107,17 +114,12 @@ export const ExpressionWorkspace = withInstrumentation(
     const [binding, setBinding] = useState<DocumentBinding | null>(null);
     const [expanded, setExpanded] = useState(false);
     const [raw, setRaw] = useState(false);
-    const [conditionDraft, setConditionDraft] = useState<{
-      binding: DocumentBinding;
-      row: ExpressionRow;
-      text: string;
-      dependencies: readonly WorkspaceFile[];
-    }>();
+    const [conditionDraft, setConditionDraft] = useState<ConditionSnapshot & { text: string }>();
     const [conditionScope, setConditionScope] = useState<FunctionScope>();
-    const [conditionTyping, setConditionTyping] = useState(false);
+    const [conditionTyping, setConditionTyping] = useState<ConditionSnapshot>();
     const [conditionError, setConditionError] = useState<string>();
     const [conditionHover, setConditionHover] = useState<SourceRegion>();
-    const conditionEditing = conditionTyping || Boolean(conditionDraft);
+    const conditionEditing = Boolean(conditionTyping || conditionDraft);
     useEffect(() => {
       onEditingChange?.(conditionEditing);
     }, [conditionEditing, onEditingChange]);
@@ -309,7 +311,8 @@ export const ExpressionWorkspace = withInstrumentation(
       return applyExpressionDocumentEdit(documents, view, edit);
     };
     const condition = (() => {
-      if (!inlineCondition || !target || !active || !parsed || !parseCurrent) return undefined;
+      if (!inlineCondition || !target || !active || !parsed || !parseCurrent || active.source !== parsed.source)
+        return undefined;
       const owner = findExpressionOwner(parsed.model, { name: nameFromNodeId(nodeId), kind: kindFromNodeId(nodeId) });
       return owner && getExpressionRows(owner).find((row) => row.kind === target.kind && row.index === target.index);
     })();
@@ -327,37 +330,48 @@ export const ExpressionWorkspace = withInstrumentation(
         cancelled = true;
       };
     }, [inlineCondition, condition?.region.from, condition?.region.to, dependencySnapshot, loadScope]);
-    const conditionBinding = conditionDraft?.binding ?? active;
-    const conditionRow = conditionDraft?.row ?? condition;
-    const conditionEditor = conditionBinding && conditionRow && file && dependencySnapshot && (
+    const currentCondition =
+      condition && active && dependencySnapshot
+        ? { binding: active, row: condition, dependencies: dependencySnapshot }
+        : undefined;
+    const displayedCondition = conditionDraft ?? conditionTyping ?? currentCondition;
+    const conditionStale =
+      displayedCondition?.binding.revision !== currentCondition?.binding.revision ||
+      displayedCondition?.dependencies !== currentCondition?.dependencies;
+    const conditionEditable = Boolean(
+      currentCondition && !conditionStale && !active?.readOnly && !readOnly && !file?.readOnly
+    );
+    const conditionMessage =
+      conditionError ?? (conditionDraft && !conditionTyping && conditionStale ? staleConditionMessage : undefined);
+    const conditionEditor = displayedCondition && file && (
       <InlineExpressionRows
-        session={{ binding: conditionBinding, documents, file, files: dependencySnapshot, scope: conditionScope }}
-        rows={[conditionRow]}
+        session={{
+          binding: displayedCondition.binding,
+          documents,
+          file,
+          files: displayedCondition.dependencies,
+          scope: conditionScope
+        }}
+        rows={[displayedCondition.row]}
         draft={conditionDraft && { region: conditionDraft.row.region, text: conditionDraft.text }}
         pending={false}
-        editable={Boolean(active && !active.readOnly && !readOnly && !file.readOnly)}
+        editable={conditionEditable}
         invalid={Boolean(conditionDraft && parseExpression(conditionDraft.text).hasErrors)}
         showStatement={false}
-        onEditingChange={setConditionTyping}
-        onChange={(row, text) => {
-          if (!row || !active) return;
-          setConditionDraft((previous) => ({
-            binding: active,
-            row,
-            dependencies: dependencySnapshot,
-            ...previous,
-            text
-          }));
+        onEditingChange={(editing) => setConditionTyping(editing ? displayedCondition : undefined)}
+        onChange={(_, text) => {
+          if (!conditionEditable) return;
+          setConditionDraft({ ...displayedCondition, text });
           setConditionError(undefined);
         }}
         onApply={() => {
-          if (!conditionDraft || conditionTyping) return;
+          if (!conditionDraft || conditionTyping || !conditionEditable) return;
           setConditionError(undefined);
           try {
             const { binding, row, text, dependencies } = conditionDraft;
             const edit = compositionExpressionEdit(binding, row.region, text);
             const result = applyExpressionEdit(edit, dependencies);
-            if (!result.ok) throw new Error('The source changed. Discard this draft to reload the condition.');
+            if (!result.ok) throw new Error(staleConditionMessage);
             setConditionDraft(undefined);
           } catch (error) {
             setConditionError(error instanceof Error ? error.message : 'Could not apply this expression.');
@@ -370,9 +384,9 @@ export const ExpressionWorkspace = withInstrumentation(
         onHighlightRange={(range) => viewRef.current?.dispatch({ effects: setExpressionHighlight.of(range) })}
         highlightedRange={conditionHover}
         after={
-          conditionError && (
+          conditionMessage && (
             <p role="alert" className="text-xs text-destructive">
-              {conditionError}
+              {conditionMessage}
             </p>
           )
         }

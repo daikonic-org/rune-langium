@@ -1403,9 +1403,10 @@ each identifier as they are built, and the implicit receiver retains bare `item`
 Canvas and Source palette calls share the same escaped spelling. Draft picker
 addresses use the parsed expression's span within the source and retain the
 offsets of nested operands through surrounding whitespace.
-Compose retains the rows and source revision captured by a staged draft or
-active token edit during reparse. Stale edits stay visible for cancellation and
-discard, and the exact-revision guard prevents them from publishing.
+Compose and Inspector retain the expression rows and source revision captured
+by a staged draft or active token edit during reparse. Stale edits stay
+visible for cancellation and discard, and the exact-revision guard prevents
+them from publishing.
 
 Workflow function composition uses ordinary Rune source as its only executable
 definition. Codegen's browser-safe `/rosetta` entry exposes
