@@ -373,6 +373,7 @@ export function InlineExpressionBuilder({
   let editingRendered = false;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
   const whole = { from: 0, to: source.length };
+  const rootRegion = regionOf(tree, whole);
   const tokens = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('button[data-expression-token]') ?? [])];
   const focusSlot = (id: string) =>
     requestAnimationFrame(() =>
@@ -396,7 +397,7 @@ export function InlineExpressionBuilder({
     if (!('root' in sourceTarget)) return sourceTarget;
     const from = sourceTarget.root.from;
     return {
-      root: { from, to: from + source.length },
+      root: { from: from + rootRegion.from, to: from + rootRegion.to },
       path: relativePath(expressionNodeSource(node)),
       range: { from: from + range.from, to: from + range.to }
     };
@@ -801,7 +802,7 @@ export function InlineExpressionBuilder({
           display: '…',
           text: source,
           range: whole,
-          target: targetAt(tree, whole),
+          target: targetAt(tree, rootRegion),
           replace: (text) => update(whole, text)
         })}
       {editing && !editingRendered && renderEdit(editing)}

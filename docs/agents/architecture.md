@@ -1395,6 +1395,9 @@ Core's browser-safe `rune-identifiers` export owns keyword escaping for both
 linked expression pickers and Rune serialization. Picker entries retain their
 display name and the source spelling used to insert a value. Member paths escape
 each identifier as they are built, and the implicit receiver retains bare `item`.
+Canvas and Source palette calls share the same escaped spelling. Draft picker
+addresses use the parsed expression's span within the source and retain the
+offsets of nested operands through surrounding whitespace.
 
 Workflow function composition uses ordinary Rune source as its only executable
 definition. Codegen's browser-safe `/rosetta` entry exposes

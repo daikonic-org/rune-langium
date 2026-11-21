@@ -826,22 +826,29 @@ func ReplaceConstant:
   };
   await output.getByRole('button', { name: 'Edit result expression', exact: true }).click();
   const row = composer.getByTestId('expression-row-operation-0');
+  const spaced = content.replace('set result: Constant()', 'set result:   Constant()  ');
   await row.getByRole('button', { name: 'Edit Constant()', exact: true }).click();
   await page.getByRole('option', { name: 'Edit Rune', exact: true }).click();
-  await row.getByRole('textbox', { name: 'Rune source editor', exact: true }).fill('value + 2');
+  const authored = '  value + 2  ';
+  await row.getByRole('textbox', { name: 'Rune source editor', exact: true }).fill(authored);
   await row.getByRole('button', { name: 'Done', exact: true }).click();
+  await row.getByRole('button', { name: 'Edit value', exact: true }).click();
+  await page.getByRole('option', { name: /^value number/ }).click();
+  await row.getByRole('button', { name: 'Expression actions', exact: true }).click();
+  await expect(page.getByRole('option', { name: /^value number/ })).toBeVisible();
+  await page.keyboard.press('Escape');
   await showCanvas(composer);
-  await expect(expression).toHaveValue('value + 2');
+  await expect(expression).toHaveValue(authored);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
-  await save(content.replace('set result: Constant()', 'set result: value + 2'));
+  await save(content.replace('set result: Constant()', 'set result: ' + authored));
   await expression.fill('Constant()');
-  await save(content);
+  await save(spaced);
   await expression.fill('value + 1');
   await expect(expression).toHaveValue('value + 1');
-  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
-  await save(content.replace('set result: Constant()', 'set result: value + 1'));
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(spaced);
+  await save(spaced.replace('Constant()', 'value + 1'));
   await expression.fill('Constant()');
-  await save(content);
+  await save(spaced);
   const tray = composer.getByRole('region', { name: 'Available variables', exact: true });
   await tray
     .locator('.composition-variable-tag')
@@ -849,7 +856,7 @@ func ReplaceConstant:
     .click();
   await output.getByRole('button', { name: 'Bind selected variable to result value', exact: true }).click();
   await expect(expression).toHaveValue('value');
-  await save(content.replace('set result: Constant()', 'set result: value'));
+  await save(spaced.replace('Constant()', 'value'));
   await expect(composer.getByRole('button', { name: 'Open Constant definition', exact: true })).toHaveCount(0);
 });
 
@@ -1201,14 +1208,12 @@ func Wiring:
   await page.screenshot({ path: testInfo.outputPath('compose-wired-nodes.png') });
 });
 
-test('keeps the remaining arguments editable as an incomplete call moves between Source and Canvas', async ({
-  page
-}) => {
+test('keeps the remaining arguments editable as an escaped call moves between Source and Canvas', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const content =
     source +
     `
-func Pair:
+func ^type:
  inputs:
   left number (1..1)
   right number (1..1)
@@ -1217,7 +1222,7 @@ func Pair:
 `;
   const composer = await openComposition(page, content, 'Double');
   const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
-  await palette.getByRole('button', { name: 'Add Pair', exact: true }).click();
+  await palette.getByRole('button', { name: 'Add type', exact: true }).click();
   const draft = composer.locator('[data-composition-step="draft:new"]');
   await draft.getByRole('button', { name: /^Edit .* left expression$/ }).click();
   const row = composer.getByTestId('expression-row-new');
@@ -1236,7 +1241,7 @@ func Pair:
   await composer.getByRole('button', { name: 'Save', exact: true }).click();
   await expect
     .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
-    .toContain('alias step1: workflow.Pair(2, 3)');
+    .toContain('alias step1: workflow.^type(2, 3)');
 });
 
 test('repairs one Source expression while an unrelated alias remains unresolved', async ({ page }) => {
@@ -1285,9 +1290,9 @@ test('the compact palette gives Source its full width after choosing a function 
   await expect.poll(width).toBeGreaterThan(230);
 });
 
-test('the Source palette binds the selected qualified function when names collide', async ({ page }) => {
+test('the Source palette binds the selected qualified function when escaped names collide', async ({ page }) => {
   const content =
-    source.replace('version "1.0.0"', 'version "1.0.0"\nimport other.*') +
+    source.replace('func Double:', 'func ^type:').replace('version "1.0.0"', 'version "1.0.0"\nimport other.*') +
     `
 func Work:
  inputs: x number (1..1)
@@ -1296,7 +1301,7 @@ func Work:
 `;
   const composer = await openComposition(page, content, undefined, {
     'other.rosetta': `namespace other
-func Double:
+func ^type:
  inputs: remote number (1..1)
  output: result number (1..1)
  set result: remote * 3
@@ -1305,8 +1310,8 @@ func Double:
   await composer.getByRole('button', { name: 'Open Work workflow', exact: true }).click();
   const row = composer.getByTestId('expression-row-operation-0');
   await row.getByRole('button', { name: 'Edit x', exact: true }).click();
-  const remote = composer.getByRole('button', { name: 'Open Double other', exact: true });
-  await remote.locator('xpath=../..').getByRole('button', { name: 'Add Double', exact: true }).click();
+  const remote = composer.getByRole('button', { name: 'Open type other', exact: true });
+  await remote.locator('xpath=../..').getByRole('button', { name: 'Add type', exact: true }).click();
   await row.getByRole('button', { name: 'remote argument', exact: true }).click();
   await expect(page.getByText('remote · number · (1..1)', { exact: true })).toBeVisible();
   await page.getByRole('option', { name: /^x number/ }).click();
@@ -1314,5 +1319,5 @@ func Double:
   await composer.getByRole('button', { name: 'Save', exact: true }).click();
   await expect
     .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
-    .toBe(content.replace('set result: x', 'set result: other.Double(x)'));
+    .toBe(content.replace('set result: x', 'set result: other.^type(x)'));
 });

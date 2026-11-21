@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 import {
+  EXPRESSION_DRAFT_HOLE,
   getSourceComments,
   getNodeSourceRegion,
   parseExpression,
@@ -34,6 +35,14 @@ export const compositionReference = withInstrumentation(escapeRuneIdentifier, {
   op: 'compositionReference',
   capture: 0
 });
+
+export const compositionCallText = withInstrumentation(
+  function compositionCallText(name: string, values: readonly string[]): string {
+    const args = values.map((value) => value || EXPRESSION_DRAFT_HOLE).join(', ');
+    return `${compositionReference(name)}(${args})`;
+  },
+  { op: 'compositionCallText', capture: 0 }
+);
 
 /** Compose independent exact edits against one capture; no writes happen during preparation. */
 export const compositionCandidate = withInstrumentation(

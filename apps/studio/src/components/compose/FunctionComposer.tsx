@@ -48,6 +48,7 @@ import { ArrowLeft, Plus, Workflow, Code, Network, ArrowUpRight } from 'lucide-r
 import { requestExpressionScope, requestFunctionComposition } from '../../services/workspace.js';
 import {
   compositionReference,
+  compositionCallText,
   buildAliasEdit,
   compositionInputText,
   compositionAliasEdit,
@@ -692,7 +693,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
             ...(draft.collectionBinding ? [draft.collectionBinding] : [])
           ]
         )
-      : `${qualifiedNameFromNodeId(draft.callee)}(${draft.arguments?.map((argument) => argument.value || EXPRESSION_DRAFT_HOLE).join(', ') ?? ''})`
+      : compositionCallText(qualifiedNameFromNodeId(draft.callee), draft.arguments?.map(({ value }) => value) ?? [])
     : (draft?.expression ?? '');
   const expressionInvalid = useMemo(() => !expression.trim() || parseExpression(expression).hasErrors, [expression]);
 
@@ -1424,9 +1425,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                           (entry) => entry.kind === 'callable' && entry.name === name
                         );
                         if (callable?.argumentCount !== undefined) {
-                          activeSlot.replace(
-                            name + '(' + Array(callable.argumentCount).fill(EXPRESSION_DRAFT_HOLE).join(', ') + ')'
-                          );
+                          activeSlot.replace(compositionCallText(name, Array<string>(callable.argumentCount).fill('')));
                         } else {
                           setError('This function’s linked signature is unavailable at the current expression.');
                         }
