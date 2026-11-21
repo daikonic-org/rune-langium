@@ -32,29 +32,142 @@ test('a condition built from empty stays singular after parsing and reference ed
   await page.getByRole('button', { name: 'Add condition', exact: true }).click();
   await page.getByLabel('New condition name').fill('CurrencyPresent');
   await page.getByRole('button', { name: 'Add expression', exact: true }).click();
-  await page.getByTestId('palette-option-exists').click();
+  await page.getByRole('option', { name: 'exists', exact: true }).click();
   await page.getByRole('button', { name: 'Add expression', exact: true }).click();
-  await page.getByTestId('palette-open-reference').click();
-  await page.getByTestId('ref-option-currency').click();
-  await expect(page.getByTestId('dsl-preview').locator('pre')).toHaveText('currency exists');
-  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('option', { name: /^currency string/ }).click();
+  await expect(page.getByRole('button', { name: 'Edit currency', exact: true }).last()).toBeVisible();
+  const add = page.getByRole('button', { name: 'Add', exact: true });
+  await expect(add).toBeEnabled();
+  await page.getByRole('button', { name: 'Edit currency', exact: true }).last().press('i');
+  await page.getByRole('textbox', { name: 'Edit currency', exact: true }).fill('identifier');
+  await expect(add).toBeDisabled();
+  expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(source);
+  await page.getByRole('textbox', { name: 'Edit currency', exact: true }).press('Escape');
+  await expect(add).toBeEnabled();
+  await add.click();
   await expect(
     page.getByText('Structural editing waits for the current Rune draft to parse.', { exact: true })
   ).toBeHidden();
   await expect(page.getByRole('tab', { name: 'CurrencyPresent', exact: true })).toHaveCount(1);
   await page.getByRole('tab', { name: 'CurrencyPresent', exact: true }).click();
   const condition = page.getByRole('region', { name: 'Condition expression' });
-  await expect(condition.getByRole('button', { name: 'Builder', exact: true })).toBeEnabled();
+  await expect(condition.getByRole('button', { name: 'Edit currency', exact: true })).toBeEnabled();
   await expect(page.getByRole('tab', { name: 'CurrencyPresent', exact: true })).toHaveCount(1);
   const committed = await codeMirrorDocument(fullSourceEditor(page));
   expect(committed.match(/condition CurrencyPresent:/g)).toHaveLength(1);
-  await condition.getByRole('button', { name: 'Builder', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Expression builder', exact: true });
-  await dialog.getByRole('button', { name: 'Edit reference currency', exact: true }).click();
-  await page.getByTestId('ref-option-identifier').click();
-  await expect(dialog.getByTestId('dsl-preview').locator('pre')).toHaveText('identifier exists');
-  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await condition.getByRole('button', { name: 'Edit currency', exact: true }).click();
+  await page.getByRole('option', { name: /^identifier string/ }).click();
+  await expect(condition.getByRole('button', { name: 'Edit identifier', exact: true })).toBeVisible();
+  const move = page.getByRole('button', { name: 'Move condition up', exact: true });
+  await expect(move).toBeDisabled();
+  await expect(page.getByRole('tab', { name: 'Existing', exact: true })).toBeDisabled();
+  await condition.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(move).toBeEnabled();
   expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(committed);
+});
+
+test('browses implicit item members in a new condition draft', async ({ page }) => {
+  const model = `namespace drafts
+type Period:
+ startDate date (1..1)
+ endDate date (1..1)
+type Schedule:
+ periods Period (0..*)
+`;
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'schedule.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(model)
+  });
+  await page.getByTestId('ns-type-link-drafts.Schedule#Data').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+  await page.getByRole('button', { name: 'Add condition', exact: true }).click();
+  await page.getByLabel('New condition name').fill('HasPeriod');
+  await page.getByRole('button', { name: 'Add expression', exact: true }).press('p');
+  const draft = page.getByRole('textbox', { name: 'Add expression', exact: true });
+  const expression = '(periods filter [item -> startDate exists]) exists';
+  await draft.fill(expression);
+  await draft.press('Enter');
+  await page.getByRole('button', { name: 'Edit item -> startDate', exact: true }).click();
+  await page.getByRole('option', { name: /^item\b.*Browse/ }).click();
+  await page.getByRole('option', { name: 'Use endDate', exact: true }).click();
+  expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(model);
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect
+    .poll(() => codeMirrorDocument(fullSourceEditor(page)))
+    .toContain(expression.replace('startDate', 'endDate'));
+});
+
+test('retains unfinished condition token text when the Rune source changes', async ({ page }) => {
+  const model = source + ' condition IdentifierPresent: identifier exists\n';
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'conditions.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(model)
+  });
+  await page.getByTestId('ns-type-link-drafts.Cash#Data').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+
+  const condition = page.getByRole('region', { name: 'Condition expression' });
+  const other = page.getByRole('tab', { name: 'IdentifierPresent', exact: true });
+  await condition.getByRole('button', { name: 'Edit currency', exact: true }).press('u');
+  const token = condition.getByRole('textbox', { name: 'Edit currency', exact: true });
+  await token.fill('unfinished');
+  await expect(other).toBeDisabled();
+  await condition.getByRole('button', { name: 'Edit Rune text', exact: true }).click();
+  const raw = condition.getByTestId('implementation-editor').locator('.cm-content');
+  await raw.press('ControlOrMeta+a');
+  await page.keyboard.insertText('identifier exists');
+
+  const changed = model.replace('Existing: currency exists', 'Existing: identifier exists');
+  await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toBe(changed);
+  await expect(token).toHaveValue('unfinished');
+  await token.press('Enter');
+  await expect(condition.getByRole('alert')).toContainText('The source changed');
+  await condition.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(other).toBeEnabled();
+  await expect(condition.getByRole('button', { name: 'Edit identifier', exact: true })).toBeEnabled();
+  expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(changed);
+});
+
+test('repairs conditions independently while another reference remains unresolved', async ({ page }) => {
+  const model = source.replace(
+    'condition Existing: currency exists',
+    'condition First: missingIdentifier exists\n condition Second: missingCurrency exists'
+  );
+  await page.goto('./');
+  await page.locator('input[type="file"][accept=".rosetta"]').setInputFiles({
+    name: 'repairs.rosetta',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(model)
+  });
+  await page.getByTestId('ns-type-link-drafts.Cash#Data').click();
+  await page.getByRole('button', { name: 'Inspector', exact: true }).click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
+  await dismissLocalTransportNotices(page);
+  await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
+  const condition = page.getByRole('region', { name: 'Condition expression' });
+  let expected = model;
+  for (const [name, unresolved, replacement] of [
+    ['First', 'missingIdentifier', 'identifier'],
+    ['Second', 'missingCurrency', 'currency']
+  ]) {
+    await page.getByRole('tab', { name, exact: true }).click();
+    await condition.getByRole('button', { name: `Edit ${unresolved}`, exact: true }).press(replacement[0]!);
+    await condition.getByRole('textbox', { name: `Edit ${unresolved}`, exact: true }).fill(replacement);
+    await condition.getByRole('button', { name: 'Done', exact: true }).click();
+    await condition.getByRole('button', { name: 'Apply', exact: true }).click();
+    expected = expected.replace(unresolved, replacement);
+    await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toBe(expected);
+  }
 });
 
 test('call selection exposes named argument slots and commits only a complete private draft', async ({
@@ -85,39 +198,30 @@ ${names.map((name) => `  ${name} number (1..1)`).join('\n')}
   await page.getByRole('tab', { name: 'Conditions', exact: true }).click();
   await page.getByRole('tab', { name: 'Range', exact: true }).click();
   const original = await codeMirrorDocument(fullSourceEditor(page));
+  const condition = page.getByRole('region', { name: 'Condition expression' });
   for (const commit of [false, true]) {
-    await page
-      .getByRole('region', { name: 'Condition expression' })
-      .getByRole('button', { name: 'Builder', exact: true })
-      .click();
-    const dialog = page.getByRole('dialog', { name: 'Expression builder', exact: true });
-    await dialog.getByRole('button', { name: 'Edit reference lowerX', exact: true }).click();
-    await page.getByTestId('ref-option-InterpolateLinear').click();
-    await expect(dialog.locator('[data-block="placeholder"]')).toHaveCount(5);
+    await condition.getByRole('button', { name: 'Edit lowerX', exact: true }).click();
+    await page.getByRole('option', { name: 'InterpolateLinear', exact: true }).click();
+    await expect(condition.getByRole('button', { name: /^(?:lowerX|upperX|lowerY|upperY|x) argument$/ })).toHaveCount(
+      5
+    );
     await page.screenshot({ path: info.outputPath('empty-argument-slots.png') });
-    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(dialog).toBeVisible();
+    await expect(condition.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
     expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(original);
     if (!commit) {
-      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await condition.getByRole('button', { name: 'Discard', exact: true }).click();
       expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(original);
       continue;
     }
     for (const name of names) {
-      const argument = dialog.getByRole('group', { name: `InterpolateLinear argument ${name}`, exact: true });
-      await argument.getByRole('button', { name: 'Add expression', exact: true }).click();
-      await page.getByTestId('palette-open-reference').click();
-      await page.getByTestId(`ref-option-${name}`).click();
+      await condition.getByRole('button', { name: `${name} argument`, exact: true }).click();
+      await page.getByRole('option', { name: new RegExp('^' + name + ' number') }).click();
     }
     const expression = 'InterpolateLinear(lowerX, upperX, lowerY, upperY, x) < upperX';
-    await expect(page.getByTestId('reference-picker')).toBeHidden();
-    await expect(dialog.getByTestId('dsl-preview').locator('pre')).toHaveText(expression);
-    await expect(dialog.getByRole('alert')).toBeHidden();
-    await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
-    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(condition.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
+    expect(await condition.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath('named-argument-slots.png') });
-    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(dialog).toBeHidden();
+    await condition.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toContain(expression);
   }
 });

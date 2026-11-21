@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect, vi } from 'vitest';
-import { URI, EmptyFileSystem } from 'langium';
+import { URI, EmptyFileSystem, AstUtils } from 'langium';
 import {
   type RuneDslIndexManager,
   createRuneDslServices,
   getExpressionScope,
+  getExpressionPickerContext,
   BASICTYPES_ROSETTA,
   type RosettaModel
 } from '../../src/index.js';
@@ -35,6 +36,44 @@ async function scope(source: string | string[], name: string, aliasIndex?: numbe
 }
 
 describe('authoritative expression scope descriptions', () => {
+  it.each(['period', 'item'])('offers the scoped filter element %s and its inherited members', async (parameter) => {
+    const { RuneDsl } = createRuneDslServices();
+    const doc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString<RosettaModel>(
+      `namespace filters
+type Term:
+ endDate date (1..1)
+type Period extends Term:
+ rate number (1..1)
+func Active:
+ inputs:
+  period date (1..1)
+  periods Period (0..*)
+ output: result Period (0..*)
+ set result: periods filter ${parameter === 'item' ? '' : parameter} [${parameter} -> endDate exists]
+`,
+      URI.parse('file:///filters.rosetta')
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build([doc], { validation: false, eagerLinking: true });
+    expect(doc.parseResult.parserErrors).toEqual([]);
+    const owner = doc.parseResult.value.elements.find((node) => node.name === 'Active');
+    if (owner?.$type !== 'RosettaFunction') throw new Error('fixture function');
+    const filter = owner.operations[0]!.expression;
+    if (filter.$type !== 'FilterOperation' || !filter.function?.body) throw new Error('fixture filter');
+    const slot = filter.function.body;
+    const context = getExpressionPickerContext(slot, RuneDsl, []);
+    const local = context.entries.find((entry) => entry.name === parameter);
+    expect(local).toMatchObject({ kind: 'local', canBrowse: true });
+    if (parameter !== 'item') {
+      const declaration = filter.function.parameters[0]!;
+      expect(local?.declarationId).toBe(
+        `${AstUtils.getDocument(declaration).uri.toString()}#${RuneDsl.workspace.AstNodeLocator.getAstNodePath(declaration)}`
+      );
+    }
+    const members = getExpressionPickerContext(slot, RuneDsl, [local!.declarationId]).members;
+    expect(members).toContainEqual(
+      expect.objectContaining({ expressionText: `${parameter} -> endDate`, cardinality: '(1..1)' })
+    );
+  });
   it.each(['eligibility', 'reporting'])('links %s rule predicates to their inherited input fields', async (kind) => {
     const { RuneDsl } = createRuneDslServices();
     const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;

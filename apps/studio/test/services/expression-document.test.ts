@@ -2,7 +2,14 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect } from 'vitest';
-import { ExpressionDocument, type ExpressionDocumentFile } from '../../src/services/expression-document.js';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { history, undo } from '@codemirror/commands';
+import {
+  applyExpressionDocumentEdit,
+  ExpressionDocument,
+  type ExpressionDocumentFile
+} from '../../src/services/expression-document.js';
 
 function workspace() {
   let generation = 1;
@@ -26,6 +33,57 @@ function workspace() {
 }
 
 describe('expression document ownership', () => {
+  it('applies one isolated edit to the captured CRLF occurrence', () => {
+    const { documents, files } = workspace();
+    const uri = 'file:///first.rosetta';
+    const original = 'namespace shared\r\n// 😀\r\nset value: 1 + 2\r\n';
+    files.set(uri, { path: '/first.rosetta', content: original });
+    const from = original.indexOf('1 + 2');
+    const region = { from, to: from + 5 };
+    const binding = documents.capture(uri, 'shared.Calculate', region)!;
+    const published: string[] = [];
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: original,
+        extensions: [
+          EditorState.lineSeparator.of('\n'),
+          history(),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) published.push(update.state.doc.toString());
+          })
+        ]
+      })
+    });
+    try {
+      expect(
+        applyExpressionDocumentEdit(documents, view, { binding, region, expectedText: '1 + 2', replacement: '42' })
+      ).toEqual({ ok: true });
+      expect(published).toEqual(['namespace shared\r\n// 😀\r\nset value: 42\r\n']);
+      expect(files.get('file:///second.rosetta')!.content).toBe('same namespace, separate file');
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(original);
+    } finally {
+      view.destroy();
+    }
+  });
+
+  it('does not report success when the source editor refuses a transaction', () => {
+    const { documents, edit, writes } = workspace();
+    const view = new EditorView({
+      state: EditorState.create({
+        doc: edit.binding.source,
+        extensions: EditorState.transactionFilter.of(() => [])
+      })
+    });
+    try {
+      expect(applyExpressionDocumentEdit(documents, view, edit)).toEqual({ ok: false, reason: 'invalid-range' });
+      expect(view.state.doc.toString()).toBe(edit.binding.source);
+      expect(writes).toEqual([]);
+    } finally {
+      view.destroy();
+    }
+  });
+
   it('recovers mapped body drafts and rejects changed identity or workspace generation', () => {
     const { documents, files, edit, switchWorkspace } = workspace();
     documents.retainRegion(edit.binding, 'implementation');

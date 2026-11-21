@@ -175,7 +175,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
 
     // Case 1: RosettaFeatureCall.feature — resolve to attributes of receiver type
     if (isRosettaFeatureCall(container) && property === 'feature') {
-      return this.getFeatureCallScope(container);
+      return this.getFeatureCallScope(container.receiver, container);
     }
 
     // Case 2: RosettaDeepFeatureCall.feature — resolve to all transitive attributes
@@ -706,14 +706,14 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
    * Build a scope from a Data, RosettaRecordType, or Choice's features.
    * Falls back to the global attribute scope if the type cannot be resolved.
    */
-  private buildTypedScope(data: Data | RosettaRecordType | Choice | undefined, fallbackNode: AstNode): Scope {
+  private buildTypedScope(data: Data | RosettaRecordType | Choice | undefined, fallbackNode?: AstNode): Scope {
     if (!data) {
-      return this.getAllAttributesScope(fallbackNode);
+      return fallbackNode ? this.getAllAttributesScope(fallbackNode) : EMPTY_SCOPE;
     }
     if (isRosettaRecordType(data)) {
       const features = data.features;
       if (features.length === 0) {
-        return this.getAllAttributesScope(fallbackNode);
+        return fallbackNode ? this.getAllAttributesScope(fallbackNode) : EMPTY_SCOPE;
       }
       const descriptions = features.map((f) => this.createDescription(f, f.name));
       return new MapScope(descriptions);
@@ -724,7 +724,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
     const attrs = this.collectDataAttributes(data);
     const inheritedOptions = this.collectInheritedChoiceOptions(data);
     if (attrs.length === 0 && inheritedOptions.length === 0) {
-      return this.getAllAttributesScope(fallbackNode);
+      return fallbackNode ? this.getAllAttributesScope(fallbackNode) : EMPTY_SCOPE;
     }
     const descriptions: AstNodeDescription[] = [
       ...attrs.map((a) => this.createDescription(a, a.name)),
@@ -754,11 +754,11 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
    * enum values when the receiver is an enumeration, or choice options when
    * the receiver is a choice type.
    */
-  private getFeatureCallScope(node: RosettaFeatureCall): Scope {
+  private getFeatureCallScope(receiver: RosettaExpression, fallbackNode?: RosettaFeatureCall): Scope {
     // When the receiver is a direct symbol reference, handle enum and choice
     // types explicitly before falling through to resolveExpressionType.
-    if (isRosettaSymbolReference(node.receiver)) {
-      const sym = node.receiver.symbol?.ref;
+    if (isRosettaSymbolReference(receiver)) {
+      const sym = receiver.symbol?.ref;
       if (sym && isRosettaEnumeration(sym)) {
         const allValues = getEnumValues(sym);
         const descriptions = allValues.map((v) => this.createDescription(v, v.name));
@@ -771,7 +771,7 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
       // but a Choice type with the same name exists, prefer the Choice.
       // e.g. `Index` may resolve to enum value `Index` but CDM `choice Index` is intended.
       if (sym && !isChoice(sym) && !isRosettaEnumeration(sym)) {
-        const refText = node.receiver.symbol?.$refText;
+        const refText = receiver.symbol?.$refText;
         if (refText) {
           const choiceType = this.resolveChoiceByName(refText);
           if (choiceType) {
@@ -781,13 +781,13 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
       }
     }
 
-    const receiverType = this.resolveExpressionType(node.receiver);
-    const baseScope = this.buildTypedScope(receiverType, node);
+    const receiverType = this.resolveExpressionType(receiver);
+    const baseScope = this.buildTypedScope(receiverType, fallbackNode);
 
     // Include meta-attributes (reference, key, scheme…) if the receiver's last
     // navigated attribute has [metadata X] annotations.
     // e.g. `partyReference -> reference` where partyReference has [metadata reference]
-    const receiverAttr = this.getLastAttributeOfExpression(node.receiver);
+    const receiverAttr = this.getLastAttributeOfExpression(receiver);
     if (receiverAttr) {
       const metaAttrs = this.getMetaAttributeRefs(receiverAttr);
       if (metaAttrs.length > 0) {
@@ -797,6 +797,11 @@ export class RuneDslScopeProvider extends DefaultScopeProvider {
     }
 
     return baseScope;
+  }
+
+  /** Linked feature choices for a receiver, without the linker's broad recovery scope. */
+  getExpressionMemberScope(receiver: RosettaExpression): Scope {
+    return redirectProjectScope(this.projectServices, this.getFeatureCallScope(receiver));
   }
 
   /**

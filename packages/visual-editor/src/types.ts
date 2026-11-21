@@ -155,6 +155,8 @@ export interface ExpressionEditorSlotProps {
   expressionAst?: unknown;
   readOnly?: boolean;
   target?: { nodeId: string; kind: 'precondition' | 'postcondition'; index: number };
+  /** Retain the condition target while a hosted expression edit is pending. */
+  onEditingChange?(editing: boolean): void;
   /** Scope for a new condition draft; no expression source region exists yet. */
   draftCondition?: { nodeId: string; kind: 'precondition' | 'postcondition' };
 }

@@ -19,6 +19,122 @@ const testScope: FunctionScope = {
 };
 
 describe('ExpressionBuilder', () => {
+  it('retains typed text when the captured operand changes', () => {
+    const change = vi.fn();
+    const { rerender } = render(
+      <ExpressionBuilder value="a + 1" onChange={change} scope={testScope} presentation="inline" />
+    );
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Edit 1' }), { key: '2' });
+    rerender(<ExpressionBuilder value="a + 3" onChange={change} scope={testScope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
+    expect(change).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveValue('2');
+    expect(screen.getByRole('alert')).toHaveTextContent('source changed');
+  });
+
+  it('groups an operand that starts with a nested parenthesized expression', async () => {
+    const change = vi.fn();
+    render(<ExpressionBuilder value="10 / x" onChange={change} scope={testScope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit x', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Edit Rune', exact: true }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Rune expression' }), { target: { value: '(2 + 3) * 4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
+    expect(change).toHaveBeenCalledWith('10 / ((2 + 3) * 4)');
+  });
+
+  it('fills a named argument placeholder in place', async () => {
+    const scope: FunctionScope = {
+      inputs: [{ name: 'upperX', typeName: 'number', cardinality: '(1..1)' }],
+      aliases: [],
+      output: null,
+      references: [
+        {
+          kind: 'callable',
+          name: 'InterpolateLinear',
+          argumentCount: 5,
+          argumentNames: ['lowerX', 'upperX', 'lowerY', 'upperY', 'x']
+        }
+      ]
+    };
+    const onChange = vi.fn();
+    const initial = 'InterpolateLinear(0, 1, 0, 1, (<?>))';
+    const { rerender } = render(
+      <ExpressionBuilder value={initial} onChange={onChange} scope={scope} presentation="inline" />
+    );
+    const placeholder = screen.getByRole('button', { name: /^x argument/ });
+    expect(placeholder.textContent).toBe('x');
+    expect(placeholder).toHaveClass('text-caption');
+    fireEvent.click(placeholder);
+    const choice = await screen.findByRole('option', { name: /upperX/ });
+    fireEvent.click(choice);
+    const next = 'InterpolateLinear(0, 1, 0, 1, upperX)';
+    expect(onChange).toHaveBeenLastCalledWith(next);
+    rerender(<ExpressionBuilder value={next} onChange={onChange} scope={scope} presentation="inline" />);
+    expect(screen.getByRole('button', { name: /^x argument.*upperX/ }).textContent).toBe('upperX');
+  });
+
+  it('changes one comparison operator without rewriting its operands or surrounding text', async () => {
+    const onChange = vi.fn();
+    render(
+      <ExpressionBuilder
+        value={'flag and (price  /* retained */ <  limit or other)'}
+        onChange={onChange}
+        scope={testScope}
+        presentation="inline"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Change <', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: '<= Less or equal' }));
+    expect(onChange).toHaveBeenLastCalledWith('flag and (price  /* retained */ <=  limit or other)');
+  });
+
+  it('browses linked object members and swaps a collection operation in place', async () => {
+    const onChange = vi.fn();
+    const loadPicker = vi.fn(async (_, trail) => ({
+      entries: [
+        { name: 'default', referenceText: '^default', declarationId: 'note', kind: 'input' as const, canBrowse: true }
+      ],
+      members: trail.length
+        ? [
+            {
+              name: 'type',
+              declarationId: 'payout',
+              expressionText: '^default -> ^type',
+              canBrowse: false,
+              compatibility: 'compatible' as const
+            }
+          ]
+        : []
+    }));
+    const { rerender } = render(
+      <ExpressionBuilder
+        value="fallbackPayout"
+        onChange={onChange}
+        scope={testScope}
+        presentation="inline"
+        loadPicker={loadPicker}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Edit fallbackPayout' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Use default', exact: true }));
+    expect(onChange).toHaveBeenLastCalledWith('^default');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit fallbackPayout' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'default · Browse', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'type', exact: true }));
+    expect(onChange).toHaveBeenLastCalledWith('^default -> ^type');
+    rerender(
+      <ExpressionBuilder
+        value="periods filter [startDate < asOf] then last"
+        onChange={onChange}
+        scope={testScope}
+        presentation="inline"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Change filter', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'map / extract', exact: true }));
+    expect(onChange).toHaveBeenLastCalledWith('periods extract [startDate < asOf] then last');
+  });
+
   it('renders with builder mode by default', () => {
     const { container } = render(<ExpressionBuilder value="" onChange={vi.fn()} scope={testScope} />);
     expect(container.querySelector('[data-testid="expression-builder"]')).toBeTruthy();

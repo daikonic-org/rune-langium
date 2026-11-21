@@ -27,8 +27,10 @@ import { useExpressionBuilder } from '../../../hooks/useExpressionBuilder.js';
 import { useKeyboardNavigation } from '../../../hooks/useKeyboardNavigation.js';
 import { parseExpression } from '../../../adapters/parse-expression.js';
 import { astToExpressionNode } from '../../../adapters/ast-to-expression-node.js';
+import { InlineExpressionBuilder, type InlineExpressionOptions } from './InlineExpressionBuilder.js';
 
-export interface ExpressionBuilderProps extends ExpressionEditorSlotProps {
+export interface ExpressionBuilderProps extends ExpressionEditorSlotProps, InlineExpressionOptions {
+  presentation?: 'inline';
   scope: FunctionScope;
   defaultMode?: 'builder' | 'text';
   /** Callback when a node is dragged to a placeholder target. */
@@ -39,7 +41,15 @@ export interface ExpressionBuilderProps extends ExpressionEditorSlotProps {
   renderTextEditor?: (props: { value: string; onChange(text: string): void; onBlur(): void }) => ReactNode;
 }
 
-export function ExpressionBuilder({
+export function ExpressionBuilder(props: ExpressionBuilderProps) {
+  return props.presentation === 'inline' ? (
+    <InlineExpressionBuilder {...props} />
+  ) : (
+    <BlockExpressionBuilder {...props} />
+  );
+}
+
+function BlockExpressionBuilder({
   value,
   onChange,
   onBlur,

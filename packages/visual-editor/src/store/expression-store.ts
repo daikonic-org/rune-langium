@@ -25,6 +25,7 @@ export interface FunctionScopeEntry {
   argumentCount?: number;
   argumentNames?: ExpressionScopeEntry['argumentNames'];
   name: string;
+  referenceText?: string;
   typeName?: string;
   cardinality?: string;
 }

@@ -4,7 +4,7 @@
       "family": "Daikonic Transit Sans",
       "style": "normal",
       "version": "0.111",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.19.3",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
       "file": "DaikonicTransitSans-VF.woff2",
       "sha256": "c436d159686b8c9462107b2c48bd6ce54306b22fcc8a0a324f614c804d185cb0",
       "axes": {
@@ -19,7 +19,7 @@
       "family": "Daikonic Transit Sans",
       "style": "italic",
       "version": "0.111",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.19.3",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
       "file": "DaikonicTransitSans-Italic-VF.woff2",
       "sha256": "ae89b475cf4c8f8d6c0d28f392c074787f0a88a8458876d3c5312e3a0885a2d6",
       "axes": {
@@ -34,7 +34,7 @@
       "family": "Daikonic Transit System",
       "style": "normal",
       "version": "0.120",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.19.3",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
       "file": "DaikonicTransitSystem-VF.woff2",
       "sha256": "3f8f0ed03e94fcf4a4bfaf0108a6cc3919b480c837febe5c72a1facf15ac4a7c",
       "axes": {
@@ -54,7 +54,7 @@
       "family": "Daikonic Transit System",
       "style": "italic",
       "version": "0.120",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.19.3",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
       "file": "DaikonicTransitSystem-Italic-VF.woff2",
       "sha256": "0cd93ebc625d959c294999f93da80322948b08f91c132b231e0742deba888332",
       "axes": {
@@ -73,30 +73,46 @@
     {
       "family": "Daikonic Transit Code",
       "style": "normal",
-      "version": "1.041",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.19.3",
-      "file": "DaikonicTransitCode-VF.woff2",
-      "sha256": "81f089b461ceeb23f6b2506f3932cf0d1b80039329997b154745e88eb2ad4495",
+      "version": "1.042",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "file": "DaikonicTransitCodeNarrow-VF.woff2",
+      "sha256": "88c8a0fda170e3c136ad305c535b621b4e6a91c917138c158873fa7b882fc094",
       "axes": {
         "wght": {
-          "min": 300.0,
-          "default": 350.0,
-          "max": 400.0
+          "min": 350.0,
+          "default": 400.0,
+          "max": 500.0
+        }
+      },
+      "derivation": {
+        "archive": "WOFF2-daikonic-transit-2026.11.20.zip",
+        "archiveSha256": "64e5bc339bd781c6404a7eef09d3b5278b970e1961e43d4138ca7afc2e9544c5",
+        "fontToolsVersion": "4.68.0",
+        "pinnedAxes": {
+          "wdth": 94
         }
       }
     },
     {
       "family": "Daikonic Transit Code",
       "style": "italic",
-      "version": "1.041",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.19.3",
-      "file": "DaikonicTransitCode-Italic-VF.woff2",
-      "sha256": "65040593b7cfd99a187b587e6c6b851151dbdfeee3a8496bb9a66f9e92fdc090",
+      "version": "1.042",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "file": "DaikonicTransitCodeNarrow-Italic-VF.woff2",
+      "sha256": "f41501332f83fb73afc1e130cc2984adaf039322063c87eb2fc7858d98cf211d",
       "axes": {
         "wght": {
-          "min": 300.0,
-          "default": 350.0,
-          "max": 400.0
+          "min": 350.0,
+          "default": 400.0,
+          "max": 500.0
+        }
+      },
+      "derivation": {
+        "archive": "WOFF2-daikonic-transit-2026.11.20.zip",
+        "archiveSha256": "64e5bc339bd781c6404a7eef09d3b5278b970e1961e43d4138ca7afc2e9544c5",
+        "fontToolsVersion": "4.68.0",
+        "pinnedAxes": {
+          "wdth": 94
         }
       }
     }

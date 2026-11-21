@@ -203,11 +203,12 @@ for (const base of ['valid', 'invalid', 'unavailable'] as const)
       .toBe(true);
     await page.screenshot({ path: info.outputPath('prepared-data-review-hd.png') });
     await dialog.getByRole('button', { name: 'Save prepared data', exact: true }).click();
-    await expect.poll(async () => (await projectBackingFiles(page))['model/rate.rosetta']).toBe(preparedProvider);
+    // A successful Save refreshes the project and retires this review.
+    await expect(dialog).toBeHidden();
     const files = await projectBackingFiles(page);
-    expect(
-      JSON.parse(files['model/rate.rosetta.9eff0b54-f949-47ad-9fd0-794cce5cd58a.preparation.json']!)
-    ).toMatchObject({
+    const receiptPath = 'model/rate.rosetta.9eff0b54-f949-47ad-9fd0-794cce5cd58a.preparation.json';
+    expect(files).toMatchObject({ 'model/rate.rosetta': preparedProvider, [receiptPath]: expect.any(String) });
+    expect(JSON.parse(files[receiptPath]!)).toMatchObject({
       queryCount: 1,
       sourceRevisions: { 'model/rate.rosetta': expect.stringMatching(/^[a-f0-9]{64}$/) }
     });

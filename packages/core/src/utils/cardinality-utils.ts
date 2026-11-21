@@ -3,6 +3,8 @@
 
 import type { RosettaCardinality } from '../generated/ast.js';
 
+export type CardinalityBounds = Pick<RosettaCardinality, 'inf' | 'sup' | 'unbounded'>;
+
 /**
  * Whether the cardinality allows zero occurrences (inf == 0).
  */
@@ -34,7 +36,14 @@ export function isRequired(card: RosettaCardinality): boolean {
 /**
  * Produce a human-readable constraint string like "(1..1)", "(0..*)", etc.
  */
-export function toConstraintString(card: RosettaCardinality): string {
+export function toConstraintString(card: CardinalityBounds): string {
   const sup = card.unbounded ? '*' : String(card.sup ?? card.inf);
   return `(${card.inf}..${sup})`;
+}
+
+export function cardinalityFits(source: CardinalityBounds, target: CardinalityBounds): boolean {
+  return (
+    source.inf >= target.inf &&
+    (target.unbounded || (!source.unbounded && (source.sup ?? source.inf) <= (target.sup ?? target.inf)))
+  );
 }

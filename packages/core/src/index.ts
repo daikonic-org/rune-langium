@@ -24,7 +24,7 @@ export * from './generated/domain.js';
 // Parse API
 export { parse, parseWorkspace, hasComputedScopes, getLinkedReferenceTarget } from './api/parse.js';
 export type { ParseResult } from './api/parse.js';
-export { parseExpression } from './api/parse-expression.js';
+export { EXPRESSION_DRAFT_HOLE, parseExpression, parseExpressionDraft } from './api/parse-expression.js';
 export type { ExpressionParseResult } from './api/parse-expression.js';
 
 // Shared language resources
@@ -74,13 +74,17 @@ export type { HydrateServices, HydrateOptions } from './serializer/hydrate-model
 // Utility functions
 export {
   getNodeSourceRegion,
+  getExpressionOperatorRegion,
   getModelSourceUri,
   getFunctionImplementationRegion,
+  getFunctionAliasInsertion,
+  formatExpressionInsertion,
+  getExpressionRows,
   getExpressionRegions,
   findExpressionOwner,
   getExpressionOwners
 } from './utils/source-regions.js';
-export type { SourceRegion, ExpressionRegion } from './utils/source-regions.js';
+export type { SourceRegion, ExpressionRegion, ExpressionRow, ExpressionAddress } from './utils/source-regions.js';
 export { isOptional, isSingular, isPlural, isRequired, toConstraintString } from './utils/cardinality-utils.js';
 export {
   getOptions,
@@ -127,8 +131,14 @@ export {
   CODE_LIST_ENUM_SOURCE
 } from './utils/enum-utils.js';
 
-export { getExpressionScope } from './utils/expression-scope.js';
-export type { ExpressionScopeEntry } from './utils/expression-scope.js';
+export { getExpressionScope, getExpressionPickerContext } from './utils/expression-scope.js';
+export type {
+  ExpressionScopeEntry,
+  ExpressionPickerTarget,
+  ExpressionPickerRequest,
+  ExpressionPickerContext,
+  ExpressionMemberChoice
+} from './utils/expression-scope.js';
 
 export { getSourceComments } from './api/source-comments.js';
 export type { SourceComment } from './api/source-comments.js';
@@ -138,6 +148,7 @@ export type { AnnotationDefinitionIdentity } from './api/annotation-definitions.
 export {
   describeFunctionComposition,
   hasCompositionAnnotation,
+  getCompositionCallExpression,
   COMPOSITION_ANNOTATION,
   COMPOSITION_MODEL_SOURCE
 } from './api/function-composition.js';

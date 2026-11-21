@@ -6,7 +6,9 @@ import {
   parse,
   isRosettaFunction,
   getFunctionImplementationRegion,
+  getFunctionAliasInsertion,
   getExpressionRegions,
+  getExpressionRows,
   findExpressionOwner,
   serializeRuneModel,
   createRuneDslServices
@@ -29,6 +31,41 @@ const implementation = `
 const neighbor = '\n\nfunc Neighbor:\n  output:\n    result int (1..1)\n  set result: 7\n';
 
 describe('source regions', () => {
+  it('maps expression rows in grammar order with exact statement and CRLF offsets', async () => {
+    const source = (
+      header +
+      implementation.replace('set answer: increment', 'set answer -> amount: x + 1\n  add answer: x') +
+      neighbor
+    ).replaceAll('\n', '\r\n');
+    const { value, parserErrors } = await parse(source);
+    expect(parserErrors).toEqual([]);
+    const owner = value.elements.find(isRosettaFunction)!;
+    const rows = getExpressionRows(owner);
+    expect(rows.map((row) => row.kind)).toEqual(['alias', 'precondition', 'operation', 'operation', 'postcondition']);
+    const nested = rows[2]!;
+    expect(source.slice(nested.statement.from, nested.statement.to)).toBe('set answer -> amount: x + 1');
+    expect(source.slice(nested.region.from, nested.region.to)).toBe('x + 1');
+  });
+
+  it.each(['condition Positive: x > 0', 'set answer: x', 'post-condition Good: answer exists'])(
+    'inserts aliases before comments attached to %s',
+    async (statement) => {
+      const source = header + '  alias previous: x // alias comment\n  // statement comment\n  ' + statement + neighbor;
+      const { value } = await parse(source);
+      const owner = value.elements.find(isRosettaFunction)!;
+      const anchor = source.indexOf('// statement comment');
+      expect(getFunctionAliasInsertion(owner, source)).toEqual({ from: anchor, to: anchor });
+    }
+  );
+
+  it('places an alias after a signature-only function without touching the following declaration', async () => {
+    const source = header.trimEnd() + neighbor;
+    const { value } = await parse(source);
+    const owner = value.elements.find(isRosettaFunction)!;
+    const anchor = header.trimEnd().length;
+    expect(getFunctionAliasInsertion(owner, source)).toEqual({ from: anchor, to: anchor });
+  });
+
   it.each(['', ' output: result int (1..1)\n  set result: 1', ' /* body */'])(
     'protects the next declaration’s documentation after body %j',
     async (body) => {

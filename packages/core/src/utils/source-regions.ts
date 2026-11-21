@@ -3,9 +3,10 @@
 
 import type { Data, RosettaFunction, RosettaExpression, RosettaModel } from '../generated/ast.js';
 import type { Dehydrated } from '../serializer/dehydrated.js';
-import { CstUtils, isLeafCstNode } from 'langium';
+import { CstUtils, GrammarUtils, isLeafCstNode } from 'langium';
 import { namespaceFromModelName } from '../naming/namespace.js';
 import { selectNamespaceOverrideModels } from '../references/project-resolution.js';
+import { getSourceComments } from '../api/source-comments.js';
 
 export type SourceRegion = Readonly<{ from: number; to: number }>;
 export type ExpressionRegion = Readonly<{
@@ -13,6 +14,14 @@ export type ExpressionRegion = Readonly<{
   kind: 'alias' | 'precondition' | 'operation' | 'postcondition';
   index: number;
   expression: RosettaExpression | Dehydrated<RosettaExpression>;
+}>;
+export type ExpressionRow = ExpressionRegion & Readonly<{ statement: SourceRegion }>;
+export type ExpressionAddress = Readonly<{
+  root: SourceRegion;
+  path: string;
+  range: SourceRegion;
+  /** A missing positional argument is anchored at its containing call. */
+  argumentIndex?: number;
 }>;
 
 /** Owning document identity shared by parsed and serialized model consumers. */
@@ -83,6 +92,14 @@ export function getNodeSourceRegion(node: LocatedNode): SourceRegion {
   return { from: range.offset, to: range.end };
 }
 
+export function getExpressionOperatorRegion(node: RosettaExpression): SourceRegion | undefined {
+  const token =
+    node.$type === 'RosettaConditionalExpression'
+      ? GrammarUtils.findNodeForKeyword(node.$cstNode, 'if')
+      : GrammarUtils.findNodeForProperty(node.$cstNode, 'operator');
+  return token && { from: token.offset, to: token.end };
+}
+
 /** Implementation range excludes the signature and retains preceding body comments. */
 export function getFunctionImplementationRegion(
   func: RosettaFunction | Dehydrated<RosettaFunction>,
@@ -144,13 +161,13 @@ export function getFunctionImplementationRegion(
   return { from, to };
 }
 
-/** Root expressions in grammar order; indexes address their original owner arrays. */
-export function getExpressionRegions(
+/** Root expressions and statements in grammar order, in original file coordinates. */
+export function getExpressionRows(
   owner: Data | RosettaFunction | Dehydrated<Data> | Dehydrated<RosettaFunction>
-): readonly ExpressionRegion[] {
+): readonly ExpressionRow[] {
   const groups: [
     ExpressionRegion['kind'],
-    readonly { expression: RosettaExpression | Dehydrated<RosettaExpression> }[]
+    readonly (LocatedNode & { expression: ExpressionRegion['expression'] })[]
   ][] =
     owner.$type === 'RosettaFunction'
       ? [
@@ -161,6 +178,49 @@ export function getExpressionRegions(
         ]
       : [['precondition', owner.conditions]];
   return groups.flatMap(([kind, nodes]) =>
-    nodes.map(({ expression }, index) => ({ kind, index, expression, region: getNodeSourceRegion(expression) }))
+    nodes.map((node, index) => ({
+      kind,
+      index,
+      expression: node.expression,
+      region: getNodeSourceRegion(node.expression),
+      statement: getNodeSourceRegion(node)
+    }))
   );
+}
+
+/** Root expressions in grammar order; indexes address their original owner arrays. */
+export function getExpressionRegions(owner: Parameters<typeof getExpressionRows>[0]): readonly ExpressionRegion[] {
+  return getExpressionRows(owner).map(({ kind, index, expression, region }) => ({ kind, index, expression, region }));
+}
+
+/** Insert after aliases and before the first following statement's leading comments. */
+export function getFunctionAliasInsertion(
+  func: RosettaFunction | Dehydrated<RosettaFunction>,
+  source: string
+): SourceRegion {
+  const following = func.conditions[0] ?? func.operations[0] ?? func.postConditions[0];
+  const body = getFunctionImplementationRegion(func, source);
+  if (!following) return { from: body.to, to: body.to };
+  const next = getNodeSourceRegion(following).from;
+  const lastAlias = func.shortcuts.at(-1);
+  const from = lastAlias ? getNodeSourceRegion(lastAlias).to : body.from;
+  const leading = getSourceComments(source.slice(from, next)).find((comment) => {
+    const start = from + comment.offset;
+    const lineStart = source.lastIndexOf('\n', start - 1) + 1;
+    return !source.slice(lineStart, start).trim();
+  });
+  const offset = leading ? from + leading.offset : next;
+  return { from: offset, to: offset };
+}
+
+/** Format a statement insertion and locate its expression without rewriting the expression's bytes. */
+export function formatExpressionInsertion(source: string, from: number, header: string, expression: string) {
+  const line = source.lastIndexOf('\n', from - 1) + 1;
+  const before = source.slice(line, from);
+  const onOwnLine = !before.trim();
+  const indent = onOwnLine ? before : '    ';
+  const newline = source.includes('\r\n') ? '\r\n' : '\n';
+  const prefix = (onOwnLine ? '' : newline + indent) + header;
+  const suffix = /^(?:\r?\n|$)/.test(source.slice(from)) ? '' : newline + indent;
+  return { text: prefix + expression + suffix, expressionFrom: from + prefix.length };
 }

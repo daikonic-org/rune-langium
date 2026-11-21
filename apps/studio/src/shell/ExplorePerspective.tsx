@@ -88,6 +88,8 @@ import type { WorkspaceFile } from '../services/workspace.js';
 import type { RosettaModel } from '@rune-langium/core';
 import {
   getNodeSourceRegion,
+  getExpressionRegions,
+  isRosettaFunction,
   namespaceFromModelName,
   RuneDslTerminals,
   resolveNamespaceOverrides
@@ -156,6 +158,7 @@ import {
   usePrototypeNavigationStore
 } from '../services/prototype-navigation.js';
 import { resolveExploreNavigation, useExploreNavigationStore } from '../services/explore-navigation.js';
+import { useComposeNavigationStore } from '../store/compose-navigation-store.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 /**
@@ -2426,12 +2429,49 @@ export const ExplorePerspective = withInstrumentation(
       const fileExt = activeFile?.name.includes('.') ? `.${activeFile.name.split('.').pop()}` : null;
       const lineEnding = activeFile?.content.includes('\r\n') ? 'CRLF' : 'LF';
       const lineCount = activeFile?.content.split('\n').length ?? 0;
+      const model = parsedModels?.find(
+        (parsed) => parsed.filePath === activeFile?.path && parsed.source === activeFile?.content
+      )?.model;
+      const functions = model?.elements.filter(isRosettaFunction) ?? [];
+      const openCompose = () => {
+        if (!activeFile || !model) return;
+        const selection = sourceEditorRef.current?.readSelection?.(activeFile.path);
+        const declaration =
+          functions.find((func) => {
+            const region = getNodeSourceRegion(func);
+            return selection && region.from <= selection.from && region.to >= selection.to;
+          }) ?? (functions.length === 1 ? functions[0] : undefined);
+        if (!declaration || declaration.dispatchAttribute) return;
+        const nodeId = makeNodeId(namespaceFromModelName(model.name) ?? '', declaration.name, declaration.$type);
+        const expression = getExpressionRegions(declaration).find(
+          ({ region }) => selection && region.from <= selection.from && region.to >= selection.to
+        );
+        useComposeNavigationStore
+          .getState()
+          .requestSource(
+            inspectorScope,
+            nodeId,
+            expression && { root: expression.region, range: expression.region, path: '' }
+          );
+        navigateToNode(nodeId);
+        usePerspectiveStore.getState().setActivePerspective('compose');
+      };
       return (
         <div ref={sourcePaneRef} className="flex flex-col min-h-0 h-full">
           <div className="studio-source-meta" aria-label="Source file path">
             {fileExt && <span className="studio-source-meta__pill">{fileExt}</span>}
             <span className="studio-source-meta__path">{activeFile?.path ?? '—'}</span>
             <span className="studio-source-meta__spacer" />
+            {functions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={openCompose}
+                title="Open the function at the cursor in Compose"
+              >
+                Open in Compose
+              </Button>
+            )}
             {activeFile && !sourcePending && (
               <Button
                 variant="ghost"
@@ -2475,6 +2515,9 @@ export const ExplorePerspective = withInstrumentation(
     }, [
       sourceEditorFiles,
       hideSourceDocumentation,
+      parsedModels,
+      inspectorScope,
+      navigateToNode,
       workspaceId,
       sourceLoadError,
       activeEditorFile,
@@ -2543,7 +2586,16 @@ export const ExplorePerspective = withInstrumentation(
           key={`${workspaceId}:${props.nodeId}`}
           {...props}
           onOpenComposer={
-            composeActive ? undefined : () => usePerspectiveStore.getState().setActivePerspective('compose')
+            composeActive
+              ? undefined
+              : (target) => {
+                  if (selectedNodeData?.$type === 'RosettaFunction' && selectedNodeData.dispatchAttribute) {
+                    if (selectedSourceFilePath) requestSourceFile(selectedSourceFilePath);
+                    return;
+                  }
+                  useComposeNavigationStore.getState().requestSource(inspectorScope, props.nodeId, target);
+                  usePerspectiveStore.getState().setActivePerspective('compose');
+                }
           }
           sourceOwner={
             selectedNodeData?.$type === 'RosettaFunction' || selectedNodeData?.$type === 'Data'
@@ -2574,6 +2626,7 @@ export const ExplorePerspective = withInstrumentation(
       [
         workspaceId,
         composeActive,
+        inspectorScope,
         selectedNodeData,
         selectedExpressionFile,
         files,
@@ -2597,12 +2650,15 @@ export const ExplorePerspective = withInstrumentation(
             {...props}
             filePath={selectedExpressionFile?.path}
             files={files}
+            documents={expressionDocuments}
           />
         ) : props.target ? (
           <ExpressionWorkspace
             key={`${workspaceId}:${props.target.nodeId}:${props.target.kind}:${props.target.index}`}
             nodeId={props.target.nodeId}
             target={props.target}
+            inlineCondition
+            onEditingChange={props.onEditingChange}
             readOnly={Boolean(props.readOnly)}
             sourceOwner={
               selectedNodeData?.$type === 'RosettaFunction' || selectedNodeData?.$type === 'Data'

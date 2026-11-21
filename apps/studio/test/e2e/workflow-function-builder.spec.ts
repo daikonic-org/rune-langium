@@ -6,6 +6,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { test } from '../helpers/studio-test.js';
 import { projectBackingFiles, seedProjectBackingFiles } from '../helpers/project-backing.js';
 import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js';
+import { codeMirrorDocument } from '../helpers/source-editor.js';
 import { COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
 
 const source = `namespace workflow
@@ -19,6 +20,62 @@ func OptionalTotal:
  output: result number (1..1)
  set result: values sum
 `;
+
+for (const ending of ['LF', 'CRLF']) {
+  test(
+    'edits an ordinary function in Source and shares the draft and undo with Canvas (' + ending + ')',
+    async ({ page }) => {
+      const newline = ending === 'CRLF' ? '\r\n' : '\n';
+      const content = `namespace workflow
+type Note:
+ payout number (1..1)
+func Accrue:
+ inputs:
+  note Note (1..1)
+  fallbackPayout number (1..1)
+ output: result number (1..1)
+ // Keep the authored alias comment 😀
+ alias leg: fallbackPayout
+ condition Positive: leg >= 0
+ set result: leg
+`.replaceAll('\n', newline);
+      const composer = await openComposition(page, content);
+      await composer.getByRole('button', { name: 'Open Accrue workflow', exact: true }).click();
+      const row = composer.getByTestId('expression-row-alias-0');
+      await row.getByRole('button', { name: 'Edit fallbackPayout', exact: true }).click();
+      await page.getByRole('option', { name: /^note Note/ }).click();
+      await page.getByRole('option', { name: /^payout number/ }).click();
+      await expect(row.getByRole('button', { name: 'Edit note -> payout' })).toBeVisible();
+      expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+      const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
+      await views.getByRole('button', { name: 'Canvas', exact: true }).click();
+      const node = composer.locator('[data-composition-step="alias:leg"]');
+      await expect(node.getByRole('textbox', { name: 'leg expression', exact: true })).toHaveValue('note -> payout');
+      await node.getByRole('button', { name: 'Apply', exact: true }).click();
+      await composer.getByRole('button', { name: 'Save', exact: true }).click();
+      const edited = content.replace('alias leg: fallbackPayout', 'alias leg: note -> payout');
+      await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(edited);
+      const sourceView = views.getByRole('button', { name: 'Source', exact: true });
+      if ((await sourceView.getAttribute('aria-pressed')) !== 'true') await sourceView.click();
+      await row.getByRole('button', { name: 'Edit note -> payout', exact: true }).press('1');
+      await expect(composer.getByRole('button', { name: 'Undo expression edit', exact: true })).toHaveCount(0);
+      await row.getByRole('textbox', { name: 'Edit note -> payout', exact: true }).press('Escape');
+      await composer.getByRole('button', { name: 'Undo expression edit', exact: true }).click();
+      await composer.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+      await composer.getByRole('button', { name: '+ Expression', exact: true }).click();
+      const added = composer.getByTestId('expression-row-new');
+      await added.getByRole('textbox', { name: 'Alias name', exact: true }).fill('rate');
+      await added.getByRole('button', { name: 'Add expression', exact: true }).press('1');
+      await added.getByRole('textbox', { name: 'Add expression', exact: true }).press('Enter');
+      await added.getByRole('button', { name: 'Apply', exact: true }).click();
+      await composer.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect
+        .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+        .toBe(content.replace(' condition Positive:', ' alias rate: 1' + newline + ' condition Positive:'));
+    }
+  );
+}
 
 test('edits the shared Rune body, retains nested drafts and separates graph layout from source', async ({
   page
@@ -92,10 +149,7 @@ func SourceOnly:
   await scaled.getByRole('textbox', { name: 'scaled argument value', exact: true }).fill('value + 1');
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(composition);
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
-  const notice = composer.getByText('Callable as a step.', { exact: false });
-  await expect(notice).toHaveCSS('font-style', 'italic');
-  await expect(notice).toHaveCSS('font-family', /Daikonic Transit System/);
+  await expect(composer.getByTestId('expression-row-operation-0')).toBeVisible();
   const sourceView = composer.getByRole('toolbar', { name: 'Composition view' }).getByRole('button', {
     name: 'Source',
     exact: true
@@ -186,18 +240,22 @@ func SourceOnly:
   expect((await new AxeBuilder({ page }).include('.function-composer').analyze()).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('compose-canvas-light-hd.png') });
   await composer.getByRole('button', { name: 'Open SourceOnly workflow', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Source-only composition', exact: true })).toBeVisible();
-  await expect(composer.getByText(/one whole-output set/)).toBeVisible();
+  await expect(composer.getByRole('heading', { name: 'Source-only function', exact: true })).toBeVisible();
+  const notice = composer.getByText(/one whole-output set/);
+  await expect(notice).toBeVisible();
+  await expect(notice).toHaveCSS('font-style', 'italic');
+  await expect(notice).toHaveCSS('font-family', /Daikonic Transit System/);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
 });
 
-async function openComposition(page: Page, content: string, name?: string) {
+async function openComposition(page: Page, content: string, name?: string, extraFiles?: Record<string, string>) {
   await page.goto('./');
   await page
     .locator('input[type="file"][accept=".rosetta"]')
     .setInputFiles({ name: 'workflow.rosetta', mimeType: 'text/plain', buffer: Buffer.from(source) });
   await expect(page.getByTestId('explore-workbench')).toBeVisible();
   await seedProjectBackingFiles(page, {
+    ...extraFiles,
     'rune-config.yml': 'model: { name: Composition }\n',
     'build-config.yml': 'schemaVersion: 1\nsources: ["**/*.rosetta"]\ntargets: {}\n',
     'studio-config.yml': 'schemaVersion: 1\n',
@@ -212,9 +270,20 @@ async function openComposition(page: Page, content: string, name?: string) {
   await expect(retained).toHaveAttribute('inert');
   await expect(retained).toHaveCSS('opacity', '0');
   expect((await retained.boundingBox())!.width).toBeGreaterThan(0);
-  if (name) await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
+  if (name) {
+    await composer.getByRole('button', { name: `Open ${name} workflow`, exact: true }).click();
+    await showCanvas(composer);
+  }
   await dismissLocalTransportNotices(page);
   return composer;
+}
+
+async function showCanvas(composer: Locator) {
+  const views = composer.getByRole('toolbar', { name: 'Composition view', exact: true });
+  const canvas = views.getByRole('button', { name: 'Canvas', exact: true });
+  const source = views.getByRole('button', { name: 'Source', exact: true });
+  if ((await canvas.getAttribute('aria-pressed')) !== 'true') await canvas.click();
+  if ((await source.getAttribute('aria-pressed')) === 'true') await source.click();
 }
 
 test('resizes Compose side panels without editing source or replacing the canvas', async ({ page }, info) => {
@@ -294,6 +363,7 @@ test('resizes Compose side panels without editing source or replacing the canvas
   await page.getByTestId('rail-compose').click();
   await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
   await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
+  await showCanvas(composer);
   await page.setViewportSize({ width: 700, height: 900 });
   const showPalette = composer.getByRole('button', { name: 'Show palette', exact: true });
   await expect(showPalette).toBeVisible();
@@ -369,7 +439,7 @@ test('enters Compose before selecting a function and switches between ordinary f
     await expect(location).toHaveAttribute('title', `workflow / ${name}`);
     await expect(location.locator('[aria-current="location"]')).toContainText(name);
     await expect(header.getByRole('button', { name: 'New composition', exact: true })).toBeVisible();
-    await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
+    await expect(composer.getByTestId('expression-row-operation-0')).toBeVisible();
     const signature = composer.getByRole('tab', { name: 'Signature & details', exact: true });
     await signature.click();
     await expect(signature).toHaveAttribute('aria-selected', 'true');
@@ -418,9 +488,11 @@ func DoubleAgain:
   await again.focus();
   await again.press('Enter');
   await expect(again).toHaveAttribute('aria-current', 'true');
+  await showCanvas(composer);
   await expect(composer.locator('.composition-node')).toHaveCount(2);
   await twice.click();
   await expect(twice).toHaveAttribute('aria-current', 'true');
+  await showCanvas(composer);
   await expect(composer.locator('.composition-node')).toHaveCount(3);
   await expect(composer.getByRole('button', { name: 'Parent', exact: true })).toHaveCount(0);
 
@@ -724,21 +796,23 @@ func SavedCamera:
   expect(await settledCamera()).toBe(splitCamera);
 
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Ordinary Rune function', exact: true })).toBeVisible();
-  await composer.getByRole('button', { name: 'Parent', exact: true }).click();
+  const operation = composer.getByTestId('expression-row-operation-0');
+  await operation.getByRole('button', { name: 'Edit 2', exact: true }).press('9');
+  const parent = composer.getByRole('button', { name: 'Parent', exact: true });
+  await expect(parent).toBeDisabled();
+  await operation.getByRole('textbox', { name: 'Edit 2', exact: true }).press('Escape');
+  await parent.click();
   await expect(composer.locator('.composition-node')).toHaveCount(3);
   expect(await settledCamera()).toBe(splitCamera);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
 });
 
-test('replaces zero-argument calls with entered expressions and variable bindings', async ({ page }) => {
+test('edits zero-argument calls and variable bindings on an unannotated Canvas', async ({ page }) => {
   const content = `namespace workflow
-import rune.studio.*
 func Constant:
  output: result number (1..1)
  set result: 7
 func ReplaceConstant:
- [composition]
  inputs: value number (1..1)
  output: result number (1..1)
  set result: Constant()
@@ -752,23 +826,30 @@ func ReplaceConstant:
     await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
   };
   await output.getByRole('button', { name: 'Edit result expression', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit result expression', exact: true });
-  const textToggle = dialog.getByRole('button', { name: 'Text', exact: true });
-  if (await textToggle.isVisible()) await textToggle.click();
-  await dialog.getByRole('textbox', { name: 'Rune source editor', exact: true }).fill('value + 2');
+  const row = composer.getByTestId('expression-row-operation-0');
+  const spaced = content.replace('set result: Constant()', 'set result:   Constant()  ');
+  await row.getByRole('button', { name: 'Edit Constant()', exact: true }).click();
+  await page.getByRole('option', { name: 'Edit Rune', exact: true }).click();
+  const authored = '  value + 2  ';
+  await row.getByRole('textbox', { name: 'Rune source editor', exact: true }).fill(authored);
+  await row.getByRole('button', { name: 'Done', exact: true }).click();
+  await row.getByRole('button', { name: 'Edit value', exact: true }).click();
+  await page.getByRole('option', { name: /^value number/ }).click();
+  await row.getByRole('button', { name: 'Expression actions', exact: true }).click();
+  await expect(page.getByRole('option', { name: /^value number/ })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-  await expect(expression).toHaveValue('value + 2');
+  await showCanvas(composer);
+  await expect(expression).toHaveValue(authored);
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
-  await save(content.replace('set result: Constant()', 'set result: value + 2'));
+  await save(content.replace('set result: Constant()', 'set result: ' + authored));
   await expression.fill('Constant()');
-  await save(content);
+  await save(spaced);
   await expression.fill('value + 1');
   await expect(expression).toHaveValue('value + 1');
-  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
-  await save(content.replace('set result: Constant()', 'set result: value + 1'));
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(spaced);
+  await save(spaced.replace('Constant()', 'value + 1'));
   await expression.fill('Constant()');
-  await save(content);
+  await save(spaced);
   const tray = composer.getByRole('region', { name: 'Available variables', exact: true });
   await tray
     .locator('.composition-variable-tag')
@@ -776,7 +857,7 @@ func ReplaceConstant:
     .click();
   await output.getByRole('button', { name: 'Bind selected variable to result value', exact: true }).click();
   await expect(expression).toHaveValue('value');
-  await save(content.replace('set result: Constant()', 'set result: value'));
+  await save(spaced.replace('Constant()', 'value'));
   await expect(composer.getByRole('button', { name: 'Open Constant definition', exact: true })).toHaveCount(0);
 });
 
@@ -1106,17 +1187,14 @@ func Wiring:
   const scaled = node('alias:scaled');
   await connect('input:value', 'alias:scaled', 'argument:1');
   await expect(scaled.getByRole('combobox', { name: 'scaled argument right', exact: true })).toHaveValue('input:value');
-  await scaled.getByRole('combobox', { name: 'scaled right binding mode', exact: true }).selectOption('value');
   await scaled.getByRole('button', { name: 'Edit scaled right expression', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Edit scaled right expression', exact: true });
-  await expect(dialog.getByText('Changes stay in the node draft until you choose Apply.')).toBeVisible();
-  // Text mode uses the same CodeMirror editor and captured argument scope as the builder.
-  const textToggle = dialog.getByRole('button', { name: 'Text', exact: true });
-  if (await textToggle.isVisible()) await textToggle.click();
-  const editor = dialog.getByRole('textbox', { name: 'Rune source editor', exact: true });
+  const row = composer.getByTestId('expression-row-alias-0');
+  await expect(row.getByRole('button', { name: /^right argument/ })).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('option', { name: 'Edit Rune', exact: true }).click();
+  const editor = row.getByRole('textbox', { name: 'Rune source editor', exact: true });
   await editor.fill('value + 2');
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
+  await row.getByRole('button', { name: 'Done', exact: true }).click();
+  await showCanvas(composer);
   await expect(scaled.getByRole('textbox', { name: 'scaled argument right', exact: true })).toHaveValue('value + 2');
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(bound);
   await scaled.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -1129,4 +1207,177 @@ func Wiring:
   await expect(composer.getByRole('alert').filter({ hasText: 'cycle' })).toBeVisible();
   await expect(scaled.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('compose-wired-nodes.png') });
+});
+
+test('keeps the remaining arguments editable as an escaped call moves between Source and Canvas', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const content =
+    source +
+    `
+func ^type:
+ inputs:
+  left number (1..1)
+  right number (1..1)
+ output: result number (1..1)
+ set result: left + right
+`;
+  const composer = await openComposition(page, content, 'Double');
+  const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
+  await palette.getByRole('button', { name: 'Add type', exact: true }).click();
+  const draft = composer.locator('[data-composition-step="draft:new"]');
+  await draft.getByRole('button', { name: /^Edit .* left expression$/ }).click();
+  const row = composer.getByTestId('expression-row-new');
+  const left = row.getByRole('button', { name: 'left argument', exact: true });
+  await expect(left).toHaveText('left');
+  await expect(left).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('combobox', { name: 'Search values and primitives' }).fill('2');
+  await page.getByRole('option', { name: 'Use 2', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'right argument', exact: true })).toHaveText('right');
+  await expect(row.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await showCanvas(composer);
+  await expect(draft.getByRole('textbox', { name: / argument left$/ })).toHaveValue('2');
+  await draft.getByRole('textbox', { name: / argument right$/ }).fill('3');
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await draft.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toContain('alias step1: workflow.^type(2, 3)');
+});
+
+test('repairs one Source expression while an unrelated alias remains unresolved', async ({ page }) => {
+  const content =
+    source +
+    `
+func Repair:
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias unresolved: missingValue
+ alias stable: value + 1
+ set result: stable
+`;
+  const composer = await openComposition(page, content);
+  await composer.getByRole('button', { name: 'Open Repair workflow', exact: true }).click();
+  const row = composer.getByTestId('expression-row-alias-1');
+  await row.getByRole('button', { name: 'Edit 1', exact: true }).press('2');
+  const value = row.getByRole('textbox', { name: 'Edit 1', exact: true });
+  await value.fill('2 +');
+  await value.press('Enter');
+  await expect(row.getByRole('alert')).toContainText('Complete the Rune expression');
+  await expect(value).toBeFocused();
+  await expect(composer.getByRole('button', { name: 'Edit missingValue', exact: true })).toHaveCount(0);
+  await value.fill('2');
+  await value.press('Enter');
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(content.replace('alias stable: value + 1', 'alias stable: value + 2'));
+});
+
+test('retains a token draft when the raw source changes and lets the user cancel and discard it', async ({ page }) => {
+  const body = ' alias unresolved: missingValue\n alias stable: value + 1\n set result: stable';
+  const content =
+    source + '\nfunc Repair:\n inputs: value number (1..1)\n output: result number (1..1)\n' + body + '\n';
+  const composer = await openComposition(page, content);
+  await composer.getByRole('button', { name: 'Open Repair workflow', exact: true }).click();
+  const row = composer.getByTestId('expression-row-alias-1');
+  await row.getByRole('button', { name: 'Edit 1', exact: true }).press('2');
+  await row.getByRole('textbox', { name: 'Edit 1', exact: true }).press('Enter');
+  await row.getByRole('button', { name: 'Edit 2', exact: true }).press('3');
+  const token = row.getByRole('textbox', { name: 'Edit 2', exact: true });
+  await token.fill('345');
+  await composer.getByRole('button', { name: 'Edit Rune text', exact: true }).click();
+  const raw = composer.getByTestId('implementation-editor').locator('.cm-content');
+  await raw.press('ControlOrMeta+a');
+  await page.keyboard.insertText(body.replace('+ 1', '+ 4'));
+  const changed = content.replace('+ 1', '+ 4');
+  await expect.poll(() => codeMirrorDocument(raw)).toBe(changed);
+  await expect(token).toHaveValue('345');
+  await expect(row.getByRole('button', { name: 'Apply', exact: true })).toBeDisabled();
+  await token.press('Enter');
+  await expect(row.getByRole('alert')).toContainText('The source changed');
+  await token.press('Escape');
+  await row.getByRole('button', { name: 'Discard', exact: true }).click();
+  await expect(row.getByRole('button', { name: 'Edit 4', exact: true })).toBeEnabled();
+  expect(await codeMirrorDocument(raw)).toBe(changed);
+});
+
+test('browses a named lambda parameter inside a new alias draft', async ({ page }) => {
+  const content = `namespace workflow
+type PeriodBase:
+ endDate date (1..1)
+type Period extends PeriodBase:
+ rate number (1..1)
+func Select:
+ inputs: periods Period (0..*)
+ output: result Period (0..*)
+ set result: periods
+`;
+  const composer = await openComposition(page, content);
+  await composer.getByRole('button', { name: 'Open Select workflow', exact: true }).click();
+  await composer.getByRole('button', { name: '+ Expression', exact: true }).click();
+  const row = composer.getByTestId('expression-row-new');
+  await row.getByRole('textbox', { name: 'Alias name', exact: true }).fill('selected');
+  await row.getByRole('button', { name: 'Add expression', exact: true }).press('p');
+  const draft = row.getByRole('textbox', { name: 'Add expression', exact: true });
+  await draft.fill('periods filter p [p -> rate exists]');
+  await draft.press('Enter');
+  await row.getByRole('button', { name: 'Edit p -> rate', exact: true }).click();
+  await page.getByRole('option', { name: /^p\b.*Browse/ }).click();
+  await page.getByRole('option', { name: 'Use endDate', exact: true }).click();
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(content.replace(' set result:', ' alias selected: periods filter p [p -> endDate exists]\n set result:'));
+});
+
+test('the compact palette gives Source its full width after choosing a function or closing it', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const composer = await openComposition(page, source);
+  const show = composer.getByRole('button', { name: 'Show palette', exact: true });
+  await show.click();
+  await composer.getByRole('button', { name: 'Open Double workflow', exact: true }).click();
+  await expect(show).toBeVisible();
+  const row = composer.getByTestId('expression-row-operation-0');
+  const width = async () => (await row.boundingBox())?.width ?? 0;
+  await expect.poll(width).toBeGreaterThan(230);
+  await show.click();
+  await composer.getByRole('button', { name: 'Hide palette', exact: true }).click();
+  await expect.poll(width).toBeGreaterThan(230);
+});
+
+test('the Source palette binds the selected qualified function when escaped names collide', async ({ page }) => {
+  const content =
+    source.replace('func Double:', 'func ^type:').replace('version "1.0.0"', 'version "1.0.0"\nimport other.*') +
+    `
+func Work:
+ inputs: x number (1..1)
+ output: result number (1..1)
+ set result: x
+`;
+  const composer = await openComposition(page, content, undefined, {
+    'other.rosetta': `namespace other
+func ^type:
+ inputs: remote number (1..1)
+ output: result number (1..1)
+ set result: remote * 3
+`
+  });
+  await composer.getByRole('button', { name: 'Open Work workflow', exact: true }).click();
+  const row = composer.getByTestId('expression-row-operation-0');
+  await row.getByRole('button', { name: 'Edit x', exact: true }).click();
+  const remote = composer.getByRole('button', { name: 'Open type other', exact: true });
+  await remote.locator('xpath=../..').getByRole('button', { name: 'Add type', exact: true }).click();
+  await row.getByRole('button', { name: 'remote argument', exact: true }).click();
+  await expect(page.getByText('remote · number · (1..1)', { exact: true })).toBeVisible();
+  await page.getByRole('option', { name: /^x number/ }).click();
+  await row.getByRole('button', { name: 'Apply', exact: true }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toBe(content.replace('set result: x', 'set result: other.^type(x)'));
 });

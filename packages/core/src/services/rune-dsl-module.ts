@@ -49,7 +49,7 @@ export const RuneDslSharedModule: Module<LangiumSharedCoreServices, PartialLangi
  */
 export type RuneDslServices = LangiumCoreServices & {
   serializer: { JsonSerializer: RuneJsonSerializer };
-  references: { Linker: RuneDslLinker };
+  references: { Linker: RuneDslLinker; ScopeProvider: RuneDslScopeProvider };
 };
 
 /**

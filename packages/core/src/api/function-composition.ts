@@ -10,8 +10,13 @@ import type { RuneDslServices } from '../services/rune-dsl-module.js';
 import { getLinkedReferenceTarget } from './parse.js';
 import { qualifiedExportPath } from '../naming/qualified-export-path.js';
 import { getFunctionInputs, getFunctionOutput } from '../utils/expression-utils.js';
-import { toConstraintString } from '../utils/cardinality-utils.js';
-import { getNodeSourceRegion, getFunctionImplementationRegion, type SourceRegion } from '../utils/source-regions.js';
+import { cardinalityFits, toConstraintString } from '../utils/cardinality-utils.js';
+import {
+  getNodeSourceRegion,
+  getFunctionImplementationRegion,
+  getFunctionAliasInsertion,
+  type SourceRegion
+} from '../utils/source-regions.js';
 
 export const COMPOSITION_ANNOTATION = 'rune.studio.composition';
 /** A normal model dependency, installed with newly authored compositions. */
@@ -92,10 +97,15 @@ export function hasCompositionAnnotation(func: RosettaFunction): boolean {
   });
 }
 
+/** A step can expose a direct call or the call inside its extract body. */
+export function getCompositionCallExpression(expression: RosettaExpression) {
+  const candidate = expression.$type === 'MapOperation' ? expression.function?.body : expression;
+  return isRosettaSymbolReference(candidate) ? candidate : undefined;
+}
+
 export function describeFunctionComposition(func: RosettaFunction, services?: RuneDslServices): FunctionComposition {
   const optedIn = hasCompositionAnnotation(func);
   const result: FunctionComposition = { optedIn, supported: false, reasons: [], steps: [] };
-  if (!optedIn) return result;
   const reason = (message: string, node = func) => result.reasons.push({ message, region: getNodeSourceRegion(node) });
   if (func.dispatchAttribute) reason('Dispatch implementations stay in Source.');
   if (func.superFunction) reason('Inherited function bodies stay in Source.');
@@ -148,13 +158,10 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
         }
       }
     }
-    const callExpression = expression.$type === 'MapOperation' ? expression.function?.body : expression;
-    const target =
-      callExpression && isRosettaSymbolReference(callExpression)
-        ? getLinkedReferenceTarget(callExpression, callExpression.symbol)
-        : undefined;
+    const callExpression = getCompositionCallExpression(expression);
+    const target = callExpression ? getLinkedReferenceTarget(callExpression, callExpression.symbol) : undefined;
     const call: CompositionCall | undefined =
-      target && isRosettaFunction(target) && callExpression && isRosettaSymbolReference(callExpression)
+      target && isRosettaFunction(target) && callExpression
         ? {
             identity: qualifiedExportPath(target.$container.name, target.name),
             region: getNodeSourceRegion(callExpression),
@@ -227,7 +234,7 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
     step(`alias:${alias.name}`, alias.name, alias.expression, getNodeSourceRegion(alias));
   const operation = func.operations[0];
   if (operation) {
-    result.insertion = getNodeSourceRegion(func.conditions[0] ?? operation).from;
+    result.insertion = getFunctionAliasInsertion(func, AstUtils.getDocument(func).textDocument.getText()).from;
     step('return', func.output?.name ?? 'result', operation.expression, getNodeSourceRegion(operation), 'return');
   }
   if (func.shortcuts.length) {
@@ -277,8 +284,7 @@ export function describeFunctionComposition(func: RosettaFunction, services?: Ru
         const matches = inputs.filter(
           (input) =>
             getLinkedReferenceTarget(input.typeCall, input.typeCall.type) === sourceType &&
-            source.card.inf >= input.card.inf &&
-            (input.card.unbounded || (!source.card.unbounded && (source.card.sup ?? 1) <= (input.card.sup ?? 1)))
+            cardinalityFits(source.card, input.card)
         );
         if (matches.length) accepts[id] = matches.map((input) => input.name);
       }

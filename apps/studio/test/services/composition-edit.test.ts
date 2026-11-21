@@ -12,6 +12,7 @@ import {
   compositionReference,
   compositionInputText,
   compositionAliasEdit,
+  buildAliasEdit,
   compositionExpressionEdit,
   compositionArgumentsText,
   compositionCandidate,
@@ -39,6 +40,20 @@ it.each([
 
 it('refuses a connector edit against an incomplete expression', () => {
   expect(() => compositionInputText('values +', 'other')).toThrow('Complete the expression');
+});
+
+it('builds an alias at the captured boundary in an ordinary function', () => {
+  const source =
+    'namespace example\r\nfunc Owner:\r\n output: result number (1..1)\r\n // keep with set\r\n set result: 9\r\n';
+  const documents = new ExpressionDocument({
+    getGeneration: () => 1,
+    getFile: () => ({ path: 'owner', content: source }),
+    onContentChange: () => {}
+  });
+  const binding = documents.capture('owner', 'example.Owner#RosettaFunction', { from: 0, to: source.length })!;
+  const from = source.indexOf('// keep');
+  const edit = buildAliasEdit(binding, { from, to: from }, 'extra', '1 + 2');
+  expect(compositionCandidate(binding, [edit])).toBe(source.replace('// keep', 'alias extra: 1 + 2\r\n // keep'));
 });
 
 it.each(['\n', '\r\n'])(
@@ -211,4 +226,5 @@ it('uses canonical Rune spelling for escaped variable names instead of pasting t
   expect(compositionReference('first')).toBe('^first');
   expect(compositionReference('item')).toBe('^item');
   expect(compositionReference('^first')).toBe('^first');
+  expect(compositionReference('example.type')).toBe('example.^type');
 });

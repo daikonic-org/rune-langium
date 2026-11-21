@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 import {
-  isRosettaSymbolReference,
+  EXPRESSION_DRAFT_HOLE,
+  formatExpressionInsertion,
   getSourceComments,
   getNodeSourceRegion,
   parseExpression,
+  parseExpressionDraft,
   type FunctionComposition,
   type SourceRegion
 } from '@rune-langium/core';
+import { escapeRuneIdentifier } from '@rune-langium/core/rune-identifiers';
 import { withInstrumentation } from './instrumentation/core.js';
 import type { DocumentBinding, DocumentEdit } from './expression-document.js';
 import { minimalDocumentChange } from '../lang/document-extensions.js';
@@ -15,28 +18,31 @@ import { minimalDocumentChange } from '../lang/document-extensions.js';
 /** A collection connector replaces its operand, retaining the operator, lambda and authored trivia. */
 export const compositionInputText = withInstrumentation(
   function compositionInputText(expression: string, reference: string): string {
-    const parsed = parseExpression(expression);
+    const { parsed } = parseExpressionDraft(expression);
     if (parsed.hasErrors) throw new Error('Complete the expression before connecting its input.');
     const value = parsed.value;
     const operand = 'argument' in value ? value.argument : value.$type === 'DefaultOperation' ? value.left : undefined;
     if (!operand) return reference;
     const region = getNodeSourceRegion(operand);
     const replacement = expression.slice(0, region.from) + reference + expression.slice(region.to);
-    if (parseExpression(replacement).hasErrors) throw new Error('Open the expression editor to bind this input.');
+    if (parseExpressionDraft(replacement).parsed.hasErrors)
+      throw new Error('Open the expression editor to bind this input.');
     return replacement;
   },
   { op: 'compositionInputText', capture: 0 }
 );
 
-/** Core's parser decides when a display name needs Rune's identifier escape. */
-export const compositionReference = withInstrumentation(
-  function compositionReference(name: string): string {
-    const parsed = parseExpression(name);
-    return !parsed.hasErrors && isRosettaSymbolReference(parsed.value) && !parsed.value.explicitArguments
-      ? name
-      : `^${name}`;
+export const compositionReference = withInstrumentation(escapeRuneIdentifier, {
+  op: 'compositionReference',
+  capture: 0
+});
+
+export const compositionCallText = withInstrumentation(
+  function compositionCallText(name: string, values: readonly string[]): string {
+    const args = values.map((value) => value || EXPRESSION_DRAFT_HOLE).join(', ');
+    return `${compositionReference(name)}(${args})`;
   },
-  { op: 'compositionReference', capture: 0 }
+  { op: 'compositionCallText', capture: 0 }
 );
 
 /** Compose independent exact edits against one capture; no writes happen during preparation. */
@@ -124,7 +130,7 @@ export const compositionBindingCycle = withInstrumentation(
 /** Replace only argument bytes, retaining the authored call spelling and surrounding trivia. */
 export const compositionArgumentsText = withInstrumentation(
   function compositionArgumentsText(
-    binding: DocumentBinding,
+    binding: Pick<DocumentBinding, 'source'>,
     region: SourceRegion,
     arguments_: readonly { region: SourceRegion; value: string }[]
   ): string {
@@ -166,6 +172,25 @@ export const compositionExpressionEdit = withInstrumentation(
   { op: 'compositionExpressionEdit', capture: 0 }
 );
 
+export const buildAliasEdit = withInstrumentation(
+  function buildAliasEdit(
+    binding: DocumentBinding,
+    insertion: SourceRegion,
+    name: string,
+    expression: string
+  ): DocumentEdit {
+    const identifier = parseExpression(name);
+    if (!/^[A-Za-z_]\w*$/.test(name) || identifier.hasErrors || identifier.value.$type !== 'RosettaSymbolReference')
+      throw new Error('Enter a Rune identifier for the step.');
+    const edit = compositionExpressionEdit(binding, insertion, expression);
+    return {
+      ...edit,
+      replacement: formatExpressionInsertion(binding.source, insertion.from, `alias ${name}: `, edit.replacement).text
+    };
+  },
+  { op: 'buildAliasEdit', capture: 0 }
+);
+
 export const compositionAliasEdit = withInstrumentation(
   function compositionAliasEdit(
     binding: DocumentBinding,
@@ -175,21 +200,9 @@ export const compositionAliasEdit = withInstrumentation(
   ): DocumentEdit {
     if (!composition.supported || composition.insertion === undefined)
       throw new Error('This body must be edited in Source.');
-    const identifier = parseExpression(name);
-    if (!/^[A-Za-z_]\w*$/.test(name) || identifier.hasErrors || identifier.value.$type !== 'RosettaSymbolReference')
-      throw new Error('Enter a Rune identifier for the step.');
     if (composition.steps.some((step) => step.name === name))
       throw new Error('This name is already used in the function.');
-    const from = composition.insertion;
-    const line = binding.source.lastIndexOf('\n', from - 1) + 1;
-    const before = binding.source.slice(line, from);
-    const indent = /^\s*$/.test(before) ? before : '    ';
-    const edit = compositionExpressionEdit(binding, { from, to: from }, expression);
-    const newline = binding.source.includes('\r\n') ? '\r\n' : '\n';
-    return {
-      ...edit,
-      replacement: `${before.trim() ? newline + indent : ''}alias ${name}: ${edit.replacement}${newline}${indent}`
-    };
+    return buildAliasEdit(binding, { from: composition.insertion, to: composition.insertion }, name, expression);
   },
   { op: 'compositionAliasEdit', capture: 0 }
 );

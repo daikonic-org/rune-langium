@@ -2,8 +2,217 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { describe, it, expect } from 'vitest';
-import { getExpressionRegions, COMPOSITION_MODEL_SOURCE } from '@rune-langium/core';
+import {
+  getExpressionRegions,
+  getNodeSourceRegion,
+  parseExpressionDraft,
+  COMPOSITION_MODEL_SOURCE
+} from '@rune-langium/core';
 import { createParserWorkerHarness } from './parser-worker-harness.js';
+
+it('browses inherited and collection members with Rune keyword escapes in a scalar argument slot', async () => {
+  const worker = createParserWorkerHarness();
+  const uri = 'file:///markets.rosetta';
+  const source = `namespace markets
+type MarketDates:
+ ^type date (1..1)
+type Market extends MarketDates:
+ quotes Quote (1..*)
+type Quote:
+ maturityDate date (1..1)
+func ReadDate:
+ inputs: dateValue date (1..1)
+ output: result date (1..1)
+ set result: dateValue
+func UseMarket:
+ inputs:
+  ^default Market (1..1)
+  inputDate date (1..1)
+ output: result date (1..1)
+ set result: ReadDate(inputDate)
+`;
+  const files = [
+    { name: uri, content: source },
+    { name: 'file:///basic-types.rosetta', content: 'namespace com.rosetta.model\nbasicType date\n' }
+  ];
+  const parsed = await worker.send({ type: 'parseWorkspace', id: 'markets', files });
+  if (parsed.type !== 'parseWorkspaceResult') throw new Error('fixture response');
+  expect(parsed.errors[uri] ?? []).toEqual([]);
+  const owner = parsed.models[0]!.elements.find((element) => element.name === 'UseMarket')!;
+  if (owner.$type !== 'RosettaFunction') throw new Error('fixture function');
+  const call = owner.operations[0]!.expression;
+  if (call.$type !== 'RosettaSymbolReference') throw new Error('fixture call');
+  const root = getNodeSourceRegion(call);
+  const target = { root, path: '/rawArgs@0', range: getNodeSourceRegion(call.rawArgs[0]!) };
+  const browse = async (trail: string[], path = target.path) => {
+    const response = await worker.send({
+      type: 'expressionScope',
+      id: 'markets-picker',
+      uri,
+      name: 'UseMarket',
+      picker: { target: { ...target, path }, trail }
+    });
+    if (response.type !== 'expressionScopeResult') throw new Error('fixture response');
+    return response;
+  };
+  const initial = await browse([]);
+  expect(initial.error).toBeUndefined();
+  const market = initial.picker?.entries.find((entry) => entry.name === 'default');
+  const first = await browse([market!.declarationId]);
+  expect(first.error).toBeUndefined();
+  expect(first.picker?.members).toContainEqual(
+    expect.objectContaining({
+      name: 'type',
+      expressionText: '^default -> ^type',
+      cardinality: '(1..1)',
+      compatibility: 'compatible'
+    })
+  );
+  expect(market).toMatchObject({ canBrowse: true, referenceText: '^default' });
+  const quotes = first.picker?.members.find((entry) => entry.name === 'quotes');
+  expect(quotes).toMatchObject({ canBrowse: true });
+  const second = await browse([market!.declarationId, quotes!.declarationId]);
+  expect(second.picker?.members).toContainEqual(
+    expect.objectContaining({
+      expressionText: '^default -> quotes -> maturityDate',
+      cardinality: '(1..*)',
+      compatibility: 'incompatible'
+    })
+  );
+  expect((await browse([market!.declarationId, 'unlinked'])).error).toMatch(/member path changed/);
+  expect((await browse([], '/receiver')).error).toMatch(/source changed/);
+  const missingRoot = { from: root.from, to: root.to - 'inputDate'.length };
+  const missing = await worker.send({
+    type: 'expressionScope',
+    id: 'markets-missing-argument',
+    uri,
+    name: 'UseMarket',
+    files,
+    picker: {
+      target: { root: missingRoot, path: '', range: missingRoot, argumentIndex: 0 },
+      trail: [market!.declarationId, quotes!.declarationId],
+      candidateSource: source.replace('ReadDate(inputDate)', 'ReadDate()')
+    }
+  });
+  if (missing.type !== 'expressionScopeResult') throw new Error('fixture response');
+  expect(missing.error).toBeUndefined();
+  expect(missing.picker?.members).toContainEqual(
+    expect.objectContaining({ name: 'maturityDate', compatibility: 'incompatible' })
+  );
+});
+
+it('offers every earlier alias at a new alias insertion point', async () => {
+  const worker = createParserWorkerHarness();
+  const uri = 'file:///aliases.rosetta';
+  const source = `namespace example
+func Owner:
+ inputs: value number (1..1)
+ output: result number (1..1)
+ alias earlier: value + 1
+ alias later: earlier * 2
+ set result: later
+`;
+  const files = [{ name: uri, content: source }];
+  const result = await worker.send({
+    type: 'expressionScope',
+    id: 'new-alias-scope',
+    uri,
+    name: 'Owner',
+    kind: 'RosettaFunction',
+    files,
+    picker: { target: { draftAlias: true }, trail: [] }
+  });
+  if (result.type !== 'expressionScopeResult') throw new Error('fixture response');
+  expect(result.error).toBeUndefined();
+  expect(result.entries.filter(({ kind }) => kind === 'alias').map(({ name }) => name)).toEqual(
+    expect.arrayContaining(['earlier', 'later'])
+  );
+});
+
+it.each(['alias', 'precondition', 'postcondition'] as const)(
+  'links a nested %s draft picker and restores the captured documents',
+  async (kind) => {
+    const worker = createParserWorkerHarness();
+    const uri = 'file:///lambda-draft.rosetta';
+    const source = `namespace draft.lambda
+type Period:
+ endDate date (1..1)
+type Schedule:
+ periods Period (0..*)
+func Owner:
+ inputs: periods Period (0..*)
+ output: result Period (0..*)
+ alias earlier: periods
+ condition Ready: periods exists
+ set result: earlier
+ post-condition Finished: result exists
+func Neighbor:
+ inputs: value date (1..1)
+ output: result date (1..1)
+ set result: value
+`.replaceAll('\n', '\r\n');
+    const files = [
+      { name: uri, content: source },
+      { name: 'file:///types.rosetta', content: 'namespace com.rosetta.model\nbasicType date\n' }
+    ];
+    const parsed = await worker.send({ type: 'parseWorkspace', id: 'lambda-drafts', files });
+    if (parsed.type !== 'parseWorkspaceResult') throw new Error('fixture response');
+    const neighbor = parsed.models[0]?.elements.find((entry) => entry.name === 'Neighbor');
+    if (neighbor?.$type !== 'RosettaFunction') throw new Error('fixture neighbor');
+    const existing = getExpressionRegions(neighbor)[0];
+    if (!existing) throw new Error('fixture expression');
+    const local = kind === 'alias' ? 'p' : 'item';
+    const draftSource =
+      kind === 'alias'
+        ? ' periods filter p [p -> endDate exists] '
+        : ` (${kind === 'postcondition' ? 'result' : 'periods'} filter [item -> endDate exists]) exists `;
+    const { value } = parseExpressionDraft(draftSource).parsed;
+    const filter = value.$type === 'RosettaExistsExpression' ? value.argument : value;
+    if (filter?.$type !== 'FilterOperation' || !filter.function?.body) throw new Error('fixture filter');
+    const creation = kind === 'alias' ? { draftAlias: true as const } : { draftCondition: kind };
+    const draftAddress = {
+      root: getNodeSourceRegion(value),
+      path: (kind === 'alias' ? '' : '/argument') + '/function/body',
+      range: getNodeSourceRegion(filter.function.body)
+    };
+    const browse = async (trail: string[], path = draftAddress.path) => {
+      const result = await worker.send({
+        type: 'expressionScope',
+        id: `browse-${kind}`,
+        uri,
+        name: kind === 'precondition' ? 'Schedule' : 'Owner',
+        kind: kind === 'precondition' ? 'Data' : 'RosettaFunction',
+        files,
+        picker: { target: { ...creation, draftAddress: { ...draftAddress, path } }, draftSource, trail }
+      });
+      if (result.type !== 'expressionScopeResult') throw new Error('fixture scope');
+      return result;
+    };
+    const initial = await browse([]);
+    expect(initial.error).toBeUndefined();
+    const parameter = initial.entries.find((entry) => entry.name === local);
+    expect(parameter).toMatchObject({ kind: 'local', canBrowse: true });
+    if (!parameter) throw new Error('picker local');
+    const members = await browse([parameter.declarationId]);
+    expect(members.error).toBeUndefined();
+    expect(members.picker?.members).toContainEqual(
+      expect.objectContaining({ name: 'endDate', expressionText: `${local} -> endDate` })
+    );
+    expect((await browse([], '/argument')).error).toMatch(/source changed/);
+    const restored = await worker.send({
+      type: 'expressionScope',
+      id: 'restored-neighbor',
+      uri,
+      name: 'Neighbor',
+      kind: 'RosettaFunction',
+      region: existing.region
+    });
+    if (restored.type !== 'expressionScopeResult') throw new Error('fixture scope');
+    expect(restored.error).toBeUndefined();
+    expect(restored.entries).toContainEqual(expect.objectContaining({ name: 'value', kind: 'input' }));
+    expect(restored.entries.some((entry) => entry.name.startsWith('_studioDraft'))).toBe(false);
+  }
+);
 
 it('classifies compositions through the serialized parse/link transaction, including a shadowed marker', async () => {
   const worker = createParserWorkerHarness();
@@ -29,7 +238,7 @@ it('classifies compositions through the serialized parse/link transaction, inclu
     if (result.type !== 'expressionScopeResult') throw new Error('fixture response');
     expect(result.error).toBeUndefined();
     expect(result.composition?.optedIn).toBe(namespace === 'rune.studio');
-    expect(result.composition?.supported).toBe(namespace === 'rune.studio');
+    expect(result.composition?.supported).toBe(true);
   }
 });
 

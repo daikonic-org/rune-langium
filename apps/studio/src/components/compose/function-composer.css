@@ -285,14 +285,6 @@
   flex-shrink: 0;
   transform: none;
 }
-.composition-expression-dialog {
-  max-width: min(64rem, calc(100vw - 2rem));
-  max-height: calc(100dvh - 2rem);
-  overflow: auto;
-}
-.composition-expression-dialog .expression-code-editor {
-  min-height: 16rem;
-}
 .composition-node__argument-label {
   color: var(--muted-foreground);
   font-size: var(--text-2xs);

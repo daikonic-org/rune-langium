@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
-import { act, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import type { CompositionStep, FunctionComposition } from '@rune-langium/core';
+import { parse, type CompositionStep, type FunctionComposition } from '@rune-langium/core';
 import type { NodeBindingActions } from '../../src/components/compose/CompositionNode.js';
 import { FunctionComposer } from '../../src/components/compose/FunctionComposer.js';
 import { ExpressionDocument } from '../../src/services/expression-document.js';
@@ -11,7 +11,8 @@ const harness = vi.hoisted((): { actions: NodeBindingActions | null } => ({ acti
 const describeComposition = vi.hoisted(() => vi.fn());
 vi.mock('../../src/services/workspace.js', async (original) => ({
   ...(await original<typeof import('../../src/services/workspace.js')>()),
-  requestFunctionComposition: describeComposition
+  requestFunctionComposition: describeComposition,
+  requestExpressionScope: vi.fn(async () => [])
 }));
 vi.mock('../../src/components/compose/CompositionCanvas.js', async () => {
   const { useContext } = await import('react');
@@ -29,9 +30,9 @@ const actions = () => {
   return harness.actions;
 };
 
-it.each([true, false])(
-  'keeps nested call arguments editable across a collection rebind (argument first: %s)',
-  async (argumentFirst) => {
+it.each(['Canvas argument', 'collection', 'Source argument'])(
+  'keeps nested call arguments editable across a collection rebind (starting with %s)',
+  async (firstEdit) => {
     harness.actions = null;
     const expression = 'values /* keep collection trivia */ extract [Double( item )]';
     const source = `namespace example
@@ -80,19 +81,21 @@ func Owner:
     const file = { path: 'model/owner.rosetta', name: 'owner.rosetta', content: source, dirty: false };
     const onContentChange = vi.fn();
     const documents = new ExpressionDocument({ getGeneration: () => 1, getFile: () => file, onContentChange });
+    const parsed = await parse(source);
+    expect(parsed.parserErrors).toEqual([]);
     render(
       <FunctionComposer
-        workspaceKey={`collection-binding-${argumentFirst}`}
+        workspaceKey={`collection-binding-${firstEdit}`}
         models={[]}
         active
         inspector={null}
         onNavigate={vi.fn()}
         onSave={vi.fn(async () => {})}
-        saveLabel="Saved"
         editor={{
           nodeId: 'example.Owner#RosettaFunction',
           file,
           parseCurrent: true,
+          parsed: { filePath: file.path, source, model: parsed.value },
           documents,
           dependencySnapshot: [file],
           onContentChange,
@@ -100,9 +103,19 @@ func Owner:
         }}
       />
     );
+    fireEvent.click(await screen.findByRole('button', { name: 'Canvas', exact: true }));
     await waitFor(() => expect(actions().writable).toBe(true));
-    if (argumentFirst) act(() => actions().argument(step, 0, 'item + 1'));
+    if (firstEdit === 'Canvas argument') act(() => actions().argument(step, 0, 'item + 1'));
+    if (firstEdit === 'Source argument') {
+      fireEvent.keyDown(await screen.findByRole('button', { name: 'Edit item', exact: true }), { key: 'i' });
+      fireEvent.change(screen.getByRole('textbox', { name: 'Edit item', exact: true }), {
+        target: { value: 'item + 1' }
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
+      expect(actions().expression(step)).toBe('values /* keep collection trivia */ extract [Double( item + 1 )]');
+    }
     act(() => actions().value(step, 'replacement', 'input:replacement'));
+    act(() => actions().argument(step, 0, '['));
     act(() => actions().argument(step, 0, 'item + 2'));
     expect(actions().arguments(step)[0]?.value).toBe('item + 2');
     expect(actions().expression(step)).toBe('replacement /* keep collection trivia */ extract [Double( item + 2 )]');

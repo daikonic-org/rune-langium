@@ -9,6 +9,8 @@
 
 import {
   type ExpressionScopeEntry,
+  type ExpressionPickerContext,
+  type ExpressionPickerRequest,
   type FunctionComposition,
   type SourceRegion,
   parse,
@@ -1273,6 +1275,36 @@ export const requestExpressionScope = withInstrumentation(
   { op: 'requestExpressionScope' }
 );
 
+const expressionPickerRequests = new WeakMap<readonly WorkspaceFile[], Map<string, Promise<ExpressionPickerContext>>>();
+
+/** Share identical reads only while the request owns the captured dependency snapshot. */
+export const requestExpressionPickerContext = withInstrumentation(
+  function requestExpressionPickerContext(
+    uri: string,
+    nodeId: string,
+    picker: ExpressionPickerRequest,
+    files: readonly WorkspaceFile[]
+  ): Promise<ExpressionPickerContext> {
+    let requests = expressionPickerRequests.get(files);
+    if (!requests) {
+      requests = new Map();
+      expressionPickerRequests.set(files, requests);
+    }
+    const key = JSON.stringify([uri, nodeId, picker]);
+    const previous = requests.get(key);
+    if (previous) return previous;
+    const pending = requestFunctionContext(uri, nodeId, { picker }, files)
+      .then((response) => {
+        if (!response.picker) throw new Error('Expression picker scope is unavailable.');
+        return response.picker;
+      })
+      .finally(() => requests.delete(key));
+    requests.set(key, pending);
+    return pending;
+  },
+  { op: 'requestExpressionPickerContext', capture: 0 }
+);
+
 /** The same serialized parse/link transaction supplies both scope and composition facts. */
 export const requestFunctionComposition = withInstrumentation(
   async function requestFunctionComposition(
@@ -1300,6 +1332,7 @@ async function requestFunctionContext(
   target:
     | SourceRegion
     | { draftCondition: 'precondition' | 'postcondition' }
+    | { picker: ExpressionPickerRequest }
     | { composition: true; compositionCallables?: boolean; compositionCandidate?: string },
   files?: readonly WorkspaceFile[]
 ): Promise<ExpressionScopeResponse> {
