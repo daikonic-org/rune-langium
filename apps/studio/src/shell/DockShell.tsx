@@ -23,6 +23,7 @@
  * assertions remain reachable.
  */
 
+import { useWorkbenchLocation } from './WorkbenchChrome.js';
 import { recordOperation } from '../services/operation-feedback.js';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
@@ -213,44 +214,7 @@ export const DockShell = withInstrumentation(
     const showToastRef = useLatestRef(showToast);
     const apiRef = useRef<DockviewApi | null>(null);
     const shellRef = useRef<HTMLDivElement>(null);
-    const watchLocationLayoutRef = useRef<(api: DockviewApi) => void>(() => {});
-    useEffect(() => {
-      const shell = shellRef.current;
-      if (!shell) return;
-      let center: Element | null = null;
-      const update = () => {
-        const next = shell.querySelector('[data-testid="studio-paneswitch"]');
-        if (!next) return;
-        if (center !== next) {
-          if (center) observer.unobserve(center);
-          observer.observe(next);
-          center = next;
-        }
-        const rect = next.getBoundingClientRect();
-        if (rect.width > 0)
-          shell.style.setProperty(
-            '--rune-center-stack-start',
-            `${Math.max(0, rect.left - shell.getBoundingClientRect().left)}px`
-          );
-      };
-      const observer = new ResizeObserver(update);
-      observer.observe(shell);
-      let listener: { dispose(): void } | undefined;
-      watchLocationLayoutRef.current = (api) => {
-        listener?.dispose();
-        listener = api.onDidLayoutChange(update);
-        update();
-      };
-      if (apiRef.current) watchLocationLayoutRef.current(apiRef.current);
-      const frame = requestAnimationFrame(update);
-      return () => {
-        cancelAnimationFrame(frame);
-        observer.disconnect();
-        listener?.dispose();
-        watchLocationLayoutRef.current = () => {};
-        shell.style.removeProperty('--rune-center-stack-start');
-      };
-    }, []);
+    const watchLocationLayout = useWorkbenchLocation(shellRef, '[data-testid="studio-paneswitch"]');
     const suppressLayoutPersistenceRef = useRef(false);
     const onLayoutChangeRef = useLatestRef(onLayoutChange);
 
@@ -380,22 +344,25 @@ export const DockShell = withInstrumentation(
       setUtilitiesCollapsedState(fresh.dockview?.shape === 'factory' ? fresh.dockview.bottomGroup.collapsed : false);
     }, []);
 
-    const handleWorkbenchReady = useCallback((api: DockviewApi) => {
-      apiRef.current = api;
-      watchLocationLayoutRef.current(api);
-      applyPanelTabMeta(api, panelTabMetaRef.current);
-      const currentLayout = restoredDefaultRef.current ?? layoutRef.current;
-      if (currentLayout.dockview?.shape === 'factory') {
-        setUtilitiesCollapsedState(currentLayout.dockview.bottomGroup.collapsed);
-      } else {
-        const bottomGroup = api.panels.find((panel) => UTILITY_PANEL_IDS.has(panel.api.component))?.group;
-        if (bottomGroup) {
-          bottomGroup.api.setConstraints({ minimumHeight: COLLAPSED_UTILITY_HEIGHT });
-          setUtilitiesCollapsedState(bottomGroup.api.height <= COLLAPSED_UTILITY_HEIGHT + 8);
+    const handleWorkbenchReady = useCallback(
+      (api: DockviewApi) => {
+        apiRef.current = api;
+        watchLocationLayout(api);
+        applyPanelTabMeta(api, panelTabMetaRef.current);
+        const currentLayout = restoredDefaultRef.current ?? layoutRef.current;
+        if (currentLayout.dockview?.shape === 'factory') {
+          setUtilitiesCollapsedState(currentLayout.dockview.bottomGroup.collapsed);
+        } else {
+          const bottomGroup = api.panels.find((panel) => UTILITY_PANEL_IDS.has(panel.api.component))?.group;
+          if (bottomGroup) {
+            bottomGroup.api.setConstraints({ minimumHeight: COLLAPSED_UTILITY_HEIGHT });
+            setUtilitiesCollapsedState(bottomGroup.api.height <= COLLAPSED_UTILITY_HEIGHT + 8);
+          }
         }
-      }
-      onLayoutChangeRef.current?.(currentLayout);
-    }, []);
+        onLayoutChangeRef.current?.(currentLayout);
+      },
+      [watchLocationLayout]
+    );
 
     const suppressLayoutPersistence = useCallback((work: () => void) => {
       suppressLayoutPersistenceRef.current = true;

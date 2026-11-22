@@ -1,9 +1,52 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 
-import type { ComponentType, ReactNode, SVGProps } from 'react';
+import { useEffect, useState, type ComponentType, type ReactNode, type RefObject, type SVGProps } from 'react';
+import type { DockviewApi } from 'dockview-react';
 import { ButtonLabel } from '@rune-langium/design-system/ui/button';
 import { withInstrumentation } from '../services/instrumentation/core.js';
+
+function observeWorkbenchLocation(api: DockviewApi, shell: HTMLElement, selector: string) {
+  let center: Element | null = null;
+  const update = () => {
+    const next = shell.querySelector(selector);
+    if (center !== next) {
+      if (center) observer.unobserve(center);
+      if (next) observer.observe(next);
+      center = next;
+    }
+    const rect = center?.getBoundingClientRect();
+    if (rect?.width)
+      shell.style.setProperty(
+        '--rune-center-stack-start',
+        `${Math.max(0, rect.left - shell.getBoundingClientRect().left)}px`
+      );
+  };
+  const observer = new ResizeObserver(update);
+  observer.observe(shell);
+  const listener = api.onDidLayoutChange(update);
+  const frame = requestAnimationFrame(update);
+  update();
+  return () => {
+    cancelAnimationFrame(frame);
+    observer.disconnect();
+    listener.dispose();
+    shell.style.removeProperty('--rune-center-stack-start');
+  };
+}
+
+/** Keep the breadcrumb aligned with the center dock group as the layout moves. */
+export const useWorkbenchLocation = withInstrumentation(
+  function useWorkbenchLocation(shellRef: RefObject<HTMLElement | null>, selector: string) {
+    const [api, setApi] = useState<DockviewApi>();
+    useEffect(() => {
+      const shell = shellRef.current;
+      if (api && shell) return observeWorkbenchLocation(api, shell, selector);
+    }, [api, selector, shellRef]);
+    return setApi;
+  },
+  { op: 'useWorkbenchLocation', capture: 0 }
+);
 
 interface WorkbenchView {
   id: string;

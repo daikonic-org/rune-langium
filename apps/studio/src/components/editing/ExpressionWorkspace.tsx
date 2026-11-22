@@ -65,11 +65,12 @@ export interface ExpressionWorkspaceProps {
   onContentChange(path: string, fullSource: string): void;
   onOpenSource(): void;
   onOpenComposer?(target?: ExpressionAddress): void;
-  inlineRune?: ReactNode;
+  inlineRune?: { content: ReactNode; hidden: boolean; onHiddenChange(hidden: boolean): void };
   inlineCondition?: boolean;
   onEditingChange?: ExpressionEditorSlotProps['onEditingChange'];
   onRuneView?(view: EditorView): void;
   onRuneHover?(offset?: number): void;
+  onRuneSelect?(range: SourceRegion, view: EditorView): void;
   lspClient?: LspClientService;
   lspReady?: boolean;
   sourceError?: string;
@@ -102,6 +103,7 @@ export const ExpressionWorkspace = withInstrumentation(
     onEditingChange,
     onRuneView,
     onRuneHover,
+    onRuneSelect,
     lspClient,
     lspReady,
     sourceError,
@@ -113,7 +115,9 @@ export const ExpressionWorkspace = withInstrumentation(
     const dependenciesRef = useLatestRef(dependencySnapshot);
     const [binding, setBinding] = useState<DocumentBinding | null>(null);
     const [expanded, setExpanded] = useState(false);
-    const [raw, setRaw] = useState(false);
+    const [conditionRaw, setConditionRaw] = useState(false);
+    const raw = inlineRune?.hidden ?? conditionRaw;
+    const setRaw = inlineRune?.onHiddenChange ?? setConditionRaw;
     const [conditionDraft, setConditionDraft] = useState<ConditionSnapshot & { text: string }>();
     const [conditionScope, setConditionScope] = useState<FunctionScope>();
     const [conditionTyping, setConditionTyping] = useState<ConditionSnapshot>();
@@ -392,7 +396,8 @@ export const ExpressionWorkspace = withInstrumentation(
         }
       />
     );
-    const inlineContent = inlineRune || (inlineCondition ? conditionEditor : undefined);
+    const inlineContent = inlineRune?.content ?? (inlineCondition ? conditionEditor : undefined);
+    const inlineVisible = language === 'rune' && (!inlineRune || !raw);
     const hoverRune =
       onRuneHover ??
       (inlineCondition
@@ -464,8 +469,20 @@ export const ExpressionWorkspace = withInstrumentation(
               </Button>
             )}
             {inlineContent && language === 'rune' && (
-              <Button size="xs" variant="ghost" aria-expanded={raw} onClick={() => setRaw(!raw)}>
-                {raw ? 'Hide Rune text' : 'Edit Rune text'}
+              <Button
+                size="xs"
+                variant="ghost"
+                aria-expanded={inlineRune ? !raw : raw}
+                aria-controls={inlineRune ? editorId + '-inline' : undefined}
+                onClick={() => setRaw(!raw)}
+              >
+                {inlineRune
+                  ? raw
+                    ? 'Show expression editor'
+                    : 'Hide expression editor'
+                  : raw
+                    ? 'Hide Rune text'
+                    : 'Edit Rune text'}
               </Button>
             )}
             {!inlineContent && !onOpenComposer && !inlineCondition && (
@@ -489,15 +506,17 @@ export const ExpressionWorkspace = withInstrumentation(
             <Button variant="ghost" size="xs" onClick={onOpenSource}>
               Open in Source
             </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              aria-expanded={expanded}
-              aria-controls={editorId}
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded ? 'Collapse editor' : 'Expand editor'}
-            </Button>
+            {!inlineRune && (
+              <Button
+                variant="ghost"
+                size="xs"
+                aria-expanded={expanded}
+                aria-controls={editorId}
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? 'Collapse editor' : 'Expand editor'}
+              </Button>
+            )}
           </div>
         </div>
         <div
@@ -532,7 +551,10 @@ export const ExpressionWorkspace = withInstrumentation(
                 viewRef.current = view;
                 onRuneView?.(view);
               }}
-              onSelectionChange={(range) => setSelection(range)}
+              onSelectionChange={(range, view) => {
+                setSelection(range);
+                onRuneSelect?.(range, view);
+              }}
             />
           ) : (
             <p role="status" className="text-xs text-muted-foreground">
@@ -540,7 +562,11 @@ export const ExpressionWorkspace = withInstrumentation(
             </p>
           )}
         </div>
-        {inlineContent && <div hidden={language !== 'rune'}>{inlineContent}</div>}
+        {inlineContent && (
+          <div id={editorId + '-inline'} hidden={!inlineVisible}>
+            {inlineContent}
+          </div>
+        )}
         {language !== 'rune' && !originalSourceCurrent && (
           <p role="status" className="text-xs text-muted-foreground">
             {sourceStatus}

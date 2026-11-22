@@ -58,7 +58,8 @@
 .function-composer h2:not(.section-heading, .studio-center-stack__pane-heading > h2) {
   font-weight: var(--font-weight-regular);
 }
-.function-composer__side [data-slot="tabs-content"] > button {
+.function-composer__panel-body > button {
+  align-self: flex-start;
   height: auto;
   white-space: normal;
 }
@@ -73,9 +74,6 @@
 }
 .function-composer__side :is([draggable="true"], [draggable="true"] button:not(:disabled)):active {
   cursor: grabbing;
-}
-.function-composer__panel-body > button {
-  align-self: flex-start;
 }
 .function-composer__primitives {
   display: grid;
@@ -170,7 +168,7 @@
   color: var(--destructive);
   overflow-wrap: anywhere;
 }
-.function-composer__step-picker, .function-composer__draft, .function-composer__draft label {
+.function-composer__draft, .function-composer__draft label {
   display: grid;
   min-width: 0;
   gap: var(--space-2);

@@ -23,6 +23,7 @@ it.each<ExpressionStarterType>([
   'RosettaCountOperation',
   'SumOperation',
   'RosettaConditionalExpression',
+  'SwitchOperation',
   'DefaultOperation'
 ])('links and validates a complete %s starter in a real composition', async (type) => {
   const expression = createExpressionStarter(type, 'values');

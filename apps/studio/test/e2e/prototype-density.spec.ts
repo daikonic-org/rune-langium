@@ -29,9 +29,22 @@ test('shows inspectable collection results and keeps nested grids usable at enla
 version "1.0.0"
 type Origin:
  name string (1..1)
+type AssetIdentifier:
+ identifier string (1..1)
+ identifierType string (1..1)
+ description string (0..1)
+ registry string (0..1)
+ classification string (0..1)
+ active boolean (0..1)
+ rank number (0..1)
 type Index:
  code string (1..1)
  origin Origin (0..1)
+ observationDates date (0..*)
+ identifier AssetIdentifier (0..*)
+ taxonomy string (0..*)
+ illustrative boolean (0..1)
+ offset number (0..1)
 type Series:
  index Index (1..1)
  observations number (1..*)
@@ -60,7 +73,27 @@ func Echo:
           kind: 'literal',
           value: [
             { index: { code: 'USD-SOFR' }, observations: [0.043, 0.044] },
-            { index: { code: 'GBP-SONIA', origin: { name: 'UK' } }, observations: [0.046] }
+            {
+              index: {
+                code: 'GBP-SONIA',
+                origin: { name: 'UK' },
+                observationDates: ['2025-01-06', '2025-01-07', '2025-01-08', '2025-01-09', '2025-01-10'],
+                identifier: [
+                  {
+                    identifier: 'GBP-SONIA-ID',
+                    identifierType: 'Other',
+                    registry: 'Clearing registry',
+                    classification: 'Illustrative',
+                    active: true,
+                    rank: 1
+                  }
+                ],
+                taxonomy: [],
+                illustrative: false,
+                offset: 0
+              },
+              observations: [0.046]
+            }
           ]
         }
       },
@@ -85,7 +118,13 @@ func Echo:
   });
   await expect(grid.getByText('Index: USD-SOFR · Observations: 2 items', { exact: true })).toBeVisible();
   await grid.getByRole('button', { name: 'Open Series 2 details', exact: true }).click();
-  await expect(page.getByRole('dialog').getByLabel('Code', { exact: true })).toHaveValue('GBP-SONIA');
+  const inputDetails = page.getByRole('dialog');
+  await expect(inputDetails.getByLabel('Code', { exact: true })).toHaveValue('GBP-SONIA');
+  await expect(inputDetails.getByRole('button', { name: 'Add Taxonomy item', exact: true })).toBeVisible();
+  const editableDates = inputDetails.getByRole('list', { name: 'Observation Dates', exact: true });
+  await expect(editableDates.getByRole('listitem')).toHaveCount(5);
+  await expect(editableDates.getByLabel('Observation Dates item 1', { exact: true })).toBeVisible();
+  await expect(editableDates.getByText('Observation Dates item 1', { exact: true })).toHaveClass(/sr-only/);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
   const output = page.getByRole('region', { name: 'series output', exact: true });
@@ -101,6 +140,7 @@ func Echo:
   await expect(drilled.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '3');
   await resultGrid.getByRole('button', { name: 'Collapse Result 2 in place', exact: true }).click();
   await expect(drilled).toBeHidden();
+  await page.evaluate(() => document.documentElement.style.removeProperty('font-size'));
   await resultGrid.getByRole('button', { name: 'Open Result 2 details', exact: true }).click();
   const details = page.getByRole('dialog');
   await expect(details.getByText('GBP-SONIA', { exact: true })).toBeVisible();
@@ -108,6 +148,19 @@ func Echo:
   const origin = index.getByRole('group', { name: 'Origin', exact: true });
   await expect(origin).toHaveAttribute('data-alternate-surface', 'true');
   await expect(origin.getByText('UK', { exact: true })).toBeVisible();
+  await expect(index.getByText('Taxonomy', { exact: true })).toHaveCount(0);
+  await expect(index.getByText('false', { exact: true })).toBeVisible();
+  await expect(index.getByText('0', { exact: true })).toBeVisible();
+  const dates = index.getByRole('list', { name: 'Observation Dates', exact: true });
+  await expect(dates).toHaveCSS('display', 'grid');
+  await expect(dates.getByRole('listitem')).toHaveCount(5);
+  const columns = await dates.evaluate((list) => getComputedStyle(list).gridTemplateColumns.split(' '));
+  expect(columns.filter((column) => parseFloat(column) > 0).length).toBeGreaterThan(1);
+  const identifiers = index.getByRole('group', { name: 'Identifier', exact: true });
+  await expect(identifiers.locator(':scope > .preview-section-heading')).toHaveCount(0);
+  await expect(identifiers.getByRole('columnheader', { name: 'Identifier', exact: true })).toBeVisible();
+  await expect(identifiers.getByRole('columnheader', { name: 'Identifier Type', exact: true })).toBeVisible();
+  await expect(identifiers.getByRole('columnheader', { name: 'Description', exact: true })).toHaveCount(0);
   expect(await origin.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toEqual(
     await index.evaluate((node) => getComputedStyle(node).backgroundColor)
   );
@@ -115,6 +168,26 @@ func Echo:
   await expect(details.getByRole('button', { name: 'Edit layout', exact: true })).toBeEnabled();
   await expect(details.getByRole('textbox')).toHaveCount(0);
   await expect(details.getByRole('button', { name: /Add|Remove/ })).toHaveCount(0);
+  await details.screenshot({ path: info.outputPath('workflow-result-details.png'), animations: 'disabled' });
+  await page.setViewportSize({ width: 390, height: 900 });
+  const gridViewport = identifiers.locator('.preview-object-grid');
+  await expect(gridViewport).toHaveAttribute('data-columns-overflow', '');
+  const columnWidth = (name: string) =>
+    identifiers.getByRole('columnheader', { name, exact: true }).evaluate((header) => header.clientWidth);
+  expect(await columnWidth('Rank')).toBeLessThan(await columnWidth('Registry'));
+  await expect
+    .poll(() =>
+      gridViewport.evaluate((element) => {
+        element.scrollLeft = element.scrollWidth;
+        return Math.abs(element.scrollLeft);
+      })
+    )
+    .toBeGreaterThan(0);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await details.getByRole('button', { name: 'Edit layout', exact: true }).click();
+  await expect(details.getByRole('button', { name: 'Move Taxonomy', exact: true })).toBeVisible();
+  await details.getByRole('button', { name: 'Done editing', exact: true }).click();
+  await expect(index.getByText('Taxonomy', { exact: true })).toHaveCount(0);
   await details.getByRole('button', { name: 'Done', exact: true }).click();
   await functionResult.click();
   await expect(json).toBeVisible();
@@ -133,7 +206,6 @@ func Echo:
   await expect(resultGrid).toBeVisible();
   await page.getByRole('button', { name: 'Expand example library', exact: true }).click();
   await expect(library).toBeVisible();
-  await page.evaluate(() => document.documentElement.style.removeProperty('font-size'));
   await page.screenshot({ path: info.outputPath('workflow-result-grid.png'), animations: 'disabled' });
   expect((await new AxeBuilder({ page }).include('[aria-label="Prototype workflow"]').analyze()).violations).toEqual(
     []

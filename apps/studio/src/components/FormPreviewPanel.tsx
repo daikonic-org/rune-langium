@@ -669,6 +669,9 @@ export const FormPreviewPanel = withInstrumentation(
                       symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
                       parentPath={layoutParentPath}
                       fields={rootOtherFields}
+                      isFieldVisible={
+                        presentation.readOnly ? (field) => hasPreviewFieldValue(field, activeSample) : undefined
+                      }
                       renderField={(field) => (
                         <PreviewFieldControl
                           key={field.path}
@@ -821,22 +824,26 @@ interface ChoiceFieldGroupProps {
   arrayIndices?: number[];
 }
 
-function ChoiceFieldGroup({ fields, label = 'Choose one option', ...controls }: ChoiceFieldGroupProps): ReactElement {
+function ChoiceFieldGroup({
+  fields,
+  label = 'Choose one option',
+  ...controls
+}: ChoiceFieldGroupProps): ReactElement | null {
   const id = useId();
   const { readOnly } = useContext(PreviewFieldsContext);
   const details = useContext(PreviewDetailNavigation);
-  const activeField = fields.find(
-    (field) =>
-      getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices)) !== undefined
-  );
+  const activeField = selectedChoiceField(fields, controls.sample, controls.arrayIndices);
+  if (readOnly && !activeField) return null;
   return (
     <div className="preview-choice">
-      <span id={id} className="preview-field__label">
-        {label}
-      </span>
+      {!readOnly && (
+        <span id={id} className="preview-field__label">
+          {label}
+        </span>
+      )}
       <div className="preview-choice__selector">
         {readOnly ? (
-          <span className="preview-field__value">{activeField?.label ?? 'Not set'}</span>
+          <span className="preview-field__value">{activeField?.label}</span>
         ) : (
           <Select
             value={activeField?.path ?? null}
@@ -873,7 +880,7 @@ function ChoiceFieldGroup({ fields, label = 'Choose one option', ...controls }: 
         activeField.kind === 'object' ? (
           <ChoiceArmChildren field={activeField} {...controls} />
         ) : (
-          <PreviewFieldControl field={activeField} {...controls} isChoiceArm />
+          <PreviewFieldControl field={activeField} {...controls} isChoiceArm inline={readOnly} />
         )
       ) : null}
     </div>
@@ -917,7 +924,7 @@ function ChoiceArmChildren({
   onArmSelect,
   arrayIndices
 }: ChoiceArmChildrenProps): ReactElement | null {
-  const { definitions } = useContext(PreviewFieldsContext);
+  const { definitions, readOnly } = useContext(PreviewFieldsContext);
   const expandedField = expandPreviewField(inputField, definitions);
   const field = metadataPreviewField(
     expandedField,
@@ -926,6 +933,7 @@ function ChoiceArmChildren({
   if (field.kind !== 'object' && field.kind !== 'array') return null;
   const choiceArmPaths = field.kind === 'object' ? field.choiceArmPaths : undefined;
   const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], choiceArmPaths);
+  const showChoice = armFields.length > 0 && (!readOnly || selectedChoiceField(armFields, sample, arrayIndices));
   if (armFields.length === 0 && otherFields.length === 0) return null;
   return (
     <PreviewLayoutGroup
@@ -935,6 +943,7 @@ function ChoiceArmChildren({
       }
       parentPath={field.declaredPath ?? field.path}
       fields={otherFields}
+      isFieldVisible={readOnly ? (child) => hasPreviewFieldValue(child, sample, arrayIndices) : undefined}
       renderField={(child) => (
         <PreviewFieldControl
           key={child.path}
@@ -952,7 +961,7 @@ function ChoiceArmChildren({
         />
       )}
     >
-      {armFields.length > 0 ? (
+      {showChoice ? (
         <ChoiceFieldGroup
           fields={armFields}
           sample={sample}
@@ -1073,6 +1082,40 @@ function PreviewObjectField({
   );
 }
 
+const previewSummaryDepth = 6;
+
+function hasPreviewValue(value: unknown, objectDepth = 0): boolean {
+  if (value === undefined || value === null || value === '') return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return (
+    objectDepth === 0 ||
+    typeof value !== 'object' ||
+    Object.values(value).some((child) => hasPreviewValue(child, objectDepth - 1))
+  );
+}
+
+function isFieldOrDescendant(path: string, fieldPath: string): boolean {
+  return path === fieldPath || path.startsWith(`${fieldPath}.`) || path.startsWith(`${fieldPath}[`);
+}
+
+function hasPreviewFieldValue(field: PreviewField, sample?: PreviewSampleState, arrayIndices?: number[]): boolean {
+  const segments = pathToSegments(field.path, arrayIndices);
+  if (hasPreviewValue(getValueAtPath(sample?.values ?? {}, segments), previewSummaryDepth)) return true;
+  if (!sample?.validated) return false;
+  const fieldPath = formatFieldPath(field.path, arrayIndices);
+  return Object.keys(sample.errors).some((path) => isFieldOrDescendant(path, fieldPath));
+}
+
+function selectedChoiceField(
+  fields: PreviewField[],
+  sample?: PreviewSampleState,
+  arrayIndices?: number[]
+): PreviewField | undefined {
+  return fields.find(
+    (field) => getValueAtPath(sample?.values ?? {}, pathToSegments(field.path, arrayIndices)) !== undefined
+  );
+}
+
 function previewValueText(
   value: unknown,
   source?: PreviewField,
@@ -1082,7 +1125,7 @@ function previewValueText(
   if (value === undefined || value === null || value === '') return 'Not set';
   if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? '' : 's'}`;
   const field = source && expandPreviewField(source, definitions);
-  if (field && depth < 6) {
+  if (field && depth < previewSummaryDepth) {
     const payload = metadataPreviewField(field, value);
     if (payload.path !== field.path) {
       const relativePath = payload.path.slice(field.path.length + 1);
@@ -1090,7 +1133,7 @@ function previewValueText(
     }
   }
   if (typeof value === 'object') {
-    if (depth >= 6 || field?.kind !== 'object') return 'Details available';
+    if (depth >= previewSummaryDepth || field?.kind !== 'object') return 'Details available';
     const typeName = (field.referencedTypeFqn ?? field.typeSymbol ?? field.definitionId)
       ?.split('.')
       .at(-1)
@@ -1101,10 +1144,7 @@ function previewValueText(
         field: child,
         value: getValueAtPath(value, pathToSegments(child.path.slice(field.path.length + 1)))
       }))
-      .filter(
-        ({ value }) =>
-          value !== undefined && value !== null && value !== '' && (!Array.isArray(value) || value.length > 0)
-      )
+      .filter(({ value }) => hasPreviewValue(value))
       .sort(
         (a, b) =>
           Number(identifiesType(b.field)) - Number(identifiesType(a.field)) ||
@@ -1151,24 +1191,31 @@ function PreviewArrayField({
     child?.kind === 'object' ? child.choiceArmPaths : undefined
   );
   const scalarFields = otherFields.filter((column) => !['object', 'array', 'unknown'].includes(column.kind));
-  const scalarColumns = readOnly ? scalarFields : scalarFields.slice(0, armFields.length ? 2 : 3);
+  const hasColumnValues = (column: PreviewField) =>
+    items.some((_, index) => hasPreviewFieldValue(column, controls.sample, [...(controls.arrayIndices ?? []), index]));
+  const scalarColumns = readOnly
+    ? scalarFields.filter(hasColumnValues)
+    : scalarFields.slice(0, armFields.length ? 2 : 3);
+  const showTypeColumn = armFields.length > 0 && (!readOnly || armFields.some(hasColumnValues));
   const scalarByPath = new Map(scalarColumns.map((column) => [column.path, column]));
   const columns: PreviewGridColumn[] = [
-    ...(armFields.length ? [{ path: '$choice', label: 'Type' }] : []),
+    ...(showTypeColumn ? [{ path: '$choice', label: 'Type' }] : []),
     ...scalarColumns.map((column) => ({
       path: column.path,
       label: column.label,
+      compact:
+        column.kind === 'number' || column.kind === 'boolean' || (column.kind === 'string' && column.format === 'date'),
       editable: !readOnly && column.required
     }))
   ];
   if (!columns.length) columns.push({ path: '$summary', label: 'Summary' });
-  const rows: PreviewGridRow[] = child
+  const usesGrid = child?.kind === 'object' && items.length > 0;
+  const headingInGrid = readOnly && usesGrid && scalarColumns.some((column) => column.label === field.label);
+  const rows: PreviewGridRow[] = usesGrid
     ? items.map((_, index) => {
         const indices = [...(controls.arrayIndices ?? []), index];
         const path = formatFieldPath(child.path, indices);
-        const activeArm = armFields.find(
-          (arm) => getValueAtPath(controls.sample?.values ?? {}, pathToSegments(arm.path, indices)) !== undefined
-        );
+        const activeArm = selectedChoiceField(armFields, controls.sample, indices);
         const cells = columns.map((column) => {
           const scalar = scalarByPath.get(column.path);
           const cellPath =
@@ -1184,10 +1231,14 @@ function PreviewArrayField({
                   controls.sample?.values ?? {},
                   pathToSegments(column.path === '$summary' ? child.path : column.path, indices)
                 );
+          const empty = !hasPreviewValue(cellValue);
           return {
             path: cellPath,
-            text: previewValueText(cellValue, scalar ?? (column.path === '$summary' ? child : undefined), definitions),
-            empty: cellValue === undefined || cellValue === null || cellValue === '',
+            text:
+              readOnly && empty
+                ? ''
+                : previewValueText(cellValue, scalar ?? (column.path === '$summary' ? child : undefined), definitions),
+            empty,
             error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined,
             editor:
               !readOnly && scalar?.required ? (
@@ -1205,9 +1256,7 @@ function PreviewArrayField({
           label: `${field.label} ${index + 1}`,
           cells,
           issues: controls.sample?.validated
-            ? Object.keys(controls.sample.errors).filter(
-                (key) => key === path || key.startsWith(`${path}.`) || key.startsWith(`${path}[`)
-              ).length
+            ? Object.keys(controls.sample.errors).filter((key) => isFieldOrDescendant(key, path)).length
             : 0
         };
       })
@@ -1222,30 +1271,36 @@ function PreviewArrayField({
       tabIndex={-1}
       className="preview-collection"
     >
-      <div className="preview-section-heading">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span id={id} className="preview-field__label">
-            {field.label}
-          </span>
-          <span className="preview-collection__count">
-            {items.length} {items.length === 1 ? 'item' : 'items'}
-          </span>
+      {headingInGrid ? (
+        <span id={id} className="sr-only">
+          {field.label}
+        </span>
+      ) : (
+        <div className="preview-section-heading">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span id={id} className="preview-field__label">
+              {field.label}
+            </span>
+            <span className="preview-collection__count">
+              {items.length} {items.length === 1 ? 'item' : 'items'}
+            </span>
+          </div>
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              data-preview-validates
+              onClick={() => controls.onArrayAdd(field, controls.arrayIndices)}
+              aria-label={`Add ${field.label} item`}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              Add
+            </Button>
+          )}
         </div>
-        {!readOnly && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            data-preview-validates
-            onClick={() => controls.onArrayAdd(field, controls.arrayIndices)}
-            aria-label={`Add ${field.label} item`}
-          >
-            <Plus className="size-3.5" aria-hidden="true" />
-            Add
-          </Button>
-        )}
-      </div>
-      {child?.kind === 'object' && (readOnly || items.length > 0) ? (
+      )}
+      {usesGrid ? (
         <PreviewObjectGrid
           label={field.label}
           columns={columns}
@@ -1266,13 +1321,23 @@ function PreviewArrayField({
           onRemove={readOnly ? undefined : remove}
         />
       ) : child && items.length > 0 ? (
-        <div className="preview-scalar-list">
+        <ul
+          role="list"
+          aria-labelledby={id}
+          className="preview-scalar-list"
+          data-read-only={readOnly || undefined}
+          data-structured-items={child.kind === 'array' || child.kind === 'unknown' || undefined}
+          data-wide-items={
+            (child.kind === 'string' && (child.format === 'dateTime' || child.format === 'zonedDateTime')) || undefined
+          }
+        >
           {items.map((_, index) => (
-            <div className="preview-scalar-list__row" key={`${field.path}-${index}`}>
+            <li className="preview-scalar-list__row" key={`${field.path}-${index}`}>
               <PreviewFieldControl
                 field={child}
                 {...controls}
                 arrayIndices={[...(controls.arrayIndices ?? []), index]}
+                inline={child.kind !== 'array' && child.kind !== 'unknown'}
               />
               {!readOnly && (
                 <Button
@@ -1287,9 +1352,9 @@ function PreviewArrayField({
                   <Minus className="size-3" aria-hidden="true" />
                 </Button>
               )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : null}
       {error && <FieldError message={error} />}
     </div>
@@ -1444,7 +1509,7 @@ function PreviewFieldControl({
   if (readOnly) {
     return (
       <div className="preview-field" data-field-path={fieldPath}>
-        <span className="preview-field__label">{resolvedFieldLabel(field, arrayIndices)}</span>
+        <span className={inline ? 'sr-only' : 'preview-field__label'}>{resolvedFieldLabel(field, arrayIndices)}</span>
         <span className="preview-field__value">
           {field.kind === 'number' && typeof value === 'number'
             ? formatPreviewNumber(value, numericPresentation)

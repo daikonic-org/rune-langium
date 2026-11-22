@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from '../services/instrumentation/core.js';
-import { Fragment, useId, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, type ReactNode } from 'react';
 import { ArrowUpRight, ChevronRight, Ellipsis, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
@@ -16,6 +16,7 @@ export interface PreviewGridColumn {
   path: string;
   label: string;
   editable?: boolean;
+  compact?: boolean;
 }
 export interface PreviewGridRow {
   path: string;
@@ -50,9 +51,26 @@ export const PreviewObjectGrid = withInstrumentation(
     onRemove?(index: number): void;
   }) {
     const detailId = useId();
+    const readOnly = !onRemove;
+    const scroller = useRef<HTMLDivElement>(null);
+    const table = useRef<HTMLTableElement>(null);
+    useEffect(() => {
+      const viewport = scroller.current;
+      if (!readOnly || !viewport || !table.current) return;
+      const update = () =>
+        viewport.toggleAttribute('data-columns-overflow', viewport.scrollWidth > viewport.clientWidth + 1);
+      const observer = new ResizeObserver(update);
+      observer.observe(viewport);
+      observer.observe(table.current);
+      update();
+      return () => {
+        observer.disconnect();
+        viewport.removeAttribute('data-columns-overflow');
+      };
+    }, [readOnly]);
     return (
-      <div className="preview-object-grid studio-scroll" data-read-only={!onRemove || undefined}>
-        <table aria-label={label}>
+      <div ref={scroller} className="preview-object-grid studio-scroll" data-read-only={readOnly || undefined}>
+        <table ref={table} aria-label={label}>
           <thead>
             <tr>
               {columns.map((column, columnIndex) => (
@@ -60,6 +78,7 @@ export const PreviewObjectGrid = withInstrumentation(
                   scope="col"
                   key={column.path}
                   data-summary-column={columnIndex}
+                  data-column-compact={column.compact || undefined}
                   data-editable={column.editable ? 'true' : undefined}
                 >
                   {column.label}
@@ -85,6 +104,7 @@ export const PreviewObjectGrid = withInstrumentation(
                     <td
                       key={cell.path}
                       data-summary-column={columnIndex}
+                      data-column-compact={columns[columnIndex]?.compact || undefined}
                       data-editable={cell.editor ? 'true' : undefined}
                       data-summary={columns[columnIndex]?.path === '$summary' || undefined}
                       data-field-path={cell.path}
@@ -111,6 +131,7 @@ export const PreviewObjectGrid = withInstrumentation(
                         aria-expanded={expandedIndex === index}
                         aria-controls={expandedIndex === index ? `${detailId}-${index}` : undefined}
                         aria-label={`${expandedIndex === index ? 'Collapse' : 'Expand'} ${row.label} in place`}
+                        title={expandedIndex === index ? 'Collapse in place' : 'Expand in place'}
                         onClick={(event) => {
                           event.stopPropagation();
                           onToggleExpanded(index);

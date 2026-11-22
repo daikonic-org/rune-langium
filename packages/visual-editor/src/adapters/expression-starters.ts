@@ -15,6 +15,7 @@ export type ExpressionStarterType =
   | 'RosettaCountOperation'
   | 'SumOperation'
   | 'RosettaConditionalExpression'
+  | 'SwitchOperation'
   | 'DefaultOperation';
 
 /** Complete, editable starters using the expression palette's factories and canonical Rune renderer. */
@@ -47,6 +48,12 @@ export function createExpressionStarter(type: ExpressionStarterType, source: str
       return expressionNodeToDsl({ ...node, argument });
     case 'RosettaConditionalExpression':
       return expressionNodeToDsl({ ...node, if: parseExpression('True'), ifthen: argument, elsethen: argument });
+    case 'SwitchOperation':
+      return expressionNodeToDsl({
+        ...node,
+        argument,
+        cases: [{ $type: 'SwitchCaseOrDefault', expression: argument }]
+      });
     case 'DefaultOperation':
       return expressionNodeToDsl({ ...node, left: argument, right: argument });
     default:

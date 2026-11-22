@@ -21,7 +21,7 @@ vi.mock('../../src/components/compose/ComposeWorkbench.js', () => ({
     <>
       {palette}
       {center}
-      {details}
+      {details()}
     </>
   )
 }));
@@ -80,7 +80,8 @@ it('keeps editing disabled until composition facts match the current dependency 
   await act(async () => refresh.resolve(facts));
   expect(edit).toBeEnabled();
   fireEvent.click(edit);
-  expect(screen.getByText(/Bind arguments and output variables directly on the node/)).toBeVisible();
+  expect(edit).not.toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: 'Inspect composition item' })).toHaveValue('return');
 });
 
 it.each([true, false])(

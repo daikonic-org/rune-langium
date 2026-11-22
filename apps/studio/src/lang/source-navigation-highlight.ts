@@ -56,6 +56,18 @@ export const clearSourceReveal = withInstrumentation(
   { op: 'clearSourceReveal' }
 );
 
+/** Reveal an expression from a peer pane without moving the source caret. */
+export const revealSourceExpression = withInstrumentation(
+  function revealSourceExpression(view: EditorView, range?: SourceRegion): void {
+    view.dispatch({
+      effects: range
+        ? [setExpressionHighlight.of(range), EditorView.scrollIntoView(range.from, { y: 'nearest' })]
+        : setExpressionHighlight.of(undefined)
+    });
+  },
+  { op: 'revealSourceExpression', capture: 0 }
+);
+
 /** One static destination cue per live editor, including CodeMirror LSP jumps. */
 export const sourceNavigationHighlight: Extension = [
   sourceReveal,

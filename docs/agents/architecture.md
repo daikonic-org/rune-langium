@@ -553,7 +553,7 @@ acknowledged without a new file update.
 - Workspace activation reconciles the shared model store with the destination bindings before parsing or persisting them. New/close clear files, deferred declarations, hydration, selection, previews, and undo history in memory only after pending saves succeed, preserving the previous workspace on disk. Storage failures retain the current workspace and its retryable latest snapshot; edits arriving during a flush must also finish saving before activation. A newer transition request supersedes older requests still waiting for storage. Pending parse/load results are invalidated across that boundary. Superseded restores leave the newer workspace's screen alone; the winning import owns the loading screen and exits restoring mode. Superseded imports discard only their newly created empty record.
 - `apps/studio/src/shell/providers/StudioProviders.tsx` composes provider responsibilities; `LspProvider.tsx` owns the LSP client and transport lifecycle.
 - `WorkbenchHost` owns Dockview mounting, stable panel bridges, native-layout restore, serialization subscriptions, and disposal. Each perspective supplies a `WorkbenchDefinition` with its panels, titles, and default builder. Its optional idempotent reconciler runs after restore and definition updates, preserving existing panel instances when conditional panels appear or disappear. `DockShell` remains Explore's adapter: it owns migration of `PanelLayoutRecord`, the Explore factory layout, toolbar/shortcuts, center-pane policy, and utility-tray collapse behavior. Per-workspace perspective preferences use versioned workbench settings; they must contain UI state only, never model payloads or generated artifacts.
-- Explore and Compose share the perspective location path. Compose renders its path and actions in the perspective header within the existing portaled composer, so its selection and save controls stay with the active document. Workspaces uses the same header for its section switcher.
+- Explore and Compose share the perspective location path and track the center dock position as rails move. Compose renders its path and actions in the perspective header within the existing portaled composer, so its selection and save controls stay with the active document. Workspaces uses the same header for its section switcher.
 - **Studio LSP is network-only.** `apps/studio/src/services/transport-provider.ts` defaults to session-token minting followed by a token-gated WebSocket to the hosted LSP. Only an explicit `wsUri` opts into direct WebSocket, with token-gated fallback after failure. Configured endpoints can differ between local, preview, and production environments.
 - Hosted dependency snapshots compute exports and local scopes without eagerly
   linking every function body. Live source still links and validates through
@@ -769,7 +769,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Routed parsing returns each dependency bundle's resolved manifest cohort/version. Studio registers implicit curated dependencies with that identity before merging reference-only files, so preview snapshots and restored workspace bindings retain the exact serialized reference targets. It does not replace an implicit pin with a guessed latest version.
 - Derive UI previews and validation from authoritative codegen output. A sample awaiting a worker validation result must remain visibly pending; editing alone never establishes validity.
 - `CodegenProvider` owns the shared browser worker connection. Resetting workspace/model preview data clears pending results without detaching that worker; only its provider lifecycle attaches or detaches preview dispatch.
-- Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. The shared form layout defaults to up to three columns, with wider timestamp fields and full-width nested objects and collections. Workflow results reuse the renderer in read-only mode, preserving navigation into objects and grid rows. Nested form sections alternate theme surfaces by depth. Presentation components do not own validation or alternate schema semantics.
+- Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. The shared form layout defaults to up to three columns, with wider timestamp fields and full-width nested objects and collections. Workflow results reuse the renderer in read-only mode, preserving navigation into objects and grid rows. Read-only layouts elide empty fields while layout editing exposes the full schema. Primitive collections use a responsive grid with one collection label and accessible item names. Nested form sections alternate theme surfaces by depth. Presentation components do not own validation or alternate schema semantics.
 - Preview scalar formats follow the resolved Rune primitive, including aliases, arrays and Choice arms. Shared Preview/Prototype controls compose the design-system Calendar and themed time segments alongside ISO inputs. The Calendar wraps react-day-picker's date-grid and keyboard semantics with shared theme tokens. An ISO editor preserves nanosecond fractions and explicit zoned offsets/IDs; companion picker edits retain that precision and authored suffix. Workers remain authoritative validators; friendly temporal format guidance changes only presentation, leaving original diagnostics in Output/Activity.
 - Preview preparation coalesces hydration and worker-file acknowledgement independently of individual panel cancellation. A shared 30-second deadline aborts stalled preparation and allows a fresh retry. Projection display requests also have a 30-second deadline and a direct Retry generation action; execution keeps its separate 120-second deadline. Late replies cannot replace a newer retry result.
 - Routed parse results carry every resolved curated bundle's immutable cohort/version, including implicit cross-bundle dependencies. Studio retains those bundles in its workspace model bindings instead of discarding dependencies that the user did not select explicitly.
@@ -1474,8 +1474,39 @@ for the graph and the inline argument controls. Same-width draft holes retain
 argument positions while the required inputs are incomplete.
 Source rows replace syntax within a captured statement and offer linked picker
 choices for the selected operand. Member paths resolve through the same feature
-scope as the linker. Canvas and Source publish through the retained CodeMirror
-view, which gives each successful Apply a single undo entry. A private candidate
+scope as the linker. The picker shows in-scope values first and searches functions
+by name and namespace, deduplicated by declaration identity. Structured rows use
+source ranges for edits and reuse the Rune editor's tokenizer, highlighter and
+theme rules. Member paths display `.` and `…` for direct and deep Rune access.
+Statement labels select the corresponding row and open the whole-expression
+picker. Operand chips open the same control for their own source ranges. The
+control-flow wrap puts the original expression in the `then` branch.
+Branch, Switch, Fallback, For each and Filter can wrap a statement or operand
+through the palette drop and the shared operator factories. Canvas drops create
+separate draft steps. The switch builder preserves its selector, offers editable
+case matches and result slots, and inserts new cases before the default.
+Control flow and collection operations use the shared nested expression cards.
+Branch arms, switch cases, fallback values and callbacks get indented rows
+based on their parsed source ranges. Switch cases align under the switch
+keyword, and the corner chevron folds the card without changing its expression.
+Single-operand operations stay compact. Narrow expression containers stack
+constructor fields and put section controls in the content flow.
+Compose statements, compound expressions, and clauses use the same bordered
+section for Delete and the corner Remove button. Required values become draft
+placeholders. Optional else clauses and extra switch cases can be removed in full.
+Source edits retain comments and respect the implementation boundary. Staging
+statement removal focuses Discard, which returns focus to the removal control.
+List items with visible nested rows start a continuation line. Multi-field
+constructors lay out named rows, and a call's
+name reveals its linked parameter labels on demand. Missing arguments are
+inserted at the call's own closing delimiter. Canvas and Source share
+selection through composition steps and their source ranges, including the Rune
+caret. Compose Details follows Source selection and offers access to the owning
+function signature. At compact widths the same Details panel opens in a dialog
+and the center panes keep their available width. Compose restores desktop rail
+widths after the dock is sized for the wider viewport. Both views
+publish through the retained CodeMirror view, which gives each successful Apply a
+single undo entry. A private candidate
 can supply picker scope while unfinished work remains in the draft.
 Stable topological source-block ordering retains comments and condition placement.
 The canvas remains mounted but inert while source reparses, preserving camera state.

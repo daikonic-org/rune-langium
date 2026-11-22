@@ -277,13 +277,15 @@ export const PreviewLayoutGroup = withInstrumentation(
     parentPath = '',
     fields,
     children,
-    renderField
+    renderField,
+    isFieldVisible
   }: {
     symbol?: string;
     parentPath?: string;
     fields: PreviewField[];
     children?: ReactNode;
     renderField(field: PreviewField): ReactNode;
+    isFieldVisible?(field: PreviewField): boolean;
   }) {
     const { preferences, editing, update, keyFor } = useContext(PresentationContext);
     const owners = useContext(PresentationOwners);
@@ -306,6 +308,8 @@ export const PreviewLayoutGroup = withInstrumentation(
       ...layout.order.flatMap((key) => (byKey.has(key) ? [byKey.get(key)!] : [])),
       ...members.filter(({ key }) => !layout.order.includes(key))
     ];
+    const visible = editing || !isFieldVisible ? ordered : ordered.filter(({ field }) => isFieldVisible(field));
+    if (!editing && isFieldVisible && visible.length === 0 && !children) return null;
     const patch = (change: Partial<ObjectFormLayout>) => {
       if (preferenceKey)
         update((current) => ({
@@ -360,7 +364,7 @@ export const PreviewLayoutGroup = withInstrumentation(
           )}
           <div className="preview-layout-grid" style={{ '--requested-columns': layout.columns } as CSSProperties}>
             {children && <div className="preview-layout-fixed">{children}</div>}
-            {ordered.map(({ field, key, span }, index) => (
+            {visible.map(({ field, key, span }, index) => (
               <div
                 key={field.path}
                 data-layout-field={key}

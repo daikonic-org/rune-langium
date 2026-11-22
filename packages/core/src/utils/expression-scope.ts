@@ -6,6 +6,7 @@ import {
   isData,
   isRosettaBasicType,
   isRosettaFunction,
+  isRosettaModel,
   isRosettaExternalFunction,
   isRosettaRule,
   isAttribute,
@@ -25,6 +26,7 @@ import { getFunctionSignature, getFunctionInputs, getFunctionOutput, resolveType
 import { cardinalityFits, toConstraintString, type CardinalityBounds } from './cardinality-utils.js';
 import { escapeRuneIdentifier } from './rune-identifiers.js';
 import type { ExpressionAddress } from './source-regions.js';
+import { namespaceFromModelName } from '../naming/namespace.js';
 import { getLinkedReferenceTarget } from '../api/parse.js';
 
 export interface ExpressionScopeEntry {
@@ -33,6 +35,8 @@ export interface ExpressionScopeEntry {
   kind: 'input' | 'output' | 'alias' | 'attribute' | 'local' | 'callable' | 'enum' | 'choice';
   typeName?: string;
   cardinality?: string;
+  /** Owning namespace of a callable, including when it is visible by its short name. */
+  namespace?: string;
   argumentCount?: number;
   /** Input names in the same authoritative order as the callable arity. */
   argumentNames?: string[];
@@ -164,8 +168,10 @@ function scopeEntries(
         : node && isRosettaExternalFunction(node)
           ? node.parameters
           : undefined;
+    const model = kind === 'callable' && node ? AstUtils.getContainerOfType(node, isRosettaModel) : undefined;
     entries.push({
       name: description.name,
+      ...(model ? { namespace: namespaceFromModelName(model.name) } : {}),
       kind,
       declarationId: declarationId(description),
       ...(typed ? { typeName: typed.typeCall.type.$refText, cardinality: toConstraintString(typed.card) } : {}),
