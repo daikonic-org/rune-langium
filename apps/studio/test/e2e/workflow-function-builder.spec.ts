@@ -269,6 +269,9 @@ func Prepare:
     expected = expected.replace(`alias ${statement}: ${operand}`, `alias ${statement}: ${wrapped}`);
     await expect.poll(async () => (await projectBackingFiles(page))['workflow.rosetta']).toBe(expected);
   }
+  await composer.getByRole('combobox', { name: 'Inspect composition item', exact: true }).selectOption('alias:mapped');
+  const aliases = composer.getByRole('group', { name: 'Aliases and locals', exact: true });
+  await expect(aliases.getByRole('button', { name: 'item local', exact: true })).toBeVisible();
 });
 
 test('drops Switch on a selector and edits multiple guarded cases in Compose Source', async ({ page }, info) => {
@@ -765,6 +768,10 @@ test('resizes Compose side panels without editing source or replacing the canvas
   expect(detailsBox!.x - (centerBox!.x + centerBox!.width)).toBeGreaterThan(4);
   await expect(details.getByRole('tab', { name: 'Step', exact: true })).toHaveCount(0);
   await expect(details.getByRole('combobox', { name: 'Inspect composition item' })).toHaveValue('signature');
+  const signature = details.getByRole('region', { name: 'Function signature', exact: true });
+  await expect(signature.getByRole('textbox', { name: 'Attribute name: value', exact: true })).toBeVisible();
+  await expect(signature.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
+  await expect(signature.getByRole('tab', { name: 'Implementation', exact: true })).toHaveCount(0);
   const location = composer.getByRole('navigation', { name: 'Compose location', exact: true });
   const locationGap = async () => Math.abs((await location.boundingBox())!.x - (await center.boundingBox())!.x);
   await expect.poll(locationGap).toBeLessThanOrEqual(1);
@@ -821,6 +828,7 @@ test('resizes Compose side panels without editing source or replacing the canvas
   await page.getByTestId('rail-compose').click();
   await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
   await expect.poll(() => width(details)).toBeCloseTo(detailsWidth, 0);
+  await palette.getByRole('button', { name: 'Open Double workflow', exact: true }).click();
   await showCanvas(composer);
   await page.setViewportSize({ width: 700, height: 900 });
   const showPalette = composer.getByRole('button', { name: 'Show palette', exact: true });
@@ -836,6 +844,7 @@ test('resizes Compose side panels without editing source or replacing the canvas
   await composer.getByRole('button', { name: 'Show details', exact: true }).click();
   const compactDetails = page.getByRole('dialog', { name: 'Details', exact: true });
   await expect(compactDetails.getByRole('complementary', { name: 'Composition details' })).toBeVisible();
+  await expect(compactDetails.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
   expect(await composer.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('compose-resized-narrow.png') });
   await compactDetails.press('Escape');
@@ -903,6 +912,19 @@ test('enters Compose before selecting a function and switches between ordinary f
     const inspect = composer.getByRole('combobox', { name: 'Inspect composition item', exact: true });
     await expect(inspect).toHaveValue('signature');
   }
+  const details = composer.getByRole('complementary', { name: 'Composition details' });
+  const signature = details.getByRole('region', { name: 'Function signature', exact: true });
+  const inspect = details.getByRole('combobox', { name: 'Inspect composition item', exact: true });
+  await inspect.selectOption('return');
+  await expect(signature.getByRole('textbox', { name: 'Function type name' })).toHaveValue('Double');
+  const output = signature.getByRole('group', { name: 'Output', exact: true });
+  await output.getByRole('button', { name: 'Cardinality 1..1', exact: true }).click();
+  await page.getByRole('listbox', { name: 'Cardinality presets' }).getByRole('option', { name: '0..1' }).click();
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toMatch(/output:\s+result number \(0\.\.1\)\s+set result: value \* 2/);
+  await expect(inspect).toHaveValue('return');
   expect(errors).toEqual([]);
 });
 
@@ -1112,7 +1134,22 @@ for (const theme of ['daikonic', 'light'])
       await expect.poll(() => header.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       await expect.poll(() => node.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       const tray = composer.getByRole('region', { name: 'Available variables', exact: true });
-      await expect(tray.getByRole('button').filter({ hasText: variable })).toBeVisible();
+      const inputs = tray.getByRole('group', { name: 'Inputs', exact: true });
+      const aliases = tray.getByRole('group', { name: 'Aliases', exact: true });
+      const output = tray.getByRole('group', { name: 'Output', exact: true });
+      await expect(inputs.getByRole('button', { name: 'value', exact: true })).toBeVisible();
+      await expect(aliases.getByRole('button').filter({ hasText: variable })).toBeVisible();
+      await expect(output.getByRole('button', { name: 'result', exact: true })).toBeVisible();
+      const [inputBox, aliasBox, outputBox] = await Promise.all(
+        [inputs, aliases, output].map(async (group) => (await group.boundingBox())!)
+      );
+      if (width >= 1280) {
+        expect(aliasBox.x).toBeGreaterThanOrEqual(inputBox.x + inputBox.width);
+        expect(outputBox.x).toBeGreaterThanOrEqual(aliasBox.x + aliasBox.width);
+      } else {
+        expect(aliasBox.y).toBeGreaterThanOrEqual(inputBox.y + inputBox.height);
+        expect(outputBox.y).toBeGreaterThanOrEqual(aliasBox.y + aliasBox.height);
+      }
       expect(await tray.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
       if (width >= 1280)
         expect(
@@ -1222,6 +1259,7 @@ func Analyze:
   await expect.poll(() => palette.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('compose-primitives-hd.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 1280, height: 460 });
+  await expect.poll(() => palette.evaluate((element) => element.clientHeight <= window.innerHeight)).toBe(true);
   await output.scrollIntoViewIfNeeded();
   await expect(output).toBeInViewport();
   await search.scrollIntoViewIfNeeded();
@@ -1905,6 +1943,9 @@ test('boxes only interactive tokens and distinguishes constructor nesting in Com
   await page.keyboard.press('Escape');
   await expect(inspect).toHaveValue('alias:cursor');
   await expect(details.getByText('Reduce', { exact: true })).toBeVisible();
+  const signature = details.getByRole('region', { name: 'Function signature', exact: true });
+  await expect(signature.getByRole('textbox', { name: 'Attribute name: dates', exact: true })).toBeVisible();
+  await expect(signature.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
   await expect(composer.getByRole('button', { name: 'Expand editor', exact: true })).toHaveCount(0);
   const fields = row.locator('[data-expression-members]');
   const firstField = fields.getByText('position:', { exact: true });

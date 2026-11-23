@@ -1188,6 +1188,17 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     }
   };
   const selectedScope = linkedScope?.owner === identity ? linkedScope.value : undefined;
+  const search = variableQuery.toLowerCase();
+  const matchingVariables = variables.filter((variable) => variable.name.toLowerCase().includes(search));
+  const variableGroups = [
+    { id: 'inputs', label: 'Inputs', tags: matchingVariables.filter(({ kind }) => kind === 'input') },
+    {
+      id: 'aliases',
+      label: selectedStep?.locals?.length ? 'Aliases and locals' : 'Aliases',
+      tags: matchingVariables.filter(({ kind }) => kind === 'variable' || kind === 'local')
+    },
+    { id: 'output', label: 'Output', tags: matchingVariables.filter(({ kind }) => kind === 'output') }
+  ];
   const variableTray = (
     <div className="composition-variables nodrag" role="region" aria-label="Available variables">
       <div className="composition-variables__header">
@@ -1203,30 +1214,47 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
         </Button>
       </div>
       <p className="text-caption">Drag a variable to a node input or output. Or select a tag and use Bind selected.</p>
-      <div className="composition-variables__tags">
-        {variables
-          .filter((variable) => variable.name.toLowerCase().includes(variableQuery.toLowerCase()))
-          .map((variable) => (
-            <button
-              key={variable.id}
-              type="button"
-              className="composition-variable-tag"
-              aria-pressed={selectedVariable === variable.id}
-              draggable={writable}
-              title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
-              onClick={() => {
-                if (sourceVisible && activeSlot && variable.kind !== 'output')
-                  activeSlot.openPicker(variable.reference);
-                else setSelectedVariable(variable.id);
-              }}
-              onDragStart={(event) => {
-                event.dataTransfer.setData(VARIABLE_MIME, JSON.stringify({ owner: identity, variable: variable.id }));
-                event.dataTransfer.effectAllowed = 'link';
-              }}
+      <div className="composition-variables__groups">
+        {variableGroups
+          .filter(({ tags }) => tags.length > 0)
+          .map(({ id, label, tags }) => (
+            <div
+              key={id}
+              className="composition-variables__group"
+              data-variable-group={id}
+              role="group"
+              aria-label={label}
             >
-              <span>{variable.name}</span>
-              <small>{variable.kind === 'variable' ? variable.type : variable.kind}</small>
-            </button>
+              <strong className="section-heading">{label}</strong>
+              <div className="composition-variables__tags">
+                {tags.map((variable) => (
+                  <button
+                    key={variable.id}
+                    type="button"
+                    className="composition-variable-tag"
+                    aria-pressed={selectedVariable === variable.id}
+                    draggable={writable}
+                    title={`${variable.kind} ${variable.type ?? ''} ${variable.cardinality ?? ''}`}
+                    onClick={() => {
+                      if (sourceVisible && activeSlot && variable.kind !== 'output')
+                        activeSlot.openPicker(variable.reference);
+                      else setSelectedVariable(variable.id);
+                    }}
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData(
+                        VARIABLE_MIME,
+                        JSON.stringify({ owner: identity, variable: variable.id })
+                      );
+                      event.dataTransfer.effectAllowed = 'link';
+                    }}
+                  >
+                    <span>{variable.name}</span>
+                    {variable.kind === 'local' && <small>local</small>}
+                    {variable.kind === 'variable' && variable.type && <small>{variable.type}</small>}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
       </div>
     </div>
@@ -1235,7 +1263,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     typeof details === 'object'
       ? displayedRows?.rows.find((row) => row.kind === details.kind && row.index === details.index)
       : undefined;
-  const showSignature = Boolean(inspector && (details === 'signature' || (!inspectedRow && !selectedStep)));
+  const showItemDetails = details !== 'signature' && Boolean(inspectedRow || selectedStep);
   const inspectedRegion = details === 'step' ? selectedStep?.region : inspectedRow?.region;
   const inspectRow = (row: ExpressionRow) => {
     if (typeof details === 'object' && details.kind === row.kind && details.index === row.index) return;
@@ -1741,12 +1769,16 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
               </section>
             }
             details={(dismiss) => (
-              <aside className="function-composer__side" aria-label="Composition details">
-                {editor && (inspector || presented?.supported || inspectedRow) && (
-                  <div className="shrink-0 border-b border-border px-2 py-1.5">
+              <aside
+                className="function-composer__side function-composer__details studio-scroll"
+                aria-label="Composition details"
+              >
+                {editor && inspector && <section aria-label="Function signature">{inspector}</section>}
+                {editor && (presented?.supported || inspectedRow || preview) && (
+                  <div className="border-t border-border px-inspector-x py-panel-y">
                     <NativeSelect
                       aria-label="Inspect composition item"
-                      value={showSignature ? 'signature' : inspectedRow ? 'expression' : (selectedStep?.id ?? '')}
+                      value={!showItemDetails ? 'signature' : inspectedRow ? 'expression' : selectedStep?.id}
                       onChange={(event) => {
                         if (event.target.value === 'signature') {
                           setDetails('signature');
@@ -1756,7 +1788,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                         }
                       }}
                     >
-                      {inspector && <option value="signature">Function signature</option>}
+                      <option value="signature">No item selected</option>
                       {inspectedRow && displayedRows && (
                         <option value="expression">
                           {displayedRows.binding.source
@@ -1776,10 +1808,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                     </NativeSelect>
                   </div>
                 )}
-                {showSignature ? (
-                  <div className="function-composer__panel-body studio-scroll">{inspector}</div>
-                ) : (
-                  <div className="function-composer__panel-body studio-scroll">
+                {(!editor || showItemDetails) && (
+                  <div className="function-composer__panel-body">
                     {!editor ? (
                       <p className="text-caption">Select a function to inspect.</p>
                     ) : inspectedRow && displayedRows ? (

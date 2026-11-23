@@ -47,6 +47,14 @@
   padding: var(--space-2);
   overflow-wrap: anywhere;
 }
+.function-composer__details {
+  display: block;
+  overflow: auto;
+}
+.function-composer__details .function-composer__panel-body {
+  overflow: visible;
+  padding-inline: var(--inspector-padding-inline);
+}
 
 .function-composer h2:not(.studio-center-stack__pane-heading > h2) {
   margin: var(--space-3) 0 var(--space-1);
@@ -370,6 +378,7 @@
   overflow-wrap: anywhere;
 }
 .composition-variables {
+  container: composition-variables / inline-size;
   z-index: 5;
   min-width: 0;
   max-height: 160px;
@@ -393,6 +402,34 @@
 .composition-variables > p {
   margin: var(--space-1) 0 var(--space-2);
   font-size: var(--text-2xs);
+}
+.composition-variables__groups {
+  display: grid;
+  gap: var(--space-2);
+}
+.composition-variables__group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@container composition-variables (inline-size >= 30rem) {
+  .composition-variables__groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: var(--space-3);
+  }
+  .composition-variables__group[data-variable-group='inputs'] {
+    grid-column: 1;
+  }
+  .composition-variables__group[data-variable-group='aliases'] {
+    grid-column: 2;
+  }
+  .composition-variables__group[data-variable-group='output'] {
+    grid-column: 3;
+    justify-self: end;
+    max-width: 100%;
+  }
 }
 .composition-variables__tags {
   display: flex;
@@ -418,6 +455,7 @@
 }
 .composition-variable-tag > small {
   flex-shrink: 0;
+  max-inline-size: 12ch;
   color: var(--muted-foreground);
   font-size: var(--text-2xs);
 }

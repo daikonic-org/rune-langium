@@ -174,7 +174,7 @@ available. They never infer financial units or recompute results.
 ## Compose
 
 Compose shares the active project and editor session. Keep its function palette,
-canvas, bottom variable tray and step/signature inspector distinct, with compact shared controls and
+canvas, bottom variable tray and Details distinct, with compact shared controls and
 collapsible side panels. HD is the minimum desktop viewport; narrow screens stack
 panels and start with the palette collapsed. Prefer vertical dependency layout in
 narrow canvases so node text stays readable. Positions, selection and camera are
@@ -190,9 +190,14 @@ determines a saved node's icon, never its variable name. Primitive placement has
 both click and drag paths and stages an ordinary expression draft. Inner branch
 and closure formulas stay in the focused expression builder.
 
-Ordinary argument/output bindings live on the node. Selecting a node reveals
-compact Variable/Value controls and a bounded searchable tag tray beneath the
-graph, with drag and keyboard binding paths. Selection does not create a draft.
+Compose Details uses the shared function inspector for the editable signature and
+metadata, followed by the selected step or expression. The center owns the body
+editor. Ordinary argument/output bindings live on the node. Selecting a node
+reveals compact Variable/Value controls and a bounded searchable tag tray beneath
+the graph, with drag and keyboard binding paths. The tray groups inputs on the
+left, aliases and scoped locals in the middle, and output on the right. Groups
+stack in that order when the available panel width is under 30rem. Selection
+does not create a draft.
 Use preview signature metadata for type/required labels, keeping original argument
 indexes when required controls appear first. Variables sharing a value tag one
 producer rather than drawing duplicate computations. The inspector holds complex

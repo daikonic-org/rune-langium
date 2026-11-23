@@ -71,6 +71,8 @@ it('keeps editing disabled until composition facts match the current dependency 
     editor
   };
   const { rerender } = render(<FunctionComposer {...props} />);
+  const inspect = await screen.findByRole('combobox', { name: 'Inspect composition item' });
+  fireEvent.change(inspect, { target: { value: 'return' } });
   const edit = await screen.findByRole('button', { name: 'Edit expression', exact: true });
   expect(edit).toBeEnabled();
   const refresh = Promise.withResolvers<FunctionComposition>();
@@ -81,7 +83,7 @@ it('keeps editing disabled until composition facts match the current dependency 
   expect(edit).toBeEnabled();
   fireEvent.click(edit);
   expect(edit).not.toBeInTheDocument();
-  expect(screen.getByRole('combobox', { name: 'Inspect composition item' })).toHaveValue('return');
+  expect(inspect).toHaveValue('return');
 });
 
 it.each([true, false])(

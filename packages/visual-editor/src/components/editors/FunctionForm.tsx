@@ -202,6 +202,7 @@ export interface FunctionFormProps extends InspectorHostProps {
    */
   renderExpressionEditor?: (props: ExpressionEditorSlotProps) => ReactNode;
   renderFunctionBodyEditor?: (props: FunctionBodyEditorSlotProps) => ReactNode;
+  signatureOnly?: boolean;
   structuralEditsDisabled?: boolean;
   /** Callback to navigate to a type's graph node. */
   onNavigateToNode?: NavigateToNodeCallback;
@@ -238,6 +239,7 @@ function FunctionForm({
   inheritedGroups = EMPTY_GROUPS,
   renderExpressionEditor,
   renderFunctionBodyEditor,
+  signatureOnly = false,
   structuralEditsDisabled = false,
   synonymSourceOptions,
   onNavigateToNode,
@@ -483,6 +485,7 @@ function FunctionForm({
     metadataReadOnly: sourceReadOnly,
     output: true
   });
+  const metadataSections = <EditorSections names={['MetadataSection', 'AnnotationSection']} />;
 
   return (
     <EditorActionsProvider
@@ -553,7 +556,7 @@ function FunctionForm({
                   id: 'implementation',
                   label: 'Implementation',
                   members: true,
-                  fill: Boolean(renderFunctionBodyEditor),
+                  fill: !signatureOnly && Boolean(renderFunctionBodyEditor),
                   content: (
                     <>
                       <fieldset disabled={structuralEditsDisabled} className="contents">
@@ -660,7 +663,12 @@ function FunctionForm({
                           selectedKey={targets.selection.selectedRow?.key}
                         />
                       </fieldset>{' '}
-                      {renderFunctionBodyEditor ? (
+                      {signatureOnly ? (
+                        <details className="mt-2 border-t border-border py-panel-y">
+                          <summary className="section-heading cursor-pointer">Function metadata</summary>
+                          <div className="pt-panel-y">{metadataSections}</div>
+                        </details>
+                      ) : renderFunctionBodyEditor ? (
                         renderFunctionBodyEditor({ nodeId, readOnly: sourceReadOnly })
                       ) : (
                         <>
@@ -771,7 +779,7 @@ function FunctionForm({
                     </>
                   )
                 },
-                ...(!renderFunctionBodyEditor
+                ...(!signatureOnly && !renderFunctionBodyEditor
                   ? [
                       {
                         id: 'conditions',
@@ -780,13 +788,11 @@ function FunctionForm({
                       }
                     ]
                   : []),
-                {
-                  id: 'details',
-                  label: 'Details',
-                  content: <EditorSections names={['MetadataSection', 'AnnotationSection']} />
-                }
+                ...(signatureOnly ? [] : [{ id: 'details', label: 'Details', content: metadataSections }])
               ]}
-              details={<InspectorMetadataDetails targets={targets} />}
+              details={
+                (!signatureOnly || targets.selection.selectedRow) && <InspectorMetadataDetails targets={targets} />
+              }
               footer={<InspectorFooter errors={nodeMeta.errors} status={saveStatus} />}
             />
           </MetadataTargetProvider>

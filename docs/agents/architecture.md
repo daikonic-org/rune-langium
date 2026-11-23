@@ -1501,8 +1501,9 @@ constructors lay out named rows, and a call's
 name reveals its linked parameter labels on demand. Missing arguments are
 inserted at the call's own closing delimiter. Canvas and Source share
 selection through composition steps and their source ranges, including the Rune
-caret. Compose Details follows Source selection and offers access to the owning
-function signature. At compact widths the same Details panel opens in a dialog
+caret. Compose Details shows the canonical inspector's function signature and
+metadata above step and expression details, which follow Source selection. The
+function body editor is in the center workspace. At compact widths the same Details panel opens in a dialog
 and the center panes keep their available width. Compose restores desktop rail
 widths after the dock is sized for the wider viewport. Both views
 publish through the retained CodeMirror view, which gives each successful Apply a
