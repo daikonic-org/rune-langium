@@ -14,6 +14,7 @@ export const PreviewNumberInput = withInstrumentation(
     format,
     onValueChange,
     onBlur,
+    onFocus,
     className,
     ...props
   }: Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'type'> & {
@@ -23,27 +24,45 @@ export const PreviewNumberInput = withInstrumentation(
   }) {
     const [focused, setFocused] = useState(false);
     const raw = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-    const displayed = focused ? raw : formatPreviewNumber(value, format);
-    const showingFormat = !focused && (!!format || displayed !== raw);
+    const formatted = !focused ? formatPreviewNumber(value, format) : raw;
+    const showDisplay = formatted !== raw;
     return (
-      <Input
-        {...props}
-        // Digits center with even vertical padding in both native input modes.
-        className={cn(className, 'pb-0 tabular-nums')}
-        type={showingFormat ? 'text' : 'number'}
-        inputMode="decimal"
-        value={displayed}
-        onFocus={() => setFocused(true)}
-        onChange={(event) =>
-          onValueChange(
-            event.target.value === '' || Number.isNaN(event.target.valueAsNumber) ? '' : event.target.valueAsNumber
-          )
-        }
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-      />
+      <div className="relative min-w-0">
+        <Input
+          {...props}
+          // Keep the native number control and its selection stable across focus transitions.
+          className={cn(
+            className,
+            'peer pb-0 tabular-nums',
+            showDisplay && 'text-transparent forced-colors:text-[FieldText]'
+          )}
+          type="number"
+          inputMode="decimal"
+          aria-valuetext={showDisplay ? formatted : undefined}
+          value={raw}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onChange={(event) =>
+            onValueChange(
+              event.target.value === '' || Number.isNaN(event.target.valueAsNumber) ? '' : event.target.valueAsNumber
+            )
+          }
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+        />
+        {showDisplay && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-px flex items-center px-1.5 text-xs tabular-nums peer-disabled:opacity-50 forced-colors:hidden"
+          >
+            <span className="truncate">{formatted}</span>
+          </span>
+        )}
+      </div>
     );
   },
   {

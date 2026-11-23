@@ -89,7 +89,7 @@ test('explicitly saves a named recipe, restores its inputs and clones its shared
     await copied.getByRole('combobox', { name: 'Saved workflow', exact: true }).click();
     await copied.getByRole('option', { name: 'Payment scenario', exact: true }).click();
     const restored = copied.getByRole('region', { name: 'value fields', exact: true });
-    await expect(restored.getByLabel('Amount', { exact: true })).toHaveValue('$1,250.12');
+    await expect(restored.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,250.12');
     await restored.getByLabel('Amount', { exact: true }).focus();
     await expect(restored.getByLabel('Amount', { exact: true })).toHaveValue('1250.12345');
     await restored.getByLabel('Currency', { exact: true }).focus();

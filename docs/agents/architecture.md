@@ -488,8 +488,10 @@ source-relative property paths exclude runtime list indices. Codegen
 attaches kind-qualified `typeSymbol` metadata through its authoritative resolver,
 preserving declared aliases and identities through deferred expansion. Root
 selection IDs are normalized before lookup so nested uses share the same layout.
-Preferences never rewrite Rune, validation, or sample values. A formatted numeric
-control shows the raw value while focused and only writes actual edits.
+Preferences never rewrite Rune, validation, or sample values. A numeric control
+keeps its native number input and raw value across focus transitions. The
+formatted display and accessible value appear when the input is idle.
+Read-only grids keep numeric cells whole and scroll the row actions with the data.
 Reordering changes DOM order, supports pointer/touch and keyboard handles, and
 stays inside the owning object. Container queries collapse saved multi-column
 layouts in narrow panels. Unknown members are ignored and newly generated fields
@@ -1497,8 +1499,9 @@ Source rows replace syntax within a captured statement and offer linked picker
 choices for the selected operand. Member paths resolve through the same feature
 scope as the linker. The parser worker describes the selected declaration and
 reference path and derives slot types from linked parameters, output targets,
-fields, and expression context. The picker sorts compatible values and searches
-functions by name and namespace, filtering on their return type. Enum slots show
+fields, and expression context. The picker sorts suggestions and searches
+functions by name and namespace. It excludes known type mismatches and retains
+candidates whose compatibility is unknown. Enum slots show
 the linked enum's members. Path breadcrumbs inspect or browse an individual
 receiver while the whole chip targets replacement. Structured rows use
 source ranges for edits and reuse the Rune editor's tokenizer, highlighter and
@@ -1537,9 +1540,9 @@ Compose layouts. On compact screens the same two views share a dialog tab bar.
 The Test tab embeds the same form preview as Explore and can load a saved
 workflow's literals and bound project examples through Prototype's input
 resolver. Replacing preview inputs clears that function's result and invalidates
-any pending worker reply for those inputs. The Prototype action opens the
-selected recipe or the current function
-as a draft. Canvas diagnostics appear in a collapsed Details section. The center
+any pending worker reply for those inputs. The Test tab points to Prototype when
+there is no saved recipe. The Prototype action opens the selected recipe or the
+current function as a draft. Canvas diagnostics appear in a collapsed Details section. The center
 editor keeps its width when the compact dialog opens. Compose restores desktop
 rail widths after the dock is sized for the wider viewport. Both views
 publish through the retained CodeMirror view, which gives each successful Apply a

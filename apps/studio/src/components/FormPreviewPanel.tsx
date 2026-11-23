@@ -1245,6 +1245,7 @@ function PreviewArrayField({
       label: column.label,
       compact:
         column.kind === 'number' || column.kind === 'boolean' || (column.kind === 'string' && column.format === 'date'),
+      numeric: column.kind === 'number',
       editable: !readOnly && column.required
     }))
   ];

@@ -173,7 +173,7 @@ func Echo:
   await details.screenshot({ path: info.outputPath('workflow-result-details.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 390, height: 900 });
   const gridViewport = identifiers.locator('.preview-object-grid');
-  await expect(gridViewport).toHaveAttribute('data-columns-overflow', '');
+  await expect.poll(() => gridViewport.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   const columnWidth = (name: string) =>
     identifiers.getByRole('columnheader', { name, exact: true }).evaluate((header) => header.clientWidth);
   expect(await columnWidth('Rank')).toBeLessThan(await columnWidth('Registry'));

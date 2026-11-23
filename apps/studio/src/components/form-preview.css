@@ -39,9 +39,6 @@
   border: 0;
   background: transparent;
 }
-.preview-result__fields .preview-object-grid [data-column-compact] {
-  font-variant-numeric: tabular-nums;
-}
 .preview-result__raw > summary {
   min-height: var(--space-6);
   padding-inline: 0;
@@ -221,11 +218,20 @@
   min-width: 6rem;
   max-width: 14rem;
 }
+.preview-object-grid[data-read-only] td:not([data-summary], .preview-object-grid__actions) {
+  min-inline-size: 3.5rem;
+}
 .preview-object-grid[data-read-only] [data-column-compact] {
   min-inline-size: 3.5rem;
   width: 1%;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+.preview-object-grid[data-read-only] td[data-column-numeric] {
+  max-inline-size: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  font-variant-numeric: tabular-nums;
 }
 .preview-object-grid td[data-summary] > span {
   display: -webkit-box;
@@ -239,14 +245,9 @@
   width: 5.5rem;
 }
 .preview-object-grid[data-read-only] .preview-object-grid__actions {
-  position: sticky;
-  inset-inline-end: 0;
   min-width: 3.75rem;
   width: 3.75rem;
   background: var(--card);
-}
-.preview-object-grid[data-read-only][data-columns-overflow] .preview-object-grid__actions {
-  box-shadow: calc(-1 * var(--space-1)) 0 var(--space-2) color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 .preview-object-grid__detail td {
   white-space: normal;

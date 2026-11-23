@@ -127,8 +127,11 @@ it('retries a transient draft schema failure without remounting or losing the in
   expect(await screen.findByText('hydrate unavailable')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Retry input schema' }));
   const fields = await screen.findByRole('region', { name: 'input fields' });
-  const amount = within(fields).getByRole('textbox', { name: 'Amount' });
-  expect(amount).toHaveValue(new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(1250));
+  const amount = within(fields).getByRole('spinbutton', { name: 'Amount' });
+  expect(amount).toHaveAttribute(
+    'aria-valuetext',
+    new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(1250)
+  );
   fireEvent.focus(amount);
   expect(amount).toHaveValue(1250);
   expect(within(fields).getByRole('textbox', { name: 'Currency' })).toHaveValue('USD');

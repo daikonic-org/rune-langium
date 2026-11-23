@@ -226,7 +226,8 @@ describe('FormPreviewPanel', () => {
     };
     const values = { value: 1234.56789, unit: { currency: { value: 'JPY', meta: { scheme: 'ISO' } } }, rate: 0.12345 };
     const { rerender } = render(<FormPreviewPanel schema={schema} status={{ state: 'ready' }} values={values} />);
-    expect(screen.getByLabelText('Value', { exact: true })).toHaveValue(
+    expect(screen.getByRole('spinbutton', { name: 'Value', exact: true })).toHaveAttribute(
+      'aria-valuetext',
       new Intl.NumberFormat(undefined, { style: 'currency', currency: 'JPY' }).format(values.value)
     );
     expect(screen.getByLabelText('Rate', { exact: true })).toHaveValue(values.rate);
@@ -238,7 +239,10 @@ describe('FormPreviewPanel', () => {
         values={{ ...values, unit: { currency: 'unknown' } }}
       />
     );
-    expect(screen.getByLabelText('Value', { exact: true })).toHaveValue('1,234.56789');
+    const value = screen.getByRole('spinbutton', { name: 'Value', exact: true });
+    expect(value).toHaveValue(values.value);
+    expect(value).toHaveAttribute('aria-valuetext', '1,234.56789');
+    expect(screen.getByText('1,234.56789', { exact: true })).toBeVisible();
   });
 
   it('sizes preview fields from their generated schema', () => {

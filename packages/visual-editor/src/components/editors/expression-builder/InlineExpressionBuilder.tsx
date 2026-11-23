@@ -288,8 +288,8 @@ function InlinePicker({
     : loadPicker
       ? []
       : scopedReferences(scope);
-  const fits = (entry: { name: string; compatibility?: string }) =>
-    context?.expected?.typeName ? entry.compatibility === 'compatible' : entry.compatibility !== 'incompatible';
+  // Missing type information does not establish incompatibility.
+  const fits = (entry: { name: string; compatibility?: string }) => entry.compatibility !== 'incompatible';
   const choices = entries
     .filter((entry) => entry.origin !== 'callable' && !(entry.origin === 'enum' && context?.enumValues?.length))
     .sort(compareNames)
@@ -325,7 +325,7 @@ function InlinePicker({
       : [];
   const typed = slot.switchMatch ? switchMatchText(query) : literalText(query);
   const enumValues = (context?.enumValues ?? [])
-    .filter((entry) => entry.compatibility !== 'incompatible')
+    .filter(fits)
     .sort(compareNames)
     .map((entry) => value(entry.name, entry.expressionText));
   const enumGroup = group('Enum values', enumValues);

@@ -201,12 +201,18 @@ func ReturnSide:
 func ReturnSize:
  output: result number (1..1)
  set result: 1
+func UseNumber:
+ inputs: amount number (1..1)
+ output: result number (1..1)
+ set result: amount
 func Demo:
  inputs:
   trade Trade (1..1)
   alternative Direction (1..1)
   size number (1..1)
  output: result Direction (1..1)
+ alias adjusted: size + 1
+ alias increased: UseNumber(size)
  set result: UseSide(trade -> side)
 `;
   const composer = await openComposition(page, body, undefined, {
@@ -260,6 +266,12 @@ func Demo:
   await picker.getByRole('combobox', { name: 'Search members' }).press('Escape');
   await details.getByRole('button', { name: 'Back in Details' }).click();
   await expect(details.getByRole('textbox', { name: 'Function type name', exact: true })).toHaveValue('Demo');
+  const numericAlias = composer.getByTestId('expression-row-alias-1');
+  await numericAlias.getByRole('button', { name: /(?:amount argument |Edit )size/ }).click();
+  const numericPicker = page.getByRole('dialog', { name: /size/ });
+  await expect(numericPicker.getByRole('option', { name: /^adjusted(?: |$)/ })).toBeVisible();
+  await expect(numericPicker.getByRole('option', { name: /^alternative(?: |$)/ })).toHaveCount(0);
+  await numericPicker.getByRole('combobox').press('Escape');
   const testTab = composer.getByRole('tab', { name: 'Test', exact: true });
   const sideTabs = composer
     .locator('.dv-tabs-container')
@@ -338,6 +350,8 @@ func Total:
   await composer.getByRole('button', { name: 'Open Pay workflow', exact: true }).click();
   await composer.getByRole('tab', { name: 'Test', exact: true }).click();
   const testPanel = composer.getByRole('tabpanel', { name: 'Test', exact: true });
+  await expect(testPanel.getByText('Save a workflow in Prototype to reuse its inputs here.')).toBeVisible();
+  await expect(testPanel.getByRole('button', { name: 'Open in Prototype', exact: true })).toBeEnabled();
   const inputHeading = testPanel.getByRole('heading', { name: 'Input', exact: true });
   await expect(inputHeading).toBeVisible();
   await expect(inputHeading).toHaveCSS('text-transform', 'uppercase');
@@ -353,7 +367,9 @@ func Total:
     }).format(amount);
   await notional.fill(String(amount));
   await notional.blur();
-  await expect(notional).toHaveValue(formatted('USD'));
+  await expect(notional).toHaveValue(String(amount));
+  await expect(notional).toHaveAttribute('aria-valuetext', formatted('USD'));
+  await expect(testPanel.getByText(formatted('USD'), { exact: true })).toBeVisible();
   await expect(testPanel.getByText('Ready to run function', { exact: true })).toHaveCount(0);
   await testPanel.getByRole('button', { name: 'Run', exact: true }).click();
   const output = testPanel.getByRole('region', { name: 'Output', exact: true });
@@ -365,7 +381,11 @@ func Total:
   const result = output.getByRole('region', { name: 'Result data' });
   await expect(result.getByRole('cell', { name: formatted('EUR'), exact: true })).toBeVisible();
   await expect(result.getByRole('cell', { name: formatted('JPY'), exact: true })).toBeVisible();
-  await expect(result.getByRole('cell', { name: '1,234.57', exact: true })).toHaveCount(2);
+  const fees = result.getByRole('cell', { name: '1,234.57', exact: true });
+  await expect(fees).toHaveCount(2);
+  const feeText = fees.first().locator('span');
+  await expect(feeText).toBeInViewport({ ratio: 1 });
+  expect(await feeText.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('compose-currency-results.png'), animations: 'disabled' });
   const raw = output.locator('details').filter({ has: page.getByText('Raw result', { exact: true }) });
   await raw.getByText('Raw result', { exact: true }).click();

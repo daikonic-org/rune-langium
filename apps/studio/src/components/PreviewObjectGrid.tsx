@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from '../services/instrumentation/core.js';
-import { Fragment, useEffect, useId, useRef, type ReactNode } from 'react';
+import { Fragment, useId, type ReactNode } from 'react';
 import { ArrowUpRight, ChevronRight, Ellipsis, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
@@ -17,6 +17,7 @@ export interface PreviewGridColumn {
   label: string;
   editable?: boolean;
   compact?: boolean;
+  numeric?: boolean;
 }
 export interface PreviewGridRow {
   path: string;
@@ -52,25 +53,15 @@ export const PreviewObjectGrid = withInstrumentation(
   }) {
     const detailId = useId();
     const readOnly = !onRemove;
-    const scroller = useRef<HTMLDivElement>(null);
-    const table = useRef<HTMLTableElement>(null);
-    useEffect(() => {
-      const viewport = scroller.current;
-      if (!readOnly || !viewport || !table.current) return;
-      const update = () =>
-        viewport.toggleAttribute('data-columns-overflow', viewport.scrollWidth > viewport.clientWidth + 1);
-      const observer = new ResizeObserver(update);
-      observer.observe(viewport);
-      observer.observe(table.current);
-      update();
-      return () => {
-        observer.disconnect();
-        viewport.removeAttribute('data-columns-overflow');
-      };
-    }, [readOnly]);
     return (
-      <div ref={scroller} className="preview-object-grid studio-scroll" data-read-only={readOnly || undefined}>
-        <table ref={table} aria-label={label}>
+      <div
+        className="preview-object-grid studio-scroll"
+        data-read-only={readOnly || undefined}
+        role={readOnly ? 'region' : undefined}
+        aria-label={readOnly ? `${label} grid` : undefined}
+        tabIndex={readOnly ? 0 : undefined}
+      >
+        <table aria-label={label}>
           <thead>
             <tr>
               {columns.map((column, columnIndex) => (
@@ -106,6 +97,7 @@ export const PreviewObjectGrid = withInstrumentation(
                       data-summary-column={columnIndex}
                       data-column-compact={columns[columnIndex]?.compact || undefined}
                       data-editable={cell.editor ? 'true' : undefined}
+                      data-column-numeric={readOnly && columns[columnIndex]?.numeric ? true : undefined}
                       data-summary={columns[columnIndex]?.path === '$summary' || undefined}
                       data-field-path={cell.path}
                       tabIndex={-1}
@@ -113,7 +105,11 @@ export const PreviewObjectGrid = withInstrumentation(
                       data-empty={cell.empty ? 'true' : undefined}
                       data-invalid={cell.error ? 'true' : undefined}
                     >
-                      {cell.editor ?? <span className="block truncate">{cell.text}</span>}
+                      {cell.editor ?? (
+                        <span className={readOnly && columns[columnIndex]?.numeric ? 'block' : 'block truncate'}>
+                          {cell.text}
+                        </span>
+                      )}
                     </td>
                   ))}
                   <td className="preview-object-grid__actions">

@@ -47,7 +47,7 @@ for (const width of [1440, 390])
     await expect(amount).toHaveCSS('font-variant-numeric', 'tabular-nums');
     await form.getByLabel('Fee', { exact: true }).fill('12.3456');
     await form.getByLabel('Quantity', { exact: true }).fill('125');
-    await expect(amount).toHaveValue('1,234.56789');
+    await expect(amount).toHaveAttribute('aria-valuetext', '1,234.56789');
     await expect(amount).toHaveCSS('font-variant-numeric', 'tabular-nums');
     await form.getByRole('button', { name: 'Edit layout', exact: true }).click();
     const columns = form.getByRole('combobox', { name: 'Layout columns', exact: true });
@@ -84,9 +84,9 @@ for (const width of [1440, 390])
     await page.getByRole('combobox', { name: 'Number format', exact: true }).click();
     await page.getByRole('option', { name: 'Currency', exact: true }).click();
     const format = page.locator('.preview-format-editor');
-    await expect(amount).toHaveValue('$1,234.57');
+    await expect(amount).toHaveAttribute('aria-valuetext', '$1,234.57');
     await expect(amount).toHaveCSS('font-variant-numeric', 'tabular-nums');
-    await expect(form.getByLabel('Fee', { exact: true })).toHaveValue('$12.35');
+    await expect(form.getByLabel('Fee', { exact: true })).toHaveAttribute('aria-valuetext', '$12.35');
     await expect(form.getByLabel('Quantity', { exact: true })).toHaveValue('125');
     expect((await new AxeBuilder({ page }).include('.preview-format-editor').analyze()).violations).toEqual([]);
     await page.keyboard.press('Escape');
@@ -94,7 +94,7 @@ for (const width of [1440, 390])
     await form.getByLabel('Amount', { exact: true }).focus();
     await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('1234.56789');
     await form.getByLabel('Reference', { exact: true }).fill('TR-100');
-    await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
+    await expect(form.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,234.57');
     await expect(form.getByTestId('sample-data-output')).toContainText('1234.56789');
     await expect(form.getByText('Valid sample', { exact: true })).toBeVisible();
     await expect(form.getByText('Saved in repository', { exact: true })).toBeVisible();
@@ -118,7 +118,7 @@ for (const width of [1440, 390])
       .toEqual(['amount', 'fee', 'quantity', 'reference', 'addresses']);
     await form.getByLabel('Amount', { exact: true }).fill('1234.56789');
     await form.getByLabel('Reference', { exact: true }).click();
-    await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
+    await expect(form.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,234.57');
     await page.getByTestId('rail-prototype').click();
     await createPrototypeExample(page, 'Trade', 'Formatted trade');
     const prototype = page.getByTestId('prototype-perspective');
@@ -165,7 +165,7 @@ for (const width of [1440, 390])
     await address.getByLabel('City', { exact: true }).fill('London');
     await address.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(prototype.getByRole('button', { name: /^input: Checks passed/ })).toBeVisible();
-    await expect(instance.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
+    await expect(instance.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,234.57');
     await expect(prototype.getByTestId('instance-payload-output')).toContainText('1234.56789');
     if (width === 1440) {
       await prototype.getByRole('button', { name: 'input: Edit layout', exact: true }).click();

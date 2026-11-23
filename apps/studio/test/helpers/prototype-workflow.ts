@@ -433,8 +433,8 @@ journey(
     await value.getByRole('button', { name: 'Format workflow.Amount', exact: true }).click();
     await page.getByRole('combobox', { name: 'Number format', exact: true }).click();
     await page.getByRole('option', { name: 'Currency', exact: true }).click();
-    await expect(value.getByLabel('Amount', { exact: true })).toHaveValue('$1,250.12');
-    await expect(other.getByLabel('Amount', { exact: true })).toHaveValue('$25.00');
+    await expect(value.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,250.12');
+    await expect(other.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$25.00');
     const axe = await new AxeBuilder({ page }).include('.preview-format-editor').analyze();
     await evidence.accessibility('monetary-format', axe);
     expect(axe.violations).toEqual([]);
@@ -455,7 +455,7 @@ journey(
     await expect.poll(() => order(other)).toEqual(['currency', 'amount']);
     await value.getByLabel('Amount', { exact: true }).fill('1250.12345');
     await value.getByLabel('Currency', { exact: true }).fill('USD');
-    await expect(value.getByLabel('Amount', { exact: true })).toHaveValue('$1,250.12');
+    await expect(value.getByLabel('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,250.12');
     if (evidence.allowPhone !== false) {
       await page.setViewportSize({ width: 390, height: 1000 });
       await value.getByLabel('Amount', { exact: true }).scrollIntoViewIfNeeded();

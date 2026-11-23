@@ -137,7 +137,9 @@ export const ComposeTestPanel = withInstrumentation(
               ))}
             </NativeSelect>
           ) : (
-            workflow && <p className="w-full text-xs text-caption">{workflow.name}</p>
+            <p className="w-full text-xs text-caption">
+              {workflow?.name ?? 'Save a workflow in Prototype to reuse its inputs here.'}
+            </p>
           )}
           {workflow && (
             <Button size="xs" variant="outline" onClick={() => void loadWorkflowInputs()} disabled={busy || !schema}>
