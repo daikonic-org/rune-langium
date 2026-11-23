@@ -28,7 +28,8 @@ export const PreviewNumberInput = withInstrumentation(
     return (
       <Input
         {...props}
-        className={cn(className, 'tabular-nums')}
+        // Digits center with even vertical padding in both native input modes.
+        className={cn(className, 'pb-0 tabular-nums')}
         type={showingFormat ? 'text' : 'number'}
         inputMode="decimal"
         value={displayed}
