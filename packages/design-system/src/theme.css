@@ -416,16 +416,18 @@
   font-weight: var(--font-weight-book);
 }
 
-/* Perspective names alone use the signage treatment. */
+/* Perspective names use wider letter spacing. */
 .perspective-heading {
   letter-spacing: var(--perspective-heading-letter-spacing);
   text-transform: uppercase;
 }
 
-/* Internal section headings retain their authored case. */
+/* Internal section headings use compact uppercase labels. */
 .section-heading {
   font-family: var(--font-body);
   font-weight: var(--font-weight-regular);
+  letter-spacing: var(--section-heading-letter-spacing);
+  text-transform: uppercase;
 }
 
 [data-slot='field-legend'] > .section-heading {

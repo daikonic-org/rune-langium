@@ -17,7 +17,7 @@ import { canonicalProjectJson, declarationKey } from '@rune-langium/core/project
 import type { WorkflowDescriptor } from '@rune-langium/project-config';
 import { FormPresentation } from '../../components/FormPresentation.js';
 import { WorkflowLibrary } from '../../components/WorkflowLibrary.js';
-import { captureWorkflowRecipe } from '../../workspace/workflow-repository.js';
+import { captureWorkflowRecipe, resolveWorkflowInputs } from '../../workspace/workflow-repository.js';
 import { resolveExampleType, resolvePresentationType } from '../../workspace/example-identity.js';
 import { qualifiedNameFromNodeId, useEditorStore, type TypeOption } from '@rune-langium/visual-editor';
 import type { FormPreviewSchema, PreviewField } from '@rune-langium/codegen/export';
@@ -763,21 +763,9 @@ export const PrototypeWorkflow = withInstrumentation(
         if (workflow.function && (!identity || declarationKey(identity) !== declarationKey(workflow.function)))
           throw new Error('The saved function is unavailable. Its recipe is retained.');
         await useInstanceStore.getState().loadInstancesFromOpfs();
-        const records = useInstanceStore.getState().instances;
-        const values: Record<string, unknown> = {},
-          restoredIds: Record<string, string> = {},
-          restoredSources: Record<string, string> = {};
-        for (const [path, binding] of Object.entries(workflow.inputs)) {
-          if (binding.kind === 'literal') values[path] = structuredClone(binding.value);
-          else {
-            const record = records[binding.exampleId];
-            if (record?.data === undefined)
-              throw new Error('A saved input example is unavailable. Its binding is retained.');
-            values[path] = structuredClone(record.data);
-            restoredIds[path] = record.id;
-            restoredSources[path] = record.name;
-          }
-        }
+        const { values, bindings } = resolveWorkflowInputs(workflow, useInstanceStore.getState().instances);
+        const restoredIds = Object.fromEntries(bindings.map(([path, record]) => [path, record.id]));
+        const restoredSources = Object.fromEntries(bindings.map(([path, record]) => [path, record.name]));
         let nextDraft: Draft | undefined;
         if (identity) {
           await next.selectFunction(
@@ -787,7 +775,7 @@ export const PrototypeWorkflow = withInstrumentation(
           if (!next.getState().schema)
             throw new Error(next.getState().error ?? 'The saved function schema is unavailable.');
           next.setInputs(values);
-          for (const [path, id] of Object.entries(restoredIds)) next.bindInstance(path, records[id]!);
+          for (const [path, record] of bindings) next.bindInstance(path, record);
         } else {
           const entries = Object.entries(values);
           const type = Object.values(workflow.outputs).find((output) => output.type)?.type;

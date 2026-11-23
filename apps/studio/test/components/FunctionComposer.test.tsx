@@ -87,7 +87,7 @@ it('keeps editing disabled until composition facts match the current dependency 
 });
 
 it.each([true, false])(
-  'retains source-only diagnostics through a source handoff with Compose active=%s',
+  'retains Canvas diagnostics through a reference source handoff with Compose active=%s',
   async (active) => {
     const source = 'namespace example\nfunc Inspect:\n set result: 1\n set result: 2\n';
     const file = {
@@ -133,7 +133,9 @@ it.each([true, false])(
     };
     const { rerender } = render(<FunctionComposer {...props} />);
     const diagnostic = 'Line 4: Multiple output assignments stay in Source.';
-    await screen.findByText(diagnostic);
+    expect(await screen.findByText(diagnostic)).not.toBeVisible();
+    fireEvent.click(screen.getByText('Canvas unavailable', { exact: true }));
+    expect(screen.getByText(diagnostic)).toBeVisible();
     rerender(
       <FunctionComposer
         {...props}

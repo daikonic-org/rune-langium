@@ -20,6 +20,7 @@ import {
   parseExpressionDraft,
   type ExpressionPickerContext,
   type ExpressionPickerTarget,
+  type ExpressionReferenceDetails,
   type RosettaExpression,
   type SourceRegion,
   type SwitchCaseGuard
@@ -73,6 +74,8 @@ export interface InlineExpressionOptions {
   statementTrigger?: { label: string; content: ReactNode; selected?: boolean };
   sourceTarget?: ExpressionPickerTarget;
   loadPicker?(target: ExpressionPickerTarget, trail: readonly string[]): Promise<ExpressionPickerContext>;
+  readOnly?: boolean;
+  onInspectReference?(reference: ExpressionReferenceDetails): void;
   canCommit?(): boolean;
   onActiveSlot?(slot: ExpressionSlot | undefined): void;
   onEditingChange?(editing: boolean): void;
@@ -154,6 +157,8 @@ function switchMatchText(query: string): string | undefined {
 type SlotControl = {
   id: string;
   argumentIndex?: number;
+  parameterName?: string;
+  reference?: boolean;
   label: string;
   display: string;
   content?: ReactNode;
@@ -170,6 +175,8 @@ type SlotEdit = { slot: SlotControl; text: string; raw: boolean; error?: string 
 type PickerAction = { kind: 'value'; text: string } | { kind: 'browse'; id: string; label: string } | { kind: 'raw' };
 
 type PickerEntry = CommandEntry<PickerAction> & { caption?: string };
+const compareNames = (a: { name: string }, b: { name: string }) =>
+  a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
 
 function callableChoices(entries: readonly FunctionScopeEntry[], query: string): PickerEntry[] {
   const declarations = new Map<string, FunctionScopeEntry>();
@@ -177,21 +184,23 @@ function callableChoices(entries: readonly FunctionScopeEntry[], query: string):
     const id = entry.declarationId ?? entry.name;
     if (!declarations.has(id) || !entry.name.includes('.')) declarations.set(id, entry);
   }
-  return [...declarations.values()].flatMap((entry) => {
-    const separator = entry.name.lastIndexOf('.');
-    const label = entry.name.slice(separator + 1);
-    const namespace = entry.namespace ?? (separator < 0 ? undefined : entry.name.slice(0, separator));
-    const searchText = namespace ? label + ' ' + namespace + '.' + label : label;
-    if (!searchText.toLowerCase().includes(query)) return [];
-    return [
-      {
-        label,
-        searchText,
-        caption: namespace,
-        value: { kind: 'value', text: entry.referenceText ?? expressionNodeToDslPreview(referenceNode(entry)) }
-      }
-    ];
-  });
+  return [...declarations.values()]
+    .flatMap<PickerEntry>((entry) => {
+      const separator = entry.name.lastIndexOf('.');
+      const label = entry.name.slice(separator + 1);
+      const namespace = entry.namespace ?? (separator < 0 ? undefined : entry.name.slice(0, separator));
+      const searchText = namespace ? label + ' ' + namespace + '.' + label : label;
+      if (!searchText.toLowerCase().includes(query)) return [];
+      return [
+        {
+          label,
+          searchText,
+          caption: [namespace, entry.typeName, entry.cardinality].filter(Boolean).join(' · '),
+          value: { kind: 'value', text: entry.referenceText ?? expressionNodeToDslPreview(referenceNode(entry)) }
+        }
+      ];
+    })
+    .sort((a, b) => a.label.localeCompare(b.label) || (a.searchText ?? '').localeCompare(b.searchText ?? ''));
 }
 
 const pickerCategories = [
@@ -204,31 +213,44 @@ function InlinePicker({
   scope,
   loadPicker,
   initialQuery,
+  readOnly,
+  onInspectReference,
+  onCloseEmpty,
   choose
 }: {
   slot: SlotControl;
   scope: FunctionScope;
   loadPicker: InlineExpressionOptions['loadPicker'];
   initialQuery?: string;
+  readOnly: boolean;
+  onInspectReference?: InlineExpressionOptions['onInspectReference'];
+  onCloseEmpty?(): void;
   choose(action: PickerAction): void;
 }) {
   const [trail, setTrail] = useState<{ id: string; label: string }[]>([]);
   const [query, setQuery] = useState(initialQuery ?? '');
   const [context, setContext] = useState<ExpressionPickerContext>();
   const [status, setStatus] = useState('');
+  const inspect = useLatestRef(onInspectReference);
+  const closeEmpty = useLatestRef(onCloseEmpty);
+  const target = useLatestRef(slot.target);
+  const targetKey = JSON.stringify(slot.target);
   useEffect(() => {
     if (!loadPicker || slot.operators || slot.switchMatch) return;
     let current = true;
     setContext(undefined);
     setStatus('Loading scope…');
     loadPicker(
-      slot.target,
+      target.current,
       trail.map(({ id }) => id)
     ).then(
       (result) => {
         if (current) {
           setContext(result);
           setStatus('');
+          if (result.inspected && (slot.reference || trail.length)) inspect.current?.(result.inspected);
+          if (readOnly && !trail.length && (result.referencePath?.length ?? 0) < 2 && !result.enumValues?.length)
+            closeEmpty.current?.();
         }
       },
       (error: unknown) => {
@@ -238,7 +260,18 @@ function InlinePicker({
     return () => {
       current = false;
     };
-  }, [loadPicker, slot.target, slot.operators, slot.switchMatch, trail]);
+  }, [
+    loadPicker,
+    targetKey,
+    target,
+    slot.operators,
+    slot.switchMatch,
+    slot.reference,
+    trail,
+    inspect,
+    readOnly,
+    closeEmpty
+  ]);
 
   const group = (id: string, items: CommandEntry<PickerAction>[]) => ({ id, items });
   const value = (label: string, text: string, searchText?: string): CommandEntry<PickerAction> => ({
@@ -255,13 +288,15 @@ function InlinePicker({
     : loadPicker
       ? []
       : scopedReferences(scope);
+  // Missing type information does not establish incompatibility.
+  const fits = (entry: { name: string; compatibility?: string }) => entry.compatibility !== 'incompatible';
   const choices = entries
-    .filter((entry) => entry.origin !== 'callable')
+    .filter((entry) => entry.origin !== 'callable' && !(entry.origin === 'enum' && context?.enumValues?.length))
+    .sort(compareNames)
     .flatMap((entry) => {
       const label = [entry.name, entry.typeName, entry.cardinality].filter(Boolean).join(' ');
       const browseId = 'canBrowse' in entry && entry.canBrowse === true ? entry.declarationId : undefined;
-      const compatible = !('compatibility' in entry) || entry.compatibility !== 'incompatible';
-      const direct = compatible
+      const direct = fits(entry)
         ? [
             value(
               browseId ? 'Use ' + entry.name : label,
@@ -271,24 +306,29 @@ function InlinePicker({
         : [];
       return browseId ? [browse(label, browseId), ...direct] : direct;
     });
-  const members = (context?.members ?? []).flatMap((member) => {
+  const members = (context?.members ?? []).toSorted(compareNames).flatMap((member) => {
     const label = [member.name, member.typeName, member.cardinality].filter(Boolean).join(' ');
     const direct = value(member.canBrowse ? 'Use ' + member.name : label, member.expressionText);
     return member.canBrowse
-      ? [browse(label, member.declarationId), ...(member.compatibility === 'incompatible' ? [] : [direct])]
-      : member.compatibility === 'incompatible'
-        ? []
-        : [direct];
+      ? [browse(label, member.declarationId), ...(fits(member) ? [direct] : [])]
+      : fits(member)
+        ? [direct]
+        : [];
   });
   const search = query.trim().toLowerCase();
   const callables =
     search && !slot.operators && !trail.length
       ? callableChoices(
-          entries.filter((entry) => entry.origin === 'callable'),
+          entries.filter((entry) => entry.origin === 'callable' && fits(entry)),
           search
         )
       : [];
   const typed = slot.switchMatch ? switchMatchText(query) : literalText(query);
+  const enumValues = (context?.enumValues ?? [])
+    .filter(fits)
+    .sort(compareNames)
+    .map((entry) => value(entry.name, entry.expressionText));
+  const enumGroup = group('Enum values', enumValues);
   const groups = slot.switchMatch
     ? [group('Case match', typed ? [value('Use ' + typed, typed, query)] : [])]
     : slot.operators
@@ -300,40 +340,77 @@ function InlinePicker({
         ]
       : trail.length
         ? [group('Members', members)]
-        : [
-            ...(typed ? [group('Value', [value('Use ' + typed, typed, query)])] : []),
-            group('In scope', choices),
-            group('Functions', callables),
-            ...pickerCategories.map((category) =>
-              group(
-                category.label,
-                category.operators.flatMap((operator) => {
-                  const searchText = [operator.label, operator.description, category.label].join(' ');
-                  const items = [value(operator.label, operatorText(operator), searchText)];
-                  if (!slot.placeholder && firstHole(operator.createNode(() => 'new'))) {
-                    items.push(
-                      value(
-                        'Wrap in ' + operator.label,
-                        operatorText(operator, slot.text ?? slot.display),
-                        'Wrap in ' + searchText
-                      )
-                    );
-                  }
-                  return items;
-                })
-              )
-            ),
-            group('Edit', [
-              ...(!slot.placeholder ? [value('Wrap in parentheses', '(' + (slot.text ?? slot.display) + ')')] : []),
-              { label: 'Edit Rune', value: { kind: 'raw' } }
-            ])
-          ];
+        : readOnly
+          ? [enumGroup]
+          : [
+              enumGroup,
+              ...(typed ? [group('Value', [value('Use ' + typed, typed, query)])] : []),
+              group('In scope', choices),
+              group('Functions', callables),
+              ...pickerCategories.map((category) =>
+                group(
+                  category.label,
+                  category.operators.flatMap((operator) => {
+                    const searchText = [operator.label, operator.description, category.label].join(' ');
+                    const items = [value(operator.label, operatorText(operator), searchText)];
+                    if (!slot.placeholder && firstHole(operator.createNode(() => 'new'))) {
+                      items.push(
+                        value(
+                          'Wrap in ' + operator.label,
+                          operatorText(operator, slot.text ?? slot.display),
+                          'Wrap in ' + searchText
+                        )
+                      );
+                    }
+                    return items;
+                  })
+                )
+              ),
+              group('Edit', [
+                ...(!slot.placeholder ? [value('Wrap in parentheses', '(' + (slot.text ?? slot.display) + ')')] : []),
+                { label: 'Edit Rune', value: { kind: 'raw' } }
+              ])
+            ];
   return (
     <>
-      {context?.expected && (
+      {(context?.expected || slot.parameterName) && (
         <div className="px-2 pt-1 text-xs text-caption">
-          {[context.expected.name, context.expected.typeName, context.expected.cardinality].filter(Boolean).join(' · ')}
+          {[context?.expected?.name ?? slot.parameterName, context?.expected?.typeName, context?.expected?.cardinality]
+            .filter(Boolean)
+            .join(' · ')}
         </div>
+      )}
+      {slot.reference && !trail.length && context?.referencePath && context.referencePath.length > 1 && (
+        <nav
+          aria-label="Reference path"
+          className="flex flex-wrap items-center gap-0.5 border-b border-border px-2 py-1"
+        >
+          {context.referencePath.map((segment, index) => (
+            <Fragment key={index}>
+              {index > 0 && (
+                <span aria-hidden="true" className="text-caption">
+                  {segment.deep ? '…' : '.'}
+                </span>
+              )}
+              <Button
+                size="xs"
+                variant="ghost"
+                className="px-1 font-code"
+                aria-label={'Inspect ' + segment.name}
+                title={segment.typeName}
+                onClick={() => {
+                  onInspectReference?.(segment);
+                  if (segment.browseId) {
+                    setTrail([{ id: segment.browseId, label: segment.name }]);
+                    setQuery('');
+                  }
+                }}
+              >
+                {segment.name}
+              </Button>
+            </Fragment>
+          ))}
+        </nav>
       )}
       {trail.length > 0 && (
         <div className="flex items-center gap-2 border-b border-border px-2 py-1">
@@ -352,64 +429,66 @@ function InlinePicker({
           </span>
         </div>
       )}
-      <Command
-        key={trail.map((part) => part.id).join('/')}
-        items={groups}
-        onItemSelect={(action) => {
-          if (action.kind === 'browse') {
-            setTrail([...trail, action]);
-            setQuery('');
-          } else choose(action);
-        }}
-      >
-        <CommandInput
-          aria-label={
-            slot.switchMatch
-              ? 'Switch case match'
-              : slot.operators
-                ? 'Search operators'
-                : trail.length
-                  ? 'Search members'
-                  : 'Search values and primitives'
-          }
-          placeholder={
-            slot.switchMatch
-              ? 'Enter a literal or case name…'
-              : slot.operators
-                ? 'Search operators…'
-                : trail.length
-                  ? 'Search members…'
-                  : 'Search values or control flow…'
-          }
-          autoFocus
-          value={query}
-          onChange={(event) => setQuery(event.currentTarget.value)}
-        />
-        <CommandList>
-          {status && (
-            <p role="status" className="px-2 py-1 text-xs text-caption">
-              {status}
-            </p>
-          )}
-          {!status && <CommandEmpty>No matching choices</CommandEmpty>}
-          {groups.map(({ id }) => (
-            <CommandGroup<PickerAction> key={id} id={id} heading={id}>
-              {(item, index) => (
-                <CommandItem key={index} value={item}>
-                  {'caption' in item && typeof item.caption === 'string' ? (
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate">{item.label}</span>
-                      <small className="truncate text-2xs text-caption">{item.caption}</small>
-                    </span>
-                  ) : (
-                    item.label
-                  )}
-                </CommandItem>
-              )}
-            </CommandGroup>
-          ))}
-        </CommandList>
-      </Command>
+      {(!readOnly || status || groups.some(({ items }) => items.length)) && (
+        <Command
+          key={trail.map((part) => part.id).join('/')}
+          items={groups}
+          onItemSelect={(action) => {
+            if (action.kind === 'browse') {
+              setTrail([...trail, action]);
+              setQuery('');
+            } else choose(action);
+          }}
+        >
+          <CommandInput
+            aria-label={
+              slot.switchMatch
+                ? 'Switch case match'
+                : slot.operators
+                  ? 'Search operators'
+                  : trail.length
+                    ? 'Search members'
+                    : 'Search values and primitives'
+            }
+            placeholder={
+              slot.switchMatch
+                ? 'Enter a literal or case name…'
+                : slot.operators
+                  ? 'Search operators…'
+                  : trail.length
+                    ? 'Search members…'
+                    : 'Search values, primitives, or functions…'
+            }
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+          />
+          <CommandList>
+            {status && (
+              <p role="status" className="px-2 py-1 text-xs text-caption">
+                {status}
+              </p>
+            )}
+            {!status && <CommandEmpty>No matching choices</CommandEmpty>}
+            {groups.map(({ id }) => (
+              <CommandGroup<PickerAction> key={id} id={id} heading={id}>
+                {(item, index) => (
+                  <CommandItem key={index} value={item} disabled={readOnly && item.value.kind === 'value'}>
+                    {'caption' in item && typeof item.caption === 'string' ? (
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate">{item.label}</span>
+                        <small className="truncate text-2xs text-caption">{item.caption}</small>
+                      </span>
+                    ) : (
+                      item.label
+                    )}
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      )}
     </>
   );
 }
@@ -546,6 +625,8 @@ export function InlineExpressionBuilder({
   onEditingChange,
   loadPicker,
   canCommit,
+  readOnly = false,
+  onInspectReference,
   onHighlightRange,
   highlightedRange,
   renderSyntax,
@@ -558,6 +639,7 @@ export function InlineExpressionBuilder({
   const compositionCall = rootAst && getCompositionCallExpression(rootAst);
   const root = useRef<HTMLDivElement>(null);
   const liveSource = useLatestRef(source);
+  const inspection = useRef(0);
   const [active, setActive] = useState<{ id: string; query?: string }>();
   const [operatorDropTarget, setOperatorDropTarget] = useState<string>();
   const [editing, setEditing] = useState<SlotEdit>();
@@ -586,7 +668,13 @@ export function InlineExpressionBuilder({
   };
   const update = (range: SourceRegion, text: string) => {
     // An open popover or toolbar action may belong to a prior draft.
-    if (liveSource.current !== source || canCommit?.() === false || range.from < 0 || range.to > source.length) {
+    if (
+      readOnly ||
+      liveSource.current !== source ||
+      canCommit?.() === false ||
+      range.from < 0 ||
+      range.to > source.length
+    ) {
       return false;
     }
     onChange?.(source.slice(0, range.from) + text + source.slice(range.to));
@@ -617,6 +705,16 @@ export function InlineExpressionBuilder({
     };
     if ('root' in sourceTarget) return address;
     return rootAst ? { ...sourceTarget, draftAddress: address } : sourceTarget;
+  };
+  const inspectAt = (target: ExpressionPickerTarget, trigger: HTMLElement) => {
+    if (!onInspectReference || !loadPicker) return;
+    const request = ++inspection.current;
+    void loadPicker(target, [])
+      .then((result) => {
+        if (request === inspection.current && result.inspected && trigger.isConnected)
+          onInspectReference(result.inspected);
+      })
+      .catch(() => undefined);
   };
   const highlight = (range: SourceRegion | undefined) => {
     const offset = 'root' in sourceTarget ? sourceTarget.root.from : undefined;
@@ -734,7 +832,9 @@ export function InlineExpressionBuilder({
   };
   const renderSlot = (slot: SlotControl, kind: 'operand' | 'statement' | 'operator' = 'operand') => {
     const statement = kind === 'statement';
-    const acceptsOperator = !editing && kind !== 'operator';
+    if (readOnly && !slot.reference)
+      return <span className="whitespace-pre-wrap wrap-anywhere">{slot.content ?? syntaxSlice(slot.range)}</span>;
+    const acceptsOperator = !readOnly && !editing && kind !== 'operator';
     const from = 'root' in sourceTarget ? sourceTarget.root.from : undefined;
     const highlighted =
       from !== undefined &&
@@ -756,17 +856,19 @@ export function InlineExpressionBuilder({
             return;
           }
           if (editing) return;
+          ++inspection.current;
           setActive({ id: slot.id, query: slot.switchMatch && !slot.placeholder ? slot.display : undefined });
-          onActiveSlot?.(
-            slot.switchMatch
-              ? undefined
-              : {
-                  nodeId: slot.id,
-                  target: slot.target,
-                  replace: (text) => commit(slot, text),
-                  openPicker: (query) => setActive({ id: slot.id, query })
-                }
-          );
+          if (!readOnly)
+            onActiveSlot?.(
+              slot.switchMatch
+                ? undefined
+                : {
+                    nodeId: slot.id,
+                    target: slot.target,
+                    replace: (text) => commit(slot, text),
+                    openPicker: (query) => setActive({ id: slot.id, query })
+                  }
+            );
         }}
       >
         <PopoverTrigger
@@ -815,7 +917,7 @@ export function InlineExpressionBuilder({
                 commit(slot, operatorText(operator, slot.placeholder ? undefined : (slot.text ?? slot.display)));
               }}
               onKeyDown={(event) => {
-                if (editing || slot.operators || event.ctrlKey || event.metaKey || event.altKey) return;
+                if (readOnly || editing || slot.operators || event.ctrlKey || event.metaKey || event.altKey) return;
                 if (event.key === '(' && !slot.placeholder && !slot.switchMatch) {
                   event.preventDefault();
                   commit(slot, '(' + (slot.text ?? slot.display) + ')');
@@ -842,7 +944,11 @@ export function InlineExpressionBuilder({
               scope={scope}
               loadPicker={loadPicker}
               initialQuery={active.query}
+              readOnly={readOnly}
+              onInspectReference={onInspectReference}
+              onCloseEmpty={() => close()}
               choose={(action) => {
+                if (readOnly) return;
                 if (action.kind === 'value') commit(slot, action.text);
                 else if (action.kind === 'raw')
                   beginEdit({ slot, text: slot.placeholder ? '' : (slot.text ?? slot.display), raw: true });
@@ -923,7 +1029,9 @@ export function InlineExpressionBuilder({
           })
           .filter((child) => child.range.from >= range.from && child.range.to <= range.to)
           .sort((a, b) => a.range.from - b.range.from);
-    const missing = Math.max(0, (argumentNames?.length ?? callSignature?.argumentCount ?? 0) - children.length);
+    const missing = readOnly
+      ? 0
+      : Math.max(0, (argumentNames?.length ?? callSignature?.argumentCount ?? 0) - children.length);
     const leaf = !children.length && !missing;
     const repeatedOperator =
       ast &&
@@ -955,7 +1063,7 @@ export function InlineExpressionBuilder({
     const clause = ast && expressionBody(ast);
     // A required clause and its value clear the same range. Give that action to the clause.
     const removeGroup =
-      grouping && !editing && clause !== 'then' && clause !== 'callback' && clause !== 'fallback'
+      grouping && !readOnly && !editing && clause !== 'then' && clause !== 'callback' && clause !== 'fallback'
         ? () => clearValue(range, path)
         : undefined;
     const renderGroup = (content: ReactNode) => (
@@ -1007,10 +1115,16 @@ export function InlineExpressionBuilder({
     if (leaf) {
       const memberPath = isMemberPath ? presentMemberPath(ast, range) : undefined;
       const display = memberPath?.text ?? original;
-      const label = operandLabel ?? (placeholder ? (slotHint?.label ?? 'Add expression') : 'Edit ' + display);
+      const reference =
+        isMemberPath || ast?.$type === 'RosettaSymbolReference' || ast?.$type === 'RosettaImplicitVariable';
+      const label =
+        operandLabel ??
+        (placeholder ? (slotHint?.label ?? 'Add expression') : (readOnly ? 'Inspect ' : 'Edit ') + display);
       const slot = renderSlot({
         id: path,
         argumentIndex: compositionArgumentIndex,
+        parameterName: argument,
+        reference: reference && !placeholder,
         range,
         target,
         replace,
@@ -1024,10 +1138,16 @@ export function InlineExpressionBuilder({
     }
 
     const reference =
-      ast?.$type === 'RosettaSymbolReference' && (missing || argumentNames?.length)
+      ast?.$type === 'RosettaSymbolReference' && (ast.explicitArguments || missing || argumentNames?.length)
         ? getSymbolReferenceRegions(ast)
         : undefined;
-    const callee = argumentNames?.length ? reference?.name : undefined;
+    const constructor =
+      ast?.$type === 'RosettaConstructorExpression' && ast.typeRef.$type === 'RosettaSymbolReference'
+        ? getSymbolReferenceRegions(ast.typeRef)?.name
+        : undefined;
+    const callee =
+      (argumentNames?.length || onInspectReference ? reference?.name : undefined) ??
+      (onInspectReference ? constructor : undefined);
     const explicitArguments = ast?.$type === 'RosettaSymbolReference' && ast.explicitArguments;
     const calleeName = callee && source.slice(callee.from, callee.to);
     const showParameters = callee && expandedParameters.has(path);
@@ -1042,17 +1162,25 @@ export function InlineExpressionBuilder({
             <PickerTrigger
               indicator={false}
               className={expressionControl}
-              aria-label={(showParameters ? 'Hide parameters for ' : 'Show parameters for ') + calleeName}
-              aria-expanded={Boolean(showParameters)}
-              data-expression-parameters
-              onClick={() =>
-                setExpandedParameters((previous) => {
-                  const next = new Set(previous);
-                  if (next.has(path)) next.delete(path);
-                  else next.add(path);
-                  return next;
-                })
+              aria-label={
+                (argumentNames?.length
+                  ? showParameters
+                    ? 'Hide parameters for '
+                    : 'Show parameters for '
+                  : 'Inspect ') + calleeName
               }
+              aria-expanded={argumentNames?.length ? Boolean(showParameters) : undefined}
+              data-expression-parameters
+              onClick={(event) => {
+                inspectAt(target, event.currentTarget);
+                if (argumentNames?.length)
+                  setExpandedParameters((previous) => {
+                    const next = new Set(previous);
+                    if (next.has(path)) next.delete(path);
+                    else next.add(path);
+                    return next;
+                  });
+              }}
             >
               <span className="truncate">{syntaxSlice(callee)}</span>
             </PickerTrigger>
@@ -1112,7 +1240,7 @@ export function InlineExpressionBuilder({
       children.length > 1 &&
       children.every(({ memberLabel, range }) => memberLabel && memberLabel.to <= range.from);
     const addSwitchCase =
-      ast?.$type === 'SwitchOperation'
+      !readOnly && ast?.$type === 'SwitchOperation'
         ? () => {
             const draftCase = SWITCH_GUARD_HOLE + ' then ' + hole;
             const fallback = ast.cases.find((entry) => !entry.guard);
@@ -1199,7 +1327,7 @@ export function InlineExpressionBuilder({
                 ? switchCase.$container.cases.length > 1
                 : body === 'else' || !isPlaceholder(child.node, source.slice(child.range.from, child.range.to));
               const removeClause =
-                !editing && removable
+                !readOnly && !editing && removable
                   ? () => {
                       if (switchCase) {
                         const edit = getSwitchCaseRemoval(source, switchCase);
@@ -1330,6 +1458,7 @@ export function InlineExpressionBuilder({
                   {renderSlot({
                     id: path + '/missing/' + index,
                     argumentIndex: ast === compositionCall ? position : undefined,
+                    parameterName: name,
                     label: name + ' argument',
                     display: name,
                     target: targetAt(node, range, position),
@@ -1352,10 +1481,12 @@ export function InlineExpressionBuilder({
           </>
         )}
         {syntax(suffix, range.to)}
-        {compositionArgumentIndex !== undefined &&
+        {!readOnly &&
+          compositionArgumentIndex !== undefined &&
           renderSlot({
             id: path + '/actions',
             argumentIndex: compositionArgumentIndex,
+            parameterName: argument,
             label: (argument ?? 'Argument ' + (compositionArgumentIndex + 1)) + ' argument actions',
             display: '…',
             text: original,
@@ -1402,7 +1533,7 @@ export function InlineExpressionBuilder({
     >
       {statementTrigger && renderSlot(rootSlot, 'statement')}
       {rootEdit ? renderEdit(rootEdit) : renderNode(tree, 0)}
-      {!statementTrigger && getChildren(tree).length > 0 && renderSlot(rootSlot)}
+      {!readOnly && !statementTrigger && getChildren(tree).length > 0 && renderSlot(rootSlot)}
       {editing && !editingRendered && !rootEdit && renderEdit(editing)}
       {error && (
         <span role="alert" className="text-destructive">

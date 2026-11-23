@@ -182,6 +182,224 @@ func SelectAmount:
     .toBe(content.replace(expression, 'if enabled then (' + expression + ') else 0'));
 });
 
+test('inspects linked expression references and tests a function with a saved workflow', async ({ page }, info) => {
+  test.setTimeout(60000);
+  const body = `namespace workflow
+enum Direction:
+ Sell
+ Buy
+type Trade:
+ side Direction (1..1)
+ size number (1..1)
+func UseSide:
+ inputs: side Direction (1..1)
+ output: result Direction (1..1)
+ set result: side
+func ReturnSide:
+ output: result Direction (1..1)
+ set result: Direction -> Buy
+func ReturnSize:
+ output: result number (1..1)
+ set result: 1
+func UseNumber:
+ inputs: amount number (1..1)
+ output: result number (1..1)
+ set result: amount
+func Demo:
+ inputs:
+  trade Trade (1..1)
+  alternative Direction (1..1)
+  size number (1..1)
+ output: result Direction (1..1)
+ alias adjusted: size + 1
+ alias increased: UseNumber(size)
+ set result: UseSide(trade -> side)
+`;
+  const composer = await openComposition(page, body, undefined, {
+    'examples/trade.json': JSON.stringify({ side: 'Sell', size: 42 }),
+    'examples/trade.example.json': JSON.stringify({
+      schemaVersion: 1,
+      id: 'trade-example',
+      name: 'Example trade',
+      codec: 'JSON',
+      type: { model: 'local', namespace: 'workflow', name: 'Trade', kind: 'Data' },
+      payload: 'examples/trade.json'
+    }),
+    'workflows/trade.workflow.json': JSON.stringify({
+      schemaVersion: 1,
+      id: 'trade-workflow',
+      name: 'Test the saved trade',
+      function: { model: 'local', namespace: 'workflow', name: 'Demo', kind: 'RosettaFunction' },
+      inputs: {
+        trade: { kind: 'example', exampleId: 'trade-example' },
+        alternative: { kind: 'literal', value: 'Buy' },
+        size: { kind: 'literal', value: 5 }
+      },
+      outputs: {}
+    })
+  });
+  await composer.getByRole('button', { name: 'Open Demo workflow', exact: true }).click();
+  const details = composer.getByRole('complementary', { name: 'Composition details' });
+  const metadata = details.getByText('Function metadata', { exact: true });
+  await expect(metadata).toHaveCSS('text-transform', 'uppercase');
+  await metadata.click();
+  await expect(details.getByText('Annotations', { exact: true })).toHaveCSS('text-transform', 'none');
+  await metadata.click();
+  const row = composer.getByTestId('expression-row-operation-0');
+  await row.getByRole('button', { name: /(?:Show parameters for |Inspect )UseSide/ }).click();
+  await expect(details.getByRole('heading', { name: 'UseSide', exact: true })).toBeVisible();
+  await row.getByRole('button', { name: /(?:side argument |Edit )trade\.side/ }).click();
+  const picker = page.getByRole('dialog', { name: /trade\.side/ });
+  await expect(picker.getByText('side · Direction · (1..1)', { exact: true })).toBeVisible();
+  await expect(picker.getByRole('option', { name: 'Sell', exact: true })).toBeVisible();
+  await expect(picker.getByRole('option', { name: /^size number/ })).toHaveCount(0);
+  await expect(details.getByRole('heading', { name: 'Direction', exact: true })).toBeVisible();
+  const search = picker.getByRole('combobox');
+  await search.fill('Return');
+  await expect(picker.getByRole('option', { name: /ReturnSide/ })).toBeVisible();
+  await expect(picker.getByRole('option', { name: /ReturnSize/ })).toHaveCount(0);
+  await picker
+    .getByRole('navigation', { name: 'Reference path' })
+    .getByRole('button', { name: 'Inspect trade' })
+    .click();
+  await expect(details.getByRole('heading', { name: 'Trade', exact: true })).toBeVisible();
+  await picker.getByRole('combobox', { name: 'Search members' }).press('Escape');
+  await details.getByRole('button', { name: 'Back in Details' }).click();
+  await expect(details.getByRole('textbox', { name: 'Function type name', exact: true })).toHaveValue('Demo');
+  const numericAlias = composer.getByTestId('expression-row-alias-1');
+  await numericAlias.getByRole('button', { name: /(?:amount argument |Edit )size/ }).click();
+  const numericPicker = page.getByRole('dialog', { name: /size/ });
+  await expect(numericPicker.getByRole('option', { name: /^adjusted(?: |$)/ })).toBeVisible();
+  await expect(numericPicker.getByRole('option', { name: /^alternative(?: |$)/ })).toHaveCount(0);
+  await numericPicker.getByRole('combobox').press('Escape');
+  const testTab = composer.getByRole('tab', { name: 'Test', exact: true });
+  const sideTabs = composer
+    .locator('.dv-tabs-container')
+    .filter({ has: page.getByRole('tab', { name: 'Test', exact: true }) });
+  await expect(sideTabs.getByRole('tab', { name: 'Details', exact: true })).toBeVisible();
+  await testTab.click();
+  const testPanel = composer.getByRole('tabpanel', { name: 'Test', exact: true });
+  await testPanel.getByRole('button', { name: 'Use workflow inputs' }).click();
+  await expect(testPanel.getByTestId('sample-data-output')).toContainText('"size": 42');
+  await expect(testPanel.getByTestId('sample-data-output')).toContainText('"side": "Sell"');
+  await expect(testPanel.getByTestId('sample-data-output')).toContainText('"alternative": "Buy"');
+  await expect(testPanel.getByTestId('sample-data-output')).toContainText('"size": 5');
+  const toolbar = testPanel.locator('header').filter({ has: page.getByRole('heading', { name: 'Demo', exact: true }) });
+  for (const label of ['Edit layout', 'Copy', 'Reset']) {
+    await expect(toolbar.getByRole('button', { name: label, exact: true })).toBeVisible();
+  }
+  const grids = testPanel.locator('.preview-layout-grid');
+  await expect(grids.first()).toHaveCSS('grid-template-columns', /^[\d.]+px [\d.]+px$/);
+  await expect(grids.nth(1)).toHaveCSS('grid-template-columns', /^[\d.]+px [\d.]+px$/);
+  const run = toolbar.getByRole('button', { name: 'Run', exact: true });
+  await expect(run).toHaveAttribute('data-variant', 'default');
+  await run.click();
+  await expect(testPanel.locator('.execution-result pre')).toContainText('Sell');
+  await page.screenshot({ path: info.outputPath('compose-test-tab.png'), animations: 'disabled' });
+  await row.getByRole('button', { name: /(?:side argument |Edit )trade\.side/ }).click();
+  await expect(details.getByRole('heading', { name: 'Direction', exact: true })).toBeVisible();
+  await picker.getByRole('combobox').press('Escape');
+  await testTab.click();
+  await expect(testPanel.locator('.execution-result pre')).toContainText('Sell');
+  const side = testPanel.getByRole('combobox', { name: 'Side', exact: true });
+  await side.click();
+  await page.getByRole('option', { name: 'Buy', exact: true }).click();
+  await expect(testPanel.getByRole('region', { name: 'Output', exact: true })).toHaveCount(0);
+  await run.click();
+  await expect(testPanel.locator('.execution-result pre')).toContainText('Buy');
+  await testPanel.getByRole('button', { name: 'Use workflow inputs' }).click();
+  await expect(testPanel.getByTestId('sample-data-output')).toContainText('"side": "Sell"');
+  await expect(testPanel.getByRole('region', { name: 'Output', exact: true })).toHaveCount(0);
+  await testPanel.getByRole('button', { name: 'Open in Prototype' }).click();
+  const prototype = page.getByTestId('prototype-perspective');
+  await expect(prototype.getByRole('combobox', { name: 'Saved workflow' })).toContainText('Test the saved trade');
+  await expect(prototype.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
+  expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(body);
+});
+
+test('applies the inherited amount mask using each result row’s currency', async ({ page }, info) => {
+  const source = `namespace workflow
+typeAlias Amount: number
+typeAlias DerivedAmount: Amount
+type Payment:
+ amount DerivedAmount (1..1)
+ currency string (1..1)
+ fee DerivedAmount (1..1)
+func Pay:
+ inputs: notional DerivedAmount (1..1)
+ output: payments Payment (0..*)
+ set payments: [Payment {amount: notional, currency: "EUR", fee: notional},
+                Payment {amount: notional, currency: "JPY", fee: notional}]
+func Total:
+ inputs: notional DerivedAmount (1..1)
+ output: result DerivedAmount (1..1)
+ set result: notional
+`;
+  const composer = await openComposition(page, source, undefined, {
+    'layouts/amount.layout.json': JSON.stringify({
+      schemaVersion: 1,
+      type: { model: 'local', namespace: 'workflow', name: 'Amount', kind: 'RosettaTypeAlias' },
+      fields: { '': { format: { kind: 'currency', currency: 'USD', precision: 3, grouping: false } } }
+    }),
+    'layouts/payment.layout.json': JSON.stringify({
+      schemaVersion: 1,
+      type: { model: 'local', namespace: 'workflow', name: 'Payment', kind: 'Data' },
+      fields: { fee: { format: { kind: 'decimal', precision: 2 } } }
+    })
+  });
+  await composer.getByRole('button', { name: 'Open Pay workflow', exact: true }).click();
+  await composer.getByRole('tab', { name: 'Test', exact: true }).click();
+  const testPanel = composer.getByRole('tabpanel', { name: 'Test', exact: true });
+  await expect(testPanel.getByText('Save a workflow in Prototype to reuse its inputs here.')).toBeVisible();
+  await expect(testPanel.getByRole('button', { name: 'Open in Prototype', exact: true })).toBeEnabled();
+  const inputHeading = testPanel.getByRole('heading', { name: 'Input', exact: true });
+  await expect(inputHeading).toBeVisible();
+  await expect(inputHeading).toHaveCSS('text-transform', 'uppercase');
+  const notional = testPanel.getByLabel('Notional', { exact: true });
+  const amount = 1234.56789;
+  const formatted = (currency: string) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+      useGrouping: false
+    }).format(amount);
+  await notional.fill(String(amount));
+  await notional.blur();
+  await expect(notional).toHaveValue(String(amount));
+  await expect(notional).toHaveAttribute('aria-valuetext', formatted('USD'));
+  await expect(testPanel.getByText(formatted('USD'), { exact: true })).toBeVisible();
+  await expect(testPanel.getByText('Ready to run function', { exact: true })).toHaveCount(0);
+  await testPanel.getByRole('button', { name: 'Run', exact: true }).click();
+  const output = testPanel.getByRole('region', { name: 'Output', exact: true });
+  const outputHeading = output.getByRole('heading', { name: 'Output', exact: true });
+  await expect(outputHeading).toBeVisible();
+  await expect(outputHeading).toHaveCSS('text-transform', 'uppercase');
+  await expect(output).toHaveCSS('border-left-width', '0px');
+  await expect(output).toHaveCSS('border-top-style', 'solid');
+  const result = output.getByRole('region', { name: 'Result data' });
+  await expect(result.getByRole('cell', { name: formatted('EUR'), exact: true })).toBeVisible();
+  await expect(result.getByRole('cell', { name: formatted('JPY'), exact: true })).toBeVisible();
+  const fees = result.getByRole('cell', { name: '1,234.57', exact: true });
+  await expect(fees).toHaveCount(2);
+  const feeText = fees.first().locator('span');
+  await expect(feeText).toBeInViewport({ ratio: 1 });
+  expect(await feeText.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('compose-currency-results.png'), animations: 'disabled' });
+  const raw = output.locator('details').filter({ has: page.getByText('Raw result', { exact: true }) });
+  await raw.getByText('Raw result', { exact: true }).click();
+  await expect(raw.locator('pre')).toContainText('"amount": 1234.56789');
+  await expect(raw.locator('pre')).toContainText('"currency": "EUR"');
+
+  await composer.getByRole('button', { name: 'Open Total workflow', exact: true }).click();
+  await notional.fill(String(amount));
+  await testPanel.getByRole('button', { name: 'Run', exact: true }).click();
+  await expect(result.getByText(formatted('USD'), { exact: true })).toBeVisible();
+  await raw.getByText('Raw result', { exact: true }).click();
+  await expect(raw.locator('pre')).toHaveText(String(amount));
+});
+
 test('drags Branch onto a statement or a nested operand in Compose Source', async ({ page }, info) => {
   const content = `namespace workflow
 func Scale:
@@ -551,12 +769,14 @@ func DoubleTwice:
  set result: again
  post-condition Good: result > 0
 
+type ResultValue:
+ amount number (1..1)
+
 func SourceOnly:
  [composition]
- inputs: value number (1..1)
- output: result number (1..1)
- set result: value
- set result: value * 2
+ inputs: value ResultValue (1..1)
+ output: result ResultValue (1..1)
+ set result -> amount: value -> amount
 `;
   const composer = await openComposition(page, composition, 'DoubleTwice');
   await expect(composer.locator('.composition-node')).toHaveCount(4);
@@ -611,7 +831,7 @@ func SourceOnly:
     exact: true
   });
   await expect(sourceView).toHaveCSS('font-weight', '500');
-  await composer.getByRole('button', { name: 'Parent', exact: true }).click();
+  await composer.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(scaled.getByRole('textbox', { name: 'scaled argument value', exact: true })).toHaveValue('value + 1');
   await scaled.getByRole('button', { name: 'Apply', exact: true }).click();
   await composer.getByRole('button', { name: 'Save', exact: true }).click();
@@ -696,8 +916,14 @@ func SourceOnly:
   expect((await new AxeBuilder({ page }).include('.function-composer').analyze()).violations).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('compose-canvas-light-hd.png') });
   await composer.getByRole('button', { name: 'Open SourceOnly workflow', exact: true }).click();
-  await expect(composer.getByRole('heading', { name: 'Source-only function', exact: true })).toBeVisible();
-  const notice = composer.getByText(/one whole-output set/);
+  const sourcePane = composer.getByRole('region', { name: 'Composition source', exact: true });
+  await expect(sourcePane.getByRole('button', { name: 'set result.amount:', exact: true })).toBeVisible();
+  await expect(sourcePane.getByText(/one whole-output set/)).toHaveCount(0);
+  await expect(composer.getByRole('button', { name: 'Canvas', exact: true })).toBeDisabled();
+  const details = composer.getByRole('complementary', { name: 'Composition details', exact: true });
+  const notice = details.getByText(/one whole-output set/);
+  await expect(notice).toBeHidden();
+  await details.getByText('Canvas unavailable', { exact: true }).click();
   await expect(notice).toBeVisible();
   await expect(notice).toHaveCSS('font-style', 'italic');
   await expect(notice).toHaveCSS('font-family', /Daikonic Transit System/);
@@ -845,8 +1071,16 @@ test('resizes Compose side panels without editing source or replacing the canvas
   const compactDetails = page.getByRole('dialog', { name: 'Details', exact: true });
   await expect(compactDetails.getByRole('complementary', { name: 'Composition details' })).toBeVisible();
   await expect(compactDetails.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
+  await compactDetails.getByRole('tab', { name: 'Test', exact: true }).click();
+  await expect(compactDetails.getByRole('button', { name: 'Run', exact: true })).toBeVisible();
+  await compactDetails.getByRole('tab', { name: 'Details', exact: true }).click();
+  await expect(compactDetails.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
   expect(await composer.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
   await page.screenshot({ path: info.outputPath('compose-resized-narrow.png') });
+  await compactDetails.press('Escape');
+  await composer.getByRole('tab', { name: 'Test', exact: true }).click();
+  await expect(compactDetails.getByRole('tab', { name: 'Test', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await compactDetails.getByRole('tab', { name: 'Details', exact: true }).click();
   await compactDetails.press('Escape');
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect.poll(() => width(palette)).toBeCloseTo(paletteWidth, 0);
@@ -986,7 +1220,7 @@ func DoubleAgain:
   await expect(twice).toHaveAttribute('aria-current', 'true');
   await showCanvas(composer);
   await expect(composer.locator('.composition-node')).toHaveCount(3);
-  await expect(composer.getByRole('button', { name: 'Parent', exact: true })).toHaveCount(0);
+  await expect(composer.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
 
   await compositions.getByRole('button', { name: 'Add DoubleAgain', exact: true }).click();
   await expect(twice).toHaveAttribute('aria-current', 'true');
@@ -1054,7 +1288,7 @@ func PaletteCall${i}:
   const search = palette.getByRole('textbox', { name: 'Search functions and compositions' });
   const heading = palette.getByRole('heading', { name: /functions 127/i });
   await expect(heading).toBeVisible();
-  await expect(heading).toHaveCSS('text-transform', 'none');
+  await expect(heading).toHaveCSS('text-transform', 'uppercase');
   await expect(heading).toHaveCSS('font-weight', '400');
   const headingType = await heading.evaluate((element) => {
     const probe = document.createElement('span');
@@ -1063,10 +1297,15 @@ func PaletteCall${i}:
     const bodyFamily = getComputedStyle(probe).fontFamily;
     probe.remove();
     const style = getComputedStyle(element);
-    return { family: style.fontFamily, bodyFamily, tracking: style.letterSpacing };
+    return {
+      family: style.fontFamily,
+      bodyFamily,
+      fontSize: Number.parseFloat(style.fontSize),
+      tracking: Number.parseFloat(style.letterSpacing)
+    };
   });
   expect(headingType.family).toBe(headingType.bodyFamily);
-  expect(headingType.tracking).toBe('normal');
+  expect(headingType.tracking).toBeCloseTo(headingType.fontSize * 0.04);
   expect((await palette.locator('.function-composer__catalog').boundingBox())!.height).toBeLessThanOrEqual(288);
   await expect(tree.getByRole('button', { name: 'Open Double workflow', exact: true })).toBeVisible();
   await expect(tree.getByRole('button', { name: 'Open PaletteCall124 workflow', exact: true })).toHaveCount(0);
@@ -1192,11 +1431,22 @@ func Analyze:
   const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
   const search = palette.getByRole('textbox', { name: 'Search functions and compositions', exact: true });
   const primitives = palette.getByRole('region', { name: 'Primitives', exact: true });
+  await expect(primitives.getByRole('heading', { name: 'Primitives', exact: true })).toHaveCSS(
+    'text-transform',
+    'uppercase'
+  );
+  await expect(primitives.getByRole('heading', { name: 'Values & decisions', exact: true })).toHaveCSS(
+    'text-transform',
+    'none'
+  );
   const draft = composer.locator('[data-composition-step="draft:new"]');
   const canvasLabel = composer
     .getByRole('button', { name: 'Canvas', exact: true })
     .locator('[data-slot="button-label"]');
   await expect(canvasLabel).toHaveCSS('text-box-edge', 'cap alphabetic');
+  const branch = primitives.getByRole('button', { name: 'Branch', exact: true });
+  await branch.hover();
+  await expect(branch).toHaveCSS('outline-style', 'solid');
   for (const label of [
     'Expression',
     'Branch',
@@ -1215,10 +1465,12 @@ func Analyze:
     await expect(button.locator('svg')).toHaveAttribute('aria-hidden', 'true');
     await button.click();
     await expect(draft.locator('.composition-node__heading strong')).toHaveText(label);
+    await expect(button).toHaveAttribute('data-selected', 'true');
     await expect(draft.locator('.composition-node__icon')).toHaveAttribute('aria-hidden', 'true');
     expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(content);
     await draft.getByRole('button', { name: 'Discard', exact: true }).click();
     await expect(draft).toHaveCount(0);
+    await expect(button).not.toHaveAttribute('data-selected', 'true');
   }
   const bottomGap = async () => {
     const [panel, tray] = await Promise.all([palette.boundingBox(), primitives.boundingBox()]);
@@ -1328,7 +1580,7 @@ func SavedCamera:
   await composer.getByRole('button', { name: 'Open Double definition', exact: true }).click();
   const operation = composer.getByTestId('expression-row-operation-0');
   await operation.getByRole('button', { name: 'Edit 2', exact: true }).press('9');
-  const parent = composer.getByRole('button', { name: 'Parent', exact: true });
+  const parent = composer.getByRole('button', { name: 'Back', exact: true });
   await expect(parent).toBeDisabled();
   await operation.getByRole('textbox', { name: 'Edit 2', exact: true }).press('Escape');
   await parent.click();
@@ -1587,7 +1839,11 @@ test('creates in Compose, opens Prototype on its first visit and executes reusab
   await expect(
     page.getByRole('region', { name: 'Composition canvas', exact: true }).locator('.composition-node')
   ).toHaveCount(4);
-  await page.getByRole('button', { name: 'Try in Prototype', exact: true }).click();
+  await page.getByRole('tab', { name: 'Test', exact: true }).click();
+  await expect(
+    page.getByRole('tabpanel', { name: 'Test', exact: true }).getByLabel('Value', { exact: true })
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Open in Prototype', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Saved workflow', exact: true })).toContainText('DoubleTwice');
   await page.getByTestId('prototype-perspective').getByLabel('Value', { exact: true }).fill('3');
   await expect(page.getByRole('button', { name: 'Execute', exact: true })).toBeEnabled();
@@ -1600,7 +1856,9 @@ test('creates in Compose, opens Prototype on its first visit and executes reusab
   await callStep(builder, 1, 'DoubleTwice', 'value');
   await builder.getByRole('button', { name: 'Create function', exact: true }).click();
   await expect(builder).toBeHidden();
-  await page.getByRole('button', { name: 'Try in Prototype', exact: true }).click();
+  const testTab = page.getByRole('tab', { name: 'Test', exact: true });
+  if ((await testTab.getAttribute('aria-selected')) !== 'true') await testTab.click();
+  await page.getByRole('button', { name: 'Open in Prototype', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Saved workflow', exact: true })).toContainText('Nested');
   await page.getByTestId('prototype-perspective').getByLabel('Value', { exact: true }).fill('4');
   await page.getByRole('button', { name: 'Execute', exact: true }).click();
@@ -1908,10 +2166,11 @@ func ^type:
   await expect(page.getByRole('option', { name: /^type / })).toHaveCount(0);
   const search = page.getByRole('combobox', { name: 'Search values and primitives' });
   await search.fill('type');
-  await expect(page.getByRole('option', { name: 'type workflow', exact: true })).toHaveCount(1);
-  await expect(page.getByRole('option', { name: 'type other', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('option', { name: 'type workflow · number · (1..1)', exact: true })).toHaveCount(1);
+  const remoteChoice = page.getByRole('option', { name: 'type other · number · (1..1)', exact: true });
+  await expect(remoteChoice).toHaveCount(1);
   await search.fill('other.type');
-  await page.getByRole('option', { name: 'type other', exact: true }).click();
+  await remoteChoice.click();
   await expect(row.getByRole('button', { name: 'remote argument', exact: true })).toBeVisible();
   await row.getByRole('button', { name: 'Discard', exact: true }).click();
 

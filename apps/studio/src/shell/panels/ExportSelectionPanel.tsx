@@ -64,7 +64,7 @@ export const ExportSelectionPanel = withInstrumentation(
     return (
       <section data-testid="export-selection" className="flex h-full min-h-0 flex-col overflow-auto studio-scroll">
         <div className="shrink-0 border-b px-3 py-2">
-          <h2 className="text-sm font-semibold">Export selection</h2>
+          <h2 className="section-heading text-sm">Export selection</h2>
           <p className="mt-1 text-xs text-caption">
             Select declarations or namespaces. Referenced declarations are included automatically when generated.
           </p>

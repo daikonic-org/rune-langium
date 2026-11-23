@@ -93,7 +93,9 @@ export const StarterWorkspacePicker = withInstrumentation(
           </DialogContent>
         </Dialog>
         <div className="studio-launcher__section-heading">
-          <h2 id="starter-heading">Start from example</h2>
+          <h2 id="starter-heading" className="section-heading">
+            Start from example
+          </h2>
           <span>Editable GitHub projects</span>
         </div>
         <div className={`starter-picker ${detail && active ? 'starter-picker--detail' : ''}`}>

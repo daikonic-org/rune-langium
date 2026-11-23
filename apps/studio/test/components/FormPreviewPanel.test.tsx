@@ -195,6 +195,96 @@ const numericSchema: FormPreviewSchema = {
 };
 
 describe('FormPreviewPanel', () => {
+  it('uses the currency in a deferred unit with metadata and keeps the underlying number', () => {
+    const schema: FormPreviewSchema = {
+      ...tradeSchema,
+      fields: [
+        { path: 'value', label: 'Value', kind: 'number', required: true },
+        {
+          path: 'unit',
+          label: 'Unit',
+          kind: 'object',
+          required: true,
+          definitionId: 'test.preview.Unit',
+          children: []
+        },
+        { path: 'rate', label: 'Rate', kind: 'number', required: true }
+      ],
+      definitions: {
+        'test.preview.Unit': {
+          fields: [
+            {
+              path: 'currency',
+              label: 'Currency',
+              kind: 'string',
+              required: true,
+              metadata: { kind: 'scheme', payloadShape: null }
+            }
+          ]
+        }
+      }
+    };
+    const values = { value: 1234.56789, unit: { currency: { value: 'JPY', meta: { scheme: 'ISO' } } }, rate: 0.12345 };
+    const { rerender } = render(<FormPreviewPanel schema={schema} status={{ state: 'ready' }} values={values} />);
+    expect(screen.getByRole('spinbutton', { name: 'Value', exact: true })).toHaveAttribute(
+      'aria-valuetext',
+      new Intl.NumberFormat(undefined, { style: 'currency', currency: 'JPY' }).format(values.value)
+    );
+    expect(screen.getByLabelText('Rate', { exact: true })).toHaveValue(values.rate);
+    expect(screen.getByTestId('sample-data-output')).toHaveTextContent('1234.56789');
+    rerender(
+      <FormPreviewPanel
+        schema={schema}
+        status={{ state: 'ready' }}
+        values={{ ...values, unit: { currency: 'unknown' } }}
+      />
+    );
+    const value = screen.getByRole('spinbutton', { name: 'Value', exact: true });
+    expect(value).toHaveValue(values.value);
+    expect(value).toHaveAttribute('aria-valuetext', '1,234.56789');
+    expect(screen.getByText('1,234.56789', { exact: true })).toBeVisible();
+  });
+
+  it('sizes preview fields from their generated schema', () => {
+    const { container } = render(
+      <FormPreviewPanel
+        schema={{
+          ...tradeSchema,
+          fields: [
+            { path: 'price', label: 'Price', kind: 'number', required: true },
+            { path: 'timestamp', label: 'Recorded', kind: 'string', format: 'dateTime', required: true },
+            {
+              path: 'category',
+              label: 'Category',
+              kind: 'enum',
+              required: false,
+              enumValues: [{ value: 'SCOPE', label: 'In scope for exposure reporting' }]
+            },
+            { path: 'reference', label: 'Original settlement reference', kind: 'string', required: false },
+            ...tradeSchema.fields.filter(({ kind }) => kind === 'object' || kind === 'array')
+          ]
+        }}
+        status={{ state: 'ready' }}
+      />
+    );
+    expect(
+      container.querySelector<HTMLElement>('.preview-layout-grid')?.style.getPropertyValue('--requested-columns')
+    ).toBe('2');
+    for (const [field, span] of [
+      ['price', '1'],
+      ['timestamp', '2'],
+      ['category', '2'],
+      ['reference', '2'],
+      ['party', '3'],
+      ['tags', '3']
+    ]) {
+      expect(
+        container
+          .querySelector<HTMLElement>(`[data-layout-field="${field}"]`)
+          ?.style.getPropertyValue('--requested-span')
+      ).toBe(span);
+    }
+  });
   it('keeps a selected temporal Choice arm present when its input is cleared', () => {
     const onValuesChange = vi.fn();
     render(
@@ -1989,6 +2079,26 @@ describe('FormPreviewPanel', () => {
       fields: []
     };
 
+    it('labels the grouped scalar output and keeps the raw result exact', async () => {
+      const schema: FormPreviewSchema = {
+        ...calcTradeSchema,
+        result: { path: 'total', label: 'Total', kind: 'number', required: true }
+      };
+      render(<FormPreviewPanel schema={schema} status={{ state: 'ready', targetId: schema.targetId }} />);
+      expect(screen.queryByRole('region', { name: 'Output' })).not.toBeInTheDocument();
+      await act(async () => {
+        const postMessage = vi.fn();
+        const preview = usePreviewStore.getState();
+        preview.setWorkerRef({ postMessage } as unknown as Worker);
+        preview.dispatchExecute(schema.targetId, {});
+        preview.receiveExecutionResult(schema.targetId, 1234.56789, postMessage.mock.lastCall![0].requestId);
+      });
+      const output = within(screen.getByRole('region', { name: 'Output' }));
+      expect(output.getByRole('heading', { name: 'Output' })).toBeVisible();
+      expect(output.getByText('1,234.56789', { exact: true })).toBeVisible();
+      expect(output.getByText('1234.56789', { exact: true })).toBeInTheDocument();
+    });
+
     it('presents temporal format guidance while retaining the original execution diagnostic', async () => {
       const schema: FormPreviewSchema = {
         ...calcTradeSchema,
@@ -2056,7 +2166,7 @@ describe('FormPreviewPanel', () => {
 
       expect(onExecute).toHaveBeenCalledExactlyOnceWith('beta.CalcTrade', { s1: 'hello', s2: 'hello' });
       expect(postMessage).not.toHaveBeenCalled();
-      expect(screen.getByText('Ready to run function')).toBeInTheDocument();
+      expect(screen.queryByText('Ready to run function')).not.toBeInTheDocument();
     });
   });
 });

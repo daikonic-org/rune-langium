@@ -488,8 +488,10 @@ source-relative property paths exclude runtime list indices. Codegen
 attaches kind-qualified `typeSymbol` metadata through its authoritative resolver,
 preserving declared aliases and identities through deferred expansion. Root
 selection IDs are normalized before lookup so nested uses share the same layout.
-Preferences never rewrite Rune, validation, or sample values. A formatted numeric
-control shows the raw value while focused and only writes actual edits.
+Preferences never rewrite Rune, validation, or sample values. A numeric control
+keeps its native number input and raw value across focus transitions. The
+formatted display and accessible value appear when the input is idle.
+Read-only grids keep numeric cells whole and scroll the row actions with the data.
 Reordering changes DOM order, supports pointer/touch and keyboard handles, and
 stays inside the owning object. Container queries collapse saved multi-column
 layouts in narrow panels. Unknown members are ignored and newly generated fields
@@ -721,6 +723,20 @@ The curated artifact cache has a combined budget of 128 MiB of serialized UTF-16
 ## Form Configuration
 
 Studio's `apps/studio/z2f.config.ts` is the authoritative canonical `@zod-to-form/core` config, imported by its Vite plugin. `components.source: './z2f-components'` resolves relative to each schema module in `src/codegen-forms/`. Generation settings live under `defaults`; `defaults.optimization.compileZod` is independent of optimization level and defaults to false here. Presets expand through the shared resolver, preserving controlled shadcn event props.
+
+The shared preview derives field spans from the generated field kind, temporal
+format, and label lengths. Objects and arrays occupy a row. Explore and Compose
+scratch previews default to two columns at a 15rem form width. Container width
+constrains all layouts, including explicit saved columns and spans.
+
+Numeric presentation resolves the field override, declared type format and
+nearest base alias in order. Amounts use the currency from their declared
+sibling `currency` or CDM-style `unit.currency` field, including metadata
+envelopes. An explicit decimal format takes precedence. Unmasked numeric displays
+group thousands with commas and retain fractional precision. Numeric inputs use
+tabular figures and expose the original value on focus. The Output section reuses
+the read-only preview form for typed results and provides raw JSON through a
+disclosure.
 
 The explicit `Input: {}` component override routes uncontrolled generated text
 fields through the shared design-system Input instead of the HTML fallback.
@@ -1481,10 +1497,17 @@ for the graph and the inline argument controls. Same-width draft holes retain
 argument positions while the required inputs are incomplete.
 Source rows replace syntax within a captured statement and offer linked picker
 choices for the selected operand. Member paths resolve through the same feature
-scope as the linker. The picker shows in-scope values first and searches functions
-by name and namespace, deduplicated by declaration identity. Structured rows use
+scope as the linker. The parser worker describes the selected declaration and
+reference path and derives slot types from linked parameters, output targets,
+fields, and expression context. The picker sorts suggestions and searches
+functions by name and namespace. It excludes known type mismatches and retains
+candidates whose compatibility is unknown. Enum slots show
+the linked enum's members. Path breadcrumbs inspect or browse an individual
+receiver while the whole chip targets replacement. Structured rows use
 source ranges for edits and reuse the Rune editor's tokenizer, highlighter and
-theme rules. Member paths display `.` and `…` for direct and deep Rune access.
+theme rules. Member paths display `.` and `…` for direct and deep Rune access in
+editable chips, statement labels and read-only expressions. The Source editor
+uses the authored Rune operators.
 Statement labels select the corresponding row and open the whole-expression
 picker. Operand chips open the same control for their own source ranges. The
 control-flow wrap puts the original expression in the `then` branch.
@@ -1509,17 +1532,26 @@ named rows. A call's name reveals its linked parameter labels on demand. Missing
 inserted at the call's own closing delimiter. Canvas and Source share
 selection through composition steps and their source ranges, including the Rune
 caret. Compose Details shows the canonical inspector's function signature and
-metadata above step and expression details, which follow Source selection. The
-function body editor is in the center workspace. At compact widths the same Details panel opens in a dialog
-and the center panes keep their available width. Compose restores desktop rail
-widths after the dock is sized for the wider viewport. Both views
+metadata above step and expression details, which follow Source selection.
+Reference selection displays the shared read-only inspector without navigating
+away from the function. Compose uses Explore's declaration history for Back.
+Details and Test share one native Dockview tab group, including in restored
+Compose layouts. On compact screens the same two views share a dialog tab bar.
+The Test tab embeds the same form preview as Explore and can load a saved
+workflow's literals and bound project examples through Prototype's input
+resolver. Replacing preview inputs clears that function's result and invalidates
+any pending worker reply for those inputs. The Test tab points to Prototype when
+there is no saved recipe. The Prototype action opens the selected recipe or the
+current function as a draft. Canvas diagnostics appear in a collapsed Details section. The center
+editor keeps its width when the compact dialog opens. Compose restores desktop
+rail widths after the dock is sized for the wider viewport. Both views
 publish through the retained CodeMirror view, which gives each successful Apply a
 single undo entry. A private candidate
 can supply picker scope while unfinished work remains in the draft.
 Stable topological source-block ordering retains comments and condition placement.
 The canvas remains mounted but inert while source reparses, preserving camera state.
 Core retains the outer AST `expressionType` in composition facts. Studio's shared
-primitive presentation registry uses it for palette/canvas icons and labels without
+primitive presentation registry uses it for palette selection, icons and labels without
 classifying source strings. Visual-editor's `createExpressionStarter` reuses the
 existing operator catalog factories, parser and canonical Rune renderer; starters
 are complete editable expressions and use the same guarded candidate transaction.

@@ -807,6 +807,28 @@ describe('usePreviewStore — functionExecute op-log span', () => {
     const lines = useOutputStore.getState().lines;
     expect(lines.filter((l) => l.op === 'functionExecute')).toHaveLength(0);
   });
+  it('clears the result and ignores in-flight replies when function inputs are replaced', () => {
+    const store = usePreviewStore.getState();
+    const target = 'alpha.CalcTrade';
+    store.ensureSample(target, { value: 1 });
+    store.dispatchExecute(target, { value: 1 });
+    store.receiveExecutionResult(target, 1, latestRequestId());
+    expect(usePreviewStore.getState().executionResults.get(target)).toEqual({ output: 1 });
+
+    store.dispatchExecute(target, { value: 1 });
+    const staleRequest = latestRequestId();
+    store.resetSample(target, { value: 2 });
+    expect(usePreviewStore.getState().executionResults.has(target)).toBe(false);
+
+    store.receiveExecutionResult(target, 1, staleRequest);
+    store.receiveExecutionError(target, 'stale error', staleRequest);
+    expect(usePreviewStore.getState().executionResults.has(target)).toBe(false);
+
+    store.dispatchExecute(target, { value: 2 });
+    store.receiveExecutionResult(target, 2, latestRequestId());
+    expect(usePreviewStore.getState().executionResults.get(target)).toEqual({ output: 2 });
+  });
+
   it.each(['result', 'error'] as const)('ignores a superseded %s without consuming the latest run', (kind) => {
     const store = usePreviewStore.getState();
     store.dispatchExecute('alpha.CalcTrade', { value: 1 });

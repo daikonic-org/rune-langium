@@ -349,9 +349,7 @@ function ProblemsHeaderActions({
         />
         <PopoverContent className="w-56 p-2" align="end" sideOffset={6}>
           <div className="space-y-1">
-            <p className="px-2 pb-1 text-3xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Visible severities
-            </p>
+            <p className="section-heading px-2 pb-1 text-3xs text-muted-foreground">Visible severities</p>
             {SEVERITY_ORDER.map((severity) => {
               const active = visibleSeverities[severity];
               return (

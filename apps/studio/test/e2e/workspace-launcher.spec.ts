@@ -7,7 +7,7 @@ import { dismissLocalTransportNotices } from '../helpers/expression-workspace.js
 import { fullSourceEditor } from '../helpers/source-editor.js';
 
 for (const width of [1440, 390])
-  test(`workspace launcher search, navigation and unavailable starters at ${width}px`, async ({ page }, info) => {
+  test(`workspace launcher search and starter navigation at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 960 });
     await page.goto('./');
     const launcher = page.getByTestId('workspaces-perspective');
@@ -27,7 +27,7 @@ for (const width of [1440, 390])
     await project.focus();
     await page.keyboard.press('Enter');
     await expect(launcher.getByRole('heading', { name: 'Model authoring', exact: true })).toBeVisible();
-    await expect(launcher.getByRole('button', { name: 'View example', exact: true })).toBeDisabled();
+    await expect(launcher.getByRole('button', { name: 'View example', exact: true })).toBeEnabled();
     if (width === 390) {
       await launcher.getByRole('button', { name: 'Back to examples', exact: true }).click();
       await expect(project).toBeFocused();

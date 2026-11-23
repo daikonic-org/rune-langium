@@ -263,7 +263,7 @@ export const WorkflowNode = withInstrumentation(
             <DisclosureButton
               aria-expanded={showFields}
               aria-controls={fieldsId}
-              className="font-medium"
+              className="section-heading"
               onClick={() => setDataOpen((open) => !open)}
             >
               Result data

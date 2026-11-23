@@ -131,6 +131,8 @@ func Echo:
   const resultGrid = output.getByRole('table', { name: 'Result', exact: true });
   const resultData = output.getByRole('button', { name: 'Result data', exact: true });
   const functionResult = output.getByRole('button', { name: 'Function result', exact: true });
+  await expect(resultData).toHaveCSS('text-transform', 'uppercase');
+  await expect(functionResult).toHaveCSS('text-transform', 'uppercase');
   const json = output.getByTestId('instance-payload-output');
   await expect(resultGrid.getByText('Index: GBP-SONIA · Observations: 1 item', { exact: true })).toBeVisible();
   await expect(functionResult).toHaveAttribute('aria-expanded', 'false');
@@ -171,7 +173,7 @@ func Echo:
   await details.screenshot({ path: info.outputPath('workflow-result-details.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 390, height: 900 });
   const gridViewport = identifiers.locator('.preview-object-grid');
-  await expect(gridViewport).toHaveAttribute('data-columns-overflow', '');
+  await expect.poll(() => gridViewport.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
   const columnWidth = (name: string) =>
     identifiers.getByRole('columnheader', { name, exact: true }).evaluate((header) => header.clientWidth);
   expect(await columnWidth('Rank')).toBeLessThan(await columnWidth('Registry'));

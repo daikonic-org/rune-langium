@@ -108,15 +108,15 @@ it('applies a format to the declared scalar symbol, leaving other numeric symbol
   await userEvent.click(await screen.findByRole('button', { name: 'Edit layout' }));
   await userEvent.click(screen.getAllByRole('button', { name: 'Format test.Amount' })[0]!);
   await select('Number format', 'Currency');
-  expect(screen.getByLabelText('Amount', { exact: true })).toHaveValue('$1,234.57');
-  expect(screen.getByLabelText('Tax', { exact: true })).toHaveValue('$12.35');
+  expect(screen.getByLabelText('Amount', { exact: true })).toHaveAttribute('aria-valuetext', '$1,234.57');
+  expect(screen.getByLabelText('Tax', { exact: true })).toHaveAttribute('aria-valuetext', '$12.35');
   expect(screen.getByLabelText('Quantity', { exact: true })).toHaveValue(125);
   await userEvent.keyboard('{Escape}');
   const input = screen.getByLabelText('Amount', { exact: true });
   fireEvent.focus(input);
   expect(input).toHaveValue(1234.56789);
   fireEvent.blur(input);
-  expect(input).toHaveValue('$1,234.57');
+  expect(input).toHaveAttribute('aria-valuetext', '$1,234.57');
   expect(change).not.toHaveBeenCalled();
   expect(values.amount).toBe(1234.56789);
 });
@@ -181,7 +181,8 @@ it('retains precise decimal strings and validation cues through focus and displa
   fireEvent.focus(amount);
   expect((amount as HTMLInputElement).value).toBe(raw);
   fireEvent.blur(amount);
-  expect((amount as HTMLInputElement).value).toContain('123,456,789,012,345,678');
+  expect((amount as HTMLInputElement).value).toBe(raw);
+  expect(amount).toHaveAttribute('aria-valuetext', expect.stringContaining('123,456,789,012,345,678'));
   expect(change).not.toHaveBeenCalled();
 });
 

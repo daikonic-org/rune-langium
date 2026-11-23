@@ -126,6 +126,7 @@
   --font-code: 'Daikonic Transit Code', var(--font-mono);
   --caption-foreground: color-mix(in oklch, var(--muted-foreground) 85%, var(--foreground));
   --perspective-heading-letter-spacing: 0.1em;
+  --section-heading-letter-spacing: 0.04em;
   /* 3xs/2xs extend the scale DOWN for dense chrome (badges, status bar, tiny
    * pills) that runs below the 12px `xs` floor — added so those 10–11px sizes
    * become real tokens instead of raw px/rem literals, with no visual change. */

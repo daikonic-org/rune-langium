@@ -9,7 +9,7 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 import { studioEditorHighlightStyle } from './editor-theme.js';
 import { runeDslLanguage } from './rune-dsl.js';
 
-type RenderSyntax = (range: SourceRegion) => ReactNode;
+type RenderSyntax = (range: SourceRegion) => { text: string; content: ReactNode };
 const documentRenderers = new WeakMap<DocumentBinding, RenderSyntax>();
 
 function syntaxRenderer(source: string, base = 0): RenderSyntax {
@@ -18,23 +18,49 @@ function syntaxRenderer(source: string, base = 0): RenderSyntax {
     let offset = base + from;
     const end = base + to;
     const parts: ReactNode[] = [];
-    highlightTree(
-      tree,
-      studioEditorHighlightStyle,
-      (start, stop, className) => {
-        if (offset < start) parts.push(source.slice(offset, start));
+    let text = '';
+    const append = (start: number, stop: number) => {
+      if (start >= stop) return;
+      text += source.slice(start, stop);
+      let cursor = start;
+      highlightTree(
+        tree,
+        studioEditorHighlightStyle,
+        (from, to, className) => {
+          if (cursor < from) parts.push(source.slice(cursor, from));
+          parts.push(
+            <span className={className} key={from}>
+              {source.slice(from, to)}
+            </span>
+          );
+          cursor = to;
+        },
+        start,
+        stop
+      );
+      if (cursor < stop) parts.push(source.slice(cursor, stop));
+    };
+    tree.iterate({
+      from: offset,
+      to: end,
+      enter(node) {
+        // Only parsed operators are display substitutions. Strings and comments keep their authored text.
+        if (node.name !== 'derefOperator' || node.from < offset || node.to > end) return;
+        const before = source.slice(offset, node.from).replace(/[ \t]+$/, '');
+        append(offset, offset + before.length);
+        const separator = source.slice(node.from, node.to) === '->' ? '.' : '…';
+        text += separator;
         parts.push(
-          <span className={className} key={start}>
-            {source.slice(start, stop)}
+          <span className="text-syntax-operator" key={node.from}>
+            {separator}
           </span>
         );
-        offset = stop;
-      },
-      offset,
-      end
-    );
-    if (offset < end) parts.push(source.slice(offset, end));
-    return parts;
+        offset = node.to;
+        while (offset < end && (source[offset] === ' ' || source[offset] === '\t')) offset++;
+      }
+    });
+    append(offset, end);
+    return { text, content: parts };
   };
 }
 
@@ -53,17 +79,19 @@ export const runeDocumentSyntax = withInstrumentation(
 
 /** Highlight drafts in their original lexical context, using expression-relative offsets. */
 export const runeExpressionSyntax = withInstrumentation(
-  function runeExpressionSyntax(source: string, binding?: DocumentBinding, original?: SourceRegion): RenderSyntax {
+  function runeExpressionSyntax(source: string, binding?: DocumentBinding, original?: SourceRegion) {
     if (binding && original) {
       const base = original.from;
       if (binding.source.slice(base, original.to) === source) {
         const render = runeDocumentSyntax(binding);
-        return ({ from, to }) => render({ from: base + from, to: base + to });
+        return ({ from, to }: SourceRegion) => render({ from: base + from, to: base + to }).content;
       }
-      return syntaxRenderer(binding.source.slice(0, base) + source, base);
+      const render = syntaxRenderer(binding.source.slice(0, base) + source, base);
+      return (range: SourceRegion) => render(range).content;
     }
     const prefix = 'alias draft: ';
-    return syntaxRenderer(prefix + source, prefix.length);
+    const render = syntaxRenderer(prefix + source, prefix.length);
+    return (range: SourceRegion) => render(range).content;
   },
   { op: 'runeExpressionSyntax', capture: 0 }
 );

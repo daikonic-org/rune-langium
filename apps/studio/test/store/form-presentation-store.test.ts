@@ -131,6 +131,9 @@ it('formats decimal strings and special values without mutating the payload', ()
     }).format(raw as unknown as number)
   );
   expect(raw).toBe('123456789012345678.123456');
+  expect(formatPreviewNumber(raw)).toBe('123,456,789,012,345,678.123456');
+  expect(formatPreviewNumber(-1234.56789)).toBe('-1,234.56789');
+  expect(formatPreviewNumber(1e-21)).toBe('1e-21');
   expect(formatPreviewNumber(-1234.56789, currency)).toContain('1,234.57');
   expect(formatPreviewNumber('', currency)).toBe('');
   expect(formatPreviewNumber(NaN, currency)).toBe('NaN');

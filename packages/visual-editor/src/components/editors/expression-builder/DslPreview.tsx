@@ -31,7 +31,7 @@ export function DslPreview({ tree, collapsed }: DslPreviewProps) {
 
   return (
     <div className="rounded border border-border/50 bg-background/80 p-2" data-testid="dsl-preview">
-      <div className="mb-1 text-3xs font-semibold uppercase tracking-wider text-muted-foreground">DSL Preview</div>
+      <div className="mb-1 text-3xs font-medium text-muted-foreground">DSL Preview</div>
       <pre className="whitespace-pre-wrap font-mono text-xs text-foreground/80">{dslText}</pre>
     </div>
   );

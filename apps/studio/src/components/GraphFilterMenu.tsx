@@ -112,7 +112,7 @@ export const GraphFilterMenu = withInstrumentation(
           <div className="p-3">
             {/* Node kinds section */}
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Node Types</span>
+              <span className="section-heading text-xs text-muted-foreground">Node Types</span>
               {!allNodesVisible && (
                 <Button variant="link" size="xs" onClick={showAllNodeKinds} type="button">
                   Show all
@@ -150,9 +150,7 @@ export const GraphFilterMenu = withInstrumentation(
 
             {/* Edge kinds section */}
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Relationships
-              </span>
+              <span className="section-heading text-xs text-muted-foreground">Relationships</span>
               {!allEdgesVisible && (
                 <Button variant="link" size="xs" onClick={showAllEdgeKinds} type="button">
                   Show all
@@ -191,7 +189,7 @@ export const GraphFilterMenu = withInstrumentation(
 
             {/* Focus-related type behavior */}
             <div className="space-y-1">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Focus Mode</div>
+              <div className="section-heading text-xs text-muted-foreground">Focus Mode</div>
               <Button
                 type="button"
                 variant="ghost"

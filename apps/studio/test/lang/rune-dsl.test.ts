@@ -6,12 +6,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { ensureSyntaxTree, StringStream } from '@codemirror/language';
 import { EditorState, type Extension } from '@codemirror/state';
 import { javascript } from '@codemirror/lang-javascript';
 import { highlightTree, tags } from '@lezer/highlight';
 import { studioEditorHighlightStyle } from '../../src/lang/editor-theme.js';
 import { runeDslLanguage, runeDslStreamParser, runeDocumentationRanges } from '../../src/lang/rune-dsl.js';
+import { runeDocumentSyntax } from '../../src/lang/rune-syntax.js';
 import { parse } from '@rune-langium/core';
 
 describe('runeDslStreamParser', () => {
@@ -383,5 +386,28 @@ func increaseCash:
       text: 'increase',
       style: studioEditorHighlightStyle.style([tags.constant(tags.variableName)])
     });
+  });
+});
+
+describe('inline Rune presentation', () => {
+  it('renders member access in assignment targets and expressions while preserving literal text and comments', () => {
+    const source = 'set result -> amount: input -> details ->> value + "->" // ->>';
+    const region = { from: 0, to: source.length };
+    const render = runeDocumentSyntax({
+      source,
+      region,
+      workspaceGeneration: 0,
+      revision: 0,
+      uri: 'file:///test.rosetta',
+      nodeId: 'example.Update#RosettaFunction',
+      readOnly: true
+    });
+    const prefix = render({ from: 0, to: source.indexOf(':') + 1 });
+    const body = render({ from: source.indexOf('input'), to: source.length });
+    expect(prefix.text).toBe('set result.amount:');
+    expect(body.text).toBe('input.details…value + "->" // ->>');
+    const html = renderToStaticMarkup(createElement('span', null, body.content));
+    expect(html).toContain('class="text-syntax-operator">.</span>');
+    expect(html).toContain('class="text-syntax-operator">…</span>');
   });
 });

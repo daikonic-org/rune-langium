@@ -15,7 +15,7 @@ const AUXILIARY_PANELS: Record<WorkbenchDefinition['id'], Record<string, EdgeGro
     'workspace.activity': 'bottom',
     'workspace.output': 'bottom'
   },
-  compose: { 'compose.palette': 'left', 'compose.details': 'right' },
+  compose: { 'compose.palette': 'left', 'compose.details': 'right', 'compose.test': 'right' },
   prototype: { 'prototype.grid': 'bottom', 'prototype.workflows': 'bottom', 'prototype.payloadGraph': 'right' },
   export: { 'export.settings': 'right', 'export.preview': 'bottom' }
 };
@@ -40,7 +40,7 @@ export const getWorkbenchSidePanel = withInstrumentation(
     if (explore) return explore;
     if (components.length > 0 && components.every((component) => component === 'compose.palette'))
       return { direction: 'left' as const, label: 'palette' };
-    if (components.length > 0 && components.every((component) => component === 'compose.details'))
+    if (components.length > 0 && components.every((component) => AUXILIARY_PANELS.compose[component] === 'right'))
       return { direction: 'right' as const, label: 'details' };
   },
   { op: 'getWorkbenchSidePanel', capture: 0 }

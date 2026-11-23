@@ -186,7 +186,7 @@ export const ModelLoader = withInstrumentation(
         {/* Loaded models */}
         {models.size > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Loaded Models</p>
+            <p className="section-heading text-xs text-muted-foreground">Loaded Models</p>
             <div className="flex flex-wrap gap-2">
               {Array.from(models.values()).map((m) => (
                 <LoadedModelBadge key={m.source.id} model={m} />
@@ -229,7 +229,7 @@ export const ModelLoader = withInstrumentation(
 
         {config.curatedMirrorEnabled && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nightly mirrors</p>
+            <p className="section-heading text-xs text-muted-foreground">Nightly mirrors</p>
             <p className="text-xs text-muted-foreground">
               CDM follows upstream master with its required dependency versions. Nightly models are a moving target,
               with no stability or reproducibility guarantees.

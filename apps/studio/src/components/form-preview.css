@@ -23,6 +23,27 @@
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+.execution-result {
+  border-block-start: var(--hairline) solid var(--border);
+}
+.execution-result > .preview-panel__sample-output {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.preview-result__fields .preview-field__value {
+  color: var(--foreground);
+}
+.preview-result__fields > .preview-layout-group > .preview-layout-grid > .preview-layout-field:only-child > .preview-collection {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.preview-result__raw > summary {
+  min-height: var(--space-6);
+  padding-inline: 0;
+  color: var(--muted-foreground);
+}
 .preview-fields :is([data-slot="input"], [data-slot="select-trigger"]) {
   min-width: 0;
 }
@@ -197,11 +218,20 @@
   min-width: 6rem;
   max-width: 14rem;
 }
+.preview-object-grid[data-read-only] td:not([data-summary], .preview-object-grid__actions) {
+  min-inline-size: 3.5rem;
+}
 .preview-object-grid[data-read-only] [data-column-compact] {
   min-inline-size: 3.5rem;
   width: 1%;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+.preview-object-grid[data-read-only] td[data-column-numeric] {
+  max-inline-size: none;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  font-variant-numeric: tabular-nums;
 }
 .preview-object-grid td[data-summary] > span {
   display: -webkit-box;
@@ -215,14 +245,9 @@
   width: 5.5rem;
 }
 .preview-object-grid[data-read-only] .preview-object-grid__actions {
-  position: sticky;
-  inset-inline-end: 0;
   min-width: 3.75rem;
   width: 3.75rem;
   background: var(--card);
-}
-.preview-object-grid[data-read-only][data-columns-overflow] .preview-object-grid__actions {
-  box-shadow: calc(-1 * var(--space-1)) 0 var(--space-2) color-mix(in srgb, var(--foreground) 16%, transparent);
 }
 .preview-object-grid__detail td {
   white-space: normal;
@@ -454,6 +479,12 @@
 
 .preview-format-editor [data-slot="select-trigger"] {
   width: 100%;
+}
+
+@container form-layout (15rem <= width < 22rem) {
+  .preview-layout-grid[data-two-column-default] {
+    --layout-columns: min(2, var(--requested-columns, 1));
+  }
 }
 
 @container form-layout (width >= 22rem) {

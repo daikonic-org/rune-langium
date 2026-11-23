@@ -63,7 +63,7 @@ export const ExportWorkspacePanel = withInstrumentation(
               separatorLabel: 'Resize export settings and output',
               content: (
                 <section aria-label="Generated output" className="flex h-full min-h-0 flex-col">
-                  <h2 className="shrink-0 border-b border-border bg-muted/30 px-3 py-1.5 text-sm font-semibold">
+                  <h2 className="section-heading shrink-0 border-b border-border bg-muted/30 px-3 py-1.5 text-sm">
                     Generated output
                   </h2>
                   <div className="min-h-0 flex-1">{output}</div>

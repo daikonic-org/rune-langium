@@ -26,7 +26,7 @@ test('J20 pinned reference artifacts and original source are reused after reload
     const panel = page.getByTestId('panel-formPreview');
     await expect(panel.getByRole('heading', { name: 'Abs', exact: true })).toBeVisible();
     await expect(panel.getByText('Generating preview', { exact: false })).toHaveCount(0);
-    await expect(panel.getByText('Ready to run function', { exact: true })).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Run', exact: true })).toBeEnabled();
     await expect(panel.getByLabel('Arg', { exact: true })).toBeVisible();
   }
   const original = await evidence.measure('curatedSourceOpen', 'cold pinned Abs', source);

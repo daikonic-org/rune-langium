@@ -23,8 +23,10 @@ available; no system preference silently replaces an explicit choice.
   `--font-code`; components reference these tokens. UI text uses System Book 350
   at the configured size tokens. Action buttons use Medium 500. Primary
   actions and center-pane toggles use SemiBold 600. Tabs and field labels retain System Regular 400.
-  Internal section labels use System Regular 400. Panel headings use Title/Sans
-  Medium 500; Inspector declaration names and Structure card names use Medium 500.
+  Use the uppercase section style for one tier of labels within each panel or
+  dialog. These labels use System Regular 400 with 0.04em letter spacing. Panel
+  headings use Title/Sans Medium 500. Inspector declaration names and Structure
+  card names use Medium 500.
   Explanatory copy uses the shared `text-caption` style with System italic and
   the caption foreground. Other titles use Sans Regular 400. Detail-pane titles use Sans Medium 500 at 13px.
   CodeMirror content and gutters use bundled Transit Code Book 350 through

@@ -143,7 +143,9 @@ export type {
   ExpressionPickerTarget,
   ExpressionPickerRequest,
   ExpressionPickerContext,
-  ExpressionMemberChoice
+  ExpressionMemberChoice,
+  ExpressionReferenceDetails,
+  ExpressionReferenceSegment
 } from './utils/expression-scope.js';
 
 export { getSourceComments } from './api/source-comments.js';

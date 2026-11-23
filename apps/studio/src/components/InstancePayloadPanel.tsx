@@ -81,7 +81,7 @@ export const InstancePayloadPanel = withInstrumentation(
             <DisclosureButton
               aria-expanded={open}
               aria-controls={payloadId}
-              className="font-medium"
+              className="section-heading"
               onClick={() => setOpen(!open)}
             >
               {title}

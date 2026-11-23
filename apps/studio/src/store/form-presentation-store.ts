@@ -279,10 +279,20 @@ export const useFormPresentationStore = create<FormPresentationStore>((set, get)
   };
 });
 
+const groupedWholeNumber = new Intl.NumberFormat('en-US');
+
 export const formatPreviewNumber = withInstrumentation(
-  function formatPreviewNumber(value: unknown, format: NumericPresentation | undefined): string {
+  function formatPreviewNumber(value: unknown, format?: NumericPresentation): string {
     if ((typeof value !== 'number' && typeof value !== 'string') || value === '') return '';
-    if (!format || !Number.isFinite(Number(value))) return String(value);
+    const raw = String(value);
+    if (!Number.isFinite(Number(value))) return raw;
+    if (!format) {
+      // Group only the whole part to preserve the displayed decimal precision.
+      return raw.replace(
+        /^([+-]?)([1-9]\d{3,})(?=(?:\.\d+)?$)/,
+        (_match, sign: string, digits: string) => sign + groupedWholeNumber.format(BigInt(digits))
+      );
+    }
     return new Intl.NumberFormat(undefined, {
       style: format.style,
       ...(format.style === 'currency' ? { currency: format.currency } : {}),

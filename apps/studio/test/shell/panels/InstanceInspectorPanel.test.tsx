@@ -78,6 +78,14 @@ function setup() {
     </StrictMode>
   );
 }
+
+function changeAmount(fields: HTMLElement, value: string) {
+  const input = within(fields).getByLabelText('Amount');
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+}
+
 beforeEach(() => {
   execute.mockClear();
   validate.mockClear();
@@ -102,7 +110,7 @@ beforeEach(() => {
 it('uses an independent draft and a complete no-function output', async () => {
   setup();
   const fields = await screen.findByRole('region', { name: 'input fields' });
-  fireEvent.change(within(fields).getByRole('spinbutton', { name: 'Amount' }), { target: { value: '1300' } });
+  changeAmount(fields, '1300');
   await waitFor(() => expect(screen.getByTestId('instance-payload-output')).toHaveTextContent('1300'));
   expect(useInstanceStore.getState().instances.stored?.data).toEqual({ amount: 1250, currency: 'USD' });
   expect(execute).not.toHaveBeenCalled();
@@ -119,7 +127,13 @@ it('retries a transient draft schema failure without remounting or losing the in
   expect(await screen.findByText('hydrate unavailable')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Retry input schema' }));
   const fields = await screen.findByRole('region', { name: 'input fields' });
-  expect(within(fields).getByRole('spinbutton', { name: 'Amount' })).toHaveValue(1250);
+  const amount = within(fields).getByRole('spinbutton', { name: 'Amount' });
+  expect(amount).toHaveAttribute(
+    'aria-valuetext',
+    new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(1250)
+  );
+  fireEvent.focus(amount);
+  expect(amount).toHaveValue(1250);
   expect(within(fields).getByRole('textbox', { name: 'Currency' })).toHaveValue('USD');
   expect(schemaRequest).toHaveBeenCalledTimes(2);
   expect(schemaRequest.mock.calls[0]![1].aborted).toBe(true);
@@ -142,7 +156,7 @@ it('retries all unavailable workflow checks without editing the current input va
   fireEvent.click(screen.getByText('Choose Add'));
   fireEvent.click(within(await screen.findByRole('dialog')).getByText('value', { exact: true }));
   const other = await screen.findByRole('region', { name: 'other fields' });
-  fireEvent.change(within(other).getByRole('spinbutton', { name: 'Amount' }), { target: { value: '25' } });
+  changeAmount(other, '25');
   fireEvent.change(within(other).getByRole('textbox', { name: 'Currency' }), { target: { value: 'USD' } });
   for (const name of ['value', 'other', 'Add'])
     await screen.findByRole('button', { name: `${name}: Validation unavailable · View validation` });
@@ -167,7 +181,7 @@ it('assigns equal inputs, validates conditions separately, executes and invalida
   fireEvent.click(screen.getByText('Choose Add'));
   fireEvent.click(within(await screen.findByRole('dialog')).getByText('value', { exact: true }));
   const other = await screen.findByRole('region', { name: 'other fields' });
-  fireEvent.change(within(other).getByRole('spinbutton', { name: 'Amount' }), { target: { value: '25' } });
+  changeAmount(other, '25');
   fireEvent.change(within(other).getByRole('textbox', { name: 'Currency' }), { target: { value: 'EUR' } });
   fireEvent.click(await screen.findByRole('button', { name: 'Add: 1 issue · View validation' }));
   expect(await screen.findByText(/SameCurrency failed/)).toBeVisible();
@@ -182,7 +196,7 @@ it('assigns equal inputs, validates conditions separately, executes and invalida
     { value: { amount: 1250, currency: 'USD' }, other: { amount: 25, currency: 'USD' } },
     expect.any(AbortSignal)
   );
-  fireEvent.change(within(other).getByRole('spinbutton', { name: 'Amount' }), { target: { value: '26' } });
+  changeAmount(other, '26');
   expect(screen.queryByTestId('instance-payload-output')).not.toBeInTheDocument();
   expect(useInstanceStore.getState().instances.stored?.data).toEqual({ amount: 1250, currency: 'USD' });
 });

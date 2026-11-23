@@ -108,7 +108,7 @@ export const ProjectInitializationReview = withInstrumentation(
               <p className="mb-2 text-xs text-foreground/75">
                 Reviewed profiles: {preview.provenance.profiles.join(', ') || 'none'}
               </p>
-              <h4 className="font-medium">Files to add</h4>
+              <h4 className="section-heading">Files to add</h4>
               <ul className="mt-1 space-y-1">
                 {preview.writes.map((write) => (
                   <li key={write.path} className="break-all font-mono text-xs">
@@ -121,7 +121,7 @@ export const ProjectInitializationReview = withInstrumentation(
               </p>
             </div>
             <div>
-              <h4 className="font-medium">Compatibility review</h4>
+              <h4 className="section-heading">Compatibility review</h4>
               <ProjectImportFindings report={preview.report} />
               {!preview.report.length && <p className="text-foreground/75">No compatibility findings.</p>}
               <p className="mt-2 text-xs text-foreground/75">

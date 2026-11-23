@@ -6,6 +6,7 @@ import type { DockviewApi } from 'dockview-react';
 import { ChevronLeft, X } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from '@rune-langium/design-system/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@rune-langium/design-system/ui/tabs';
 import { WorkbenchHost } from '../../shell/WorkbenchHost.js';
 import { COLLAPSED_SIDE_WIDTH } from '../../shell/responsive-layout.js';
 import { readWorkbenchSettings, writeWorkbenchSettings } from '../../shell/workbench-settings.js';
@@ -18,6 +19,19 @@ const sides = [
   { id: 'compose.palette', position: 'left', title: 'Palette', width: 232, minimum: 180, maximum: 400 },
   { id: 'compose.details', position: 'right', title: 'Details', width: 304, minimum: 220, maximum: 480 }
 ] as const;
+
+function addTestTab(api: DockviewApi) {
+  const details = api.getPanel('compose.details');
+  if (details && !api.getPanel('compose.test')) {
+    api.addPanel({
+      id: 'compose.test',
+      component: 'compose.test',
+      title: 'Test',
+      inactive: true,
+      position: { referencePanel: details.id, direction: 'within' }
+    });
+  }
+}
 
 function buildDefault(api: DockviewApi, width: number) {
   const center = api.addPanel({
@@ -46,6 +60,7 @@ function buildDefault(api: DockviewApi, width: number) {
       position: { referenceGroup: group, direction: 'within' }
     });
   }
+  addTestTab(api);
   center.api.setActive();
 }
 
@@ -121,7 +136,8 @@ export const ComposeWorkbench = withInstrumentation(
     onReady,
     palette,
     center,
-    details
+    details,
+    test
   }: {
     workspaceKey: string;
     layoutKey: string;
@@ -130,11 +146,13 @@ export const ComposeWorkbench = withInstrumentation(
     palette: ReactElement;
     center: ReactElement;
     details(dismiss?: () => void): ReactElement;
+    test: ReactElement;
   }) {
     const [restored, setRestored] = useState<{ key: string; layout: unknown }>();
     const [dock, setDock] = useState<DockviewApi>();
     const [compact, setCompact] = useState(() => window.matchMedia?.(compactQuery).matches ?? false);
     const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailView, setDetailView] = useState<'details' | 'test'>('details');
     const [detailsHost] = useState(() => {
       const element = document.createElement('div');
       element.className = 'h-full min-h-0';
@@ -151,6 +169,27 @@ export const ComposeWorkbench = withInstrumentation(
     );
     useEffect(() => {
       if (dock && host.current) return nameEdgeSashes(dock, host.current);
+    }, [dock]);
+
+    useEffect(() => {
+      const group = dock?.getPanel('compose.details')?.group;
+      const edge = dock?.getEdgeGroup('right');
+      if (!group || !edge) return;
+      setDetailView(group.activePanel?.id === 'compose.test' ? 'test' : 'details');
+      const selection = group.api.onDidActivePanelChange(({ panel }) => {
+        setDetailView(panel.id === 'compose.test' ? 'test' : 'details');
+      });
+      const collapse = edge.onDidCollapsedChange(() => {
+        if (!edge.isCollapsed() && window.matchMedia?.(compactQuery).matches) {
+          // A compact rail tab opens the same overlay as the chevron.
+          edge.collapse();
+          setDetailsOpen(true);
+        }
+      });
+      return () => {
+        selection.dispose();
+        collapse.dispose();
+      };
     }, [dock]);
 
     useEffect(() => {
@@ -253,9 +292,15 @@ export const ComposeWorkbench = withInstrumentation(
       panels: {
         'compose.palette': () => palette,
         'compose.center': () => center,
-        'compose.details': () => (compact ? null : <div className="h-full min-h-0" ref={attachDetails} />)
+        'compose.details': () => (compact ? null : <div className="h-full min-h-0" ref={attachDetails} />),
+        'compose.test': () => (compact ? null : test)
       },
-      titles: { 'compose.palette': 'Palette', 'compose.center': 'Composition', 'compose.details': 'Details' },
+      titles: {
+        'compose.palette': 'Palette',
+        'compose.center': 'Composition',
+        'compose.details': 'Details',
+        'compose.test': 'Test'
+      },
       collapsedSideActions: compact
         ? {
             right: (
@@ -275,7 +320,8 @@ export const ComposeWorkbench = withInstrumentation(
             )
           }
         : undefined,
-      buildDefault
+      buildDefault,
+      reconcile: addTestTab
     };
     return (
       <Dialog open={active && compact && detailsOpen} onOpenChange={setDetailsOpen}>
@@ -306,16 +352,31 @@ export const ComposeWorkbench = withInstrumentation(
         </div>
         {compact && (
           <DialogContent
-            className="flex h-[min(80dvh,36rem)] w-[calc(100%-2rem)] flex-col gap-2 p-2"
+            className="flex h-[min(80dvh,36rem)] w-[calc(100%-2rem)] flex-col gap-0 p-0"
             showCloseButton={false}
           >
-            <div className="flex shrink-0 items-center justify-between gap-2 px-2">
-              <DialogTitle className="text-sm font-medium">Details</DialogTitle>
-              <DialogClose render={<Button size="icon-xs" variant="ghost" aria-label="Hide details" />}>
-                <X aria-hidden="true" />
-              </DialogClose>
-            </div>
-            <div className="min-h-0 flex-1" ref={attachDetails} />
+            <DialogTitle className="sr-only">Details</DialogTitle>
+            <Tabs
+              value={detailView}
+              onValueChange={(value) =>
+                dock?.getPanel(value === 'test' ? 'compose.test' : 'compose.details')?.api.setActive()
+              }
+              className="min-h-0 flex-1 gap-0"
+            >
+              <div className="flex shrink-0 items-center gap-1 border-b border-border px-2">
+                <TabsList size="sm" aria-label="Composition details view" className="flex-1 justify-start border-0">
+                  <TabsTrigger value="details">Details</TabsTrigger>
+                  <TabsTrigger value="test">Test</TabsTrigger>
+                </TabsList>
+                <DialogClose render={<Button size="icon-xs" variant="ghost" aria-label="Hide details" />}>
+                  <X aria-hidden="true" />
+                </DialogClose>
+              </div>
+              <TabsContent value="details" className="mt-0 min-h-0 flex-1" ref={attachDetails} />
+              <TabsContent value="test" className="mt-0 min-h-0 flex-1">
+                {test}
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         )}
         {createPortal(details(compact ? () => setDetailsOpen(false) : undefined), detailsHost)}

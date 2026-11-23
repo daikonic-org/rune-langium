@@ -267,7 +267,7 @@ export const DownloadConfigDialog = withInstrumentation(
         {/* Layout — only for layout-aware targets */}
         {hasLayouts && (
           <div className="flex flex-col gap-2" data-testid="download-config-dialog__layout">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Layout</span>
+            <span className="section-heading text-xs text-muted-foreground">Layout</span>
             <RadioGroup value={layout} onValueChange={setLayout}>
               {panel!.layouts.map((choice) => {
                 const id = `download-layout-${choice.value}`;
@@ -296,7 +296,7 @@ export const DownloadConfigDialog = withInstrumentation(
       payload. */}
         {OptionsForm !== undefined && (
           <div className="flex flex-col gap-2" data-testid="download-config-dialog__options">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Options</span>
+            <span className="section-heading text-xs text-muted-foreground">Options</span>
             <OptionsForm value={targetOptions} onChange={setTargetOptions} />
           </div>
         )}
@@ -306,7 +306,7 @@ export const DownloadConfigDialog = withInstrumentation(
       emits everything. */}
         {hasNamespaces && (
           <div className="flex flex-col gap-2" data-testid="download-config-dialog__namespaces">
-            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="section-heading text-xs text-muted-foreground">
               Namespaces ({namespaceSelection.emitted.size} selected, {namespaces.length} total)
             </span>
             {resolveDependenciesOnGenerate && (

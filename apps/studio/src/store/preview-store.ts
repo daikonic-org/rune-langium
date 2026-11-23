@@ -118,6 +118,15 @@ function takeExecutionSpan(funcName: string, requestId: string) {
   executeSpans.delete(funcName);
   return span;
 }
+/** Input changes retire both the cached result and any run for the old inputs. */
+function discardExecutionResult(funcName: string, results: PreviewStoreState['executionResults']) {
+  executeSpans.delete(funcName);
+  if (!results.has(funcName)) return results;
+  const executionResults = new Map(results);
+  executionResults.delete(funcName);
+  return executionResults;
+}
+
 let dispatchValidateCounter = 0;
 const pendingValidateRequests = new Map<string, string>(); // requestId -> targetId
 // Tracks the LATEST outstanding validate requestId per targetId so an
@@ -470,6 +479,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     const currentStatus = get().status;
     set({
       samples,
+      executionResults: discardExecutionResult(targetId, get().executionResults),
       status:
         currentStatus.state === 'stale' || currentStatus.state === 'unavailable'
           ? currentStatus
@@ -533,6 +543,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     const currentStatus = get().status;
     set({
       samples,
+      executionResults: discardExecutionResult(targetId, get().executionResults),
       status:
         currentStatus.state === 'stale' || currentStatus.state === 'unavailable'
           ? currentStatus
@@ -551,13 +562,13 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
       validated: false,
       updatedAt: Date.now()
     });
-    set({ samples });
+    set({ samples, executionResults: discardExecutionResult(targetId, get().executionResults) });
   },
 
   clearSample(targetId) {
     const samples = new Map(get().samples);
     samples.delete(targetId);
-    set({ samples });
+    set({ samples, executionResults: discardExecutionResult(targetId, get().executionResults) });
   },
 
   receiveExecutionResult(funcName, output, requestId) {
@@ -602,9 +613,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
   },
 
   clearExecutionResult(funcName) {
-    const executionResults = new Map(get().executionResults);
-    executionResults.delete(funcName);
-    set({ executionResults });
+    set({ executionResults: discardExecutionResult(funcName, get().executionResults) });
   },
 
   setWorkerRef(worker) {

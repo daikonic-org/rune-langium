@@ -59,6 +59,35 @@ async function parseModels(sources: readonly string[]) {
 }
 
 describe('FormPreviewSchema generation', () => {
+  it('retains the numeric alias chain for fields, standalone previews and function results', async () => {
+    const docs = await parseModels([
+      `namespace finance.units
+typeAlias Amount: number
+`,
+      `namespace finance.payments
+import finance.units.*
+typeAlias Fee: Amount
+typeAlias DerivedFee: Fee
+type Payment:
+ amount DerivedFee (1..1)
+func Echo:
+ inputs: amount DerivedFee (1..1)
+ output: result DerivedFee (1..1)
+ set result: amount
+`
+    ]);
+    const schemas = generatePreviewSchemas(docs);
+    const derived = {
+      kind: 'number',
+      typeSymbol: 'typeAlias:finance.payments.DerivedFee',
+      baseTypeSymbols: ['typeAlias:finance.payments.Fee', 'typeAlias:finance.units.Amount']
+    };
+    for (const name of ['Payment', 'DerivedFee', 'Echo']) {
+      expect(schemas.find(({ targetId }) => targetId === 'finance.payments.' + name)?.fields[0]).toMatchObject(derived);
+    }
+    expect(schemas.find(({ targetId }) => targetId === 'finance.payments.Echo')?.result).toMatchObject(derived);
+  });
+
   it('includes inherited enumeration values for fields, aliases and function inputs', async () => {
     const doc = await parseModel(`namespace inheritedEnums
 enum Currency:
