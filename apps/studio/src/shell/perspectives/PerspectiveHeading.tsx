@@ -51,7 +51,7 @@ export const PerspectiveHeading = withInstrumentation(function PerspectiveHeadin
   return (
     <div
       className={
-        perspectiveId === 'explore'
+        perspectiveId === 'explore' || location
           ? 'studio-perspective-heading studio-perspective-heading--aligned'
           : 'studio-perspective-heading'
       }

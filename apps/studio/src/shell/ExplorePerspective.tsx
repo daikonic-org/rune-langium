@@ -2849,7 +2849,7 @@ export const ExplorePerspective = withInstrumentation(
       ) : undefined;
 
     const renderInspectorPane = useCallback(
-      () => (
+      (functionSignatureOnly = false) => (
         <div
           ref={inspectorFeedback}
           className={`studio-scroll flex flex-col min-h-0 h-full overflow-hidden${inspectorArrivalNodeId && inspectorArrivalNodeId === selectedNodeId ? ' navigation-arrival' : ''}`}
@@ -2894,6 +2894,7 @@ export const ExplorePerspective = withInstrumentation(
               nodeRepository={nodeRepository}
               renderExpressionEditor={renderExpressionEditor}
               renderFunctionBodyEditor={renderFunctionBodyEditor}
+              functionSignatureOnly={functionSignatureOnly}
               structuralEditsDisabled={
                 !selectedNodeIsRefOnly &&
                 !selectedExpressionFile?.readOnly &&
@@ -3223,7 +3224,7 @@ export const ExplorePerspective = withInstrumentation(
           onSave={async () => {
             await flushWorkspaceSave?.();
           }}
-          inspector={renderInspectorPane()}
+          inspector={composeActive ? renderInspectorPane(true) : null}
           editor={
             selectedNodeType === 'RosettaFunction' && selectedNodeId
               ? {

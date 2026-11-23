@@ -75,12 +75,18 @@ export type { HydrateServices, HydrateOptions } from './serializer/hydrate-model
 export {
   getNodeSourceRegion,
   getExpressionOperatorRegion,
+  getMemberAccessOperatorRegions,
+  getConstructorMemberLabelRegion,
+  getSymbolReferenceRegions,
   getModelSourceUri,
   getFunctionImplementationRegion,
   getFunctionAliasInsertion,
   formatExpressionInsertion,
   getExpressionRows,
   getExpressionRegions,
+  getExpressionStatementRemoval,
+  getSwitchCaseRemoval,
+  retainCommentTrivia,
   findExpressionOwner,
   getExpressionOwners
 } from './utils/source-regions.js';

@@ -21,6 +21,7 @@ import type { ExpressionNode } from '../schemas/expression-node-schema.js';
 
 export interface FunctionScopeEntry {
   declarationId?: string;
+  namespace?: string;
   kind?: ExpressionScopeEntry['kind'];
   argumentCount?: number;
   argumentNames?: ExpressionScopeEntry['argumentNames'];

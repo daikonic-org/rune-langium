@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import type { Data, RosettaFunction, RosettaExpression, RosettaModel } from '../generated/ast.js';
+import type {
+  ConstructorKeyValuePair,
+  Data,
+  RosettaFunction,
+  RosettaExpression,
+  RosettaModel,
+  RosettaSymbolReference,
+  SwitchCaseOrDefault
+} from '../generated/ast.js';
 import type { Dehydrated } from '../serializer/dehydrated.js';
 import { CstUtils, GrammarUtils, isLeafCstNode } from 'langium';
 import { namespaceFromModelName } from '../naming/namespace.js';
@@ -100,6 +108,50 @@ export function getExpressionOperatorRegion(node: RosettaExpression): SourceRegi
   return token && { from: token.offset, to: token.end };
 }
 
+/** Locate member-access operators in source order. */
+export function getMemberAccessOperatorRegions(
+  node: RosettaExpression
+): readonly (SourceRegion & { operator: '->' | '->>' })[] {
+  if (!node.$cstNode) return [];
+  return CstUtils.streamCst(node.$cstNode)
+    .filter(isLeafCstNode)
+    .flatMap((token) => {
+      const operator = token.text;
+      if (
+        !token.hidden &&
+        ((operator === '->' && token.astNode.$type === 'RosettaFeatureCall') ||
+          (operator === '->>' && token.astNode.$type === 'RosettaDeepFeatureCall'))
+      ) {
+        return [{ from: token.offset, to: token.end, operator } as const];
+      }
+      return [];
+    })
+    .toArray();
+}
+
+/** Locate the authored name and the place to append a positional argument. */
+export function getSymbolReferenceRegions(node: RosettaSymbolReference) {
+  const snapshot = node as RosettaSymbolReference & {
+    $textRegion?: { assignments?: { symbol?: { offset: number; end: number }[] } };
+  };
+  const name =
+    GrammarUtils.findNodeForProperty(node.$cstNode, 'symbol') ?? snapshot.$textRegion?.assignments?.symbol?.[0];
+  if (!name) return undefined;
+  // The first closing parenthesis owned by the reference ends the call.
+  // Any grouping parentheses belong to the enclosing primary expression.
+  const argumentInsertion = node.explicitArguments
+    ? GrammarUtils.findNodeForKeyword(node.$cstNode, ')')?.offset
+    : name.end;
+  return { name: { from: name.offset, to: name.end }, argumentInsertion };
+}
+
+/** The authored member name and delimiter, before the constructor value. */
+export function getConstructorMemberLabelRegion(pair: ConstructorKeyValuePair): SourceRegion | undefined {
+  const key = GrammarUtils.findNodeForProperty(pair.$cstNode, 'key');
+  const colon = GrammarUtils.findNodeForKeyword(pair.$cstNode, ':');
+  return key && colon ? { from: key.offset, to: colon.end } : undefined;
+}
+
 /** Implementation range excludes the signature and retains preceding body comments. */
 export function getFunctionImplementationRegion(
   func: RosettaFunction | Dehydrated<RosettaFunction>,
@@ -191,6 +243,48 @@ export function getExpressionRows(
 /** Root expressions in grammar order; indexes address their original owner arrays. */
 export function getExpressionRegions(owner: Parameters<typeof getExpressionRows>[0]): readonly ExpressionRegion[] {
   return getExpressionRows(owner).map(({ kind, index, expression, region }) => ({ kind, index, expression, region }));
+}
+
+/** Keep comments and their surrounding whitespace while replacing the syntax in a source slice. */
+export function retainCommentTrivia(source: string): string {
+  const comments = getSourceComments(source);
+  if (!comments.length) return '';
+  let previousEnd = 0;
+  let trivia = '';
+  for (const comment of comments) {
+    trivia += source.slice(previousEnd, comment.offset).replace(/\S/g, '') + comment.text;
+    previousEnd = comment.end;
+  }
+  return trivia + source.slice(previousEnd).replace(/\S/g, '');
+}
+
+/** Remove a complete statement, preserving comments and consuming its line when it stands alone. */
+export function getExpressionStatementRemoval(source: string, statement: SourceRegion, implementation: SourceRegion) {
+  const replacement = retainCommentTrivia(source.slice(statement.from, statement.to));
+  const from = source.lastIndexOf('\n', statement.from - 1) + 1;
+  const lineEnd = source.indexOf('\n', statement.to);
+  const to = lineEnd === -1 ? source.length : lineEnd + 1;
+  const ownLine = !source.slice(from, statement.from).trim() && !source.slice(statement.to, to).trim();
+  return {
+    region:
+      ownLine && !replacement
+        ? { from: Math.max(from, implementation.from), to: Math.min(to, implementation.to) }
+        : statement,
+    replacement
+  };
+}
+
+/** Remove an arm and one separator, while keeping comments from the affected source range. */
+export function getSwitchCaseRemoval(source: string, arm: SwitchCaseOrDefault) {
+  const cases = arm.$container.cases;
+  const index = cases.indexOf(arm);
+  if (index < 0 || cases.length < 2) return undefined;
+  const current = getNodeSourceRegion(arm);
+  const next = cases[index + 1];
+  const region = next
+    ? { from: current.from, to: getNodeSourceRegion(next).from }
+    : { from: getNodeSourceRegion(cases[index - 1]!).to, to: current.to };
+  return { region, replacement: retainCommentTrivia(source.slice(region.from, region.to)) };
 }
 
 /** Insert after aliases and before the first following statement's leading comments. */

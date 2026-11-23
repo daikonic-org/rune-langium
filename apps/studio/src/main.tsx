@@ -9,6 +9,7 @@ import { Buffer } from 'buffer';
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App.js';
+import { studioEditorHighlightStyle } from './lang/editor-theme.js';
 import { InstrumentationErrorBoundary } from './components/InstrumentationErrorBoundary.js';
 import { installOpLogWindowBridge } from './services/op-log-window-bridge.js';
 import { installPerfLogWindowBridge } from './services/perf-log-window-bridge.js';
@@ -49,6 +50,8 @@ initializeThemePreference();
 createRoot(root).render(
   <StrictMode>
     <InstrumentationErrorBoundary>
+      {/* Inline expression fragments use the same rules CodeMirror mounts for its editors. */}
+      <style>{studioEditorHighlightStyle.module?.getRules()}</style>
       <App />
       {DesignPreferencesPreview && (
         <Suspense fallback={null}>

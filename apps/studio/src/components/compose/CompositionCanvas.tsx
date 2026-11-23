@@ -52,6 +52,7 @@ interface Props {
   active: boolean;
   vertical: boolean;
   selected: string;
+  syncSelection?: boolean;
   variablesOpen: boolean;
   viewKey: string;
   size: { width: number; height: number };
@@ -60,7 +61,7 @@ interface Props {
   setFocus: Dispatch<SetStateAction<string | undefined>>;
   positions: Map<string, Map<string, XYPosition>>;
   viewports: Map<string, SavedCompositionViewport>;
-  onSelect(step: CompositionStep): void;
+  onSelect(step: CompositionStep, focus?: boolean): void;
   onDraftMove(position: XYPosition): void;
   onConnect(connection: Connection): void;
   onDrop(event: React.DragEvent, placeNode: (id: string, position: XYPosition) => void): void;
@@ -94,6 +95,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   active,
   vertical,
   selected,
+  syncSelection = false,
   variablesOpen,
   viewKey,
   size,
@@ -246,6 +248,15 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   const selectedSize = nodes.find((node) => node.id === selected)?.measured;
   const changeNodes = useCallback(
     (changes: NodeChange<ComposerNode>[]) => {
+      // React Flow also reports keyboard selection through node changes.
+      const selection = syncSelection && changes.find((change) => change.type === 'select' && change.selected);
+      if (selection && selection.type === 'select' && selection.id !== selected) {
+        const step =
+          selection.id === DRAFT_NODE ? preview?.step : presented.steps.find(({ id }) => id === selection.id);
+        if (step) onSelect(step, false);
+      }
+      const layoutChanges = syncSelection ? changes.filter((change) => change.type !== 'select') : changes;
+      if (!layoutChanges.length) return;
       // Expanding a manually placed node must not pull it away from the pointer.
       const manuallyPlaced =
         positions.get(viewKey)?.has(selected) || (selected === DRAFT_NODE && preview?.position !== undefined);
@@ -254,7 +265,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
         !interactingNow.current &&
         !manuallyPlaced &&
         selectedSize?.height &&
-        changes.some(
+        layoutChanges.some(
           (change) =>
             change.type === 'dimensions' &&
             change.id === selected &&
@@ -264,8 +275,8 @@ export const CompositionCanvas = memo(function CompositionCanvas({
       )
         setFocus(selected);
       setNodes((previous) => {
-        const next = applyNodeChanges(changes, previous);
-        if (interactingNow.current || !changes.some((change) => change.type === 'dimensions')) return next;
+        const next = applyNodeChanges(layoutChanges, previous);
+        if (interactingNow.current || !layoutChanges.some((change) => change.type === 'dimensions')) return next;
         // The draft's free position is independent of rank layout.
         const draft = next.find((node) => node.id === DRAFT_NODE);
         const laidOut = layoutNodes(
@@ -277,7 +288,20 @@ export const CompositionCanvas = memo(function CompositionCanvas({
         return draft ? [...laidOut, draft] : laidOut;
       });
     },
-    [variablesOpen, selectedSize, selected, edges, vertical, positions, viewKey, preview?.position, setFocus]
+    [
+      variablesOpen,
+      selectedSize,
+      selected,
+      syncSelection,
+      edges,
+      vertical,
+      positions,
+      viewKey,
+      preview,
+      presented,
+      onSelect,
+      setFocus
+    ]
   );
   const rememberNodePosition = (id: string, position: XYPosition) => {
     const saved = positions.get(viewKey) ?? new Map<string, XYPosition>();

@@ -9,6 +9,10 @@
 
 import type { ExpressionNode } from '../../../schemas/expression-node-schema.js';
 
+/** A palette drag can carry a catalog operator type for an inline expression slot. */
+export const EXPRESSION_OPERATOR_MIME = 'application/x-rune-expression-operator';
+export const SWITCH_GUARD_HOLE = '<?>';
+
 export interface OperatorDefinition {
   label: string;
   $type: string;
@@ -432,10 +436,11 @@ export const OPERATOR_CATALOG: OperatorCategory[] = [
       {
         label: 'if / then / else',
         $type: 'RosettaConditionalExpression',
-        description: 'Conditional expression',
+        description: 'Branch on a condition',
         createNode: (uid) => ({
           $type: 'RosettaConditionalExpression',
           id: uid(),
+          full: true,
           if: ph(uid),
           ifthen: ph(uid),
           elsethen: ph(uid)
@@ -451,7 +456,14 @@ export const OPERATOR_CATALOG: OperatorCategory[] = [
           id: uid(),
           operator: 'switch',
           argument: ph(uid),
-          cases: []
+          cases: [
+            {
+              $type: 'SwitchCaseOrDefault',
+              guard: { $type: 'SwitchCaseGuard', referenceGuard: SWITCH_GUARD_HOLE },
+              expression: ph(uid)
+            },
+            { $type: 'SwitchCaseOrDefault', expression: ph(uid) }
+          ]
         })
       },
       {
@@ -463,6 +475,7 @@ export const OPERATOR_CATALOG: OperatorCategory[] = [
           $type: 'DefaultOperation',
           id: uid(),
           operator: 'default',
+          left: ph(uid),
           right: ph(uid)
         })
       },

@@ -3,6 +3,7 @@
 import {
   EXPRESSION_DRAFT_HOLE,
   formatExpressionInsertion,
+  getExpressionStatementRemoval,
   getSourceComments,
   getNodeSourceRegion,
   parseExpression,
@@ -170,6 +171,18 @@ export const compositionExpressionEdit = withInstrumentation(
     };
   },
   { op: 'compositionExpressionEdit', capture: 0 }
+);
+
+export const compositionStatementRemovalEdit = withInstrumentation(
+  function compositionStatementRemovalEdit(
+    binding: DocumentBinding,
+    statement: SourceRegion,
+    implementation: SourceRegion
+  ): DocumentEdit {
+    const { region, replacement } = getExpressionStatementRemoval(binding.source, statement, implementation);
+    return { binding, region, replacement, expectedText: binding.source.slice(region.from, region.to) };
+  },
+  { op: 'compositionStatementRemovalEdit', capture: 0 }
 );
 
 export const buildAliasEdit = withInstrumentation(

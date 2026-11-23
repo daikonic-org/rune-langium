@@ -1,18 +1,28 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Pradeep Mouli
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import {
   EXPRESSION_DRAFT_HOLE as hole,
   getCompositionCallExpression,
+  getConstructorMemberLabelRegion,
+  getMemberAccessOperatorRegions,
+  getSourceComments,
+  getSymbolReferenceRegions,
+  isConstructorKeyValuePair,
+  isSwitchCaseOrDefault,
   getExpressionOperatorRegion,
   getNodeSourceRegion,
+  getSwitchCaseRemoval,
+  retainCommentTrivia,
   parseExpression,
   parseExpressionDraft,
   type ExpressionPickerContext,
   type ExpressionPickerTarget,
   type RosettaExpression,
-  type SourceRegion
+  type SourceRegion,
+  type SwitchCaseGuard
 } from '@rune-langium/core';
 import {
   Command,
@@ -28,12 +38,24 @@ import { Popover, PopoverContent, PopoverTrigger } from '@rune-langium/design-sy
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Input } from '@rune-langium/design-system/ui/input';
 import type { ExpressionBuilderProps } from './ExpressionBuilder.js';
+import { ExpressionSection } from './ExpressionSection.js';
 import { astToExpressionNode, expressionNodeSource } from '../../../adapters/ast-to-expression-node.js';
 import { expressionNodeToDslPreview } from '../../../adapters/expression-node-to-dsl.js';
 import { useLatestRef } from '../../../hooks/useLatestRef.js';
 import type { ExpressionNode } from '../../../schemas/expression-node-schema.js';
-import { getChildren, replaceInTree, type FunctionScope } from '../../../store/expression-store.js';
-import { OPERATOR_CATALOG, type OperatorDefinition } from './operator-catalog.js';
+import {
+  getChildren,
+  replaceInTree,
+  type FunctionScope,
+  type FunctionScopeEntry
+} from '../../../store/expression-store.js';
+import {
+  ALL_OPERATORS,
+  EXPRESSION_OPERATOR_MIME,
+  OPERATOR_CATALOG,
+  SWITCH_GUARD_HOLE,
+  type OperatorDefinition
+} from './operator-catalog.js';
 import { referenceNode, scopedReferences } from './ReferencePicker.js';
 
 export interface ExpressionSlot {
@@ -47,6 +69,8 @@ export interface ExpressionSlot {
 
 export interface InlineExpressionOptions {
   compositionArgumentNames?: readonly string[];
+  /** Use the surrounding statement label as the whole-expression picker trigger. */
+  statementTrigger?: { label: string; content: ReactNode; selected?: boolean };
   sourceTarget?: ExpressionPickerTarget;
   loadPicker?(target: ExpressionPickerTarget, trail: readonly string[]): Promise<ExpressionPickerContext>;
   canCommit?(): boolean;
@@ -54,6 +78,12 @@ export interface InlineExpressionOptions {
   onEditingChange?(editing: boolean): void;
   onHighlightRange?(range: SourceRegion | undefined): void;
   highlightedRange?: SourceRegion;
+  /** Render syntax from this expression's original offsets, without changing the edit target. */
+  renderSyntax?(range: SourceRegion): ReactNode;
+}
+
+function isPlaceholder(node: ExpressionNode, text: string): boolean {
+  return node.$type === 'Placeholder' || text === hole || text === '<?>';
 }
 
 function inlineTree(source: string): ExpressionNode {
@@ -63,7 +93,7 @@ function inlineTree(source: string): ExpressionNode {
     : astToExpressionNode(parsed.value, source);
 }
 
-function relativePath(node: RosettaExpression | undefined): string {
+function relativePath(node: RosettaExpression | SwitchCaseGuard | undefined): string {
   type Location = { $container?: Location; $containerProperty?: string; $containerIndex?: number };
   const parts: string[] = [];
   for (
@@ -89,9 +119,14 @@ function firstHole(node: ExpressionNode): ExpressionNode | undefined {
 
 function operatorText(operator: OperatorDefinition, wrapped?: string): string {
   let node = operator.createNode(() => crypto.randomUUID());
-  const target = wrapped && firstHole(node);
-  if (target) {
-    node = replaceInTree(node, String(target.id), { $type: 'Unsupported', id: target.id, rawText: wrapped });
+  if (wrapped) {
+    const operand = { $type: 'Unsupported', id: crypto.randomUUID(), rawText: wrapped } as const;
+    if (node.$type === 'RosettaConditionalExpression') {
+      node = { ...node, ifthen: operand };
+    } else {
+      const target = firstHole(node);
+      if (target) node = replaceInTree(node, String(target.id), operand);
+    }
   }
   return expressionNodeToDslPreview(node);
 }
@@ -105,21 +140,64 @@ function literalText(query: string): string | undefined {
   return undefined;
 }
 
+function switchMatchText(query: string): string | undefined {
+  const text = literalText(query) ?? query.trim();
+  if (!text) return undefined;
+  const prefix = '0 switch ';
+  const parsed = parseExpression(prefix + text + ' then 0');
+  const guard = !parsed.hasErrors && parsed.value.$type === 'SwitchOperation' && parsed.value.cases[0]?.guard;
+  if (!guard) return undefined;
+  const range = getNodeSourceRegion(guard);
+  return range.from === prefix.length && range.to === prefix.length + text.length ? text : undefined;
+}
+
 type SlotControl = {
   id: string;
   argumentIndex?: number;
   label: string;
   display: string;
+  content?: ReactNode;
   text?: string;
   target: ExpressionPickerTarget;
   range: SourceRegion;
   replace(text: string): boolean;
   placeholder?: boolean;
+  switchMatch?: true;
   operators?: readonly OperatorDefinition[];
 };
 type SlotEdit = { slot: SlotControl; text: string; raw: boolean; error?: string };
 
 type PickerAction = { kind: 'value'; text: string } | { kind: 'browse'; id: string; label: string } | { kind: 'raw' };
+
+type PickerEntry = CommandEntry<PickerAction> & { caption?: string };
+
+function callableChoices(entries: readonly FunctionScopeEntry[], query: string): PickerEntry[] {
+  const declarations = new Map<string, FunctionScopeEntry>();
+  for (const entry of entries) {
+    const id = entry.declarationId ?? entry.name;
+    if (!declarations.has(id) || !entry.name.includes('.')) declarations.set(id, entry);
+  }
+  return [...declarations.values()].flatMap((entry) => {
+    const separator = entry.name.lastIndexOf('.');
+    const label = entry.name.slice(separator + 1);
+    const namespace = entry.namespace ?? (separator < 0 ? undefined : entry.name.slice(0, separator));
+    const searchText = namespace ? label + ' ' + namespace + '.' + label : label;
+    if (!searchText.toLowerCase().includes(query)) return [];
+    return [
+      {
+        label,
+        searchText,
+        caption: namespace,
+        value: { kind: 'value', text: entry.referenceText ?? expressionNodeToDslPreview(referenceNode(entry)) }
+      }
+    ];
+  });
+}
+
+const pickerCategories = [
+  ...OPERATOR_CATALOG.filter(({ id }) => id === 'control'),
+  ...OPERATOR_CATALOG.filter(({ id }) => id !== 'control')
+];
 
 function InlinePicker({
   slot,
@@ -139,7 +217,7 @@ function InlinePicker({
   const [context, setContext] = useState<ExpressionPickerContext>();
   const [status, setStatus] = useState('');
   useEffect(() => {
-    if (!loadPicker || slot.operators) return;
+    if (!loadPicker || slot.operators || slot.switchMatch) return;
     let current = true;
     setContext(undefined);
     setStatus('Loading scope…');
@@ -160,7 +238,7 @@ function InlinePicker({
     return () => {
       current = false;
     };
-  }, [loadPicker, slot.target, slot.operators, trail]);
+  }, [loadPicker, slot.target, slot.operators, slot.switchMatch, trail]);
 
   const group = (id: string, items: CommandEntry<PickerAction>[]) => ({ id, items });
   const value = (label: string, text: string, searchText?: string): CommandEntry<PickerAction> => ({
@@ -177,20 +255,22 @@ function InlinePicker({
     : loadPicker
       ? []
       : scopedReferences(scope);
-  const choices = entries.flatMap((entry) => {
-    const label = [entry.name, entry.typeName, entry.cardinality].filter(Boolean).join(' ');
-    const browseId = 'canBrowse' in entry && entry.canBrowse === true ? entry.declarationId : undefined;
-    const compatible = !('compatibility' in entry) || entry.compatibility !== 'incompatible';
-    const direct = compatible
-      ? [
-          value(
-            browseId ? 'Use ' + entry.name : label,
-            entry.referenceText ?? expressionNodeToDslPreview(referenceNode(entry))
-          )
-        ]
-      : [];
-    return browseId ? [browse(label, browseId), ...direct] : direct;
-  });
+  const choices = entries
+    .filter((entry) => entry.origin !== 'callable')
+    .flatMap((entry) => {
+      const label = [entry.name, entry.typeName, entry.cardinality].filter(Boolean).join(' ');
+      const browseId = 'canBrowse' in entry && entry.canBrowse === true ? entry.declarationId : undefined;
+      const compatible = !('compatibility' in entry) || entry.compatibility !== 'incompatible';
+      const direct = compatible
+        ? [
+            value(
+              browseId ? 'Use ' + entry.name : label,
+              entry.referenceText ?? expressionNodeToDslPreview(referenceNode(entry))
+            )
+          ]
+        : [];
+      return browseId ? [browse(label, browseId), ...direct] : direct;
+    });
   const members = (context?.members ?? []).flatMap((member) => {
     const label = [member.name, member.typeName, member.cardinality].filter(Boolean).join(' ');
     const direct = value(member.canBrowse ? 'Use ' + member.name : label, member.expressionText);
@@ -200,40 +280,54 @@ function InlinePicker({
         ? []
         : [direct];
   });
-  const typed = literalText(query);
-  const groups = slot.operators
-    ? [
-        group(
-          'Operators',
-          slot.operators.map((operator) => value(operator.label, operator.operator!))
+  const search = query.trim().toLowerCase();
+  const callables =
+    search && !slot.operators && !trail.length
+      ? callableChoices(
+          entries.filter((entry) => entry.origin === 'callable'),
+          search
         )
-      ]
-    : trail.length
-      ? [group('Members', members)]
-      : [
-          ...(typed ? [group('Value', [value('Use ' + typed, typed, query)])] : []),
-          group('In scope', choices),
-          ...OPERATOR_CATALOG.map((category) =>
-            group(
-              category.label,
-              category.operators.flatMap((operator) => {
-                const items = [
-                  value(operator.label, operatorText(operator), operator.label + ' ' + operator.description)
-                ];
-                if (!slot.placeholder && firstHole(operator.createNode(() => 'new'))) {
-                  items.push(
-                    value('Wrap in ' + operator.label, operatorText(operator, '(' + (slot.text ?? slot.display) + ')'))
-                  );
-                }
-                return items;
-              })
-            )
-          ),
-          group('Edit', [
-            ...(!slot.placeholder ? [value('Wrap in parentheses', '(' + (slot.text ?? slot.display) + ')')] : []),
-            { label: 'Edit Rune', value: { kind: 'raw' } }
-          ])
-        ];
+      : [];
+  const typed = slot.switchMatch ? switchMatchText(query) : literalText(query);
+  const groups = slot.switchMatch
+    ? [group('Case match', typed ? [value('Use ' + typed, typed, query)] : [])]
+    : slot.operators
+      ? [
+          group(
+            'Operators',
+            slot.operators.map((operator) => value(operator.label, operator.operator!))
+          )
+        ]
+      : trail.length
+        ? [group('Members', members)]
+        : [
+            ...(typed ? [group('Value', [value('Use ' + typed, typed, query)])] : []),
+            group('In scope', choices),
+            group('Functions', callables),
+            ...pickerCategories.map((category) =>
+              group(
+                category.label,
+                category.operators.flatMap((operator) => {
+                  const searchText = [operator.label, operator.description, category.label].join(' ');
+                  const items = [value(operator.label, operatorText(operator), searchText)];
+                  if (!slot.placeholder && firstHole(operator.createNode(() => 'new'))) {
+                    items.push(
+                      value(
+                        'Wrap in ' + operator.label,
+                        operatorText(operator, slot.text ?? slot.display),
+                        'Wrap in ' + searchText
+                      )
+                    );
+                  }
+                  return items;
+                })
+              )
+            ),
+            group('Edit', [
+              ...(!slot.placeholder ? [value('Wrap in parentheses', '(' + (slot.text ?? slot.display) + ')')] : []),
+              { label: 'Edit Rune', value: { kind: 'raw' } }
+            ])
+          ];
   return (
     <>
       {context?.expected && (
@@ -254,7 +348,7 @@ function InlinePicker({
             Back
           </Button>
           <span className="min-w-0 truncate font-code text-xs">
-            {trail.map((part) => part.label.split(' ')[0]).join(' -> ')}
+            {trail.map((part) => part.label.split(' ')[0]).join('.')}
           </span>
         </div>
       )}
@@ -270,7 +364,22 @@ function InlinePicker({
       >
         <CommandInput
           aria-label={
-            slot.operators ? 'Search operators' : trail.length ? 'Search members' : 'Search values and primitives'
+            slot.switchMatch
+              ? 'Switch case match'
+              : slot.operators
+                ? 'Search operators'
+                : trail.length
+                  ? 'Search members'
+                  : 'Search values and primitives'
+          }
+          placeholder={
+            slot.switchMatch
+              ? 'Enter a literal or case name…'
+              : slot.operators
+                ? 'Search operators…'
+                : trail.length
+                  ? 'Search members…'
+                  : 'Search values or control flow…'
           }
           autoFocus
           value={query}
@@ -287,7 +396,14 @@ function InlinePicker({
             <CommandGroup<PickerAction> key={id} id={id} heading={id}>
               {(item, index) => (
                 <CommandItem key={index} value={item}>
-                  {item.label}
+                  {'caption' in item && typeof item.caption === 'string' ? (
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{item.label}</span>
+                      <small className="truncate text-2xs text-caption">{item.caption}</small>
+                    </span>
+                  ) : (
+                    item.label
+                  )}
                 </CommandItem>
               )}
             </CommandGroup>
@@ -298,11 +414,80 @@ function InlinePicker({
   );
 }
 
+const groupSurfaces = ['bg-background', 'bg-card/60', 'bg-card'] as const;
+const switchRowInset = 'border ps-1';
+const associativeOperators = new Set(['and', 'or', '+', '*']);
+const expressionControl = 'h-auto min-h-6 overflow-hidden rounded px-1.5 font-code text-xs font-book';
+const branchSlots = new Map([
+  ['if', { label: 'Add condition', hint: 'Condition' }],
+  ['ifthen', { label: 'Add then value', hint: 'Value' }],
+  ['elsethen', { label: 'Add else value', hint: 'Value' }]
+]);
+
+function placeholderHint(node: RosettaExpression | undefined) {
+  const parent = node?.$container;
+  if (!parent || !node?.$containerProperty) return undefined;
+  switch (parent.$type) {
+    case 'RosettaConditionalExpression':
+      return branchSlots.get(node.$containerProperty);
+    case 'SwitchCaseOrDefault':
+      return { label: parent.guard ? 'Add case value' : 'Add default value', hint: 'Value' };
+    case 'DefaultOperation':
+      return node.$containerProperty === 'right' ? { label: 'Add fallback value', hint: 'Fallback' } : undefined;
+    case 'InlineFunction':
+      if (parent.$container?.$type === 'MapOperation') return { label: 'Add item result', hint: 'Item result' };
+      if (parent.$container?.$type === 'FilterOperation') return { label: 'Add filter condition', hint: 'Condition' };
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+function expressionBody(node: RosettaExpression): keyof typeof branchLabels | 'case' | 'default' | undefined {
+  const parent = node.$container;
+  switch (parent?.$type) {
+    case 'RosettaConditionalExpression':
+      if (parent.ifthen === node) return 'then';
+      return parent.elsethen === node ? 'else' : undefined;
+    case 'SwitchCaseOrDefault':
+      return parent.guard ? 'case' : 'default';
+    case 'InlineFunction':
+      return 'callback';
+    case 'DefaultOperation':
+      return parent.right === node ? 'fallback' : undefined;
+    default:
+      return undefined;
+  }
+}
+
+function expressionGroupLabel(ast: RosettaExpression | undefined): string {
+  switch (ast?.$type) {
+    case 'RosettaSymbolReference':
+      return ast.symbol.$refText + ' call';
+    case 'RosettaSuperCall':
+      return 'super call';
+    case 'RosettaConstructorExpression':
+      return 'constructor';
+    case 'ListLiteral':
+      return 'list';
+    case 'RosettaConditionalExpression':
+      return 'if expression';
+    default:
+      return ast && 'operator' in ast && ast.operator ? ast.operator + ' expression' : 'expression';
+  }
+}
+
+const branchLabels = {
+  then: 'then value',
+  else: 'else clause',
+  callback: 'callback body',
+  fallback: 'fallback value'
+} as const;
+
 const comparisons = OPERATOR_CATALOG.find(({ id }) => id === 'comparison')!;
 const operatorGroups = OPERATOR_CATALOG.filter(({ id }) =>
   ['logic', 'arithmetic', 'collection', 'navigation', 'control'].includes(id)
 );
-
 function alternatives(node: ExpressionNode): OperatorDefinition[] {
   const type = String(node.$type);
   if (['ComparisonOperation', 'EqualityOperation'].includes(type)) {
@@ -337,9 +522,12 @@ function regionOf(node: ExpressionNode, fallback: SourceRegion): SourceRegion {
 }
 
 function needsOperandGrouping(expression: RosettaExpression | undefined, source: string): boolean {
-  if (!expression || !('left' in expression || expression.$type === 'RosettaConditionalExpression')) return false;
-  const left = 'left' in expression ? expression.left : undefined;
-  const start = left?.$cstNode?.offset ?? getExpressionOperatorRegion(expression)?.from;
+  if (!expression) return false;
+  const binary = 'left' in expression;
+  const switching = expression.$type === 'SwitchOperation';
+  if (!binary && !switching && expression.$type !== 'RosettaConditionalExpression') return false;
+  const first = binary ? expression.left : switching ? expression.argument : undefined;
+  const start = first?.$cstNode?.offset ?? getExpressionOperatorRegion(expression)?.from;
   const from = expression.$cstNode?.offset;
   // A leading parenthesis around the first operand is not a group around this expression.
   return start === undefined || from === undefined || !source.slice(from, start).trimStart().startsWith('(');
@@ -348,6 +536,7 @@ function needsOperandGrouping(expression: RosettaExpression | undefined, source:
 export function InlineExpressionBuilder({
   value = '',
   compositionArgumentNames,
+  statementTrigger,
   onChange,
   onBlur,
   scope,
@@ -359,28 +548,38 @@ export function InlineExpressionBuilder({
   canCommit,
   onHighlightRange,
   highlightedRange,
+  renderSyntax,
   renderTextEditor
 }: ExpressionBuilderProps) {
   const source = value ?? '';
   const tree = useMemo(() => inlineTree(source), [source]);
+  const comments = useMemo(() => (/\/[*/]/.test(source) ? getSourceComments(source) : []), [source]);
   const rootAst = expressionNodeSource(tree);
   const compositionCall = rootAst && getCompositionCallExpression(rootAst);
   const root = useRef<HTMLDivElement>(null);
   const liveSource = useLatestRef(source);
   const [active, setActive] = useState<{ id: string; query?: string }>();
+  const [operatorDropTarget, setOperatorDropTarget] = useState<string>();
   const [editing, setEditing] = useState<SlotEdit>();
   const editField = useRef<HTMLSpanElement>(null);
   let editingRendered = false;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const [expandedParameters, setExpandedParameters] = useState<ReadonlySet<string>>(() => new Set());
   const whole = { from: 0, to: source.length };
   const rootRegion = regionOf(tree, whole);
   const tokens = () => [...(root.current?.querySelectorAll<HTMLButtonElement>('button[data-expression-token]') ?? [])];
-  const focusSlot = (id: string) =>
-    requestAnimationFrame(() =>
+  const focusSlot = (id: string) => {
+    const document = root.current?.ownerDocument;
+    if (!document) return;
+    const previousFocus = document.activeElement;
+    requestAnimationFrame(() => {
+      const focus = document.activeElement;
+      if (focus && focus !== previousFocus && focus !== document.body) return;
       tokens()
         .find((token) => token.dataset['expressionToken'] === id)
-        ?.focus()
-    );
+        ?.focus();
+    });
+  };
   const close = (releaseSlot = false) => {
     setActive(undefined);
     if (releaseSlot) onActiveSlot?.(undefined);
@@ -393,6 +592,21 @@ export function InlineExpressionBuilder({
     onChange?.(source.slice(0, range.from) + text + source.slice(range.to));
     return true;
   };
+  const remove = (range: SourceRegion, replacement: string, clearedPath: string, focus = clearedPath) => {
+    if (!update(range, replacement)) return;
+    close(true);
+    setCollapsed(
+      (previous) =>
+        new Set(
+          [...previous].filter(
+            (path) => clearedPath !== 'root' && path !== clearedPath && !path.startsWith(clearedPath + '/')
+          )
+        )
+    );
+    focusSlot(focus);
+  };
+  const clearValue = (range: SourceRegion, path: string) =>
+    remove(range, hole + retainCommentTrivia(source.slice(range.from, range.to)), path);
   const targetAt = (node: ExpressionNode, range: SourceRegion, argumentIndex?: number): ExpressionPickerTarget => {
     const from = 'root' in sourceTarget ? sourceTarget.root.from : 0;
     const address = {
@@ -429,13 +643,18 @@ export function InlineExpressionBuilder({
     const { slot } = editing;
     const change = (text: string) => setEditing({ ...editing, text, error: undefined });
     const finish = () => {
-      const { parsed } = parseExpressionDraft(editing.text);
-      if (parsed.hasErrors || !editing.text.trim()) {
-        setEditing({ ...editing, error: 'Complete the Rune expression before continuing.' });
+      const text = slot.switchMatch ? switchMatchText(editing.text) : editing.text;
+      if (!text?.trim() || (!slot.switchMatch && parseExpressionDraft(text).parsed.hasErrors)) {
+        setEditing({
+          ...editing,
+          error: slot.switchMatch
+            ? 'Enter a single Rune literal or case name.'
+            : 'Complete the Rune expression before continuing.'
+        });
         editField.current?.querySelector<HTMLElement>('input, textarea, [contenteditable="true"]')?.focus();
         return;
       }
-      commit(slot, editing.text, editing);
+      commit(slot, text, editing);
     };
     const cancel = () => {
       setEditing(undefined);
@@ -485,7 +704,37 @@ export function InlineExpressionBuilder({
       </span>
     );
   };
-  const renderSlot = (slot: SlotControl) => {
+  const syntaxSlice = ({ from, to }: SourceRegion) => renderSyntax?.({ from, to }) ?? source.slice(from, to);
+  const presentMemberPath = (ast: RosettaExpression, range: SourceRegion) => {
+    const operators = getMemberAccessOperatorRegions(ast);
+    if (!operators.length) return undefined;
+    let offset = range.from;
+    const parts = operators.map(({ from, to, operator }) => {
+      const textRange = { from: offset, to: offset + source.slice(offset, from).trimEnd().length };
+      offset = range.to - source.slice(to, range.to).trimStart().length;
+      return { textRange, separator: operator === '->' ? '.' : '…' };
+    });
+    const tail = { from: offset, to: range.to };
+    return {
+      text:
+        parts.map(({ textRange, separator }) => source.slice(textRange.from, textRange.to) + separator).join('') +
+        source.slice(tail.from, tail.to),
+      content: (
+        <>
+          {parts.map(({ textRange, separator }) => (
+            <Fragment key={textRange.from}>
+              {syntaxSlice(textRange)}
+              <span className="text-syntax-operator">{separator}</span>
+            </Fragment>
+          ))}
+          {syntaxSlice(tail)}
+        </>
+      )
+    };
+  };
+  const renderSlot = (slot: SlotControl, kind: 'operand' | 'statement' | 'operator' = 'operand') => {
+    const statement = kind === 'statement';
+    const acceptsOperator = !editing && kind !== 'operator';
     const from = 'root' in sourceTarget ? sourceTarget.root.from : undefined;
     const highlighted =
       from !== undefined &&
@@ -493,7 +742,7 @@ export function InlineExpressionBuilder({
       highlightedRange.from >= from + slot.range.from &&
       highlightedRange.to <= from + slot.range.to &&
       highlightedRange.from < from + slot.range.to;
-    if (editing?.slot.id === slot.id) {
+    if (editing?.slot.id === slot.id && !statement) {
       editingRendered = true;
       return renderEdit(editing);
     }
@@ -507,13 +756,17 @@ export function InlineExpressionBuilder({
             return;
           }
           if (editing) return;
-          setActive({ id: slot.id });
-          onActiveSlot?.({
-            nodeId: slot.id,
-            target: slot.target,
-            replace: (text) => commit(slot, text),
-            openPicker: (query) => setActive({ id: slot.id, query })
-          });
+          setActive({ id: slot.id, query: slot.switchMatch && !slot.placeholder ? slot.display : undefined });
+          onActiveSlot?.(
+            slot.switchMatch
+              ? undefined
+              : {
+                  nodeId: slot.id,
+                  target: slot.target,
+                  replace: (text) => commit(slot, text),
+                  openPicker: (query) => setActive({ id: slot.id, query })
+                }
+          );
         }}
       >
         <PopoverTrigger
@@ -521,24 +774,49 @@ export function InlineExpressionBuilder({
             <PickerTrigger
               indicator={false}
               aria-label={slot.label}
+              aria-pressed={statement ? statementTrigger?.selected : undefined}
+              title={statement ? 'Edit whole expression' : slot.label}
+              disabled={statement && Boolean(editing)}
               className={
-                'h-auto min-h-6 overflow-hidden rounded px-1.5 font-code text-xs font-book ' +
-                (highlighted ? 'ring-1 ring-primary ' : '') +
+                expressionControl +
+                ' ' +
+                (highlighted || operatorDropTarget === slot.id ? 'ring-1 ring-primary ' : '') +
                 (slot.placeholder
                   ? 'border-dashed text-caption'
-                  : slot.operators
-                    ? 'border-transparent bg-transparent text-primary'
+                  : slot.operators && !renderSyntax
+                    ? 'text-primary'
                     : '')
               }
               data-expression-token={slot.id}
               data-expression-argument={slot.argumentIndex}
+              data-expression-section-handle={statement || slot.switchMatch ? '' : undefined}
               onFocus={() => highlight(slot.range)}
               onBlur={() => highlight(undefined)}
               onMouseEnter={() => highlight(slot.range)}
               onMouseLeave={() => highlight(undefined)}
+              onDragOver={(event) => {
+                if (!acceptsOperator || !event.dataTransfer.types.includes(EXPRESSION_OPERATOR_MIME)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'copy';
+                setOperatorDropTarget(slot.id);
+              }}
+              onDragLeave={(event) => {
+                if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+                setOperatorDropTarget((target) => (target === slot.id ? undefined : target));
+              }}
+              onDrop={(event) => {
+                setOperatorDropTarget(undefined);
+                if (!acceptsOperator) return;
+                const type = event.dataTransfer.getData(EXPRESSION_OPERATOR_MIME);
+                const operator = ALL_OPERATORS.find(({ $type }) => $type === type);
+                if (!operator) return;
+                event.preventDefault();
+                event.stopPropagation();
+                commit(slot, operatorText(operator, slot.placeholder ? undefined : (slot.text ?? slot.display)));
+              }}
               onKeyDown={(event) => {
                 if (editing || slot.operators || event.ctrlKey || event.metaKey || event.altKey) return;
-                if (event.key === '(' && !slot.placeholder) {
+                if (event.key === '(' && !slot.placeholder && !slot.switchMatch) {
                   event.preventDefault();
                   commit(slot, '(' + (slot.text ?? slot.display) + ')');
                 } else if (event.key.length === 1 && event.key !== ' ') {
@@ -547,7 +825,12 @@ export function InlineExpressionBuilder({
                 }
               }}
             >
-              <span className="truncate">{slot.display}</span>
+              <span className={statement ? 'min-w-0 whitespace-normal wrap-anywhere' : 'truncate'}>
+                {slot.content ??
+                  (!slot.placeholder && slot.display === source.slice(slot.range.from, slot.range.to)
+                    ? syntaxSlice(slot.range)
+                    : slot.display)}
+              </span>
             </PickerTrigger>
           }
         />
@@ -570,22 +853,47 @@ export function InlineExpressionBuilder({
       </Popover>
     );
   };
-  function renderNode(node: ExpressionNode, depth: number, argument?: string, parent?: ExpressionNode): ReactNode {
+  const textBetween = (from: number, to: number) => {
+    const text = source.slice(from, to).trim();
+    if (!text) return null;
+    const hasComment = comments.some((comment) => comment.offset >= from && comment.end <= to);
+    const start = source.indexOf(text, from);
+    return (
+      <span className={hasComment ? 'whitespace-pre-line wrap-anywhere' : 'whitespace-normal wrap-anywhere'}>
+        {syntaxSlice({ from: start, to: start + text.length })}
+      </span>
+    );
+  };
+
+  function renderNode(
+    node: ExpressionNode,
+    depth: number,
+    argument?: string,
+    parent?: ExpressionNode,
+    groupDepth = 0
+  ): ReactNode {
     const ast = expressionNodeSource(node);
+    const member = isConstructorKeyValuePair(ast?.$container) ? ast.$container.key.$refText : undefined;
+    const slotHint = placeholderHint(ast);
+    const hint = argument ?? member ?? slotHint?.hint;
+    const operandLabel = argument ? argument + ' argument' : member ? member + ' value' : undefined;
     const range = regionOf(node, whole);
     const path = relativePath(ast) || 'root';
     const original = source.slice(range.from, range.to);
     const target = targetAt(node, range);
-    const placeholder = node.$type === 'Placeholder' || original === hole || original === '<?>';
+    const placeholder = isPlaceholder(node, original);
     const argumentIndex = parent?.$type === 'RosettaSymbolReference' ? ast?.$containerIndex : undefined;
     const compositionArgumentIndex = ast?.$container === compositionCall ? argumentIndex : undefined;
     const replace = (text: string) => {
       const { parsed } = parseExpressionDraft(text);
       const ast = parsed.hasErrors ? undefined : parsed.value;
-      const grouped = depth > 0 && argumentIndex === undefined && needsOperandGrouping(ast, text);
+      const grouped =
+        depth > 0 &&
+        (argumentIndex === undefined || ast?.$type === 'SwitchOperation') &&
+        needsOperandGrouping(ast, text);
       return update(range, grouped ? '(' + text + ')' : text);
     };
-    const label = argument ? argument + ' argument' : placeholder ? 'Add expression' : 'Edit ' + original;
+    const isMemberPath = ast?.$type === 'RosettaFeatureCall' || ast?.$type === 'RosettaDeepFeatureCall';
     const callSignature =
       node.$type === 'RosettaSymbolReference'
         ? scope.references?.find((entry) => entry.kind === 'callable' && entry.name === node.symbol)
@@ -594,38 +902,168 @@ export function InlineExpressionBuilder({
       ast && ast === compositionCall
         ? (compositionArgumentNames ?? callSignature?.argumentNames)
         : callSignature?.argumentNames;
-    const children =
-      node.$type === 'RosettaFeatureCall' || node.$type === 'RosettaDeepFeatureCall'
-        ? []
-        : getChildren(node)
-            .filter((child) => expressionNodeSource(child))
-            .map((child) => ({ node: child, range: regionOf(child, range) }))
-            .filter((child) => child.range.from >= range.from && child.range.to <= range.to)
-            .sort((a, b) => a.range.from - b.range.from);
+    const children = isMemberPath
+      ? []
+      : getChildren(node)
+          .flatMap((child) => {
+            const childAst = expressionNodeSource(child);
+            if (!childAst) return [];
+            const container = childAst.$container;
+            return [
+              {
+                node: child,
+                range: getNodeSourceRegion(childAst),
+                memberLabel: isConstructorKeyValuePair(container)
+                  ? getConstructorMemberLabelRegion(container)
+                  : undefined,
+                switchCase: isSwitchCaseOrDefault(container) ? container : undefined,
+                body: expressionBody(childAst)
+              }
+            ];
+          })
+          .filter((child) => child.range.from >= range.from && child.range.to <= range.to)
+          .sort((a, b) => a.range.from - b.range.from);
     const missing = Math.max(0, (argumentNames?.length ?? callSignature?.argumentCount ?? 0) - children.length);
-    if (!children.length && !missing) {
-      return renderSlot({
+    const leaf = !children.length && !missing;
+    const repeatedOperator =
+      ast &&
+      'operator' in ast &&
+      associativeOperators.has(String(ast.operator)) &&
+      parent &&
+      parent.$type === node.$type &&
+      'operator' in parent &&
+      parent.operator === ast.operator;
+    const grouping = Boolean(
+      !placeholder &&
+      !repeatedOperator &&
+      (children.length ||
+        missing ||
+        callSignature ||
+        ast?.$type === 'RosettaConstructorExpression' ||
+        ast?.$type === 'ListLiteral' ||
+        ast?.$type === 'RosettaSuperCall' ||
+        (ast?.$type === 'RosettaSymbolReference' && ast.explicitArguments) ||
+        (ast && 'operator' in ast))
+    );
+    const canCollapse = grouping && !leaf;
+    const isCollapsed = canCollapse && collapsed.has(path);
+    const subject =
+      ast?.$type === 'RosettaConstructorExpression' && ast.typeRef.$type === 'RosettaSymbolReference'
+        ? ast.typeRef.symbol.$refText
+        : (callSignature?.name ?? expressionGroupLabel(ast));
+    const disclosureLabel = (isCollapsed ? 'Expand ' : 'Collapse ') + subject;
+    const clause = ast && expressionBody(ast);
+    // A required clause and its value clear the same range. Give that action to the clause.
+    const removeGroup =
+      grouping && !editing && clause !== 'then' && clause !== 'callback' && clause !== 'fallback'
+        ? () => clearValue(range, path)
+        : undefined;
+    const renderGroup = (content: ReactNode) => (
+      <ExpressionSection
+        as="span"
+        key={path}
+        label={operandLabel ?? (grouping ? expressionGroupLabel(ast) : undefined)}
+        title={operandLabel}
+        onRemove={removeGroup}
+        data-expression-group={grouping ? node.$type : undefined}
+        data-expression-group-depth={grouping ? groupDepth : undefined}
+        className={
+          grouping
+            ? 'relative inline-flex min-h-7 min-w-0 max-w-full flex-wrap items-baseline gap-1 rounded border border-border py-0.5 ps-1 ' +
+              (canCollapse && !isCollapsed ? 'pe-8 has-[>[data-expression-remove]]:pe-14 ' : '') +
+              groupSurfaces[Math.min(groupDepth, groupSurfaces.length - 1)]
+            : operandLabel
+              ? 'inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-1'
+              : 'contents'
+        }
+      >
+        {canCollapse && (
+          <Button
+            type="button"
+            variant={isCollapsed ? 'outline' : 'ghost'}
+            size={isCollapsed ? 'xs' : 'icon-xs'}
+            className={
+              isCollapsed ? undefined : 'absolute top-0.5 text-muted-foreground ' + (removeGroup ? 'end-7' : 'end-1')
+            }
+            aria-label={disclosureLabel}
+            data-expression-disclosure
+            aria-expanded={!isCollapsed}
+            title={disclosureLabel}
+            onClick={() =>
+              setCollapsed((previous) => {
+                const next = new Set(previous);
+                if (!next.delete(path)) next.add(path);
+                return next;
+              })
+            }
+          >
+            {isCollapsed ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+            {isCollapsed && disclosureLabel}
+          </Button>
+        )}
+        {content}
+      </ExpressionSection>
+    );
+    if (leaf) {
+      const memberPath = isMemberPath ? presentMemberPath(ast, range) : undefined;
+      const display = memberPath?.text ?? original;
+      const label = operandLabel ?? (placeholder ? (slotHint?.label ?? 'Add expression') : 'Edit ' + display);
+      const slot = renderSlot({
         id: path,
         argumentIndex: compositionArgumentIndex,
         range,
         target,
         replace,
         placeholder,
-        display: placeholder ? (argument ?? 'Add expression') : original,
-        label: argument && !placeholder ? label + ' ' + original : label
+        display: placeholder ? (hint ?? 'Add expression') : display,
+        content: memberPath?.content,
+        text: memberPath ? original : undefined,
+        label: operandLabel && !placeholder ? label + ' ' + display : label
       });
+      return grouping ? renderGroup(slot) : slot;
     }
 
+    const reference =
+      ast?.$type === 'RosettaSymbolReference' && (missing || argumentNames?.length)
+        ? getSymbolReferenceRegions(ast)
+        : undefined;
+    const callee = argumentNames?.length ? reference?.name : undefined;
+    const explicitArguments = ast?.$type === 'RosettaSymbolReference' && ast.explicitArguments;
+    const calleeName = callee && source.slice(callee.from, callee.to);
+    const showParameters = callee && expandedParameters.has(path);
     const property = ast && getExpressionOperatorRegion(ast);
     const operators = alternatives(node);
     const syntax = (from: number, to: number) => {
       if (from >= to) return null;
-      const before = source.slice(from, to);
-      if (!property || property.from < from || property.to > to)
-        return <span className="whitespace-pre-wrap">{before}</span>;
+      if (callee && callee.from >= from && callee.to <= to) {
+        return (
+          <>
+            {textBetween(from, callee.from)}
+            <PickerTrigger
+              indicator={false}
+              className={expressionControl}
+              aria-label={(showParameters ? 'Hide parameters for ' : 'Show parameters for ') + calleeName}
+              aria-expanded={Boolean(showParameters)}
+              data-expression-parameters
+              onClick={() =>
+                setExpandedParameters((previous) => {
+                  const next = new Set(previous);
+                  if (next.has(path)) next.delete(path);
+                  else next.add(path);
+                  return next;
+                })
+              }
+            >
+              <span className="truncate">{syntaxSlice(callee)}</span>
+            </PickerTrigger>
+            {textBetween(callee.to, to)}
+          </>
+        );
+      }
+      if (!property || property.from < from || property.to > to) return textBetween(from, to);
       const word = source.slice(property.from, property.to);
       const predicate = node.$type === 'RosettaConditionalExpression' && children[0];
-      if (!operators.length && !predicate) return <span className="whitespace-pre-wrap">{before}</span>;
+      if (!operators.length && !predicate) return textBetween(from, to);
       const gap = { from: property.from, to: property.to };
       const operatorSlot: SlotControl = {
         id: path + '/operator',
@@ -663,63 +1101,226 @@ export function InlineExpressionBuilder({
       };
       return (
         <>
-          {source.slice(from, gap.from)}
-          {renderSlot(operatorSlot)}
-          {source.slice(gap.to, to)}
+          {textBetween(from, gap.from)}
+          {renderSlot(operatorSlot, 'operator')}
+          {textBetween(gap.to, to)}
         </>
       );
     };
-    const grouping = Boolean(
-      callSignature ||
-      argumentNames ||
-      node.$type === 'RosettaConditionalExpression' ||
-      (ast && 'function' in ast) ||
-      (parent && 'operator' in parent && 'operator' in node && parent.operator !== node.operator)
-    );
-    if (grouping && collapsed.has(path)) {
-      return (
-        <Button
-          key={path}
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            setCollapsed((previous) => {
-              const next = new Set(previous);
-              next.delete(path);
-              return next;
-            })
+    const memberRows =
+      node.$type === 'RosettaConstructorExpression' &&
+      children.length > 1 &&
+      children.every(({ memberLabel, range }) => memberLabel && memberLabel.to <= range.from);
+    const addSwitchCase =
+      ast?.$type === 'SwitchOperation'
+        ? () => {
+            const draftCase = SWITCH_GUARD_HOLE + ' then ' + hole;
+            const fallback = ast.cases.find((entry) => !entry.guard);
+            if (fallback) {
+              const { from } = getNodeSourceRegion(fallback);
+              update({ from, to: from }, draftCase + ', ');
+            } else {
+              const finalCase = ast.cases.at(-1);
+              if (finalCase) {
+                const { to } = getNodeSourceRegion(finalCase);
+                update({ from: to, to }, ', ' + draftCase);
+              }
+            }
           }
-        >
-          Expand {callSignature?.name ?? 'expression'}
-        </Button>
-      );
-    }
-    let cursor = range.from;
-    const suffix = missing && original.endsWith(')') ? range.to - 1 : range.to;
-    return (
-      <span
-        key={path}
-        className={
-          grouping
-            ? 'inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-0.5 rounded border border-border px-1 py-0.5 ' +
-              (depth > 1 ? 'bg-muted/35' : 'bg-muted/15')
-            : 'contents'
-        }
-      >
-        {children.map((child, index) => {
-          const gap = syntax(cursor, child.range.from);
-          cursor = child.range.to;
-          return (
-            <span key={child.range.from} className="contents">
-              {gap}
-              {renderNode(child.node, depth + 1, argumentNames?.[index], node)}
-            </span>
-          );
-        })}
-        {syntax(cursor, suffix)}
-        {missing > 0 && (
+        : undefined;
+    let cursor = memberRows ? children.at(-1)!.range.to : range.from;
+    const insertion = missing ? reference?.argumentInsertion : undefined;
+    const suffix = insertion ?? range.to;
+    const renderedChildren =
+      isCollapsed || memberRows
+        ? []
+        : children.map((child, index) => {
+            const { body, switchCase } = child;
+            const guard = switchCase?.guard;
+            const matchRange = guard && getNodeSourceRegion(guard);
+            const match = matchRange && source.slice(matchRange.from, matchRange.to);
+            const gapStart = switchCase
+              ? getNodeSourceRegion(switchCase).from
+              : body === 'callback' || body === 'fallback'
+                ? child.range.from
+                : cursor;
+            const prefix = syntax(cursor, gapStart);
+            const gap =
+              guard && matchRange && match && matchRange.from >= gapStart && matchRange.to <= child.range.from ? (
+                <>
+                  {syntax(gapStart, matchRange.from)}
+                  {renderSlot(
+                    {
+                      id: relativePath(guard),
+                      label: match === SWITCH_GUARD_HOLE ? 'Add case match' : 'Edit case match ' + match,
+                      display: match === SWITCH_GUARD_HOLE ? 'Match' : match,
+                      placeholder: match === SWITCH_GUARD_HOLE,
+                      switchMatch: true,
+                      range: matchRange,
+                      target,
+                      replace: (text) => update(matchRange, text)
+                    },
+                    'operator'
+                  )}
+                  {textBetween(matchRange.to, child.range.from)}
+                </>
+              ) : body === 'default' ? (
+                <span className="border border-transparent ps-1.5">{textBetween(gapStart, child.range.from)}</span>
+              ) : (
+                syntax(gapStart, child.range.from)
+              );
+            // Keep a case's delimiter beside its result and the switch operator beside its selector.
+            const nextCase = switchCase && children[index + 1]?.switchCase;
+            cursor = nextCase ? getNodeSourceRegion(nextCase).from : child.range.to;
+            const parameter = argumentNames?.[index];
+            const showName =
+              showParameters && parameter && !isPlaceholder(child.node, source.slice(child.range.from, child.range.to));
+            const content = (
+              <>
+                {showName && (
+                  <span className="text-caption wrap-anywhere" aria-hidden="true">
+                    {parameter}:
+                  </span>
+                )}
+                {renderNode(child.node, depth + 1, parameter, node, groupDepth + (grouping ? 1 : 0))}
+              </>
+            );
+            if (body) {
+              const label =
+                body === 'case'
+                  ? match === SWITCH_GUARD_HOLE
+                    ? 'unfilled case'
+                    : 'case ' + match
+                  : body === 'default'
+                    ? 'default case'
+                    : branchLabels[body];
+              const childPath = relativePath(expressionNodeSource(child.node));
+              const removable = switchCase
+                ? switchCase.$container.cases.length > 1
+                : body === 'else' || !isPlaceholder(child.node, source.slice(child.range.from, child.range.to));
+              const removeClause =
+                !editing && removable
+                  ? () => {
+                      if (switchCase) {
+                        const edit = getSwitchCaseRemoval(source, switchCase);
+                        if (edit) remove(edit.region, edit.replacement, path, path + '/operator');
+                      } else if (body === 'else' && ast?.$type === 'RosettaConditionalExpression') {
+                        const from = getNodeSourceRegion(ast.ifthen).to;
+                        remove(
+                          { from, to: child.range.to },
+                          retainCommentTrivia(source.slice(from, child.range.to)),
+                          childPath,
+                          path + '/operator'
+                        );
+                      } else {
+                        clearValue(child.range, childPath);
+                      }
+                    }
+                  : undefined;
+              return (
+                <Fragment key={child.range.from}>
+                  {switchCase && prefix ? (
+                    <span
+                      className={
+                        'inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-1 border-transparent ' +
+                        switchRowInset
+                      }
+                    >
+                      {prefix}
+                    </span>
+                  ) : (
+                    prefix
+                  )}
+                  <ExpressionSection
+                    as="span"
+                    data-expression-body={body}
+                    label={label}
+                    onRemove={removeClause}
+                    className={
+                      'flex min-w-0 max-w-full flex-wrap items-baseline gap-1' +
+                      (switchCase
+                        ? ' self-stretch rounded border-border py-0.5 pe-1 ' + switchRowInset
+                        : ' basis-full rounded border border-border py-0.5 ps-2')
+                    }
+                  >
+                    {gap}
+                    {content}
+                    {textBetween(child.range.to, cursor)}
+                  </ExpressionSection>
+                </Fragment>
+              );
+            }
+            return (
+              <Fragment key={child.range.from}>
+                {gap}
+                <span
+                  className={
+                    showName
+                      ? 'inline-flex min-w-0 flex-wrap items-baseline gap-1'
+                      : node.$type === 'ListLiteral'
+                        ? 'rune-expression-list-item'
+                        : 'contents'
+                  }
+                >
+                  {content}
+                </span>
+              </Fragment>
+            );
+          });
+    const switchSelector = addSwitchCase && !children[0]?.switchCase ? renderedChildren.shift() : undefined;
+    const content = !isCollapsed && (
+      <>
+        {memberRows ? (
           <>
-            {!original.endsWith(')') && '('}
+            {syntax(range.from, children[0]!.memberLabel!.from)}
+            <span
+              className="grid w-full min-w-0 grid-cols-[fit-content(40%)_minmax(0,1fr)] items-baseline gap-x-2 gap-y-1 ps-2"
+              data-expression-members
+            >
+              {children.map((child, index) => {
+                const label = child.memberLabel!;
+                return (
+                  <Fragment key={label.from}>
+                    {textBetween(label.from, label.to)}
+                    <span className="inline-flex min-w-0 flex-wrap items-baseline gap-1">
+                      {textBetween(label.to, child.range.from)}
+                      {renderNode(child.node, depth + 1, undefined, node, groupDepth + 1)}
+                      {textBetween(child.range.to, children[index + 1]?.memberLabel?.from ?? child.range.to)}
+                    </span>
+                  </Fragment>
+                );
+              })}
+            </span>
+          </>
+        ) : addSwitchCase ? (
+          <>
+            {switchSelector && (
+              <span className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-1">{switchSelector}</span>
+            )}
+            <span
+              data-expression-switch-clauses
+              className="inline-flex min-w-0 max-w-full flex-col items-start gap-1 border-s border-border ps-2"
+            >
+              {renderedChildren}
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                aria-label="Add switch case"
+                disabled={Boolean(editing)}
+                onClick={addSwitchCase}
+              >
+                + Case
+              </Button>
+            </span>
+          </>
+        ) : (
+          renderedChildren
+        )}
+        {syntax(cursor, suffix)}
+        {insertion !== undefined && (
+          <>
+            {!explicitArguments && '('}
             {Array.from({ length: missing }, (_, index) => {
               const position = children.length + index;
               const name = argumentNames?.[position] ?? 'Argument ' + (position + 1);
@@ -738,28 +1339,19 @@ export function InlineExpressionBuilder({
                       const additions = Array.from({ length: missing }, (_, offset) =>
                         offset === index ? text : hole
                       ).join(', ');
-                      const insert = original.endsWith(')')
+                      const insert = explicitArguments
                         ? (children.length ? ', ' : '') + additions
                         : '(' + additions + ')';
-                      return update({ from: suffix, to: suffix }, insert);
+                      return update({ from: insertion, to: insertion }, insert);
                     }
                   })}
                 </span>
               );
             })}
-            {')'}
+            {!explicitArguments && ')'}
           </>
         )}
-        {grouping && (
-          <button
-            type="button"
-            className="inline-flex px-1 text-xs text-muted-foreground"
-            aria-label={'Collapse ' + (callSignature?.name ?? 'expression')}
-            onClick={() => setCollapsed((previous) => new Set([...previous, path]))}
-          >
-            −
-          </button>
-        )}
+        {syntax(suffix, range.to)}
         {compositionArgumentIndex !== undefined &&
           renderSlot({
             id: path + '/actions',
@@ -771,8 +1363,9 @@ export function InlineExpressionBuilder({
             range,
             replace
           })}
-      </span>
+      </>
     );
+    return renderGroup(content);
   }
   const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!(event.target instanceof HTMLButtonElement) || !event.target.dataset['expressionToken']) return;
@@ -785,10 +1378,21 @@ export function InlineExpressionBuilder({
       next.focus();
     }
   };
+  const rootSlot: SlotControl = {
+    id: 'root/actions',
+    label: statementTrigger?.label ?? 'Expression actions',
+    display: statementTrigger?.label ?? '…',
+    content: statementTrigger?.content,
+    text: source,
+    range: whole,
+    target: targetAt(tree, rootRegion),
+    replace: (text) => update(whole, text)
+  };
+  const rootEdit = statementTrigger && editing?.slot.id === rootSlot.id ? editing : undefined;
   return (
     <div
       ref={root}
-      className="flex min-w-0 max-w-full flex-wrap items-baseline gap-1 font-code text-xs font-book"
+      className="rune-inline-expression flex w-full min-w-0 max-w-full flex-wrap items-baseline gap-1 font-code text-xs font-book"
       data-testid="inline-expression-builder"
       aria-label="Expression"
       onKeyDown={moveFocus}
@@ -796,18 +1400,10 @@ export function InlineExpressionBuilder({
         if (!event.currentTarget.contains(event.relatedTarget)) onBlur?.();
       }}
     >
-      {renderNode(tree, 0)}
-      {getChildren(tree).length > 0 &&
-        renderSlot({
-          id: 'root/actions',
-          label: 'Expression actions',
-          display: '…',
-          text: source,
-          range: whole,
-          target: targetAt(tree, rootRegion),
-          replace: (text) => update(whole, text)
-        })}
-      {editing && !editingRendered && renderEdit(editing)}
+      {statementTrigger && renderSlot(rootSlot, 'statement')}
+      {rootEdit ? renderEdit(rootEdit) : renderNode(tree, 0)}
+      {!statementTrigger && getChildren(tree).length > 0 && renderSlot(rootSlot)}
+      {editing && !editingRendered && !rootEdit && renderEdit(editing)}
       {error && (
         <span role="alert" className="text-destructive">
           {error}

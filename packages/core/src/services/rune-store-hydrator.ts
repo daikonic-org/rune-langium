@@ -54,6 +54,11 @@ export class RuneStoreHydrator extends DefaultHydrator {
     delete result.$containerIndex;
     delete result.$containerProperty;
     delete result.$cstNode;
+    // The transport uses JSON numbers. Restore the editor AST's integer type
+    // before generated schemas validate it. CST ranges retain the authored digits.
+    if (node.$type === 'RosettaIntLiteral' && typeof result.value === 'number' && Number.isInteger(result.value)) {
+      result.value = BigInt(result.value);
+    }
     // Permanent baseline locator for CST-reuse serialization. Two ints; not the
     // text (which would nest/duplicate). Read from the live node, whose $cstNode
     // is still attached at this point.

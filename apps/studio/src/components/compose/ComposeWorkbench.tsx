@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: FSL-1.1-ALv2
 // Copyright (c) 2026 Daikonic contributors
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
+import { createPortal } from 'react-dom';
 import type { DockviewApi } from 'dockview-react';
+import { ChevronLeft, X } from 'lucide-react';
+import { Button } from '@rune-langium/design-system/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from '@rune-langium/design-system/ui/dialog';
 import { WorkbenchHost } from '../../shell/WorkbenchHost.js';
 import { COLLAPSED_SIDE_WIDTH } from '../../shell/responsive-layout.js';
 import { readWorkbenchSettings, writeWorkbenchSettings } from '../../shell/workbench-settings.js';
@@ -125,10 +129,18 @@ export const ComposeWorkbench = withInstrumentation(
     onReady(api: DockviewApi): void;
     palette: ReactElement;
     center: ReactElement;
-    details: ReactElement;
+    details(dismiss?: () => void): ReactElement;
   }) {
     const [restored, setRestored] = useState<{ key: string; layout: unknown }>();
     const [dock, setDock] = useState<DockviewApi>();
+    const [compact, setCompact] = useState(() => window.matchMedia?.(compactQuery).matches ?? false);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailsHost] = useState(() => {
+      const element = document.createElement('div');
+      element.className = 'h-full min-h-0';
+      return element;
+    });
+    const attachDetails = useCallback((element: HTMLDivElement | null) => element?.append(detailsHost), [detailsHost]);
     const host = useRef<HTMLDivElement>(null);
     const persistLayout = useCallback(
       (layout: unknown) => {
@@ -180,21 +192,60 @@ export const ComposeWorkbench = withInstrumentation(
       const media = window.matchMedia?.(compactQuery);
       if (!media) return;
       const expanded = new Set<string>();
-      const adapt = () => {
-        for (const side of sides) {
+      const desktopWidths = new Map<string, number>();
+      let restoreFrame = 0;
+      let desktop = !media.matches;
+      const edges = () =>
+        sides.flatMap((side) => {
           const edge = dock.getEdgeGroup(side.position);
-          if (edge?.id !== side.id + '.edge') continue;
-          if (media.matches) {
-            if (!edge.isCollapsed()) expanded.add(edge.id);
-            edge.collapse();
-          } else if (expanded.delete(edge.id)) {
-            edge.expand();
-          }
+          return edge?.id === side.id + '.edge' ? [edge] : [];
+        });
+      const rememberWidths = () => {
+        if (!desktop || media.matches) return;
+        for (const edge of edges()) {
+          if (!edge.isCollapsed() && edge.width > COLLAPSED_SIDE_WIDTH) desktopWidths.set(edge.id, edge.width);
         }
       };
+      const adapt = () => {
+        if (desktop && !media.matches) return;
+        cancelAnimationFrame(restoreFrame);
+        restoreFrame = 0;
+        desktop = false;
+        setCompact(media.matches);
+        if (media.matches) {
+          for (const edge of edges()) {
+            if (!edge.isCollapsed()) expanded.add(edge.id);
+            edge.collapse();
+          }
+        } else {
+          setDetailsOpen(false);
+          // The media query can change before Dockview measures its host.
+          // Size the dock before restoring rail widths to avoid compact constraints.
+          restoreFrame = requestAnimationFrame(() => {
+            const element = host.current;
+            if (element?.clientWidth && element.clientHeight) dock.layout(element.clientWidth, element.clientHeight);
+            for (const edge of edges()) {
+              if (expanded.delete(edge.id)) edge.expand();
+            }
+            for (const edge of edges()) {
+              const width = desktopWidths.get(edge.id);
+              if (width !== undefined) edge.setSize({ width });
+            }
+            restoreFrame = 0;
+            desktop = true;
+            rememberWidths();
+          });
+        }
+      };
+      rememberWidths();
+      const layoutListener = dock.onDidLayoutChange(rememberWidths);
       media.addEventListener('change', adapt);
       adapt();
-      return () => media.removeEventListener('change', adapt);
+      return () => {
+        cancelAnimationFrame(restoreFrame);
+        layoutListener.dispose();
+        media.removeEventListener('change', adapt);
+      };
     }, [dock]);
 
     const definition: WorkbenchDefinition = {
@@ -202,37 +253,73 @@ export const ComposeWorkbench = withInstrumentation(
       panels: {
         'compose.palette': () => palette,
         'compose.center': () => center,
-        'compose.details': () => details
+        'compose.details': () => (compact ? null : <div className="h-full min-h-0" ref={attachDetails} />)
       },
       titles: { 'compose.palette': 'Palette', 'compose.center': 'Composition', 'compose.details': 'Details' },
+      collapsedSideActions: compact
+        ? {
+            right: (
+              <DialogTrigger
+                render={
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    aria-label="Show details"
+                    title="Show details"
+                  />
+                }
+              >
+                <ChevronLeft className="size-4" aria-hidden="true" />
+              </DialogTrigger>
+            )
+          }
+        : undefined,
       buildDefault
     };
     return (
-      <div
-        ref={host}
-        className="function-composer__body min-h-0 min-w-0 flex-1 overflow-clip"
-        data-testid="compose-dock"
-      >
-        {restored?.key === workspaceKey ? (
-          <WorkbenchHost
-            key={workspaceKey}
-            className="h-full min-w-0 w-full"
-            definition={definition}
-            initialNativeLayout={restored.layout}
-            onReady={(api) => {
-              // Keep the center inside its dock group as the surrounding rails move.
-              api.getPanel('compose.center')?.api.setRenderer('onlyWhenVisible');
-              setDock(api);
-              onReady(api);
-            }}
-            onNativeLayoutChange={persistLayout}
-          />
-        ) : (
-          <p role="status" className="p-3">
-            Restoring Compose layout…
-          </p>
+      <Dialog open={active && compact && detailsOpen} onOpenChange={setDetailsOpen}>
+        <div
+          ref={host}
+          className="function-composer__body min-h-0 min-w-0 flex-1 overflow-clip"
+          data-testid="compose-dock"
+        >
+          {restored?.key === workspaceKey ? (
+            <WorkbenchHost
+              key={workspaceKey}
+              className="h-full min-w-0 w-full"
+              definition={definition}
+              initialNativeLayout={restored.layout}
+              onReady={(api) => {
+                // Keep the center inside its dock group as the surrounding rails move.
+                api.getPanel('compose.center')?.api.setRenderer('onlyWhenVisible');
+                setDock(api);
+                onReady(api);
+              }}
+              onNativeLayoutChange={persistLayout}
+            />
+          ) : (
+            <p role="status" className="p-3">
+              Restoring Compose layout…
+            </p>
+          )}
+        </div>
+        {compact && (
+          <DialogContent
+            className="flex h-[min(80dvh,36rem)] w-[calc(100%-2rem)] flex-col gap-2 p-2"
+            showCloseButton={false}
+          >
+            <div className="flex shrink-0 items-center justify-between gap-2 px-2">
+              <DialogTitle className="text-sm font-medium">Details</DialogTitle>
+              <DialogClose render={<Button size="icon-xs" variant="ghost" aria-label="Hide details" />}>
+                <X aria-hidden="true" />
+              </DialogClose>
+            </div>
+            <div className="min-h-0 flex-1" ref={attachDetails} />
+          </DialogContent>
         )}
-      </div>
+        {createPortal(details(compact ? () => setDetailsOpen(false) : undefined), detailsHost)}
+      </Dialog>
     );
   },
   { op: 'ComposeWorkbench', capture: 0 }

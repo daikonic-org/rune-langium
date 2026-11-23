@@ -16,6 +16,7 @@ import {
   Layers,
   ListFilter,
   ListPlus,
+  ListTree,
   Repeat2,
   Split,
   Workflow,
@@ -29,6 +30,7 @@ interface PrimitiveDefinition {
   group: 'Values & decisions' | 'Collections' | 'Totals' | 'Result';
   icon: LucideIcon;
   expressionType?: ExpressionStarterType;
+  dropInExpression?: true;
 }
 
 /** One presentation registry for both the focused palette and canvas nodes. */
@@ -46,7 +48,17 @@ export const COMPOSITION_PRIMITIVES = [
     description: 'Choose a value with if, then and else.',
     group: 'Values & decisions',
     icon: GitBranch,
-    expressionType: 'RosettaConditionalExpression'
+    expressionType: 'RosettaConditionalExpression',
+    dropInExpression: true
+  },
+  {
+    id: 'switch',
+    label: 'Switch',
+    description: 'Choose a result by matching a literal or case name.',
+    group: 'Values & decisions',
+    icon: ListTree,
+    expressionType: 'SwitchOperation',
+    dropInExpression: true
   },
   {
     id: 'fallback',
@@ -54,7 +66,8 @@ export const COMPOSITION_PRIMITIVES = [
     description: 'Use a default when a value is absent.',
     group: 'Values & decisions',
     icon: Split,
-    expressionType: 'DefaultOperation'
+    expressionType: 'DefaultOperation',
+    dropInExpression: true
   },
   {
     id: 'each',
@@ -62,7 +75,8 @@ export const COMPOSITION_PRIMITIVES = [
     description: 'Transform each item with extract.',
     group: 'Collections',
     icon: Repeat2,
-    expressionType: 'MapOperation'
+    expressionType: 'MapOperation',
+    dropInExpression: true
   },
   {
     id: 'filter',
@@ -70,7 +84,8 @@ export const COMPOSITION_PRIMITIVES = [
     description: 'Keep items that match a condition.',
     group: 'Collections',
     icon: ListFilter,
-    expressionType: 'FilterOperation'
+    expressionType: 'FilterOperation',
+    dropInExpression: true
   },
   {
     id: 'sort',

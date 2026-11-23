@@ -9,7 +9,12 @@ import {
   getFunctionAliasInsertion,
   getExpressionRegions,
   getExpressionRows,
+  getExpressionStatementRemoval,
+  getMemberAccessOperatorRegions,
+  getSourceComments,
+  getSwitchCaseRemoval,
   findExpressionOwner,
+  parseExpressionDraft,
   serializeRuneModel,
   createRuneDslServices
 } from '../../src/index.js';
@@ -31,6 +36,16 @@ const implementation = `
 const neighbor = '\n\nfunc Neighbor:\n  output:\n    result int (1..1)\n  set result: 7\n';
 
 describe('source regions', () => {
+  it('locates direct and deep member operators without including arrows in strings or comments', () => {
+    const source = 'Choose("->>", trade /* 😀 -> */ -> asset) ->> amount';
+    const { parsed } = parseExpressionDraft(source);
+    expect(parsed.hasErrors).toBe(false);
+    expect(getMemberAccessOperatorRegions(parsed.value)).toEqual([
+      { from: source.indexOf('-> asset'), to: source.indexOf('-> asset') + 2, operator: '->' },
+      { from: source.indexOf('->> amount'), to: source.indexOf('->> amount') + 3, operator: '->>' }
+    ]);
+  });
+
   it('maps expression rows in grammar order with exact statement and CRLF offsets', async () => {
     const source = (
       header +
@@ -45,6 +60,45 @@ describe('source regions', () => {
     const nested = rows[2]!;
     expect(source.slice(nested.statement.from, nested.statement.to)).toBe('set answer -> amount: x + 1');
     expect(source.slice(nested.region.from, nested.region.to)).toBe('x + 1');
+  });
+
+  it.each([0, 1, 2])('removes switch arm %i and its separator', (index) => {
+    const prefix = 'x switch ';
+    const cases = ['1 then "a,b"', '2 then "c"', 'default "other"'];
+    const source = prefix + cases.join(', ');
+    const { parsed } = parseExpressionDraft(source);
+    if (parsed.hasErrors || parsed.value.$type !== 'SwitchOperation') throw new Error('Expected a switch');
+    const { region, replacement } = getSwitchCaseRemoval(source, parsed.value.cases[index]!)!;
+    const edited = source.slice(0, region.from) + replacement + source.slice(region.to);
+    expect(edited).toBe(prefix + cases.filter((_, position) => position !== index).join(', '));
+    expect(parseExpressionDraft(edited).parsed.hasErrors).toBe(false);
+  });
+
+  it('retains comments and CRLF while removing a case and protects the sole case', () => {
+    const source = 'x switch 1 then /* keep, 😀 */ 10,\r\n // keep with default\r\n default 0';
+    const { parsed } = parseExpressionDraft(source);
+    if (parsed.hasErrors || parsed.value.$type !== 'SwitchOperation') throw new Error('Expected a switch');
+    const { region, replacement } = getSwitchCaseRemoval(source, parsed.value.cases[0]!)!;
+    const edited = source.slice(0, region.from) + replacement + source.slice(region.to);
+    expect(getSourceComments(edited).map(({ text }) => text)).toEqual(
+      getSourceComments(source).map(({ text }) => text)
+    );
+    expect(edited.replaceAll('\r\n', '')).not.toContain('\n');
+    const { parsed: remaining } = parseExpressionDraft(edited);
+    if (remaining.hasErrors || remaining.value.$type !== 'SwitchOperation') throw new Error('Expected a switch');
+    expect(remaining.value.cases).toHaveLength(1);
+    expect(getSwitchCaseRemoval(edited, remaining.value.cases[0]!)).toBeUndefined();
+  });
+
+  it.each(['\n', '\r\n'])('removes a last statement within the implementation (%j)', async (newline) => {
+    const statement = '  set answer: x';
+    const source = (header + statement + neighbor).replaceAll('\n', newline);
+    const { value } = await parse(source);
+    const owner = value.elements.find(isRosettaFunction)!;
+    const body = getFunctionImplementationRegion(owner, source);
+    const { region, replacement } = getExpressionStatementRemoval(source, getExpressionRows(owner)[0]!.statement, body);
+    expect(region).toEqual(body);
+    expect(source.slice(0, region.from) + replacement + source.slice(region.to)).toBe(source.replace(statement, ''));
   });
 
   it.each(['condition Positive: x > 0', 'set answer: x', 'post-condition Good: answer exists'])(

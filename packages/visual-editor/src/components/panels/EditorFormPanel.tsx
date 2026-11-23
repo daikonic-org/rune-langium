@@ -167,6 +167,8 @@ export interface EditorFormPanelProps extends InspectorHostProps {
    */
   renderExpressionEditor?: (props: ExpressionEditorSlotProps) => ReactNode;
   renderFunctionBodyEditor?: (props: FunctionBodyEditorSlotProps) => ReactNode;
+  /** Keep the function signature and metadata visible when the body is edited elsewhere. */
+  functionSignatureOnly?: boolean;
   structuralEditsDisabled?: boolean;
   compactConditions?: boolean;
   /** Host-owned actions rendered in the shared declaration title. */
@@ -198,6 +200,7 @@ const EditorFormPanel = memo(function EditorFormPanel({
   nodeRepository,
   renderExpressionEditor,
   renderFunctionBodyEditor,
+  functionSignatureOnly,
   structuralEditsDisabled = false,
   compactConditions,
   headerActions,
@@ -422,6 +425,7 @@ const EditorFormPanel = memo(function EditorFormPanel({
             inheritedGroups={inheritedGroups}
             renderExpressionEditor={renderExpressionEditor}
             renderFunctionBodyEditor={renderFunctionBodyEditor}
+            signatureOnly={functionSignatureOnly}
             structuralEditsDisabled={structuralEditsDisabled}
             onNavigateToNode={onNavigateToNode}
             allNodeIds={allNodeIds}

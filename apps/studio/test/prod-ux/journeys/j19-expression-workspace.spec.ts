@@ -13,6 +13,7 @@ import {
   loadPinnedFunction,
   openComposeExpression,
   openInlineRuneDraft,
+  composeStatementAction,
   expectCenterPaneBounds,
   enlargeExpressionText
 } from '../../helpers/expression-workspace.js';
@@ -338,7 +339,7 @@ func Compute(kind: Kind -> Cash):
       }
       await draft!.getByRole('button', { name: 'Cancel', exact: true }).click();
       await expect(draft!).not.toBeVisible();
-      await expect(row.getByRole('button', { name: 'Expression actions', exact: true })).toBeFocused();
+      await expect(composeStatementAction(row)).toBeFocused();
     }
   );
 });

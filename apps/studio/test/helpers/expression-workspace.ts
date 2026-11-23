@@ -82,8 +82,13 @@ export async function openComposeExpression(page: Page) {
   return row;
 }
 
+/** The whole-statement action has the same identity in deployed and candidate builds. */
+export function composeStatementAction(row: Locator) {
+  return row.locator('button[data-expression-token="root/actions"]');
+}
+
 export async function openInlineRuneDraft(page: Page, row: Locator) {
-  await row.getByRole('button', { name: 'Expression actions', exact: true }).click();
+  await composeStatementAction(row).click();
   await page.getByRole('option', { name: 'Edit Rune', exact: true }).click();
   const draft = row.getByTestId('inline-rune-draft');
   await expect(draft).toBeVisible();
@@ -91,13 +96,13 @@ export async function openInlineRuneDraft(page: Page, row: Locator) {
 }
 
 export async function enlargeExpressionText(page: Page, expression: Locator) {
-  const cancel = expression.getByRole('button', { name: 'Expression actions', exact: true });
-  const originalSize = await cancel.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const action = composeStatementAction(expression);
+  const originalSize = await action.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   await page.evaluate(() => {
     const root = document.documentElement;
     root.style.fontSize = `${parseFloat(getComputedStyle(root).fontSize) * 1.25}px`;
   });
   await expect
-    .poll(() => cancel.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)))
+    .poll(() => action.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)))
     .toBeGreaterThanOrEqual(originalSize * 1.25);
 }

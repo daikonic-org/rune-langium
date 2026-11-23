@@ -65,6 +65,9 @@ function convert(value: unknown, opts: ToDehydratedOptions): unknown {
   for (const [key, v] of Object.entries(obj)) {
     if (DROP_FIELDS.has(key)) continue;
     if (REF_FIELDS.has(key) && typeof v === 'string') {
+      if (v === PLACEHOLDER_MARKER && !opts.allowPlaceholders) {
+        throw new Error('Cannot serialize expression containing placeholders');
+      }
       out[key] = { $refText: v };
     } else if (REF_ARRAY_FIELDS.has(key) && Array.isArray(v)) {
       out[key] = v.map((item) => (typeof item === 'string' ? { $refText: item } : convert(item, opts)));

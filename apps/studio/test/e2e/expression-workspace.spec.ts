@@ -11,6 +11,7 @@ import {
   loadPinnedFunction,
   openComposeExpression,
   openInlineRuneDraft,
+  composeStatementAction,
   expectCenterPaneBounds,
   dismissLocalTransportNotices,
   enlargeExpressionText
@@ -535,7 +536,7 @@ for (const width of [1280, 800]) {
     expect(textIssues.violations).toEqual([]);
     await raw.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(raw).toBeHidden();
-    await expect(row.getByRole('button', { name: 'Expression actions', exact: true })).toBeFocused();
+    await expect(composeStatementAction(row)).toBeFocused();
     expect(errors.filter((message) => /ResizeObserver|Expression|CodeMirror/.test(message))).toEqual([]);
   });
 }

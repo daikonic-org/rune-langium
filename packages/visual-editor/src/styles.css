@@ -13,6 +13,48 @@
  */
 @import url('@rune-langium/design-system/theme.css');
 
+.rune-inline-expression {
+  container: rune-expression / inline-size;
+}
+
+@container rune-expression (inline-size < 24rem) {
+  .rune-inline-expression :is([data-expression-group], [data-expression-body]) {
+    padding-inline-end: var(--space-1);
+  }
+  .rune-inline-expression :is([data-expression-group], [data-expression-body]) > :is(
+    [data-expression-disclosure], [data-expression-remove]
+  ) {
+    position: static;
+  }
+  .rune-inline-expression :is([data-expression-group], [data-expression-body]) > [data-expression-remove] {
+    order: 1;
+    margin-inline-start: auto;
+  }
+  .rune-inline-expression [data-expression-members] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rune-inline-expression :is([data-expression-token], [data-expression-parameters]) {
+    max-block-size: none;
+  }
+  .rune-inline-expression :is([data-expression-token], [data-expression-parameters]) > span {
+    min-inline-size: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+}
+
+.rune-expression-list-item {
+  display: contents;
+}
+
+.rune-expression-list-item:has([data-expression-members], [data-expression-body]) {
+  display: flex;
+  flex-basis: 100%;
+  min-inline-size: 0;
+  padding-inline-start: var(--space-2);
+}
+
 .rune-type-graph {
   width: 100%;
   height: 100%;

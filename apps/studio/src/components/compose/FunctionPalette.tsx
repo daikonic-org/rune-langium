@@ -120,7 +120,7 @@ export const FunctionPalette = withInstrumentation(
     const suggestions = matches.filter((entry) => entry.suggested).slice(0, 5);
 
     return (
-      <div className="function-composer__functions">
+      <div className="function-composer__functions studio-scroll">
         {compositions.length > 0 && (
           <section aria-label="Compositions">
             <h2 className="section-heading">

@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { parseExpressionDraft } from '@rune-langium/core';
 import { ExpressionBuilder } from '../../src/components/editors/expression-builder/ExpressionBuilder.js';
 import type { FunctionScope } from '../../src/store/expression-store.js';
 
@@ -40,6 +41,63 @@ describe('ExpressionBuilder', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Rune expression' }), { target: { value: '(2 + 3) * 4' } });
     fireEvent.click(screen.getByRole('button', { name: 'Done', exact: true }));
     expect(change).toHaveBeenCalledWith('10 / ((2 + 3) * 4)');
+  });
+
+  it('wraps one operand in a conditional while keeping its value in the then branch', async () => {
+    const change = vi.fn();
+    render(<ExpressionBuilder value="base + value" onChange={change} scope={testScope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit value', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Wrap in if / then / else', exact: true }));
+    expect(change).toHaveBeenCalledWith('base + (if (<?>) then value else (<?>))');
+  });
+
+  it('keeps the next call argument when switching on a nested operand', async () => {
+    const change = vi.fn<(text: string) => void>();
+    render(<ExpressionBuilder value="Choose(trade, 5)" onChange={change} scope={testScope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit trade', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Wrap in switch', exact: true }));
+    expect(change).toHaveBeenCalledTimes(1);
+    const { parsed } = parseExpressionDraft(change.mock.calls[0]?.[0] ?? '');
+    expect(parsed.hasErrors).toBe(false);
+    expect(parsed.value).toMatchObject({
+      $type: 'RosettaSymbolReference',
+      rawArgs: [
+        { $type: 'SwitchOperation', argument: { $type: 'RosettaSymbolReference' } },
+        { $type: 'RosettaIntLiteral', value: 5n }
+      ]
+    });
+  });
+
+  it.each([
+    ['values sort', 'SortOperation', undefined],
+    ['values sort [item]', 'SortOperation', 'callback'],
+    ['values distinct', 'DistinctOperation', undefined],
+    ['values flatten', 'FlattenOperation', undefined],
+    ['values count', 'RosettaCountOperation', undefined],
+    ['values sum', 'SumOperation', undefined],
+    ['values then item count', 'ThenOperation', 'callback']
+  ])('groups %s at its parsed boundary', (value, type, body) => {
+    const { container } = render(
+      <ExpressionBuilder value={value} onChange={vi.fn()} scope={testScope} presentation="inline" />
+    );
+    const group = container.querySelector('[data-expression-group="' + type + '"]');
+    expect(group).toBeVisible();
+    expect(group?.querySelector(':scope > [data-expression-body]')?.getAttribute('data-expression-body')).toBe(body);
+  });
+
+  it.each([
+    ['Constant()', 'Constant call'],
+    ['Value { amount: 1 }', 'constructor'],
+    ['[1, 2]', 'list'],
+    ['x + 1 + 2', '+ expression'],
+    ['values count', 'count expression'],
+    ['if flag then 1 else 0', 'if expression']
+  ])('clears the %s construct through its own section', (value, label) => {
+    const onChange = vi.fn();
+    render(<ExpressionBuilder value={value} onChange={onChange} scope={testScope} presentation="inline" />);
+    const group = screen.getByRole('group', { name: label, exact: true });
+    fireEvent.click(within(group).getByRole('button', { name: 'Remove ' + label, exact: true }));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith('(<?>)');
   });
 
   it('fills a named argument placeholder in place', async () => {
@@ -86,6 +144,22 @@ describe('ExpressionBuilder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change <', exact: true }));
     fireEvent.click(await screen.findByRole('option', { name: '<= Less or equal' }));
     expect(onChange).toHaveBeenLastCalledWith('flag and (price  /* retained */ <=  limit or other)');
+  });
+
+  it.each([
+    ['(Pair)', 'first', '(Pair(trade, (<?>)))'],
+    ['((Pair(1)))', 'second', '((Pair(1, trade)))'],
+    ['(Pair(/* keep */))', 'first', '(Pair(/* keep */trade, (<?>)))']
+  ])('fills a missing argument inside the call in %s', async (source, argument, expected) => {
+    const onChange = vi.fn();
+    const scope: FunctionScope = {
+      ...testScope,
+      references: [{ kind: 'callable', name: 'Pair', argumentCount: 2, argumentNames: ['first', 'second'] }]
+    };
+    render(<ExpressionBuilder value={source} onChange={onChange} scope={scope} presentation="inline" />);
+    fireEvent.click(screen.getByRole('button', { name: argument + ' argument', exact: true }));
+    fireEvent.click(await screen.findByRole('option', { name: /^trade Trade/ }));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(expected);
   });
 
   it('browses linked object members and swaps a collection operation in place', async () => {

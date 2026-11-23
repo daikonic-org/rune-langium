@@ -10,7 +10,6 @@
  */
 
 import { StreamLanguage, StringStream } from '@codemirror/language';
-import type { Extension } from '@codemirror/state';
 import { ANNOTATIONS_ROSETTA, type RuneDslKeywordNames } from '@rune-langium/core';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -501,10 +500,11 @@ export const runeDocumentationRanges = withInstrumentation(
   { op: 'runeDocumentationRanges', sanitize: () => undefined }
 );
 
+const runeLanguage = StreamLanguage.define(runeDslStreamParser);
+
 export const runeDslLanguage = withInstrumentation(
-  function runeDslLanguage(): Extension {
-    return StreamLanguage.define(runeDslStreamParser);
-    // Output is a CodeMirror Extension object — not meaningfully capturable.
+  function runeDslLanguage() {
+    return runeLanguage;
   },
   { op: 'runeDslLanguage' }
 );

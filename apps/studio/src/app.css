@@ -2138,14 +2138,14 @@ html[data-theme="light"] .preview-panel__editor {
   flex: 1 1 12em;
 }
 
-.studio-app .studio-layout-presets--compose .studio-layout-presets__title {
-  flex-shrink: 0;
+.studio-app .studio-layout-presets--compose .studio-perspective-heading--aligned {
+  --rune-location-title-min: max-content;
 }
 
 .studio-app .studio-perspective-heading--aligned {
   flex: 1;
   display: grid;
-  grid-template-columns: max(0px, calc(var(--rune-center-stack-start, var(--space-10)) - var(--space-2))) minmax(0, 1fr);
+  grid-template-columns: minmax(var(--rune-location-title-min, 0px), max(0px, calc(var(--rune-center-stack-start, var(--space-10)) - var(--space-2)))) minmax(0, 1fr);
   gap: 0;
 }
 

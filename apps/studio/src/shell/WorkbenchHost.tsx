@@ -68,12 +68,14 @@ function SidePanelHeaderAction({
   group,
   label,
   direction,
-  auxiliary
+  auxiliary,
+  collapsedAction
 }: {
   group: IDockviewHeaderActionsProps['group'];
   label: string;
   direction: 'left' | 'right';
   auxiliary: AuxiliaryPanelLayout | null;
+  collapsedAction?: React.ReactNode;
 }) {
   const isCollapsed = () =>
     group.api.location.type === 'edge' ? group.api.isCollapsed() : group.api.width <= COLLAPSED_SIDE_WIDTH + 1;
@@ -231,7 +233,11 @@ function SidePanelHeaderAction({
       {direction === 'right' && !collapsed && group.api.location.type === 'grid' ? (
         <PreviewFocusButton group={group} />
       ) : null}
-      <PanelCollapseButton label={label} direction={direction} collapsed={collapsed} onToggle={toggle} />
+      {collapsed && collapsedAction ? (
+        collapsedAction
+      ) : (
+        <PanelCollapseButton label={label} direction={direction} collapsed={collapsed} onToggle={toggle} />
+      )}
     </div>
   );
 }
@@ -271,9 +277,18 @@ function PreviewFocusButton({ group }: { group: IDockviewHeaderActionsProps['gro
 }
 
 function WorkbenchHeaderActions(props: IDockviewHeaderActionsProps) {
+  const definition = useContext(WorkbenchDefinitionContext);
   const { auxiliary, refresh, original: Original } = useContext(HeaderActionsContext);
   const side = getWorkbenchSidePanel(props.group.panels?.map((panel) => panel.api.component) ?? []);
-  if (side) return <SidePanelHeaderAction group={props.group} {...side} auxiliary={auxiliary} />;
+  if (side)
+    return (
+      <SidePanelHeaderAction
+        group={props.group}
+        {...side}
+        auxiliary={auxiliary}
+        collapsedAction={definition?.collapsedSideActions?.[side.direction]}
+      />
+    );
   if (!auxiliary?.isManaged(props.group.id)) return Original ? <Original {...props} /> : null;
   const pinned = auxiliary.isPinned(props.group.id);
   return (

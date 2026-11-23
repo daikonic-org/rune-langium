@@ -92,7 +92,7 @@ type Schedule:
   const expression = '(periods filter [item -> startDate exists]) exists';
   await draft.fill(expression);
   await draft.press('Enter');
-  await page.getByRole('button', { name: 'Edit item -> startDate', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit item.startDate', exact: true }).click();
   await page.getByRole('option', { name: /^item\b.*Browse/ }).click();
   await page.getByRole('option', { name: 'Use endDate', exact: true }).click();
   expect(await codeMirrorDocument(fullSourceEditor(page))).toBe(model);
@@ -201,7 +201,8 @@ ${names.map((name) => `  ${name} number (1..1)`).join('\n')}
   const condition = page.getByRole('region', { name: 'Condition expression' });
   for (const commit of [false, true]) {
     await condition.getByRole('button', { name: 'Edit lowerX', exact: true }).click();
-    await page.getByRole('option', { name: 'InterpolateLinear', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Search values and primitives' }).fill('InterpolateLinear');
+    await page.getByRole('option', { name: /^InterpolateLinear\b/ }).click();
     await expect(condition.getByRole('button', { name: /^(?:lowerX|upperX|lowerY|upperY|x) argument$/ })).toHaveCount(
       5
     );
@@ -220,7 +221,15 @@ ${names.map((name) => `  ${name} number (1..1)`).join('\n')}
     const expression = 'InterpolateLinear(lowerX, upperX, lowerY, upperY, x) < upperX';
     await expect(condition.getByRole('button', { name: 'Apply', exact: true })).toBeEnabled();
     expect(await condition.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(condition.getByText('lowerX:', { exact: true })).toHaveCount(0);
+    const parameters = condition.getByRole('button', { name: 'Show parameters for InterpolateLinear', exact: true });
+    await parameters.click();
+    for (const name of names) await expect(condition.getByText(name + ':', { exact: true })).toBeVisible();
+    const hide = condition.getByRole('button', { name: 'Hide parameters for InterpolateLinear', exact: true });
+    await expect(hide).toHaveAttribute('aria-expanded', 'true');
     await page.screenshot({ path: info.outputPath('named-argument-slots.png') });
+    await hide.click();
+    await expect(condition.getByText('lowerX:', { exact: true })).toHaveCount(0);
     await condition.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect.poll(() => codeMirrorDocument(fullSourceEditor(page))).toContain(expression);
   }
