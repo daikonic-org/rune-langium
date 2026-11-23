@@ -1135,7 +1135,7 @@ export function InlineExpressionBuilder({
       isCollapsed || memberRows
         ? []
         : children.map((child, index) => {
-            const { body, switchCase, memberLabel } = child;
+            const { body, switchCase } = child;
             const guard = switchCase?.guard;
             const matchRange = guard && getNodeSourceRegion(guard);
             const match = matchRange && source.slice(matchRange.from, matchRange.to);
@@ -1163,18 +1163,6 @@ export function InlineExpressionBuilder({
                     'operator'
                   )}
                   {textBetween(matchRange.to, child.range.from)}
-                </>
-              ) : memberLabel && memberLabel.from >= gapStart && memberLabel.to <= child.range.from ? (
-                <>
-                  {syntax(gapStart, memberLabel.from)}
-                  {comments
-                    .filter((comment) => comment.offset >= memberLabel.from && comment.end <= memberLabel.to)
-                    .map((comment) => (
-                      <span className="text-caption wrap-anywhere" key={comment.offset}>
-                        {syntaxSlice({ from: comment.offset, to: comment.end })}
-                      </span>
-                    ))}
-                  {textBetween(memberLabel.to, child.range.from)}
                 </>
               ) : body === 'default' ? (
                 <span className="border border-transparent ps-1.5">{textBetween(gapStart, child.range.from)}</span>

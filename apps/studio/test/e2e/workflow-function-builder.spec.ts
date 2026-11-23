@@ -1977,6 +1977,9 @@ test('boxes only interactive tokens and distinguishes constructor nesting in Com
   const initialCursor = stepsRow.locator('[data-expression-group="RosettaConstructorExpression"]').first();
   const extract = stepsRow.locator('[data-expression-group="MapOperation"]');
   const expectStepsLayout = async () => {
+    await expect(initialCursor).toContainText('position:');
+    await expect(initialCursor.locator('[data-expression-members]')).toHaveCount(0);
+    await expect(initialCursor.getByRole('button', { name: 'position value 0', exact: true })).toBeVisible();
     await expectExpressionBodyRows(extract, extract.getByRole('button', { name: 'Change extract', exact: true }), [
       'callback'
     ]);

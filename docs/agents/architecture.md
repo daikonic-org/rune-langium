@@ -1503,9 +1503,9 @@ section for Delete and the corner Remove button. Required values become draft
 placeholders. Optional else clauses and extra switch cases can be removed in full.
 Source edits retain comments and respect the implementation boundary. Staging
 statement removal focuses Discard, which returns focus to the removal control.
-List items with visible nested rows start a continuation line. Multi-field
-constructors lay out named rows, and a call's
-name reveals its linked parameter labels on demand. Missing arguments are
+List items with visible nested rows start a continuation line. Single-field
+constructors show the authored member label inline. Multi-field constructors use
+named rows. A call's name reveals its linked parameter labels on demand. Missing arguments are
 inserted at the call's own closing delimiter. Canvas and Source share
 selection through composition steps and their source ranges, including the Rune
 caret. Compose Details shows the canonical inspector's function signature and
