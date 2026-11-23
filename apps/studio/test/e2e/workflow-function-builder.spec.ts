@@ -928,7 +928,7 @@ func DoubleAgain:
   const palette = composer.getByRole('complementary', { name: 'Composition palette' });
   const compositions = palette.getByRole('region', { name: 'Compositions', exact: true });
   const functions = palette.getByRole('region', { name: 'Function library' });
-  const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
+  const search = palette.getByRole('textbox', { name: 'Search functions and compositions' });
   const twice = compositions.getByRole('button', { name: 'Open DoubleTwice workflow', exact: true });
   const again = compositions.getByRole('button', { name: 'Open DoubleAgain workflow', exact: true });
 
@@ -1017,7 +1017,7 @@ func PaletteCall${i}:
   const composer = await openComposition(page, library);
   const palette = composer.getByRole('complementary', { name: 'Composition palette' });
   const tree = palette.getByTestId('namespace-explorer');
-  const search = palette.getByRole('textbox', { name: 'Search functions and primitives' });
+  const search = palette.getByRole('textbox', { name: 'Search functions and compositions' });
   const heading = palette.getByRole('heading', { name: /functions 127/i });
   await expect(heading).toBeVisible();
   await expect(heading).toHaveCSS('text-transform', 'none');
@@ -1056,10 +1056,11 @@ func PaletteCall${i}:
   expect(spacing).toBeLessThan(16);
   const subtitle = await tree
     .getByTestId('ns-type-workflow.PaletteCall124#RosettaFunction')
-    .locator('[data-slot="list-card-description"]')
-    .boundingBox();
-  expect(subtitle).not.toBeNull();
-  await page.mouse.click(subtitle!.x + subtitle!.width / 2, subtitle!.y + subtitle!.height / 2);
+    .locator('[data-slot="list-card-description"]');
+  await subtitle.scrollIntoViewIfNeeded();
+  await expect(subtitle).toBeInViewport();
+  const subtitleBounds = (await subtitle.boundingBox())!;
+  await page.mouse.click(subtitleBounds.x + subtitleBounds.width / 2, subtitleBounds.y + subtitleBounds.height / 2);
   await expect(composer.getByRole('navigation', { name: 'Compose location' })).toHaveAttribute(
     'title',
     'workflow / PaletteCall124'
@@ -1125,10 +1126,11 @@ for (const theme of ['daikonic', 'light'])
     }
   });
 
-test('offers searchable primitive starters with matching canvas icons and preserves discarded drafts', async ({
+test('keeps primitive starters at the bottom during function search and preserves discarded drafts', async ({
   page
 }, testInfo) => {
   test.setTimeout(120000);
+  await page.setViewportSize({ width: 1280, height: 900 });
   const content = `namespace workflow
 import rune.studio.*
 func Analyze:
@@ -1139,7 +1141,8 @@ func Analyze:
 `;
   const composer = await openComposition(page, content, 'Analyze');
   const palette = composer.getByRole('complementary', { name: 'Composition palette', exact: true });
-  const search = palette.getByRole('textbox', { name: 'Search functions and primitives', exact: true });
+  const search = palette.getByRole('textbox', { name: 'Search functions and compositions', exact: true });
+  const primitives = palette.getByRole('region', { name: 'Primitives', exact: true });
   const draft = composer.locator('[data-composition-step="draft:new"]');
   const canvasLabel = composer
     .getByRole('button', { name: 'Canvas', exact: true })
@@ -1159,7 +1162,7 @@ func Analyze:
     'Count',
     'Sum'
   ]) {
-    const button = palette.getByRole('button', { name: label, exact: true });
+    const button = primitives.getByRole('button', { name: label, exact: true });
     await expect(button.locator('svg')).toHaveAttribute('aria-hidden', 'true');
     await button.click();
     await expect(draft.locator('.composition-node__heading strong')).toHaveText(label);
@@ -1168,12 +1171,19 @@ func Analyze:
     await draft.getByRole('button', { name: 'Discard', exact: true }).click();
     await expect(draft).toHaveCount(0);
   }
-  await search.fill('duplicate');
-  await expect(palette.getByRole('button', { name: 'Distinct', exact: true })).toBeVisible();
-  await expect(palette.getByRole('button', { name: 'Filter', exact: true })).toHaveCount(0);
-  await search.fill('no such primitive');
-  await expect(palette.getByText('No matching primitives.', { exact: true })).toBeVisible();
-  await search.fill('');
+  const bottomGap = async () => {
+    const [panel, tray] = await Promise.all([palette.boundingBox(), primitives.boundingBox()]);
+    return panel && tray ? Math.abs(panel.y + panel.height - (tray.y + tray.height)) : Number.POSITIVE_INFINITY;
+  };
+  await expect.poll(bottomGap).toBeLessThanOrEqual(16);
+  const initialGap = await bottomGap();
+  const starterCount = await primitives.getByRole('button').count();
+  await search.fill('no such function');
+  await expect(palette.getByRole('region', { name: 'Compositions', exact: true })).toHaveCount(0);
+  await expect(primitives.getByRole('button')).toHaveCount(starterCount);
+  await expect(primitives.getByRole('button', { name: 'Filter', exact: true })).toBeInViewport();
+  await expect.poll(bottomGap).toBeCloseTo(initialGap, 0);
+  await search.clear();
   const transfer = await page.evaluateHandle(() => new DataTransfer());
   await palette
     .getByRole('button', { name: 'Filter', exact: true })
@@ -1205,10 +1215,17 @@ func Analyze:
   await expect
     .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
     .toContain('alias chosen: values count');
+  const output = primitives.getByRole('button', { name: 'Output', exact: true });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await expect(palette.locator('.function-composer__primitive-grid').first()).toBeVisible();
+  await expect(output).toBeInViewport();
+  await expect.poll(bottomGap).toBeLessThanOrEqual(16);
   await expect.poll(() => palette.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('compose-primitives-hd.png') });
+  await page.screenshot({ path: testInfo.outputPath('compose-primitives-hd.png'), animations: 'disabled' });
+  await page.setViewportSize({ width: 1280, height: 460 });
+  await output.scrollIntoViewIfNeeded();
+  await expect(output).toBeInViewport();
+  await search.scrollIntoViewIfNeeded();
+  await expect(search).toBeInViewport();
 });
 
 test('retains the canvas camera across Source and nested function navigation', async ({ page }) => {
@@ -1872,7 +1889,9 @@ test('boxes only interactive tokens and distinguishes constructor nesting in Com
     strikeScheduleFiles(false).map(({ uri, content }) => [new URL(uri).pathname.slice(1), content])
   );
   const composer = await openComposition(page, content, undefined, references);
-  await composer.getByPlaceholder('Search the palette', { exact: true }).fill('StrikeDateAtPosition');
+  await composer
+    .getByRole('textbox', { name: 'Search functions and compositions', exact: true })
+    .fill('StrikeDateAtPosition');
   await composer
     .getByRole('button', { name: 'Open StrikeDateAtPosition rune.cdm.implementations', exact: true })
     .click();

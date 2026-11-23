@@ -181,9 +181,11 @@ narrow canvases so node text stays readable. Positions, selection and camera are
 view state; only Apply changes source. Unsupported bodies show located Source
 reasons, and stale drafts retain their recovery controls.
 
-Group primitives in a compact two-column palette: values/decisions, collections,
-totals and Output. Use distinct Lucide icons with visible labels and descriptive
-tooltips; reuse the same presentation registry on nodes. Core's expression kind
+Group primitives in a compact two-column tray at the bottom of the palette.
+Search filters the function and composition library above it. Short palettes
+scroll as one surface to keep every control reachable. Use distinct Lucide icons
+with visible labels and descriptive tooltips. Reuse the same presentation
+registry on nodes. Core's expression kind
 determines a saved node's icon, never its variable name. Primitive placement has
 both click and drag paths and stages an ordinary expression draft. Inner branch
 and closure formulas stay in the focused expression builder.

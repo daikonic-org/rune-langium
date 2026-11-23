@@ -112,6 +112,7 @@ export interface FunctionComposerProps {
   onSave(): Promise<void>;
 }
 type SourceRows = { binding: DocumentBinding; rows: readonly ExpressionRow[] };
+const primitiveGroups = [...new Set(COMPOSITION_PRIMITIVES.map((primitive) => primitive.group))];
 
 function stepForRow(composition: FunctionComposition | undefined, { region }: ExpressionRow) {
   return composition?.steps.find((entry) => entry.region?.from === region.from && entry.region.to === region.to);
@@ -175,10 +176,6 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const [selectedVariable, setSelectedVariable] = useState<string>();
   const [applyBusy, setApplyBusy] = useState(false);
   const [query, setQuery] = useState('');
-  const matchingPrimitives = COMPOSITION_PRIMITIVES.filter((primitive) =>
-    `${primitive.label} ${primitive.description}`.toLowerCase().includes(query.trim().toLowerCase())
-  );
-  const primitiveGroups = [...new Set(matchingPrimitives.map((primitive) => primitive.group))];
   const dock = useRef<DockviewApi | undefined>(undefined);
   const shell = useRef<HTMLElement>(null);
   const watchLocationLayout = useWorkbenchLocation(shell, '.function-composer__center');
@@ -1487,12 +1484,12 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
               watchLocationLayout(api);
             }}
             palette={
-              <aside className="function-composer__side" aria-label="Composition palette">
+              <aside className="function-composer__side function-composer__palette" aria-label="Composition palette">
                 <div className="function-composer__panel-body studio-scroll">
                   <SearchInput
                     ref={paletteSearch}
-                    aria-label="Search functions and primitives"
-                    placeholder="Search the palette"
+                    aria-label="Search functions and compositions"
+                    placeholder="Search functions"
                     value={query}
                     onChange={(event) => {
                       setQuery(event.target.value);
@@ -1545,57 +1542,59 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                       } else void beginAdd(id);
                     }}
                   />
-                  <h2 className="section-heading">Primitives</h2>
-                  <div className="function-composer__primitives">
-                    {primitiveGroups.map((group) => (
-                      <div key={group} role="group" aria-label={group}>
-                        <h3 className="section-heading">{group}</h3>
-                        <div className="function-composer__primitive-grid">
-                          {matchingPrimitives
-                            .filter((primitive) => primitive.group === group)
-                            .map((primitive) => {
-                              const { id, label, description, icon: Icon } = primitive;
-                              const inlineType = 'dropInExpression' in primitive ? primitive.expressionType : undefined;
-                              const inlineDrop = inlineType && sourceVisible && !sourceTextVisible;
-                              const disabled =
-                                id === 'output' ? !outputStep : !canAdd && !(activeSlot && sourceVisible);
-                              return (
-                                <Button
-                                  key={id}
-                                  size="sm"
-                                  variant="ghost"
-                                  title={
-                                    inlineDrop
-                                      ? description + ' Drag onto a statement or value to wrap it.'
-                                      : description
-                                  }
-                                  disabled={disabled}
-                                  draggable={!disabled && (stepAvailable || Boolean(inlineDrop))}
-                                  onDragStart={(event) => {
-                                    event.dataTransfer.setData(PRIMITIVE_MIME, id);
-                                    if (inlineType) {
-                                      event.dataTransfer.setData(EXPRESSION_OPERATOR_MIME, inlineType);
+                  <section className="function-composer__primitive-tray" aria-label="Primitives">
+                    <h2 className="section-heading">Primitives</h2>
+                    <div className="function-composer__primitives">
+                      {primitiveGroups.map((group) => (
+                        <div key={group} role="group" aria-label={group}>
+                          <h3 className="section-heading">{group}</h3>
+                          <div className="function-composer__primitive-grid">
+                            {COMPOSITION_PRIMITIVES.filter((primitive) => primitive.group === group).map(
+                              (primitive) => {
+                                const { id, label, description, icon: Icon } = primitive;
+                                const inlineType =
+                                  'dropInExpression' in primitive ? primitive.expressionType : undefined;
+                                const inlineDrop = inlineType && sourceVisible && !sourceTextVisible;
+                                const disabled =
+                                  id === 'output' ? !outputStep : !canAdd && !(activeSlot && sourceVisible);
+                                return (
+                                  <Button
+                                    key={id}
+                                    size="sm"
+                                    variant="ghost"
+                                    title={
+                                      inlineDrop
+                                        ? description + ' Drag onto a statement or value to wrap it.'
+                                        : description
                                     }
-                                    event.dataTransfer.effectAllowed = 'copy';
-                                  }}
-                                  onClick={() => {
-                                    if (id !== 'output' && activeSlot && sourceVisible) {
-                                      const type = findCompositionPrimitive(id)?.expressionType;
-                                      if (type) activeSlot.replace(createExpressionStarter(type, '(<?>)'));
-                                    } else if (id !== 'output') void beginAdd(undefined, undefined, id);
-                                    else if (outputStep) pick(outputStep);
-                                  }}
-                                >
-                                  <Icon aria-hidden="true" />
-                                  {label}
-                                </Button>
-                              );
-                            })}
+                                    disabled={disabled}
+                                    draggable={!disabled && (stepAvailable || Boolean(inlineDrop))}
+                                    onDragStart={(event) => {
+                                      event.dataTransfer.setData(PRIMITIVE_MIME, id);
+                                      if (inlineType) {
+                                        event.dataTransfer.setData(EXPRESSION_OPERATOR_MIME, inlineType);
+                                      }
+                                      event.dataTransfer.effectAllowed = 'copy';
+                                    }}
+                                    onClick={() => {
+                                      if (id !== 'output' && activeSlot && sourceVisible) {
+                                        const type = findCompositionPrimitive(id)?.expressionType;
+                                        if (type) activeSlot.replace(createExpressionStarter(type, '(<?>)'));
+                                      } else if (id !== 'output') void beginAdd(undefined, undefined, id);
+                                      else if (outputStep) pick(outputStep);
+                                    }}
+                                  >
+                                    <Icon aria-hidden="true" />
+                                    {label}
+                                  </Button>
+                                );
+                              }
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    {!matchingPrimitives.length && <p>No matching primitives.</p>}
-                  </div>
+                      ))}
+                    </div>
+                  </section>
                 </div>
               </aside>
             }

@@ -75,9 +75,17 @@
 .function-composer__side :is([draggable="true"], [draggable="true"] button:not(:disabled)):active {
   cursor: grabbing;
 }
+.function-composer__palette {
+  container: compose-palette / size;
+}
+.function-composer__primitive-tray {
+  flex-shrink: 0;
+  margin-block-start: auto;
+  border-block-start: var(--hairline) solid var(--border);
+}
 .function-composer__primitives {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 .function-composer__primitives h3 {
   margin: 0 0 var(--space-1);
@@ -87,7 +95,7 @@
 .function-composer__primitive-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-1);
+  column-gap: var(--space-1);
 }
 .function-composer__primitive-grid > button {
   min-width: 0;
@@ -111,6 +119,15 @@
   min-width: 0;
   flex-shrink: 0;
 }
+
+@container compose-palette (block-size >= 34rem) {
+  .function-composer__functions {
+    min-block-size: 0;
+    flex: 1;
+    overflow: auto;
+  }
+}
+
 .function-composer__functions h2 {
   display: flex;
   align-items: center;
