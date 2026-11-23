@@ -19,6 +19,7 @@ import {
   type DehydratedNode
 } from '@rune-langium/codegen/rosetta';
 import { getSourceComments } from '@rune-langium/core';
+import { applyCstReferenceEdits, type ExpressionSource } from './cst-reference-edits.js';
 import { createSourceTriviaIndex, type SourceTriviaIndex } from './source-trivia.js';
 import type { TypeGraphNode } from '../types.js';
 import { type DirtyIndex, isSubtreeDirty } from './dirty-paths.js';
@@ -161,15 +162,10 @@ export function renderNamespace(args: RenderArgs): string {
   // ORIGINAL source bytes instead whenever the body still carries a clean
   // $cstRange, byte-identical to a whole-node CST reuse.
   //
-  // "Range present ⇒ body unedited" is a STRUCTURAL invariant, not a tracked
-  // dirty flag: every store expression-edit path (condition/operation/
-  // shortcut body) replaces the body wholesale with a rangeless
-  // `{ $type: 'RawDsl', text }` leaf (B1 Task 4 fix — no in-place expression
-  // mutations exist). A range against the immutable original source can
-  // therefore never be "half-updated"; there is no dual-source-of-truth class
-  // to guard against here, so no per-body dirty tracking is added.
+  // Whole-expression edits use rangeless RawDsl. A linked rename keeps its
+  // baseline range and carries the exact name edits to apply before reuse.
   const renderExpr: RenderOpts['renderExpr'] = (expr) => {
-    const e = expr as { $type?: string; text?: string };
+    const e = expr as ExpressionSource & { $type?: string; text?: string };
     if (e.$type === RAW_DSL_TYPE) return String(e.text ?? '');
     const range = cstRange(expr);
     // The body is always nested one level inside its owning construct
@@ -177,12 +173,18 @@ export function renderNamespace(args: RenderArgs): string {
     // `indentBlock` call — so, like a whole-node CHILD reuse, the slice must
     // be normalized to RELATIVE indentation first (see normalizeReusedSlice's
     // doc) or continuation lines end up over-indented by the wrapper's pad.
-    if (range)
-      return getTrivia().withOwnedTrivia(
-        expr as DehydratedNode,
-        normalizeReusedSlice(originalSource.slice(range.offset, range.end), originalSource, range.offset),
-        true
-      );
+    if (range) {
+      const original = originalSource.slice(range.offset, range.end);
+      const text = e.$cstReferenceEdits
+        ? applyCstReferenceEdits(original, range.offset, e.$cstReferenceEdits)
+        : original;
+      if (text !== undefined)
+        return getTrivia().withOwnedTrivia(
+          expr as DehydratedNode,
+          normalizeReusedSlice(text, originalSource, range.offset),
+          true
+        );
+    }
     return renderExpression(expr as never);
   };
 

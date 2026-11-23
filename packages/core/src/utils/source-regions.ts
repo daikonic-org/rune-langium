@@ -131,7 +131,11 @@ export function getMemberAccessOperatorRegions(
 
 /** Locate the authored name and the place to append a positional argument. */
 export function getSymbolReferenceRegions(node: RosettaSymbolReference) {
-  const name = GrammarUtils.findNodeForProperty(node.$cstNode, 'symbol');
+  const snapshot = node as RosettaSymbolReference & {
+    $textRegion?: { assignments?: { symbol?: { offset: number; end: number }[] } };
+  };
+  const name =
+    GrammarUtils.findNodeForProperty(node.$cstNode, 'symbol') ?? snapshot.$textRegion?.assignments?.symbol?.[0];
   if (!name) return undefined;
   // The first closing parenthesis owned by the reference ends the call.
   // Any grouping parentheses belong to the enclosing primary expression.

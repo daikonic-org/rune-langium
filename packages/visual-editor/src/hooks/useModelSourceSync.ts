@@ -29,6 +29,7 @@ import type { Patches } from 'mutative';
 import type { StoreApi } from 'zustand';
 import type { EditorState } from '../store/editor-store.js';
 import type { DehydratedNode } from '@rune-langium/codegen/rosetta';
+import { runeBigIntReplacer } from '@rune-langium/core';
 import type { TypeGraphNode, TypeGraphEdge } from '../types.js';
 import { astRelevantProjection, nameFromNodeId } from '../store/node-projection.js';
 import { renderNamespace } from '../serialize/cst-reuse-renderer.js';
@@ -75,7 +76,7 @@ function computeContentFingerprint(
     // contract — its key-set must not change.
     const projection = astRelevantProjection(n.data);
     try {
-      nodeParts.push(`${n.id}:${JSON.stringify(projection)}`);
+      nodeParts.push(`${n.id}:${JSON.stringify(projection, runeBigIntReplacer)}`);
     } catch {
       // Cyclic structures (shouldn't happen post-strip but be safe).
       nodeParts.push(`${n.id}:?`);

@@ -924,7 +924,19 @@ test('enters Compose before selecting a function and switches between ordinary f
   await expect
     .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
     .toMatch(/output:\s+result number \(0\.\.1\)\s+set result: value \* 2/);
+  await output.getByRole('textbox', { name: 'Output name: result', exact: true }).fill('doubled');
+  await composer.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () => (await projectBackingFiles(page))['workflow.rosetta'])
+    .toMatch(/output:\s+doubled number \(0\.\.1\)\s+set doubled:\s+value \* 2/);
   await expect(inspect).toHaveValue('return');
+  await page.reload();
+  await page.getByTestId('rail-compose').click();
+  await composer.getByRole('button', { name: 'Open Double workflow', exact: true }).click();
+  await expect(signature.getByRole('textbox', { name: 'Output name: doubled', exact: true })).toBeVisible();
+  await expect(
+    composer.getByTestId('expression-row-operation-0').getByRole('button', { name: 'set doubled:', exact: true })
+  ).toBeVisible();
   expect(errors).toEqual([]);
 });
 

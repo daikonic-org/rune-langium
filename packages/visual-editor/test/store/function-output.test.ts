@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parse,
   createRuneDslServices,
+  preserveCstText,
   serializeRuneModel,
   isRosettaFunction,
   isMapOperation,
@@ -13,6 +14,7 @@ import {
 import { renderModel } from '@rune-langium/codegen/rosetta';
 import { createEditorStore } from '../../src/store/editor-store.js';
 import { modelsToAst } from '../../src/adapters/model-to-ast.js';
+import { buildSourceForNamespaces } from '../../src/hooks/useModelSourceSync.js';
 
 const SOURCE = `namespace signature.edit
 version "1.0.0"
@@ -29,6 +31,7 @@ func Example:
 async function fixture(source = SOURCE, restored = false) {
   const parsed = await parse(source);
   expect(parsed.hasErrors, JSON.stringify(parsed.parserErrors)).toBe(false);
+  preserveCstText(parsed.value);
   const store = createEditorStore();
   const { RuneDsl } = createRuneDslServices();
   const model = restored
@@ -42,8 +45,18 @@ async function fixture(source = SOURCE, restored = false) {
     const state = store.getState();
     return renderModel(modelsToAst(state.nodes, state.edges)[0]!);
   };
+  const publish = () => {
+    const { nodes, edges, pendingEditPatches, pendingInversePatches } = store.getState();
+    return buildSourceForNamespaces({
+      nodes,
+      edges,
+      patches: pendingEditPatches,
+      inversePatches: pendingInversePatches,
+      originalSourceByNamespace: new Map([['signature.edit', source]])
+    }).get('signature.edit')!;
+  };
   store.temporal.getState().clear();
-  return { store, id, text };
+  return { store, id, text, publish };
 }
 
 describe('function output signature', () => {
@@ -74,6 +87,29 @@ describe('function output signature', () => {
     store.temporal.getState().redo();
     expect(text()).toBe(edited);
   });
+
+  it.each([false, true])(
+    'publishes the full output rename with original expression text, restored=%s',
+    async (restored) => {
+      const source = SOURCE.replace(
+        'result count >= 0',
+        'result count >= /* keep result */ 9007199254740993'
+      ).replaceAll('\n', '\r\n');
+      const { store, id, publish } = await fixture(source, restored);
+      store.getState().updateOutputParam(id, 'result', 'adjusted', 'number', '(1..*)');
+      const edited = publish();
+      expect(edited).toMatch(/adjusted number \(1\.\.\*\)\s+<"Retain output documentation.">/);
+      expect(edited).toMatch(/set adjusted:\s+values/);
+      expect(edited).toMatch(/set adjusted:\s+adjusted extract result \[result \+ 1\]/);
+      expect(edited).toContain('adjusted count >= /* keep result */ 9007199254740993');
+      expect(edited).not.toMatch(/\bset result:/);
+      expect(edited.replaceAll('\r\n', '')).not.toContain('\n');
+      const reparsed = await parse(edited);
+      expect(reparsed.hasErrors).toBe(false);
+      const fn = reparsed.value.elements.find(isRosettaFunction)!;
+      expect(fn.operations.every((operation) => operation.assignRoot.ref === fn.output)).toBe(true);
+    }
+  );
 
   it.each([false, true])(
     'preserves implicitly scoped inherited fields while renaming the output, restored=%s',

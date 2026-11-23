@@ -1081,6 +1081,13 @@ ambiguous drafts retain their warning and cannot migrate to another member.
 
 Authored comments are Source-only. Core's existing lexer yields UTF-16 comment ranges; per-render trivia ownership comes from original child CST ranges, including outside-root inline tails. Clean declarations need no trivia scan. Dirty render recursion preserves owned comments once, drops removed-child trivia and reuses untouched bodies. Legacy notes and standalone callback APIs remain covered. See the [qualitative #562 assessment](../investigations/2026-10-12-inspector-562-assessment.md).
 
+The editor's AST adapter restores integer literal types from numeric wire values
+before source validation. Source sync uses the canonical JSON BigInt replacer
+to compare parsed and restored models. Output renames share the graph signature transaction.
+Linked expression references carry guarded replacements at their original source
+positions so publication preserves comments, literal spelling and shadowed names.
+An affected statement that fails the source schema gate blocks the whole rename.
+
 Curated navigation resolves the selected declaration's actual document within the active bundle/version/namespace/artifact. Pending reveal is scoped to current navigation/workspace/revision and is cancelled when superseded. Multi-document namespaces must never use the first matching namespace file as a declaration owner; namespace/source laziness and immutable cache keys are unchanged.
 
 Source cursor synchronization quietly ignores source-only declarations outside
