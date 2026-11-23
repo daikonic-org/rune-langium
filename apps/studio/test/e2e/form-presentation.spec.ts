@@ -42,9 +42,13 @@ for (const width of [1440, 390])
     await load(page);
     await page.getByRole('tab', { name: 'Form', exact: true }).dblclick();
     const form = page.getByTestId('panel-formPreview');
-    await form.getByLabel('Amount', { exact: true }).fill('1234.56789');
+    const amount = form.getByLabel('Amount', { exact: true });
+    await amount.fill('1234.56789');
+    await expect(amount).toHaveCSS('font-variant-numeric', 'tabular-nums');
     await form.getByLabel('Fee', { exact: true }).fill('12.3456');
     await form.getByLabel('Quantity', { exact: true }).fill('125');
+    await expect(amount).toHaveValue('1,234.56789');
+    await expect(amount).toHaveCSS('font-variant-numeric', 'tabular-nums');
     await form.getByRole('button', { name: 'Edit layout', exact: true }).click();
     const columns = form.getByRole('combobox', { name: 'Layout columns', exact: true });
     await columns.click();
@@ -52,7 +56,7 @@ for (const width of [1440, 390])
     await twoColumns.click();
     await expect(twoColumns).toBeHidden();
     const grid = form.locator('.preview-layout-grid').first();
-    await expect(grid).toHaveCSS('--layout-columns', '1');
+    await expect(grid).toHaveCSS('grid-template-columns', width === 390 ? /^[\d.]+px$/ : /^[\d.]+px [\d.]+px$/);
     const reference = form.getByRole('button', { name: 'Move Reference', exact: true });
     const start = (await reference.boundingBox())!;
     const end = (await form.locator('[data-layout-field="amount"]').boundingBox())!;
@@ -80,7 +84,8 @@ for (const width of [1440, 390])
     await page.getByRole('combobox', { name: 'Number format', exact: true }).click();
     await page.getByRole('option', { name: 'Currency', exact: true }).click();
     const format = page.locator('.preview-format-editor');
-    await expect(form.getByLabel('Amount', { exact: true })).toHaveValue('$1,234.57');
+    await expect(amount).toHaveValue('$1,234.57');
+    await expect(amount).toHaveCSS('font-variant-numeric', 'tabular-nums');
     await expect(form.getByLabel('Fee', { exact: true })).toHaveValue('$12.35');
     await expect(form.getByLabel('Quantity', { exact: true })).toHaveValue('125');
     expect((await new AxeBuilder({ page }).include('.preview-format-editor').analyze()).violations).toEqual([]);
@@ -240,9 +245,9 @@ test('touch handles reorder fields and root object layouts follow list items int
     .toEqual(['postalCode', 'city']);
   await dialog.getByRole('button', { name: 'Edit layout', exact: true }).click();
   const layoutColumns = dialog.getByRole('combobox', { name: 'Layout columns', exact: true });
-  await expect(layoutColumns).toHaveText('3 columns');
+  await expect(layoutColumns).toHaveText('2 columns');
   await layoutColumns.click();
-  await page.getByRole('option', { name: '2 columns', exact: true }).click();
+  await page.getByRole('option', { name: '3 columns', exact: true }).click();
   await expect(dialog.getByText('Saved in repository', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Done editing', exact: true }).click();
   await dialog.getByLabel('City', { exact: true }).fill('London');
@@ -261,5 +266,5 @@ test('touch handles reorder fields and root object layouts follow list items int
   await dialog.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(form.getByTestId('sample-data-output')).toContainText('London');
   await page.getByTestId('ns-type-link-presentation.Address#Data').click();
-  await expect(form.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '2');
+  await expect(form.locator('.preview-layout-grid').first()).toHaveCSS('--requested-columns', '3');
 });

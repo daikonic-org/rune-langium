@@ -23,6 +23,7 @@ import {
   parseExpression,
   parseExpressionDraft,
   type CompositionStep,
+  type ExpressionReferenceDetails,
   type ExpressionRow,
   type FunctionComposition,
   type RosettaModel,
@@ -71,12 +72,12 @@ import { useComposeNavigationStore } from '../../store/compose-navigation-store.
 import { usePreviewSession } from '../../shell/providers/preview-session-context.js';
 import { SplitWorkbench } from '../../shell/SplitWorkbench.js';
 import { ComposeWorkbench } from './ComposeWorkbench.js';
+import { ComposeTestPanel } from './ComposeTestPanel.js';
 import { WorkbenchViewBar, WorkbenchPaneHeading, useWorkbenchLocation } from '../../shell/WorkbenchChrome.js';
 import { PerspectiveHeading } from '../../shell/perspectives/PerspectiveHeading.js';
 import { ExpressionWorkspace, type ExpressionWorkspaceProps } from '../editing/ExpressionWorkspace.js';
 import { InlineExpressionRows } from '../editing/InlineExpressionRows.js';
 import { WorkflowFunctionBuilder } from '../WorkflowFunctionBuilder.js';
-import { readWorkflows } from '@rune-langium/project-config';
 import { useProject } from '../../shell/providers/project-context.js';
 import { pathToUri } from '../../utils/uri.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
@@ -109,9 +110,14 @@ export interface FunctionComposerProps {
   inspector: ReactNode;
   active: boolean;
   onNavigate(nodeId: string): void;
+  canGoBack?: boolean;
+  onNavigateBack?(): void;
+  onLoadReference?(nodeId: string): void;
+  renderReferenceInspector?(nodeId: string, inspect: (nodeId: string) => void): ReactNode;
   onSave(): Promise<void>;
 }
 type SourceRows = { binding: DocumentBinding; rows: readonly ExpressionRow[] };
+type InspectedReference = ExpressionReferenceDetails & { nodeId?: string };
 const primitiveGroups = [...new Set(COMPOSITION_PRIMITIVES.map((primitive) => primitive.group))];
 
 function stepForRow(composition: FunctionComposition | undefined, { region }: ExpressionRow) {
@@ -153,7 +159,19 @@ export const FunctionComposer = withInstrumentation(
   },
   { op: 'FunctionComposer', capture: 0 }
 );
-function Composer({ workspaceKey, models, editor, inspector, active, onNavigate, onSave }: FunctionComposerProps) {
+function Composer({
+  workspaceKey,
+  models,
+  editor,
+  inspector,
+  active,
+  onNavigate,
+  canGoBack,
+  onNavigateBack,
+  onLoadReference,
+  renderReferenceInspector,
+  onSave
+}: FunctionComposerProps) {
   const creating = useComposeNavigationStore((s) => s.creating);
   const setCreating = useComposeNavigationStore((s) => s.setCreating);
   const nodesById = useEditorStore((s) => s.nodesById);
@@ -181,6 +199,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const watchLocationLayout = useWorkbenchLocation(shell, '.function-composer__center');
   const paletteSearch = useRef<HTMLInputElement>(null);
   const [details, setDetails] = useState<'signature' | 'step' | Pick<ExpressionRow, 'kind' | 'index'>>('signature');
+  const [referenceTrail, setReferenceTrail] = useState<InspectedReference[]>([]);
   const [sourceTextVisible, setSourceTextVisible] = useState(false);
   const [viewPreferences, setViewPreferences] = useState<Record<string, { source: boolean; canvas: boolean }>>({});
   const [selected, setSelected] = useState('return');
@@ -214,13 +233,13 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   const drafts = useRef(new Map<string, Draft>());
   const viewports = useRef(new Map<string, SavedCompositionViewport>());
   const positions = useRef(new Map<string, Map<string, XYPosition>>());
-  const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   const selections = useRef(new Map<string, string>());
   const client = usePreviewSession();
   const project = useProject();
   const flow = useReactFlow<ComposerNode>();
   const current = useLatestRef(editor);
   const identity = editor?.nodeId ?? '';
+  const inspectedReference = referenceTrail.at(-1);
   const viewPreference = viewPreferences[identity] ?? { source: Boolean(identity), canvas: !identity };
   const { source, canvas: canvasOpen } = viewPreference;
   const setSource = (source: boolean) =>
@@ -246,16 +265,6 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     },
     [sourceHost]
   );
-  const recipe = useMemo(
-    () =>
-      project.snapshot
-        ? readWorkflows(project.snapshot).workflows.find(
-            (entry) =>
-              entry.function && `${entry.function.namespace}.${entry.function.name}#RosettaFunction` === identity
-          )
-        : undefined,
-    [project.snapshot, identity]
-  );
   const viewKey = `${identity}:${vertical ? 'TB' : 'LR'}`;
   const file = editor?.file;
   const request = useRef(0);
@@ -272,6 +281,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     setSourceFocus(undefined);
     setSourceTextVisible(false);
     setDetails('signature');
+    setReferenceTrail([]);
     setSelected(selections.current.get(identity) ?? drafts.current.get(identity)?.stepId ?? 'return');
     setPortContext(undefined);
     setSelectedVariable(undefined);
@@ -894,7 +904,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     panel?.api.setActive();
     setQuery('');
   };
-  const openFunction = (id: string, followStep = false) => {
+  const openFunction = (id: string) => {
     if (inlineEditing) {
       setError('Finish or cancel the current expression before opening another function.');
       return;
@@ -902,10 +912,34 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     if (window.matchMedia?.(`(max-width: ${centerStackWidth - 1}px)`).matches)
       dock.current?.getEdgeGroup('left')?.collapse();
     if (id === identity) return;
-    setBreadcrumbs((previous) => (followStep && identity ? [...previous, identity] : []));
     onNavigate(id);
   };
-  const parent = breadcrumbs.at(-1);
+  const inspectReference = (reference: ExpressionReferenceDetails) => {
+    const declaration = reference.declaration;
+    const nodeId = declaration && makeNodeId(declaration.namespace, declaration.name, declaration.kind);
+    if (nodeId) onLoadReference?.(nodeId);
+    const detailsPanel = dock.current?.getPanel('compose.details');
+    if (detailsPanel && detailsPanel.group.activePanel?.id !== detailsPanel.id) detailsPanel.api.setActive();
+    setReferenceTrail((previous) => {
+      const current = previous.length === 1 ? previous[0] : undefined;
+      return current &&
+        current.nodeId === nodeId &&
+        current.name === reference.name &&
+        current.typeName === reference.typeName &&
+        current.cardinality === reference.cardinality
+        ? previous
+        : [{ ...reference, nodeId }];
+    });
+  };
+  const inspectNestedReference = (nodeId: string) => {
+    if (nodeId === inspectedReference?.nodeId) return;
+    onLoadReference?.(nodeId);
+    const target = repository.byId(nodeId);
+    setReferenceTrail((previous) => [
+      ...previous,
+      { name: target?.data.name ?? qualifiedNameFromNodeId(nodeId), nodeId }
+    ]);
+  };
   const selectNode = (id: string, focus: boolean) => {
     setSelected(id);
     selections.current.set(identity, id);
@@ -920,6 +954,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
     selectNode(id, focus);
     setVariablesOpen(true);
     setDetails('step');
+    setReferenceTrail([]);
     setError(undefined);
   };
   const stageArgument = (step: CompositionStep, index: number, value: string, variableId?: string) => {
@@ -1225,7 +1260,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
               role="group"
               aria-label={label}
             >
-              <strong className="section-heading">{label}</strong>
+              <strong className="font-normal">{label}</strong>
               <div className="composition-variables__tags">
                 {tags.map((variable) => (
                   <button
@@ -1264,6 +1299,8 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       ? displayedRows?.rows.find((row) => row.kind === details.kind && row.index === details.index)
       : undefined;
   const showItemDetails = details !== 'signature' && Boolean(inspectedRow || selectedStep);
+  const selectedPrimitive =
+    showItemDetails && !inspectedRow && selectedStep ? compositionNodePresentation(selectedStep).id : undefined;
   const inspectedRegion = details === 'step' ? selectedStep?.region : inspectedRow?.region;
   const inspectRow = (row: ExpressionRow) => {
     if (typeof details === 'object' && details.kind === row.kind && details.index === row.index) return;
@@ -1322,6 +1359,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
       invalid={!draft?.removal && expressionInvalid}
       inspectedRegion={inspectedRegion}
       onInspect={inspectRow}
+      onInspectReference={renderReferenceInspector ? inspectReference : undefined}
       onChange={changeSource}
       onRemove={draft?.bindingOnly || signaturePending ? undefined : removeSourceRow}
       onAdd={addSourceAlias}
@@ -1339,16 +1377,6 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
   );
   const sourceView = editor ? (
     <div className="function-composer__source studio-scroll">
-      {presented && sourceOnly && (
-        <div className="function-composer__notice">
-          <h2>Source-only function</h2>
-          {presented.reasons.map((reason, index) => (
-            <p key={index} className="text-caption">
-              Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
-            </p>
-          ))}
-        </div>
-      )}
       <ExpressionWorkspace
         key={identity}
         {...editor}
@@ -1416,18 +1444,16 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
             location={!creating && identity ? qualifiedNameFromNodeId(identity) : undefined}
           />
           <div className="studio-layout-presets__group studio-layout-presets__group--actions flex-wrap justify-end">
-            {parent && (
+            {onNavigateBack && (
               <Button
-                size="xs"
+                size="icon-xs"
                 variant="ghost"
-                disabled={inlineEditing}
-                onClick={() => {
-                  setBreadcrumbs((previous) => previous.slice(0, -1));
-                  onNavigate(parent);
-                }}
+                aria-label="Back"
+                title="Back"
+                disabled={!canGoBack || inlineEditing || creating}
+                onClick={onNavigateBack}
               >
-                <ArrowLeft className="size-3" />
-                Parent
+                <ArrowLeft aria-hidden="true" />
               </Button>
             )}
             <SourceSaveControl
@@ -1454,21 +1480,6 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                 }}
               >
                 Discard stale draft
-              </Button>
-            )}
-            {recipe && (
-              <Button
-                size="xs"
-                disabled={Boolean(createdId) || saveBusy || !composition?.supported || Boolean(draft)}
-                variant="ghost"
-                onClick={async () => {
-                  if (await save()) {
-                    useComposeNavigationStore.getState().requestRecipe(project.workspaceId!, recipe);
-                    usePerspectiveStore.getState().setActivePerspective('prototype');
-                  }
-                }}
-              >
-                Try in Prototype
               </Button>
             )}
             <Button size="xs" variant="ghost" onClick={openInspector}>
@@ -1575,7 +1586,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                     <div className="function-composer__primitives">
                       {primitiveGroups.map((group) => (
                         <div key={group} role="group" aria-label={group}>
-                          <h3 className="section-heading">{group}</h3>
+                          <h3 className="font-normal">{group}</h3>
                           <div className="function-composer__primitive-grid">
                             {COMPOSITION_PRIMITIVES.filter((primitive) => primitive.group === group).map(
                               (primitive) => {
@@ -1596,6 +1607,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                                         : description
                                     }
                                     disabled={disabled}
+                                    data-selected={id === selectedPrimitive || undefined}
                                     draggable={!disabled && (stepAvailable || Boolean(inlineDrop))}
                                     onDragStart={(event) => {
                                       event.dataTransfer.setData(PRIMITIVE_MIME, id);
@@ -1773,8 +1785,48 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                 className="function-composer__side function-composer__details studio-scroll"
                 aria-label="Composition details"
               >
-                {editor && inspector && <section aria-label="Function signature">{inspector}</section>}
-                {editor && (presented?.supported || inspectedRow || preview) && (
+                {inspectedReference ? (
+                  <>
+                    <div className="px-inspector-x py-panel-y">
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        aria-label="Back in Details"
+                        onClick={() => setReferenceTrail((previous) => previous.slice(0, -1))}
+                      >
+                        <ArrowLeft aria-hidden="true" /> Back
+                      </Button>
+                      {inspectedReference.typeName &&
+                        inspectedReference.name !== inspectedReference.declaration?.name && (
+                          <p className="mt-1 break-words text-xs text-caption">
+                            {[inspectedReference.name, inspectedReference.typeName, inspectedReference.cardinality]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </p>
+                        )}
+                    </div>
+                    {(inspectedReference.nodeId &&
+                      renderReferenceInspector?.(inspectedReference.nodeId, inspectNestedReference)) ||
+                      (!inspectedReference.typeName && (
+                        <p className="px-inspector-x text-xs">{inspectedReference.name}</p>
+                      ))}
+                  </>
+                ) : (
+                  editor && inspector && <section aria-label="Function signature">{inspector}</section>
+                )}
+                {!inspectedReference && presented && sourceOnly && (
+                  <details key={identity} className="border-t border-border px-inspector-x py-panel-y">
+                    <summary className="cursor-pointer text-xs font-medium">Canvas unavailable</summary>
+                    <ul className="mt-1 space-y-1">
+                      {presented.reasons.map((reason, index) => (
+                        <li key={index} className="text-xs text-caption">
+                          Line {presentedSource.slice(0, reason.region.from).split('\n').length}: {reason.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {!inspectedReference && editor && (presented?.supported || inspectedRow || preview) && (
                   <div className="border-t border-border px-inspector-x py-panel-y">
                     <NativeSelect
                       aria-label="Inspect composition item"
@@ -1808,7 +1860,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                     </NativeSelect>
                   </div>
                 )}
-                {(!editor || showItemDetails) && (
+                {!inspectedReference && (!editor || showItemDetails) && (
                   <div className="function-composer__panel-body">
                     {!editor ? (
                       <p className="text-caption">Select a function to inspect.</p>
@@ -1866,7 +1918,7 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                               aria-label={`Open ${selectedStep.call.identity.split('.').pop()} definition`}
                               onClick={() => {
                                 dismiss?.();
-                                openFunction(`${selectedStep.call!.identity}#RosettaFunction`, true);
+                                openFunction(`${selectedStep.call!.identity}#RosettaFunction`);
                               }}
                             >
                               {selectedStep.call.identity.split('.').pop()}
@@ -1930,6 +1982,18 @@ function Composer({ workspaceKey, models, editor, inspector, active, onNavigate,
                 )}
               </aside>
             )}
+            test={
+              editor ? (
+                <ComposeTestPanel
+                  key={identity}
+                  functionId={identity}
+                  onSave={save}
+                  prototypeDisabled={Boolean(createdId) || saveBusy || Boolean(draft) || inlineEditing}
+                />
+              ) : (
+                <p className="px-panel-x py-panel-y text-caption">Select a function to test.</p>
+              )
+            }
           />
         )}
         {sourceView && createPortal(sourceView, sourceHost)}

@@ -90,7 +90,7 @@ export const ExportSettingsPanel = withInstrumentation(
       >
         <div className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-border px-3 py-2">
           <div className="min-w-0 flex-1 basis-52">
-            <h2 className="text-sm font-semibold">Export settings</h2>
+            <h2 className="section-heading text-sm">Export settings</h2>
             <p className="mt-1 text-xs text-caption">Generate the selected scope and its required dependencies.</p>
           </div>
           <div

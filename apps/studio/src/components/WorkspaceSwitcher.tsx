@@ -143,7 +143,9 @@ export const WorkspaceSwitcher = withInstrumentation(
         aria-labelledby={`${metadataId}-heading`}
       >
         <div className="studio-launcher__section-heading">
-          <h2 id={`${metadataId}-heading`}>Recent workspaces</h2>
+          <h2 id={`${metadataId}-heading`} className="section-heading">
+            Recent workspaces
+          </h2>
           <span>Stored on this device</span>
           <Button
             variant="ghost"

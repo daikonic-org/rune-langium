@@ -456,6 +456,7 @@ export const runeDslStreamParser = {
     }
 
     // Operators / punctuation
+    if (stream.match(/^->>?/)) return 'derefOperator';
     if (stream.match(/^[<>!=]+/)) return 'operator';
     if (stream.match(/^[-+*/]/)) return 'operator';
     if (stream.match(':')) {

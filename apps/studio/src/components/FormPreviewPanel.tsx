@@ -32,6 +32,7 @@ import { qualifiedNameFromNodeId } from '@rune-langium/visual-editor';
 import { Button } from '@rune-langium/design-system/ui/button';
 import { Checkbox } from '@rune-langium/design-system/ui/checkbox';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { cn } from '@rune-langium/design-system/utils';
 import {
   Collapsible,
   CollapsibleContent,
@@ -50,7 +51,7 @@ import { PreviewObjectGrid, type PreviewGridColumn, type PreviewGridRow } from '
 import './form-preview.css';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@rune-langium/design-system/ui/select';
 import { Spinner } from '@rune-langium/design-system/ui/spinner';
-import { Plus, Minus, ArrowUpRight, ArrowLeft, ChevronRight } from 'lucide-react';
+import { Plus, Minus, ArrowUpRight, ArrowLeft, ChevronRight, Copy, RotateCcw } from 'lucide-react';
 import {
   usePreviewStore,
   type FormPreviewTarget,
@@ -71,6 +72,7 @@ import { copyTextToClipboard } from '../services/clipboard.js';
 import { useChangeFeedback, useFeedbackRevision } from '../hooks/useChangeFeedback.js';
 import { previewFeedbackItems } from '../services/feedback-items.js';
 import { formatPreviewNumber } from '../store/form-presentation-store.js';
+import { workflowFieldSchema } from '../services/workflow-fields.js';
 import { ChangeFeedbackText } from './ChangeFeedbackText.js';
 
 const PreviewFieldsContext = createContext<{
@@ -87,7 +89,7 @@ const PreviewDetailNavigation = createContext<{
 } | null>(null);
 
 export interface PreviewPresentation {
-  mode: 'scratch' | 'instance';
+  mode: 'scratch' | 'instance' | 'result';
   showPayload: boolean;
   showHeader: boolean;
   showLayoutToolbar?: boolean;
@@ -176,7 +178,6 @@ export const FormPreviewPanel = withInstrumentation(
     const [copying, setCopying] = useState(false);
     const copyEpoch = useRef(0);
     const copyPending = useRef(false);
-    const [executionState, setExecutionState] = useState<'idle' | 'running'>('idle');
 
     // Namespace-qualified `targetId` (`${namespace}.${name}`), NOT the bare
     // `title` — two different namespaces can declare a func with the same
@@ -201,61 +202,6 @@ export const FormPreviewPanel = withInstrumentation(
       Boolean(schema) && !isResolvingReferences
     );
     const loggedUnsupportedSchemaRef = useRef<FormPreviewSchema | undefined>(undefined);
-
-    // Seed from any execution result already cached in the store at mount
-    // time — e.g. the dock panel was closed (unmounting this component) then
-    // reopened while the store still holds a prior run's result. Without this,
-    // the sync branch below only reacts to storeExecResult CHANGING, and
-    // useState(storeExecResult) below initializes prevStoreExecResult to that
-    // same already-current value, so the branch never fires and the cached
-    // output stayed hidden until the next execution (Codex review).
-    const [executionResult, setExecutionResult] = useState<unknown>(() =>
-      storeExecResult && !storeExecResult.error ? storeExecResult.output : undefined
-    );
-    const [executionError, setExecutionError] = useState<string | null>(() => storeExecResult?.error ?? null);
-
-    // Adjusted during render (React's blessed pattern) rather than in
-    // effects, so switching functions or a new execution result lands in the
-    // same render instead of flashing the prior function's stale result for
-    // one frame first. Order matters: a funcName change takes priority over a
-    // same-render storeExecResult change, matching the original two-effects'
-    // declaration-order commit sequencing (the funcName effect ran second and
-    // so always won when both fired together).
-    //
-    // Tracked via useState, NOT plain refs: a ref mutation made during render
-    // is not rolled back if React discards/retries this render under
-    // concurrent rendering, while the accompanying setExecutionState/
-    // setExecutionResult/setExecutionError calls ARE rolled back (they never
-    // committed) — so a bare `.current = ...` assignment could leave the
-    // retry believing the new function/result was already handled and keep
-    // displaying the previous function's output indefinitely (Codex review).
-    const [prevFuncName, setPrevFuncName] = useState(funcName);
-    const [prevStoreExecResult, setPrevStoreExecResult] = useState(storeExecResult);
-    if (funcName !== prevFuncName) {
-      setExecutionState('idle');
-      // Seed from the NEWLY selected function's own cached result, if it has
-      // one, rather than unconditionally blanking — otherwise switching to a
-      // function that was already executed earlier in this session hides its
-      // cached output until it's re-run, and the trailing prevStoreExecResult
-      // sync below would mark it "seen" so the branch below never picks it up
-      // retroactively either (same root cause as the mount-time case above).
-      if (storeExecResult) {
-        setExecutionResult(storeExecResult.error ? undefined : storeExecResult.output);
-        setExecutionError(storeExecResult.error ?? null);
-      } else {
-        setExecutionResult(undefined);
-        setExecutionError(null);
-      }
-    } else if (storeExecResult && storeExecResult !== prevStoreExecResult) {
-      if (storeExecResult.error) {
-        setExecutionError(storeExecResult.error);
-      } else {
-        setExecutionResult(storeExecResult.output);
-      }
-      setExecutionState('idle');
-    }
-    if (funcName !== prevFuncName) setPrevFuncName(funcName);
-    if (storeExecResult !== prevStoreExecResult) setPrevStoreExecResult(storeExecResult);
 
     useEffect(() => {
       if (!schema?.unsupportedFeatures?.length) return;
@@ -314,6 +260,20 @@ export const FormPreviewPanel = withInstrumentation(
         }
       );
     }, [controlledErrors, controlledValid, controlledValidated, defaultValues, isControlled, sample, schema, values]);
+
+    const [execution, setExecution] = useState<{
+      funcName: string;
+      values: Record<string, unknown>;
+      previousResult: typeof storeExecResult;
+    }>();
+    const executing =
+      execution !== undefined &&
+      execution.funcName === funcName &&
+      execution.values === activeSample?.values &&
+      execution.previousResult === storeExecResult;
+    if (execution && !executing) setExecution(undefined);
+    const executionError = executing ? undefined : storeExecResult?.error;
+    const executionResult = executing || executionError ? undefined : storeExecResult?.output;
 
     useEffect(() => {
       copyEpoch.current++;
@@ -476,11 +436,9 @@ export const FormPreviewPanel = withInstrumentation(
 
     const handleRun = useCallback(() => {
       if (!funcName || !activeSample || !onExecute) return;
-      setExecutionState('running');
-      setExecutionResult(undefined);
-      setExecutionError(null);
+      setExecution({ funcName, values: activeSample.values, previousResult: storeExecResult });
       onExecute(funcName, activeSample.values);
-    }, [activeSample, funcName, onExecute]);
+    }, [activeSample, funcName, onExecute, storeExecResult]);
 
     const handleReset = useCallback(() => {
       if (!schema) return;
@@ -559,53 +517,88 @@ export const FormPreviewPanel = withInstrumentation(
       schema.fields,
       schema.choiceArmPaths
     );
+    const showExecution = schema.kind === 'function' && presentation.showExecutionControls !== false;
+    const resultView = presentation.mode === 'result';
+    const Fields = presentation.readOnly ? 'div' : 'form';
+    const run = showExecution && (
+      <Button type="button" size="xs" disabled={executing || !!schema.executionUnavailable} onClick={handleRun}>
+        {executing ? 'Executing…' : 'Run'}
+      </Button>
+    );
 
     return (
       <section
         ref={formFeedback}
         role="region"
         aria-label={ariaLabel}
-        data-testid="panel-formPreview"
-        className="studio-scroll flex h-full flex-col overflow-auto"
+        data-testid={resultView ? 'panel-resultPreview' : 'panel-formPreview'}
+        className={resultView ? 'min-w-0' : 'studio-scroll flex h-full flex-col overflow-auto'}
       >
-        {presentation.showHeader ? (
-          <header className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-border px-panel-x py-panel-y">
-            <h2 className="min-w-0 flex-1 basis-28 truncate text-sm font-normal" title={schema.title}>
-              {schema.title}
-            </h2>
-            <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-              <Button type="button" variant="ghost" size="xs" disabled={copying} onClick={handleCopySample}>
-                {copying ? 'Copying…' : 'Copy'}
-              </Button>
-              <Button type="button" variant="ghost" size="xs" onClick={handleReset}>
-                {presentation.mode === 'instance' ? 'Reset values' : 'Reset'}
-              </Button>
-              {onCreateInstance && (schema.kind === 'data' || schema.kind === 'choice') ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() =>
-                    onCreateInstance({
-                      typeFqn: qualifiedNameFromNodeId(schema.targetId),
-                      data: structuredClone(activeSample?.values ?? {})
-                    })
-                  }
-                >
-                  Create example…
-                </Button>
-              ) : null}
-            </div>
-          </header>
-        ) : null}
         <PreviewFieldsContext value={{ definitions: schema.definitions, readOnly: presentation.readOnly === true }}>
           <FormPresentation
             toolbarStart={layoutToolbarStart}
+            defaultColumns={presentation.mode === 'instance' ? 3 : 2}
+            renderToolbar={
+              presentation.showHeader
+                ? (editLayout) => (
+                    <header className="sticky top-0 z-10 flex min-w-0 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-card px-panel-x py-panel-y">
+                      <h2
+                        className="preview-panel__title min-w-0 flex-1 basis-12 truncate text-sm font-normal"
+                        title={schema.title}
+                      >
+                        {schema.title}
+                      </h2>
+                      {layoutToolbarStart}
+                      <div className="flex max-w-full shrink-0 flex-wrap items-center gap-0.5">
+                        {editLayout}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={copying ? 'Copying…' : 'Copy'}
+                          title="Copy sample data"
+                          disabled={copying}
+                          onClick={handleCopySample}
+                        >
+                          <Copy aria-hidden="true" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={presentation.mode === 'instance' ? 'Reset values' : 'Reset'}
+                          title="Reset values"
+                          onClick={handleReset}
+                        >
+                          <RotateCcw aria-hidden="true" />
+                        </Button>
+                        {onCreateInstance && (schema.kind === 'data' || schema.kind === 'choice') && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            onClick={() =>
+                              onCreateInstance({
+                                typeFqn: qualifiedNameFromNodeId(schema.targetId),
+                                data: structuredClone(activeSample?.values ?? {})
+                              })
+                            }
+                          >
+                            Create example…
+                          </Button>
+                        )}
+                        {run}
+                      </div>
+                    </header>
+                  )
+                : undefined
+            }
             showToolbar={presentation.showLayoutToolbar}
+            showNotices={resultView ? false : undefined}
             editing={layoutEditing}
             onEditingChange={onLayoutEditingChange}
           >
-            {presentation.showStatusSummary !== false && (
+            {summaryMessage && presentation.showStatusSummary !== false && (
               <p
                 role={status.state === 'invalid' ? 'alert' : 'status'}
                 aria-live="polite"
@@ -632,10 +625,16 @@ export const FormPreviewPanel = withInstrumentation(
                 }
               }}
             >
-              <form
+              <Fields
                 onSubmit={(event) => event.preventDefault()}
-                className="preview-fields preview-panel__body studio-scroll space-y-2 overflow-auto px-panel-x py-panel-y"
+                className={cn(
+                  'preview-fields space-y-2',
+                  resultView
+                    ? 'preview-result__fields'
+                    : 'preview-panel__body studio-scroll overflow-auto px-panel-x py-panel-y'
+                )}
               >
+                {showExecution && schema.fields.length > 0 && <h3 className="section-heading text-xs">Input</h3>}
                 {schema.kind === 'choice' ? (
                   <ChoiceFieldGroup
                     fields={schema.fields}
@@ -676,6 +675,7 @@ export const FormPreviewPanel = withInstrumentation(
                         <PreviewFieldControl
                           key={field.path}
                           field={field}
+                          siblings={rootOtherFields}
                           sample={activeSample}
                           lookupFieldSource={lookupFieldSource}
                           isResolvingReferences={isResolvingReferences}
@@ -705,17 +705,9 @@ export const FormPreviewPanel = withInstrumentation(
                     </div>
                   )
                 ) : null}
-                {schema.kind === 'function' && presentation.showExecutionControls !== false ? (
-                  <div className="preview-panel__function-controls border-t border-border pt-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      disabled={executionState === 'running' || !!schema.executionUnavailable}
-                      onClick={handleRun}
-                    >
-                      {executionState === 'running' ? 'Executing…' : 'Run'}
-                    </Button>
+                {showExecution && (!presentation.showHeader || schema.executionUnavailable || executionError) ? (
+                  <div className="border-t border-border pt-2">
+                    {!presentation.showHeader && run}
                     {schema.executionUnavailable ? (
                       <p role="status" className="text-xs text-muted-foreground">
                         {schema.executionUnavailable}
@@ -727,19 +719,11 @@ export const FormPreviewPanel = withInstrumentation(
                         <span className="text-xs text-destructive">{presentPreviewError(executionError, schema)}</span>
                       </div>
                     ) : null}
-                    {executionResult !== undefined ? (
-                      <div className="execution-result mt-2">
-                        <span className="text-2xs font-normal text-muted-foreground">Output:</span>
-                        <pre
-                          tabIndex={0}
-                          className="preview-panel__sample-output studio-scroll mt-0.5 overflow-auto p-2 text-2xs leading-5 text-foreground"
-                        >
-                          {JSON.stringify(executionResult, null, 2)}
-                        </pre>
-                      </div>
-                    ) : null}
                   </div>
                 ) : null}
+                {showExecution && executionResult !== undefined && (
+                  <PreviewExecutionResult schema={schema} value={executionResult} />
+                )}
                 {presentation.showPayload ? (
                   <Disclosure label="Sample data" className="preview-panel__sample" data-testid="sample-data-view" open>
                     <div className="space-y-2 border-t border-border p-2">
@@ -762,7 +746,7 @@ export const FormPreviewPanel = withInstrumentation(
                     </div>
                   </Disclosure>
                 ) : null}
-              </form>
+              </Fields>
               <PreviewDetailsDialog
                 stack={detailState.targetId === schema.targetId ? detailState.stack : []}
                 returnFocus={detailOrigin}
@@ -790,6 +774,61 @@ export const FormPreviewPanel = withInstrumentation(
   },
   { op: 'FormPreviewPanel' }
 );
+
+function PreviewExecutionResult({ schema, value }: { schema: FormPreviewSchema; value: unknown }) {
+  const headingId = useId();
+  const formatFor = useNumericPresentation();
+  const field = schema.result;
+  const formattedScalar =
+    field?.kind === 'number' &&
+    typeof value === 'number' &&
+    (Boolean(formatFor(field)) || formatPreviewNumber(value) !== String(value));
+  const typed =
+    field &&
+    ((field.kind === 'object' && value !== null && typeof value === 'object' && !Array.isArray(value)) ||
+      (field.kind === 'array' && Array.isArray(value)) ||
+      formattedScalar);
+  const resultSchema = typed ? workflowFieldSchema(schema, field) : undefined;
+  const raw = (
+    <pre
+      tabIndex={0}
+      className="preview-panel__sample-output studio-scroll max-h-56 overflow-auto px-panel-x py-2 text-2xs leading-5 text-foreground"
+    >
+      {JSON.stringify(value, null, 2)}
+    </pre>
+  );
+  return (
+    <section aria-labelledby={headingId} className="execution-result min-w-0 space-y-2 pt-2">
+      <h3 id={headingId} className="section-heading text-xs">
+        Output
+      </h3>
+      {field && resultSchema ? (
+        <>
+          <FormPreviewPanel
+            ariaLabel="Result data"
+            schema={resultSchema}
+            status={{ state: 'ready', targetId: resultSchema.targetId }}
+            values={{ [field.path]: value }}
+            layoutParentPath={field.kind === 'object' ? field.path : undefined}
+            presentation={{
+              mode: 'result',
+              showHeader: false,
+              showPayload: false,
+              showLayoutToolbar: false,
+              showStatusSummary: false,
+              readOnly: true
+            }}
+          />
+          <Disclosure label="Raw result" className="preview-result__raw">
+            {raw}
+          </Disclosure>
+        </>
+      ) : (
+        raw
+      )}
+    </section>
+  );
+}
 
 // splitChoiceArmFields (issue #434) — used at both the schema-root level (a
 // Data-extends-Choice schema whose own top-level `kind` isn't `'choice'`)
@@ -925,11 +964,7 @@ function ChoiceArmChildren({
   arrayIndices
 }: ChoiceArmChildrenProps): ReactElement | null {
   const { definitions, readOnly } = useContext(PreviewFieldsContext);
-  const expandedField = expandPreviewField(inputField, definitions);
-  const field = metadataPreviewField(
-    expandedField,
-    getValueAtPath(sample?.values ?? {}, pathToSegments(expandedField.path, arrayIndices))
-  );
+  const field = projectPreviewField(inputField, definitions, sample?.values, arrayIndices);
   if (field.kind !== 'object' && field.kind !== 'array') return null;
   const choiceArmPaths = field.kind === 'object' ? field.choiceArmPaths : undefined;
   const { armFields, otherFields } = splitChoiceArmFields(field.children ?? [], choiceArmPaths);
@@ -937,10 +972,7 @@ function ChoiceArmChildren({
   if (armFields.length === 0 && otherFields.length === 0) return null;
   return (
     <PreviewLayoutGroup
-      symbol={
-        field.typeSymbol ??
-        (field.kind === 'object' && field.referencedTypeFqn ? `data:${field.referencedTypeFqn}` : undefined)
-      }
+      symbol={objectPresentationSymbol(field)}
       parentPath={field.declaredPath ?? field.path}
       fields={otherFields}
       isFieldVisible={readOnly ? (child) => hasPreviewFieldValue(child, sample, arrayIndices) : undefined}
@@ -948,6 +980,7 @@ function ChoiceArmChildren({
         <PreviewFieldControl
           key={child.path}
           field={child}
+          siblings={otherFields}
           sample={sample}
           lookupFieldSource={lookupFieldSource}
           isResolvingReferences={isResolvingReferences}
@@ -982,6 +1015,8 @@ function ChoiceArmChildren({
 
 interface PreviewFieldControlProps {
   field: PreviewField;
+  siblings?: readonly PreviewField[];
+  numericOwner?: { symbol?: string; parentPath: string };
   sample?: PreviewSampleState;
   lookupFieldSource: (fieldPath: string) => PreviewSourceMapEntry | undefined;
   isResolvingReferences: boolean;
@@ -1178,6 +1213,11 @@ function PreviewArrayField({
   const value = getValueAtPath(controls.sample?.values ?? {}, pathToSegments(field.path, controls.arrayIndices));
   const items = Array.isArray(value) ? value : [];
   const child = field.children?.[0] && expandPreviewField(field.children[0], definitions);
+  const numericOwner =
+    child?.kind === 'object'
+      ? { symbol: objectPresentationSymbol(child), parentPath: child.declaredPath ?? child.path }
+      : undefined;
+  const formatFor = useNumericPresentation(numericOwner);
   const error = controls.sample?.validated ? controls.sample.errors[fieldPath] : undefined;
   const remove = (index: number) => {
     controls.onArrayRemove(field, index, controls.arrayIndices);
@@ -1232,12 +1272,24 @@ function PreviewArrayField({
                   pathToSegments(column.path === '$summary' ? child.path : column.path, indices)
                 );
           const empty = !hasPreviewValue(cellValue);
+          const values = controls.sample?.values;
+          const numeric =
+            scalar?.kind === 'number'
+              ? getValueAtPath(
+                  values,
+                  pathToSegments(projectPreviewField(scalar, definitions, values, indices).path, indices)
+                )
+              : undefined;
+          const text =
+            scalar && typeof numeric === 'number'
+              ? formatPreviewNumber(
+                  numeric,
+                  formatFor(scalar, previewCurrencyCode(scalar, otherFields, definitions, values, indices))
+                )
+              : previewValueText(cellValue, scalar ?? (column.path === '$summary' ? child : undefined), definitions);
           return {
             path: cellPath,
-            text:
-              readOnly && empty
-                ? ''
-                : previewValueText(cellValue, scalar ?? (column.path === '$summary' ? child : undefined), definitions),
+            text: readOnly && empty ? '' : text,
             empty,
             error: controls.sample?.validated ? controls.sample.errors[cellPath] : undefined,
             editor:
@@ -1245,6 +1297,8 @@ function PreviewArrayField({
                 <PreviewFieldControl
                   field={{ ...scalar, label: `${field.label} ${index + 1} ${scalar.label}` }}
                   {...controls}
+                  siblings={otherFields}
+                  numericOwner={numericOwner}
                   arrayIndices={indices}
                   inline
                 />
@@ -1441,6 +1495,8 @@ function PreviewDetailsDialog({
 
 function PreviewFieldControl({
   field: inputField,
+  siblings,
+  numericOwner,
   sample,
   lookupFieldSource: lookupDeclaredSource, // oxlint-disable-line only-used-in-recursion
   isResolvingReferences,
@@ -1456,13 +1512,11 @@ function PreviewFieldControl({
 }: PreviewFieldControlProps): ReactElement {
   const { definitions, readOnly } = useContext(PreviewFieldsContext);
   const inputId = useId();
-  const expandedField = expandPreviewField(inputField, definitions);
-  const field = metadataPreviewField(
-    expandedField,
-    getValueAtPath(sample?.values ?? {}, pathToSegments(expandedField.path, arrayIndices))
-  );
-  const numericPresentation = useNumericPresentation(
-    field.declaredPath ? { ...field, path: field.declaredPath } : field
+  const field = projectPreviewField(inputField, definitions, sample?.values, arrayIndices);
+  const formatFor = useNumericPresentation(numericOwner);
+  const numericPresentation = formatFor(
+    field,
+    previewCurrencyCode(inputField, siblings, definitions, sample?.values, arrayIndices)
   );
   const lookupFieldSource = (path: string) =>
     lookupDeclaredSource(path === field.path ? (field.declaredPath ?? path) : path);
@@ -1510,7 +1564,7 @@ function PreviewFieldControl({
     return (
       <div className="preview-field" data-field-path={fieldPath}>
         <span className={inline ? 'sr-only' : 'preview-field__label'}>{resolvedFieldLabel(field, arrayIndices)}</span>
-        <span className="preview-field__value">
+        <span className={cn('preview-field__value', field.kind === 'number' && 'tabular-nums')}>
           {field.kind === 'number' && typeof value === 'number'
             ? formatPreviewNumber(value, numericPresentation)
             : previewValueText(value, field, definitions)}
@@ -1710,7 +1764,11 @@ function summarizeUnsupportedFeatures(features: string[]): string {
   return parts.join('; ');
 }
 
-function getSummaryMessage(schema: FormPreviewSchema, status: PreviewStatus, sample?: PreviewSampleState): string {
+function getSummaryMessage(
+  schema: FormPreviewSchema,
+  status: PreviewStatus,
+  sample?: PreviewSampleState
+): string | undefined {
   if (schema.status === 'unsupported') {
     return 'Limited preview — unsupported features are listed below.';
   }
@@ -1720,7 +1778,7 @@ function getSummaryMessage(schema: FormPreviewSchema, status: PreviewStatus, sam
   }
 
   if (schema.kind === 'function') {
-    return schema.executionUnavailable ? 'Execution unavailable' : 'Ready to run function';
+    return schema.executionUnavailable ? 'Execution unavailable' : undefined;
   }
 
   if (!sample?.validated) {
@@ -1808,6 +1866,48 @@ function getValueAtPath(value: unknown, segments: Array<string | number>): unkno
     current = (current as Record<string, unknown>)[segment as keyof typeof current];
   }
   return current;
+}
+
+function objectPresentationSymbol(field: PreviewField): string | undefined {
+  return (
+    field.typeSymbol ??
+    (field.kind === 'object' && field.referencedTypeFqn ? `data:${field.referencedTypeFqn}` : undefined)
+  );
+}
+
+function projectPreviewField(
+  field: PreviewField,
+  definitions: FormPreviewSchema['definitions'],
+  values: Record<string, unknown> | undefined,
+  arrayIndices?: number[]
+): PreviewField {
+  const expanded = expandPreviewField(field, definitions);
+  return metadataPreviewField(expanded, getValueAtPath(values, pathToSegments(expanded.path, arrayIndices)));
+}
+
+function previewCurrencyCode(
+  field: PreviewField,
+  siblings: readonly PreviewField[] | undefined,
+  definitions: FormPreviewSchema['definitions'],
+  values: Record<string, unknown> | undefined,
+  arrayIndices?: number[]
+): string | undefined {
+  if (field.kind !== 'number' || !siblings || !values) return undefined;
+  const prefix = field.path.slice(0, field.path.lastIndexOf('.') + 1);
+  const name = field.path.slice(prefix.length);
+  let source = name === 'amount' ? siblings.find(({ path }) => path === prefix + 'currency') : undefined;
+  if (name === 'value') {
+    const unit = siblings.find(({ path }) => path === prefix + 'unit');
+    const payload = unit && projectPreviewField(unit, definitions, values, arrayIndices);
+    if (payload?.kind === 'object') {
+      source = payload.children.find(({ path }) => path === payload.path + '.currency');
+    }
+  }
+  if (source?.kind !== 'string' && source?.kind !== 'enum') return undefined;
+  const payload = projectPreviewField(source, definitions, values, arrayIndices);
+  const code = getValueAtPath(values, pathToSegments(payload.path, arrayIndices));
+  const normalized = typeof code === 'string' ? code.trim().toUpperCase() : '';
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : undefined;
 }
 
 function setValueAtPath(value: unknown, segments: Array<string | number>, nextValue: unknown): unknown {

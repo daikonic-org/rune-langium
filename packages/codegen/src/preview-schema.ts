@@ -632,6 +632,7 @@ function buildTypeAliasSchema(
 ): FormPreviewSchema {
   const refText = alias.typeCall?.type?.$refText;
   const unsupportedFeatures = new Set<string>();
+  const baseTypeSymbols: string[] = [];
 
   const unresolvedSchema = (): FormPreviewSchema => {
     unsupportedFeatures.add(`unresolved-reference:${refText ?? alias.name}`);
@@ -658,6 +659,7 @@ function buildTypeAliasSchema(
     alias.typeCall,
     namespace,
     {
+      onAlias: (base) => baseTypeSymbols.push(previewTypeSymbol('RosettaTypeAlias', qualifiedTypeId(base))!),
       // Primitive alias (e.g. `typeAlias productType: string`)
       onPrimitive: (basicTypeName) => {
         const builtinKind = BUILTIN_KIND_MAP[basicTypeName];
@@ -678,7 +680,8 @@ function buildTypeAliasSchema(
           fields: [
             {
               ...scalarField({ path: 'value', label: humanizeLabel(alias.name) }, builtinKind, basicTypeName),
-              typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId)
+              typeSymbol: previewTypeSymbol('RosettaTypeAlias', targetId),
+              ...(builtinKind === 'number' && baseTypeSymbols.length > 0 ? { baseTypeSymbols } : {})
             }
           ]
         };
@@ -1202,15 +1205,13 @@ function resolvePreviewType(
   visitor: TypeResolutionVisitor<PreviewField>,
   sourceUri: string
 ): PreviewField {
-  let aliasSymbol: string | undefined;
+  const aliasSymbols: string[] = [];
   const field = resolveTypeCallTarget(
     typeCall,
     namespace,
     {
       ...visitor,
-      onAlias: (alias) => {
-        aliasSymbol ??= previewTypeSymbol('RosettaTypeAlias', qualifiedTypeId(alias));
-      },
+      onAlias: (alias) => aliasSymbols.push(previewTypeSymbol('RosettaTypeAlias', qualifiedTypeId(alias))!),
       onPrimitive: (name) => ({ ...visitor.onPrimitive(name), typeSymbol: previewTypeSymbol('builtin', name) }),
       onEnum: (node, uri) => ({
         ...visitor.onEnum(node, uri),
@@ -1227,7 +1228,13 @@ function resolvePreviewType(
     },
     sourceUri
   );
-  return field.kind === 'unknown' ? field : { ...field, typeSymbol: aliasSymbol ?? field.typeSymbol };
+  return field.kind === 'unknown'
+    ? field
+    : {
+        ...field,
+        typeSymbol: aliasSymbols[0] ?? field.typeSymbol,
+        ...(field.kind === 'number' && aliasSymbols.length > 1 ? { baseTypeSymbols: aliasSymbols.slice(1) } : {})
+      };
 }
 
 function buildBaseField(attr: Attribute, ctx: FieldContext): PreviewField {

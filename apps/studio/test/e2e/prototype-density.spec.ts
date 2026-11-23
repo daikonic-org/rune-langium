@@ -131,6 +131,8 @@ func Echo:
   const resultGrid = output.getByRole('table', { name: 'Result', exact: true });
   const resultData = output.getByRole('button', { name: 'Result data', exact: true });
   const functionResult = output.getByRole('button', { name: 'Function result', exact: true });
+  await expect(resultData).toHaveCSS('text-transform', 'uppercase');
+  await expect(functionResult).toHaveCSS('text-transform', 'uppercase');
   const json = output.getByTestId('instance-payload-output');
   await expect(resultGrid.getByText('Index: GBP-SONIA · Observations: 1 item', { exact: true })).toBeVisible();
   await expect(functionResult).toHaveAttribute('aria-expanded', 'false');

@@ -28,6 +28,7 @@ import {
   type ProjectSavePreconditions
 } from '@rune-langium/project-config';
 import type { ProjectController } from './project-controller.js';
+import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import { projectConfigurationPreconditions, projectRevisionAt } from './project-save-inputs.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 async function snapshot(controller: ProjectController) {
@@ -190,6 +191,26 @@ export const savePresentation = withInstrumentation(
   { op: 'savePresentation', capture: 0, sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' }) }
 );
 
+/** Resolve a saved workflow against the same project examples used by Prototype. */
+export const resolveWorkflowInputs = withInstrumentation(
+  function resolveWorkflowInputs(workflow: WorkflowDescriptor, records: Readonly<Record<string, InstanceRecord>>) {
+    const entries: Array<[string, unknown]> = [];
+    const bindings: Array<[string, InstanceRecord]> = [];
+    for (const [path, binding] of Object.entries(workflow.inputs)) {
+      if (binding.kind === 'literal') {
+        entries.push([path, structuredClone(binding.value)]);
+        continue;
+      }
+      const record = Object.hasOwn(records, binding.exampleId) ? records[binding.exampleId] : undefined;
+      if (record?.data === undefined) throw new Error('A saved input example is unavailable. Its binding is retained.');
+      entries.push([path, structuredClone(record.data)]);
+      bindings.push([path, record]);
+    }
+    return { values: Object.fromEntries(entries), bindings };
+  },
+  { op: 'resolveWorkflowInputs', capture: 0 }
+);
+
 /** Bind unchanged stored examples; edited detached drafts become portable literals. */
 export const captureWorkflowRecipe = withInstrumentation(
   function captureWorkflowRecipe(input: {
@@ -198,7 +219,7 @@ export const captureWorkflowRecipe = withInstrumentation(
     function?: WorkflowDescriptor['function'];
     inputs: Record<string, unknown>;
     sourceIds?: Readonly<Record<string, string>>;
-    records: Readonly<Record<string, import('@rune-langium/codegen/instances').InstanceRecord>>;
+    records: Readonly<Record<string, InstanceRecord>>;
     outputs: WorkflowDescriptor['outputs'];
   }): WorkflowDescriptor {
     const inputs = Object.fromEntries(

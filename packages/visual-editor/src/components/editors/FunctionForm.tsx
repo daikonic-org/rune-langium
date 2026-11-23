@@ -666,7 +666,9 @@ function FunctionForm({
                       {signatureOnly ? (
                         <details className="mt-2 border-t border-border py-panel-y">
                           <summary className="section-heading cursor-pointer">Function metadata</summary>
-                          <div className="pt-panel-y">{metadataSections}</div>
+                          <div data-slot="function-metadata" className="pt-panel-y">
+                            {metadataSections}
+                          </div>
                         </details>
                       ) : renderFunctionBodyEditor ? (
                         renderFunctionBodyEditor({ nodeId, readOnly: sourceReadOnly })
@@ -674,7 +676,7 @@ function FunctionForm({
                         <>
                           <FieldSet className="gap-2">
                             <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                              Function Body
+                              <span className="section-heading">Function Body</span>
                             </FieldLegend>
 
                             {/* Aliases (shortcuts) — always non-editable derived content,

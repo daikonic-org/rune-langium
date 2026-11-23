@@ -155,7 +155,11 @@ export const findCompositionPrimitive = withInstrumentation(
 );
 
 export const compositionNodePresentation = withInstrumentation(
-  function compositionNodePresentation(step: CompositionStep): { label: string; icon: LucideIcon } {
+  function compositionNodePresentation(step: CompositionStep): {
+    id?: CompositionPrimitiveId;
+    label: string;
+    icon: LucideIcon;
+  } {
     if (step.kind === 'return') return findCompositionPrimitive('output')!;
     if (step.kind === 'input') return { label: step.name, icon: ArrowRightToLine };
     const primitive = COMPOSITION_PRIMITIVES.find(

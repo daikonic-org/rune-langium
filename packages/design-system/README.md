@@ -53,7 +53,9 @@ Regular 400 (`font-normal`, bridged to `--font-weight-regular` by the theme).
 Use `.navigation-tab` for tabs and view toggles: System Regular 400 in authored
 case. The shared tabs primitive uses this role by default.
 Use `.navigation-heading` for perspective names and panel titles, and
-`.section-heading` for internal section labels: System Regular 400 in authored case.
+`.section-heading` for one tier of section labels inside a panel or dialog. These
+labels use System Regular 400 in uppercase with
+`--section-heading-letter-spacing` (0.04em).
 Panel/perspective titles retain Sans Regular 400 by default. Components may
 strengthen this: Studio pane captions use Title/Sans Medium 500, and shared
 Structure card and Inspector declaration names use Medium 500.

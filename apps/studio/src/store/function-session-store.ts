@@ -20,6 +20,13 @@ export interface FunctionSessionState {
   schemaStatus?: 'loading' | 'ready' | 'unavailable';
 }
 
+export const exampleInputValue = withInstrumentation(
+  function exampleInputValue(schema: FormPreviewSchema | undefined, parameter: string, data: unknown): unknown {
+    return schema?.fields.find(({ path }) => path === parameter)?.kind === 'array' ? [data] : data;
+  },
+  { op: 'exampleInputValue', capture: 0 }
+);
+
 export interface FunctionSession {
   getState(): FunctionSessionState;
   subscribe(listener: () => void): () => void;
@@ -127,8 +134,7 @@ export const createFunctionSession = withInstrumentation(
         });
       },
       bindInstance(parameter, record) {
-        const field = state.schema?.fields.find((candidate) => candidate.path === parameter);
-        const value = field?.kind === 'array' ? [record.data] : record.data;
+        const value = exampleInputValue(state.schema, parameter, record.data);
         ++executionVersion;
         if (!loadingSchema) activeController?.abort();
         patch({

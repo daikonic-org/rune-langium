@@ -421,7 +421,7 @@ export const WorkflowFunctionBuilder = withInstrumentation(
             </div>
             <section aria-label="Function inputs" className="workflow-function-builder__section">
               <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-medium">Inputs</h3>
+                <h3 className="section-heading text-sm">Inputs</h3>
                 <Button
                   type="button"
                   size="xs"
@@ -459,7 +459,7 @@ export const WorkflowFunctionBuilder = withInstrumentation(
             </section>
             <section aria-label="Function steps" className="workflow-function-builder__section">
               <div>
-                <h3 className="text-sm font-medium">Steps</h3>
+                <h3 className="section-heading text-sm">Steps</h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Call a function, or use a Rune expression to select, map or filter values.
                 </p>
@@ -518,7 +518,7 @@ export const WorkflowFunctionBuilder = withInstrumentation(
               </Button>
             </section>
             <section aria-label="Function output" className="workflow-function-builder__section">
-              <h3 className="text-sm font-medium">Output</h3>
+              <h3 className="section-heading text-sm">Output</h3>
               <ParameterRow value={output} label="Output" disabled={busy} onChange={setOutput} />
               <label className="grid gap-1 text-xs">
                 Output expression
@@ -542,7 +542,7 @@ export const WorkflowFunctionBuilder = withInstrumentation(
             </details>
           </div>
           <section className="workflow-function-builder__preview" aria-label="Rune source preview">
-            <h3 className="border-b border-border px-3 py-2 text-xs font-medium">Rune source</h3>
+            <h3 className="section-heading border-b border-border px-3 py-2 text-xs">Rune source</h3>
             {preview.source ? (
               <pre className="studio-scroll flex-1 overflow-auto p-3 text-xs">
                 <code>{preview.source}</code>

@@ -94,7 +94,7 @@ export const WorkspacesPerspective = withInstrumentation(
               />
             </div>
             <div hidden={section !== 'references'} className="studio-launcher__references">
-              <h2 className="text-sm font-semibold mb-2">Reference models</h2>
+              <h2 className="section-heading mb-2 text-sm">Reference models</h2>
               <p className="text-sm text-caption mb-4">Read-only model dependencies belong to the active workspace.</p>
               {[
                 ...project.diagnostics,

@@ -5,6 +5,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode
 import {
   parseExpressionDraft,
   type ExpressionPickerTarget,
+  type ExpressionReferenceDetails,
   type ExpressionRow,
   type SourceRegion
 } from '@rune-langium/core';
@@ -43,6 +44,7 @@ type InlineExpressionFieldProps = {
   value: string;
   onChange(value: string): void;
   onActiveSlot?(slot: ExpressionSlot | undefined): void;
+  onInspectReference?(reference: ExpressionReferenceDetails): void;
   onEditingChange?(editing: boolean): void;
   onHighlightRange?(range: SourceRegion | undefined): void;
   highlightedRange?: SourceRegion;
@@ -58,6 +60,7 @@ export const InlineExpressionField = withInstrumentation(
     value,
     onChange,
     onActiveSlot,
+    onInspectReference,
     onEditingChange,
     onHighlightRange,
     highlightedRange
@@ -69,14 +72,14 @@ export const InlineExpressionField = withInstrumentation(
       () => runeExpressionSyntax(value, binding, from === undefined || to === undefined ? undefined : { from, to }),
       [value, binding, from, to]
     );
-    const current = useLatestRef({ value, files, binding, editable });
+    const current = useLatestRef({ value, files, binding, editable, target });
     const isCurrent = useCallback(() => {
       const latest = documents.capture(binding.uri, binding.nodeId, binding.region);
       return (
-        current.current.editable &&
+        (current.current.editable || binding.readOnly) &&
         latest?.workspaceGeneration === binding.workspaceGeneration &&
         latest.revision === binding.revision &&
-        !latest.readOnly &&
+        latest.readOnly === binding.readOnly &&
         current.current.binding.uri === binding.uri &&
         current.current.binding.nodeId === binding.nodeId &&
         current.current.files === files &&
@@ -86,6 +89,7 @@ export const InlineExpressionField = withInstrumentation(
     const loadPicker = useCallback(
       async (address: ExpressionPickerTarget, trail: readonly string[]) => {
         if (!isCurrent()) throw new Error('The source changed. Reopen this expression.');
+        const { target } = current.current;
         let candidateSource: string | undefined;
         if ('root' in address && 'root' in target) {
           const { from, to } = target.root;
@@ -112,7 +116,7 @@ export const InlineExpressionField = withInstrumentation(
         if (!isCurrent()) throw new Error('The source changed. Reopen this expression.');
         return result;
       },
-      [binding, file.path, files, isCurrent, target, value]
+      [binding, current, file.path, files, isCurrent, value]
     );
     return (
       <ExpressionBuilder
@@ -123,13 +127,15 @@ export const InlineExpressionField = withInstrumentation(
         onChange={onChange}
         onBlur={() => {}}
         onActiveSlot={onActiveSlot}
+        onInspectReference={onInspectReference}
         onEditingChange={onEditingChange}
         onHighlightRange={onHighlightRange}
         highlightedRange={highlightedRange}
         sourceTarget={target}
         renderSyntax={renderSyntax}
         loadPicker={loadPicker}
-        canCommit={isCurrent}
+        readOnly={binding.readOnly}
+        canCommit={() => !binding.readOnly && isCurrent()}
         scope={scope ?? emptyScope}
         renderTextEditor={({ value, onChange: change }) => (
           <div className="expression-code-editor w-full min-w-0">
@@ -170,6 +176,7 @@ export const InlineExpressionRows = withInstrumentation(
     onApply,
     onDiscard,
     onActiveSlot,
+    onInspectReference,
     onEditingChange,
     onHighlightRange,
     highlightedRange,
@@ -190,6 +197,7 @@ export const InlineExpressionRows = withInstrumentation(
     onApply(): void;
     onDiscard(): void;
     onActiveSlot?(slot: ExpressionSlot | undefined): void;
+    onInspectReference?(reference: ExpressionReferenceDetails): void;
     onEditingChange?(editing: boolean): void;
     onHighlightRange?(range: SourceRegion | undefined): void;
     highlightedRange?: SourceRegion;
@@ -229,7 +237,7 @@ export const InlineExpressionRows = withInstrumentation(
       const text = source.slice(from, to).trim();
       if (!text) return null;
       const start = source.indexOf(text, from);
-      return { text, content: renderSyntax({ from: start, to: start + text.length }) };
+      return renderSyntax({ from: start, to: start + text.length });
     };
     const sameRegion = (region: SourceRegion) => draft?.region.from === region.from && draft?.region.to === region.to;
     const controls = (
@@ -267,13 +275,15 @@ export const InlineExpressionRows = withInstrumentation(
           const text = matching ? draft!.text : source.slice(row.region.from, row.region.to);
           const prefix = showStatement && renderTrimmed(row.statement.from, row.region.from);
           const trivia = renderTrimmed(previousEnd, row.statement.from);
-          const inline = editingRow === rowKey || (editable && (!draft || matching) && !editing && !removing);
+          const inspectReadOnly = session.binding.readOnly && onInspectReference;
+          const inline =
+            editingRow === rowKey || ((editable || inspectReadOnly) && (!draft || matching) && !editing && !removing);
           const remove =
             onRemove && prefix && editable && !pending && !editing && (!draft || matching) && !removing
               ? () => onRemove(row)
               : undefined;
           const statementTrigger =
-            prefix && onInspect && inline
+            prefix && onInspect && inline && !inspectReadOnly
               ? { label: prefix.text, content: prefix.content, selected: inspected }
               : undefined;
           return (
@@ -320,6 +330,7 @@ export const InlineExpressionRows = withInstrumentation(
                       if (slot) onInspect?.(row);
                       onActiveSlot?.(slot);
                     }}
+                    onInspectReference={onInspectReference}
                     onEditingChange={(active) => updateEditingRow(active ? rowKey : undefined)}
                     onHighlightRange={onHighlightRange}
                     highlightedRange={highlightedRange}
@@ -328,7 +339,7 @@ export const InlineExpressionRows = withInstrumentation(
                   <span className="whitespace-pre-wrap break-words font-code text-xs">
                     {matching
                       ? runeExpressionSyntax(text, session.binding, row.region)({ from: 0, to: text.length })
-                      : renderSyntax(row.region)}
+                      : renderSyntax(row.region).content}
                   </span>
                 )}
               </div>
@@ -360,6 +371,7 @@ export const InlineExpressionRows = withInstrumentation(
               value={draft.text}
               onChange={(text) => onChange(undefined, text)}
               onActiveSlot={onActiveSlot}
+              onInspectReference={onInspectReference}
               onEditingChange={(active) => updateEditingRow(active ? 'new' : undefined)}
             />
             {controls}

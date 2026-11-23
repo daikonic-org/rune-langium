@@ -269,6 +269,8 @@ export interface PreviewScalarField extends PreviewFieldBase {
   kind: 'string' | 'number' | 'boolean';
   /** Canonical ISO wire format; form values remain strings. */
   format?: TemporalWireFormat;
+  /** Numeric aliases underlying the declared type, nearest first. */
+  baseTypeSymbols?: string[];
 }
 
 export interface CodeListValue {

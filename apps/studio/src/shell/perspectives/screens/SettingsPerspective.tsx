@@ -29,7 +29,7 @@ export const SettingsPerspective = withInstrumentation(
       <section data-testid="settings-perspective" className="studio-settings studio-scroll h-full overflow-auto">
         {/* ── Appearance ──────────────────────────────────────────────────── */}
         <section className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Appearance</h2>
+          <h2 className="section-heading text-sm text-muted-foreground">Appearance</h2>
 
           <div className="grid grid-cols-[8rem_minmax(0,13rem)] items-center gap-3">
             <span className="text-sm">Pane font size</span>
@@ -58,7 +58,7 @@ export const SettingsPerspective = withInstrumentation(
 
         {/* ── Privacy ─────────────────────────────────────────────────────── */}
         <section data-testid="settings-privacy-section" className="space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Privacy</h2>
+          <h2 className="section-heading text-sm text-muted-foreground">Privacy</h2>
 
           <Field orientation="horizontal">
             <Checkbox

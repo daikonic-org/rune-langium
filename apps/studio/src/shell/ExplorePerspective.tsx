@@ -3221,6 +3221,31 @@ export const ExplorePerspective = withInstrumentation(
           models={models}
           active={composeActive}
           onNavigate={navigateToNode}
+          canGoBack={canGoBack}
+          onNavigateBack={navigateBack}
+          onLoadReference={(nodeId) => {
+            const node = nodeRepository.byId(nodeId);
+            if (node?.meta.deferred && node.meta.namespace) requestNamespaceHydration(node.meta.namespace);
+          }}
+          renderReferenceInspector={(nodeId, inspect) => {
+            const node = nodeRepository.byId(nodeId);
+            if (!node) return null;
+            return (
+              <EditorFormPanel
+                nodeId={node.id}
+                nodeData={node.data}
+                meta={node.meta}
+                isReadOnly
+                isHydrating={node.meta.deferred}
+                availableTypes={availableTypes}
+                actions={editorActions}
+                allNodes={storeNodes}
+                nodeRepository={nodeRepository}
+                functionSignatureOnly
+                onNavigateToNode={inspect}
+              />
+            );
+          }}
           onSave={async () => {
             await flushWorkspaceSave?.();
           }}

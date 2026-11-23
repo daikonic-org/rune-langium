@@ -4,6 +4,7 @@
 
 import { useState, type ComponentProps } from 'react';
 import { Input } from '@rune-langium/design-system/ui/input';
+import { cn } from '@rune-langium/design-system/utils';
 import { formatPreviewNumber, type NumericPresentation } from '../store/form-presentation-store.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
@@ -13,6 +14,7 @@ export const PreviewNumberInput = withInstrumentation(
     format,
     onValueChange,
     onBlur,
+    className,
     ...props
   }: Omit<ComponentProps<typeof Input>, 'value' | 'onChange' | 'type'> & {
     value: unknown;
@@ -20,14 +22,16 @@ export const PreviewNumberInput = withInstrumentation(
     onValueChange(value: number | ''): void;
   }) {
     const [focused, setFocused] = useState(false);
-    const display = !!format && !focused;
     const raw = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+    const displayed = focused ? raw : formatPreviewNumber(value, format);
+    const showingFormat = !focused && (!!format || displayed !== raw);
     return (
       <Input
         {...props}
-        type={display ? 'text' : 'number'}
+        className={cn(className, 'tabular-nums')}
+        type={showingFormat ? 'text' : 'number'}
         inputMode="decimal"
-        value={display ? formatPreviewNumber(value, format) : raw}
+        value={displayed}
         onFocus={() => setFocused(true)}
         onChange={(event) =>
           onValueChange(

@@ -98,7 +98,7 @@ function WorkspaceSwitcherTrigger({
             there are recents OTHER than the current workspace. */}
         {onSwitchWorkspace && workspaceMenuRecents.length > 0 && (
           <>
-            <p className="px-2 py-1 text-3xs font-normal text-muted-foreground uppercase tracking-wider">Switch to</p>
+            <p className="section-heading px-2 py-1 text-3xs text-muted-foreground">Switch to</p>
             <ul className="space-y-0.5" role="menu">
               {workspaceMenuRecents.slice(0, 6).map((r) => (
                 <li key={r.id} role="none">

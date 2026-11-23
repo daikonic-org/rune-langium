@@ -36,6 +36,76 @@ async function scope(source: string | string[], name: string, aliasIndex?: numbe
 }
 
 describe('authoritative expression scope descriptions', () => {
+  it('describes linked path segments and filters slot values by their declared type', async () => {
+    const { RuneDsl } = createRuneDslServices();
+    const factory = RuneDsl.shared.workspace.LangiumDocumentFactory;
+    const basics = factory.fromString(BASICTYPES_ROSETTA, URI.parse('file:///basics.rosetta'));
+    const doc = factory.fromString<RosettaModel>(
+      `namespace picker
+enum Direction:
+ Sell
+ Buy
+type Trade:
+ side Direction (1..1)
+ size number (1..1)
+func UseSide:
+ inputs: side Direction (1..1)
+ output: result Direction (1..1)
+ set result: side
+func ReturnSide:
+ output: result Direction (1..1)
+ set result: Direction -> Buy
+func ReturnSize:
+ output: result number (1..1)
+ set result: 1
+func Demo:
+ inputs:
+  trade Trade (1..1)
+  alternative Direction (1..1)
+  size number (1..1)
+ output: result Direction (1..1)
+ set result: UseSide(trade -> side)
+`,
+      URI.parse('file:///picker.rosetta')
+    );
+    await RuneDsl.shared.workspace.DocumentBuilder.build([basics, doc], { validation: false, eagerLinking: true });
+    expect(doc.parseResult.parserErrors).toEqual([]);
+    const owner = doc.parseResult.value.elements.find((node) => node.name === 'Demo');
+    const call = owner?.$type === 'RosettaFunction' ? owner.operations[0]?.expression : undefined;
+    if (call?.$type !== 'RosettaSymbolReference' || !call.rawArgs[0]) throw new Error('fixture call');
+    const slot = call.rawArgs[0];
+    const context = getExpressionPickerContext(slot, RuneDsl, []);
+    expect(context.expected).toEqual({ name: 'side', typeName: 'Direction', cardinality: '(1..1)' });
+    expect(context.inspected).toMatchObject({
+      name: 'side',
+      declaration: { namespace: 'picker', name: 'Direction', kind: 'RosettaEnumeration' }
+    });
+    expect(context.enumValues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Buy', expressionText: 'picker.Direction -> Buy' }),
+        expect.objectContaining({ name: 'Sell' })
+      ])
+    );
+    expect(context.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'alternative', compatibility: 'compatible' }),
+        expect.objectContaining({ name: 'size', compatibility: 'incompatible' }),
+        expect.objectContaining({ name: 'ReturnSide', compatibility: 'compatible' }),
+        expect.objectContaining({ name: 'ReturnSize', compatibility: 'incompatible' })
+      ])
+    );
+    const trade = context.referencePath?.[0];
+    expect(trade?.declaration).toMatchObject({ name: 'Trade', kind: 'Data' });
+    const browse = getExpressionPickerContext(slot, RuneDsl, [trade!.browseId!]);
+    expect(browse.inspected?.declaration?.name).toBe('Trade');
+    expect(browse.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'side', expressionText: 'trade -> side', compatibility: 'compatible' }),
+        expect.objectContaining({ name: 'size', compatibility: 'incompatible' })
+      ])
+    );
+  });
+
   it.each(['period', 'item'])('offers the scoped filter element %s and its inherited members', async (parameter) => {
     const { RuneDsl } = createRuneDslServices();
     const doc = RuneDsl.shared.workspace.LangiumDocumentFactory.fromString<RosettaModel>(

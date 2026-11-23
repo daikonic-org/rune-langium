@@ -78,6 +78,9 @@ for (const theme of ['daikonic', 'light'])
     await expect(page.getByTestId('explore-workbench')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('rail-export').click();
     await expect(page.getByTestId('export-perspective')).toBeVisible();
+    for (const name of ['Export selection', 'Export settings', 'Generated output']) {
+      await expect(page.getByRole('heading', { name, exact: true })).toHaveCSS('text-transform', 'uppercase');
+    }
     await expect(page.getByTestId('export-selection').getByText(/^Select declarations or namespaces\./)).toHaveCSS(
       'margin-top',
       '4px'

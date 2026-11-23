@@ -128,7 +128,7 @@ export const WorkspaceConfiguration = withInstrumentation(
     const modelName = model && typeof model === 'object' && 'name' in model ? String(model.name) : undefined;
     return (
       <section data-testid="settings-project-section" className="space-y-4">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Workspace configuration</h2>
+        <h2 className="section-heading text-sm text-muted-foreground">Workspace configuration</h2>
         {snapshot ? (
           <>
             {modelName && <p className="text-sm">{modelName}</p>}

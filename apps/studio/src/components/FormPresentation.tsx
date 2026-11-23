@@ -39,15 +39,24 @@ const DEFAULT_LAYOUT: ObjectFormLayout = { columns: 3, order: [], spans: {} };
 function defaultFieldSpan(field: PreviewField): 1 | 2 | 'full' {
   if (field.kind === 'object' || field.kind === 'array') return 'full';
   if (field.kind === 'string' && (field.format === 'dateTime' || field.format === 'zonedDateTime')) return 2;
+  if (field.label.length > 24 || (field.kind === 'enum' && field.enumValues.some(({ label }) => label.length > 20)))
+    return 2;
   return 1;
 }
 const DEFAULT_FORMAT: NumericPresentation = { style: 'decimal', currency: 'USD', grouping: true };
 const PresentationContext = createContext<{
   preferences: FormPreferences;
   editing: boolean;
+  defaultColumns: 2 | 3;
   update(change: (preferences: FormPreferences) => FormPreferences): void;
   keyFor(symbol: string): string | undefined;
-}>({ preferences: { layouts: {}, formats: {} }, editing: false, update() {}, keyFor: (symbol) => symbol });
+}>({
+  preferences: { layouts: {}, formats: {} },
+  editing: false,
+  defaultColumns: 3,
+  update() {},
+  keyFor: (symbol) => symbol
+});
 const PresentationOwners = createContext<readonly { key: string; parentPath: string }[]>([]);
 
 export const useFormPresentationState = withInstrumentation(
@@ -84,6 +93,8 @@ export const FormPresentation = withInstrumentation(
   function FormPresentation({
     children,
     toolbarStart,
+    renderToolbar,
+    defaultColumns = 3,
     showToolbar = true,
     showNotices,
     editing: controlledEditing,
@@ -91,6 +102,8 @@ export const FormPresentation = withInstrumentation(
   }: {
     children: ReactNode;
     toolbarStart?: ReactNode;
+    renderToolbar?(layoutToggle: ReactNode): ReactNode;
+    defaultColumns?: 2 | 3;
     showToolbar?: boolean;
     showNotices?: boolean;
     editing?: boolean;
@@ -124,11 +137,28 @@ export const FormPresentation = withInstrumentation(
       (workspace
         ? workspaceDeclarationIdentities(workspace).find((type) => declarationKey(type) === key)?.name
         : undefined) ?? key;
+    const layoutLabel = editing ? 'Done editing' : 'Edit layout';
+    const layoutToggle = showToolbar && (
+      <Button
+        type="button"
+        variant="ghost"
+        size={renderToolbar ? 'icon-xs' : 'xs'}
+        disabled={!ready || (editing && entry?.saving)}
+        aria-label={layoutLabel}
+        title={layoutLabel}
+        aria-pressed={editing}
+        onClick={() => (onEditingChange ? onEditingChange(!editing) : setEditing(workspaceId, !editing))}
+      >
+        <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+        {!renderToolbar && layoutLabel}
+      </Button>
+    );
     return (
       <PresentationContext
         value={{
           preferences: entry?.preferences ?? { layouts: {}, formats: {} },
           editing,
+          defaultColumns,
           update: (change) => update(workspaceId, change),
           keyFor: (symbol) => {
             if (!entry?.repository) return symbol;
@@ -137,25 +167,22 @@ export const FormPresentation = withInstrumentation(
           }
         }}
       >
-        {showToolbar && (
-          <div className="preview-layout-toolbar">
-            {toolbarStart}
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              disabled={!ready || (editing && entry?.saving)}
-              aria-pressed={editing}
-              onClick={() => (onEditingChange ? onEditingChange(!editing) : setEditing(workspaceId, !editing))}
-            >
-              <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-              {editing ? 'Done editing' : 'Edit layout'}
-            </Button>
-            {editing && <span role="status">{saveLabel}</span>}
-          </div>
-        )}
+        {renderToolbar
+          ? renderToolbar(layoutToggle)
+          : showToolbar && (
+              <div className="preview-layout-toolbar">
+                {toolbarStart}
+                {layoutToggle}
+                {editing && <span role="status">{saveLabel}</span>}
+              </div>
+            )}
         {editing && (
           <p className="preview-layout-help">
+            {renderToolbar && showToolbar && (
+              <span role="status" className="mr-2">
+                {saveLabel}
+              </span>
+            )}
             Drag fields to arrange them. Use arrow keys on a handle to move a field. Formats apply to every use of the
             same type.
           </p>
@@ -240,15 +267,26 @@ export const FormPresentation = withInstrumentation(
 );
 
 export const useNumericPresentation = withInstrumentation(
-  function useNumericPresentation(field: PreviewField) {
+  function useNumericPresentation(owner?: { symbol?: string; parentPath: string }) {
     const { preferences, keyFor } = useContext(PresentationContext);
     const owners = useContext(PresentationOwners);
-    for (const owner of [...owners].reverse()) {
-      const format = preferences.fieldFormats?.[owner.key]?.[formMemberKey(field.path, owner.parentPath)];
-      if (format) return format;
-    }
-    const key = field.typeSymbol && keyFor(field.typeSymbol);
-    return key ? preferences.formats[key] : undefined;
+    const key = owner?.symbol && keyFor(owner.symbol);
+    const order = key && owner ? [{ key, parentPath: owner.parentPath }, ...owners.toReversed()] : owners.toReversed();
+
+    return (field: PreviewField, currency?: string): NumericPresentation | undefined => {
+      if (field.kind !== 'number') return undefined;
+      const path = field.declaredPath ?? field.path;
+      for (const { key, parentPath } of order) {
+        const format = preferences.fieldFormats?.[key]?.[formMemberKey(path, parentPath)];
+        if (format) return withValueCurrency(format, currency);
+      }
+      for (const symbol of [field.typeSymbol, ...(field.baseTypeSymbols ?? [])]) {
+        const key = symbol && keyFor(symbol);
+        const format = key ? preferences.formats[key] : undefined;
+        if (format) return withValueCurrency(format, currency);
+      }
+      return withValueCurrency(undefined, currency);
+    };
   },
   {
     op: 'useNumericPresentation',
@@ -256,6 +294,12 @@ export const useNumericPresentation = withInstrumentation(
     sanitizeError: (e) => ({ signature: e instanceof Error ? e.name : 'Error' })
   }
 );
+
+function withValueCurrency(format: NumericPresentation | undefined, currency: string | undefined) {
+  return currency && format?.style !== 'decimal'
+    ? { ...format, style: 'currency' as const, currency, grouping: format?.grouping ?? true }
+    : format;
+}
 
 export const formMemberKey = withInstrumentation(
   function formMemberKey(path: string, parentPath: string): string {
@@ -287,10 +331,11 @@ export const PreviewLayoutGroup = withInstrumentation(
     renderField(field: PreviewField): ReactNode;
     isFieldVisible?(field: PreviewField): boolean;
   }) {
-    const { preferences, editing, update, keyFor } = useContext(PresentationContext);
+    const { preferences, editing, defaultColumns, update, keyFor } = useContext(PresentationContext);
     const owners = useContext(PresentationOwners);
     const preferenceKey = symbol && keyFor(symbol);
-    const layout = (preferenceKey && preferences.layouts[preferenceKey]) || DEFAULT_LAYOUT;
+    const defaultLayout = { ...DEFAULT_LAYOUT, columns: defaultColumns };
+    const layout = (preferenceKey && preferences.layouts[preferenceKey]) || defaultLayout;
     const editable = editing && !!preferenceKey && fields.length > 0;
     const group = useId();
     const drag = useRef<{ key: string; target?: string; after?: boolean; pointer: number } | null>(null);
@@ -316,7 +361,7 @@ export const PreviewLayoutGroup = withInstrumentation(
           ...current,
           layouts: {
             ...current.layouts,
-            [preferenceKey]: { ...(current.layouts[preferenceKey] ?? DEFAULT_LAYOUT), ...change }
+            [preferenceKey]: { ...(current.layouts[preferenceKey] ?? defaultLayout), ...change }
           }
         }));
     };
@@ -362,7 +407,11 @@ export const PreviewLayoutGroup = withInstrumentation(
               </Button>
             </div>
           )}
-          <div className="preview-layout-grid" style={{ '--requested-columns': layout.columns } as CSSProperties}>
+          <div
+            className="preview-layout-grid"
+            data-two-column-default={defaultColumns === 2 || undefined}
+            style={{ '--requested-columns': layout.columns } as CSSProperties}
+          >
             {children && <div className="preview-layout-fixed">{children}</div>}
             {visible.map(({ field, key, span }, index) => (
               <div
