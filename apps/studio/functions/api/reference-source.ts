@@ -18,22 +18,26 @@ export const serveReferenceSource = withInstrumentation(
     fetcher?: typeof fetch;
   }): Promise<Response> {
     if (request.method !== 'GET') return new Response(null, { status: 405, headers: { Allow: 'GET' } });
-    const params = new URL(request.url).searchParams;
+    const cacheUrl = new URL(request.url);
+    const params = cacheUrl.searchParams;
     const repository = params.get('repository');
     const object = params.get('object');
     const sha = params.get('sha');
     const url = new URL(`https://api.github.com/repos/${repository}/${object}/${sha}`);
     if (object === 'git/trees') url.search = '?recursive=1';
-    if (!referenceSourceObject(url) || [...params.keys()].some((key) => !['repository', 'object', 'sha'].includes(key)))
+    const reference = referenceSourceObject(url);
+    if (!reference || [...params.keys()].some((key) => !['repository', 'object', 'sha'].includes(key)))
       return Response.json({ error: 'Invalid public reference source object.' }, { status: 400 });
-    const key = new Request(url);
+    // Cloudflare's cache belongs to the Pages host. GitHub is only the fetch destination.
+    cacheUrl.search = new URLSearchParams(reference).toString();
+    const key = new Request(cacheUrl);
     const cached = await cache?.match(key).catch(() => undefined);
-    if (cached) return cached;
+    if (cached?.ok) return cached;
     let response: Response;
     try {
       response = await fetcher(url, {
         headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rune-Studio' },
-        redirect: 'error',
+        redirect: 'manual',
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)])
       });
     } catch (error) {
@@ -48,6 +52,8 @@ export const serveReferenceSource = withInstrumentation(
       const value = response.headers.get(name);
       if (value) headers.set(name, value);
     }
+    if (response.status >= 300 && response.status < 400)
+      return Response.json({ error: 'Public reference metadata redirected.' }, { status: 502, headers });
     if (!response.ok)
       return Response.json({ error: 'Public reference metadata unavailable.' }, { status: response.status, headers });
     headers.set('Cache-Control', 'public, max-age=31536000, immutable');

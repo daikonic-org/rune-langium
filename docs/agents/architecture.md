@@ -769,7 +769,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Routed parsing returns each dependency bundle's resolved manifest cohort/version. Studio registers implicit curated dependencies with that identity before merging reference-only files, so preview snapshots and restored workspace bindings retain the exact serialized reference targets. It does not replace an implicit pin with a guessed latest version.
 - Derive UI previews and validation from authoritative codegen output. A sample awaiting a worker validation result must remain visibly pending; editing alone never establishes validity.
 - `CodegenProvider` owns the shared browser worker connection. Resetting workspace/model preview data clears pending results without detaching that worker; only its provider lifecycle attaches or detaches preview dispatch.
-- Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. The shared form layout defaults to up to three columns, with wider timestamp fields and full-width nested objects and collections. Workflow results reuse the renderer in read-only mode, preserving navigation into objects and grid rows. Read-only layouts elide empty fields while layout editing exposes the full schema. Primitive collections use a responsive grid with one collection label and accessible item names. Nested form sections alternate theme surfaces by depth. Presentation components do not own validation or alternate schema semantics.
+- Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. The shared form layout defaults to up to three columns, with wider timestamp fields and full-width nested objects and collections. Workflow results reuse the renderer in read-only mode, preserving navigation into objects and grid rows. Read-only tables whose columns overflow show the same cells as labeled fields within each row. Read-only layouts elide empty fields while layout editing exposes the full schema. Primitive collections use a responsive grid with one collection label and accessible item names. Nested form sections alternate theme surfaces by depth. Presentation components do not own validation or alternate schema semantics.
 - Preview scalar formats follow the resolved Rune primitive, including aliases, arrays and Choice arms. Shared Preview/Prototype controls compose the design-system Calendar and themed time segments alongside ISO inputs. The Calendar wraps react-day-picker's date-grid and keyboard semantics with shared theme tokens. An ISO editor preserves nanosecond fractions and explicit zoned offsets/IDs; companion picker edits retain that precision and authored suffix. Workers remain authoritative validators; friendly temporal format guidance changes only presentation, leaving original diagnostics in Output/Activity.
 - Preview preparation coalesces hydration and worker-file acknowledgement independently of individual panel cancellation. A shared 30-second deadline aborts stalled preparation and allows a fresh retry. Projection display requests also have a 30-second deadline and a direct Retry generation action; execution keeps its separate 120-second deadline. Late replies cannot replace a newer retry result.
 - Routed parse results carry every resolved curated bundle's immutable cohort/version, including implicit cross-bundle dependencies. Studio retains those bundles in its workspace model bindings instead of discarding dependencies that the user did not select explicitly.
@@ -1711,12 +1711,13 @@ member and declaration state. Light-theme palette work is tracked in #643.
 ## Reference example imports
 
 Public reference commit/tree metadata uses `/api/reference-source`, restricted to
-the curated repository registry, immutable SHA identities and GET. Successful
-responses share an edge cache; failures are never cached. Connected workspaces
-reuse their scoped token directly for admitted GitHub objects, without entering
-the public cache. Payloads use raw immutable URLs and retain the shared reader's
-Git blob hash/size checks. Quota errors expose reset/recovery guidance. This is a
-transport cache, not a second reference catalog or a parser/validation path.
+the curated repository registry, immutable SHA identities and GET. The edge
+cache keys successful responses by the normalized request URL on the Pages host.
+An unsuccessful cache response triggers a fresh upstream fetch. Pages requests
+use the Workers runtime's manual redirect mode and reject 3xx responses.
+Connected workspaces reuse their scoped token directly for admitted GitHub
+objects. Payloads use raw immutable URLs and retain the shared reader's Git blob
+hash/size checks. Quota errors expose reset/recovery guidance.
 
 Core's parser-free `/serialization` entry owns JSON/RUNE_JSON wire metadata
 conversion. Project-config's portable example reader and native project-data APIs

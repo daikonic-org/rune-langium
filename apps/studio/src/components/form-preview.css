@@ -203,7 +203,13 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.preview-object-grid td[data-summary] > span {
+.preview-object-grid[data-read-only] th[data-column-compact] {
+  overflow-wrap: normal;
+}
+.preview-object-grid__field-label {
+  display: none;
+}
+.preview-object-grid td[data-summary] > .preview-object-grid__value {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -221,9 +227,6 @@
   width: 3.75rem;
   background: var(--card);
 }
-.preview-object-grid[data-read-only][data-columns-overflow] .preview-object-grid__actions {
-  box-shadow: calc(-1 * var(--space-1)) 0 var(--space-2) color-mix(in srgb, var(--foreground) 16%, transparent);
-}
 .preview-object-grid__detail td {
   white-space: normal;
   background: var(--background);
@@ -240,6 +243,55 @@
 .preview-object-grid td[data-invalid] {
   background: color-mix(in srgb, var(--destructive) 12%, transparent);
   color: color-mix(in oklch, var(--destructive) 70%, var(--foreground));
+}
+.preview-object-grid[data-wrap-columns] > table,
+.preview-object-grid[data-wrap-columns] > table > tbody,
+.preview-object-grid[data-wrap-columns] > table > tbody > .preview-object-grid__detail,
+.preview-object-grid[data-wrap-columns] > table > tbody > .preview-object-grid__detail > td {
+  display: block;
+}
+.preview-object-grid[data-wrap-columns] > table > thead {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.preview-object-grid[data-wrap-columns] > table > tbody > tr:not(.preview-object-grid__detail) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7rem), 1fr));
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+}
+.preview-object-grid[data-wrap-columns] > table > tbody > tr > td {
+  width: auto;
+  min-inline-size: 0;
+  max-inline-size: none;
+  padding: 0;
+  white-space: normal;
+}
+.preview-object-grid[data-wrap-columns] > table > tbody > tr > td > .preview-object-grid__field-label {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.preview-object-grid[data-wrap-columns] > table > tbody > tr > td > .preview-object-grid__value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.preview-object-grid[data-wrap-columns] > table > tbody > tr > .preview-object-grid__actions {
+  position: static;
+  grid-column: -2 / -1;
+  grid-row: 1;
+  background: transparent;
+}
+.preview-object-grid[data-wrap-columns] > table > tbody > .preview-object-grid__detail > td > div {
+  position: static;
+  max-inline-size: none;
+  padding: var(--space-2);
 }
 .preview-object-grid__empty {
   margin: 0;

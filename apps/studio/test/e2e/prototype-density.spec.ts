@@ -171,19 +171,15 @@ func Echo:
   await details.screenshot({ path: info.outputPath('workflow-result-details.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 390, height: 900 });
   const gridViewport = identifiers.locator('.preview-object-grid');
-  await expect(gridViewport).toHaveAttribute('data-columns-overflow', '');
-  const columnWidth = (name: string) =>
-    identifiers.getByRole('columnheader', { name, exact: true }).evaluate((header) => header.clientWidth);
-  expect(await columnWidth('Rank')).toBeLessThan(await columnWidth('Registry'));
-  await expect
-    .poll(() =>
-      gridViewport.evaluate((element) => {
-        element.scrollLeft = element.scrollWidth;
-        return Math.abs(element.scrollLeft);
-      })
-    )
-    .toBeGreaterThan(0);
+  await expect(gridViewport).toHaveAttribute('data-wrap-columns', '');
+  await expect.poll(() => gridViewport.evaluate((grid) => grid.scrollWidth - grid.clientWidth)).toBeLessThanOrEqual(1);
+  const identifierRow = identifiers.getByRole('row', { name: 'Identifier 1', exact: true });
+  await expect(identifierRow.getByRole('cell', { name: 'Illustrative', exact: true })).toBeInViewport();
+  await expect(identifierRow.getByRole('cell', { name: '1', exact: true })).toBeInViewport();
+  await expect(identifierRow.getByText('Rank', { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 1920, height: 1080 });
+  await expect(gridViewport).not.toHaveAttribute('data-wrap-columns', '');
+  await expect(identifiers.getByRole('columnheader', { name: 'Rank', exact: true })).toBeVisible();
   await details.getByRole('button', { name: 'Edit layout', exact: true }).click();
   await expect(details.getByRole('button', { name: 'Move Taxonomy', exact: true })).toBeVisible();
   await details.getByRole('button', { name: 'Done editing', exact: true }).click();

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Pradeep Mouli
 
 import { withInstrumentation } from '../services/instrumentation/core.js';
-import { Fragment, useEffect, useId, useRef, type ReactNode } from 'react';
+import { Fragment, useId, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { ArrowUpRight, ChevronRight, Ellipsis, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@rune-langium/design-system/ui/button';
 import {
@@ -54,28 +54,33 @@ export const PreviewObjectGrid = withInstrumentation(
     const readOnly = !onRemove;
     const scroller = useRef<HTMLDivElement>(null);
     const table = useRef<HTMLTableElement>(null);
-    useEffect(() => {
+    useLayoutEffect(() => {
       const viewport = scroller.current;
-      if (!readOnly || !viewport || !table.current) return;
-      const update = () =>
-        viewport.toggleAttribute('data-columns-overflow', viewport.scrollWidth > viewport.clientWidth + 1);
+      const grid = table.current;
+      if (!readOnly || !viewport || !grid) return;
+      const update = () => {
+        // Measure the table at its natural column widths before applying the wrapped layout.
+        viewport.removeAttribute('data-wrap-columns');
+        viewport.toggleAttribute('data-wrap-columns', viewport.scrollWidth > viewport.clientWidth + 1);
+      };
       const observer = new ResizeObserver(update);
       observer.observe(viewport);
-      observer.observe(table.current);
+      observer.observe(grid);
       update();
       return () => {
         observer.disconnect();
-        viewport.removeAttribute('data-columns-overflow');
+        viewport.removeAttribute('data-wrap-columns');
       };
-    }, [readOnly]);
+    }, [readOnly, columns, rows]);
     return (
       <div ref={scroller} className="preview-object-grid studio-scroll" data-read-only={readOnly || undefined}>
-        <table ref={table} aria-label={label}>
-          <thead>
-            <tr>
+        <table ref={table} aria-label={label} role={readOnly ? 'table' : undefined}>
+          <thead role={readOnly ? 'rowgroup' : undefined}>
+            <tr role={readOnly ? 'row' : undefined}>
               {columns.map((column, columnIndex) => (
                 <th
                   scope="col"
+                  role={readOnly ? 'columnheader' : undefined}
                   key={column.path}
                   data-summary-column={columnIndex}
                   data-column-compact={column.compact || undefined}
@@ -84,15 +89,16 @@ export const PreviewObjectGrid = withInstrumentation(
                   {column.label}
                 </th>
               ))}
-              <th scope="col" className="preview-object-grid__actions">
+              <th scope="col" role={readOnly ? 'columnheader' : undefined} className="preview-object-grid__actions">
                 <span className="sr-only">Item actions</span>
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role={readOnly ? 'rowgroup' : undefined}>
             {rows.map((row, index) => (
               <Fragment key={row.path}>
                 <tr
+                  role={readOnly ? 'row' : undefined}
                   aria-label={row.label}
                   data-field-path={row.path}
                   tabIndex={-1}
@@ -103,6 +109,7 @@ export const PreviewObjectGrid = withInstrumentation(
                   {row.cells.map((cell, columnIndex) => (
                     <td
                       key={cell.path}
+                      role={readOnly ? 'cell' : undefined}
                       data-summary-column={columnIndex}
                       data-column-compact={columns[columnIndex]?.compact || undefined}
                       data-editable={cell.editor ? 'true' : undefined}
@@ -113,10 +120,15 @@ export const PreviewObjectGrid = withInstrumentation(
                       data-empty={cell.empty ? 'true' : undefined}
                       data-invalid={cell.error ? 'true' : undefined}
                     >
-                      {cell.editor ?? <span className="block truncate">{cell.text}</span>}
+                      {readOnly && (
+                        <span className="preview-object-grid__field-label" aria-hidden="true">
+                          {columns[columnIndex]?.label}
+                        </span>
+                      )}
+                      {cell.editor ?? <span className="preview-object-grid__value block truncate">{cell.text}</span>}
                     </td>
                   ))}
-                  <td className="preview-object-grid__actions">
+                  <td role={readOnly ? 'cell' : undefined} className="preview-object-grid__actions">
                     <div className="flex items-center justify-end gap-1">
                       {row.issues > 0 && (
                         <AlertCircle
@@ -181,8 +193,8 @@ export const PreviewObjectGrid = withInstrumentation(
                   </td>
                 </tr>
                 {expandedIndex === index && (
-                  <tr className="preview-object-grid__detail">
-                    <td colSpan={columns.length + 1}>
+                  <tr role={readOnly ? 'row' : undefined} className="preview-object-grid__detail">
+                    <td role={readOnly ? 'cell' : undefined} colSpan={columns.length + 1}>
                       <div id={`${detailId}-${index}`} role="group" aria-label={`${row.label} fields`}>
                         {renderExpandedRow(index)}
                       </div>

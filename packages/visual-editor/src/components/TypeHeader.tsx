@@ -69,7 +69,7 @@ export function TypeHeader({
       data-slot="type-header"
       className={cn('sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-muted px-0 py-panel-y', className)}
     >
-      <div className="flex min-w-24 max-w-full flex-1 flex-col">
+      <div className="flex min-w-0 grow basis-56 flex-col">
         {namespace && (
           <span
             data-slot="type-header-namespace"
@@ -85,7 +85,7 @@ export function TypeHeader({
             name="name"
             render={({ field, fieldState }) =>
               nameReadOnly ? (
-                <h2 data-slot="type-name" className="truncate px-1 text-lg font-medium">
+                <h2 data-slot="type-name" className="wrap-anywhere px-1 text-lg font-medium">
                   {field.value}
                 </h2>
               ) : (
@@ -102,6 +102,7 @@ export function TypeHeader({
                     className="h-auto px-1 py-0.5 text-lg font-medium"
                     placeholder={placeholder}
                     aria-label={nameAriaLabel}
+                    title={field.value}
                   />
                   {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                 </Field>
@@ -109,28 +110,30 @@ export function TypeHeader({
             }
           />
         ) : (
-          <h2 data-slot="type-name" className="truncate px-1 text-lg font-medium">
+          <h2 data-slot="type-name" className="wrap-anywhere px-1 text-lg font-medium">
             {name}
           </h2>
         )}
       </div>
-      {actions}
-      {onReveal && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          data-slot="type-header-reveal"
-          onClick={onReveal}
-          aria-label="Reveal in graph"
-          title="Reveal in graph"
-          className="shrink-0 text-muted-foreground hover:text-foreground"
-        >
-          <Crosshair className="size-3.5" />
-        </Button>
-      )}
-      <KindBadge kind={kind} />
-      {trailing}
+      <div className="ms-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
+        {actions}
+        {onReveal && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            data-slot="type-header-reveal"
+            onClick={onReveal}
+            aria-label="Reveal in graph"
+            title="Reveal in graph"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <Crosshair className="size-3.5" />
+          </Button>
+        )}
+        <KindBadge kind={kind} />
+        {trailing}
+      </div>
     </div>
   );
 }
