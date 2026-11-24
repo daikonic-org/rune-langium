@@ -378,10 +378,11 @@ interactive.
 The graph's informational legend also passes pointer events to the canvas.
 
 Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
-workspace creation does not leak into individual declaration forms. Its declaration
-title is a level-two heading beneath the perspective heading, including transient
-read-only states; heading order cannot depend on neighboring Dockview panels. Extend uses
-the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
+workspace creation does not leak into individual declaration forms. Read-only names
+wrap and editable names expose their full value on hover. Header actions and badges
+wrap together when the pane is narrow. Read-only titles use level-two headings
+beneath the perspective heading, independent of neighboring Dockview panels.
+Extend uses the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
 from the verified active curated source into editable override files; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
 then uses the normal file persistence/parse path. Modify emits `override namespace`

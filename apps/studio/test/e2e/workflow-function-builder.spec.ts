@@ -2283,6 +2283,12 @@ test('boxes only interactive tokens and distinguishes constructor nesting in Com
   await expect(inspect).toHaveValue('alias:cursor');
   await expect(details.getByText('Reduce', { exact: true })).toBeVisible();
   const signature = details.getByRole('region', { name: 'Function signature', exact: true });
+  const functionName = signature.getByRole('textbox', { name: 'Function type name', exact: true });
+  await expect(functionName).toHaveValue('StrikeDateAtPosition');
+  await expect(functionName).toHaveAttribute('title', 'StrikeDateAtPosition');
+  await expect
+    .poll(() => functionName.evaluate((input) => input.scrollWidth - input.clientWidth))
+    .toBeLessThanOrEqual(1);
   await expect(signature.getByRole('textbox', { name: 'Attribute name: dates', exact: true })).toBeVisible();
   await expect(signature.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
   await expect(composer.getByRole('button', { name: 'Expand editor', exact: true })).toHaveCount(0);
