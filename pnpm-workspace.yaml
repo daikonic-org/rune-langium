@@ -29,8 +29,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - langium-zod@0.12.2
   - '@zod-to-form/core@0.12.0'
-  - '@zod-to-form/react@0.13.0'
-  - '@zod-to-form/vite@0.5.0'
+  - '@zod-to-form/react@0.13.1'
+  - '@zod-to-form/vite@0.5.1'
   - '@zod-to-form/codegen@0.11.0'
   # PR #353: @lspeasy/client 3.1.5 pulls in @lspeasy/core 2.6.0 as a new
   # transitive resolution; both were too freshly-published for the age gate,
@@ -46,7 +46,7 @@ overrides:
   # Keep its auto-installed API on the latest supported 1.9 release.
   '@opentelemetry/api': 1.9.1
   zod: 4.6.7
-  '@zod-to-form/vite': 0.5.0
+  '@zod-to-form/vite': 0.5.1
   # Exact-pinned (not a caret range) like langium-zod/@zod-to-form below:
   # codegen's sql-node-types.ts is GENERATED from this exact version's
   # shipped src/node-types.json (spec 021 Phase 2c Addendum 2) — a silent
@@ -65,8 +65,12 @@ overrides:
   langium-zod: 0.12.2
   x-to-zod: ^0.8.0
   '@zod-to-form/core': 0.12.0
-  '@zod-to-form/react': 0.13.0
+  '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
+  # The module-local ResizeObserver patch is verified against this release.
+  '@xyflow/react': 13.0.3
+  # GHSA-67mh-4wv8-2f99: update the migration tool's legacy TypeScript loader.
+  '@esbuild-kit/core-utils>esbuild': '0.25.12'
   ws: '>=8.21.0'
   # GHSA-w5hq-g745-h8pq: force transitive uuid off the deprecated/vulnerable
   # 8.3.2 (uuid is purely transitive here — no first-party imports).
@@ -95,8 +99,8 @@ packageExtensions:
       type-fest: 5.10.0
 
 patchedDependencies:
-  # Defer ESM node measurement until after ResizeObserver delivery.
-  '@xyflow/react@12.12.1': patches/@xyflow__react@12.12.1.patch
+  # Defer React Flow's node and viewport measurements to the next frame.
+  '@xyflow/react@13.0.3': patches/@xyflow__react@13.0.3.patch
   # GHSA-vfj7-8cjw-p6xm: structural guards backported from micromatch/braces#82.
   braces@3.0.3: patches/braces@3.0.3.patch
   # Match SQLite proxy callback types to the runtime's absent .get() result.

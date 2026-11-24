@@ -29,7 +29,7 @@ import { create } from 'zustand';
 import { createAttributeDraft } from './attribute-drafts.js';
 import { renamedFunctionOutput } from './function-output.js';
 import { temporal } from 'zundo';
-import { applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { NodeChangeset, EdgeChangeset } from '@xyflow/react';
 import type { NodeChange, EdgeChange } from '@xyflow/react';
 import type {
   TypeGraphNode,
@@ -809,10 +809,10 @@ function mutateGraph(
  * `relayout`, `setLayoutEngine`, `applyReactFlowNodeChanges`, and
  * `applyReactFlowEdgeChanges` actions route through here to keep Maps canonical.
  *
- * DEVIATION FROM PLAN'S RECIPE FORM: RF's `applyNodeChanges` and Dagre's
+ * DEVIATION FROM PLAN'S RECIPE FORM: React Flow changesets and Dagre's
  * `computeLayout` are array-centric — they consume and produce nodes/edges
  * arrays, not Maps. Re-expressing them as Mutative Map recipes would require
- * reimplementing `applyNodeChanges`'s batched change semantics. We accept
+ * reimplementing React Flow's batched change semantics. We accept
  * array inputs here and rebuild the Maps from the result instead.
  *
  * @param set   The store set from createEditorStore closure.
@@ -2327,11 +2327,11 @@ export const createEditorStore = (overrides?: Partial<EditorState>) => {
               return true;
             });
             if (meaningful.length === 0) return;
-            updateGraphView(set, get, { nodes: applyNodeChanges(meaningful, get().nodes) });
+            updateGraphView(set, get, { nodes: new NodeChangeset(meaningful).applyTo(get().nodes) });
           },
 
           applyReactFlowEdgeChanges(changes: EdgeChange<TypeGraphEdge>[]) {
-            updateGraphView(set, get, { edges: applyEdgeChanges(changes, get().edges) });
+            updateGraphView(set, get, { edges: new EdgeChangeset(changes).applyTo(get().edges) });
           },
 
           // -----------------------------------------------------------------------

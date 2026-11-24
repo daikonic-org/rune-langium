@@ -1,0 +1,36 @@
+diff --git a/dist/index.js b/dist/index.js
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -9 +9,31 @@
++// Deliver node and viewport measurements outside the native observer cycle.
++const ResizeObserver = globalThis.ResizeObserver && class extends globalThis.ResizeObserver {
++  #pending = new Map();
++  #frame;
++
++  constructor(callback) {
++    super((entries, observer) => {
++      for (const entry of entries) this.#pending.set(entry.target, entry);
++      if (this.#frame !== undefined) return;
++      this.#frame = requestAnimationFrame(() => {
++        this.#frame = undefined;
++        const pending = [...this.#pending.values()].filter(({ target }) => target.isConnected);
++        this.#pending.clear();
++        if (pending.length) callback(pending, observer);
++      });
++    });
++  }
++
++  unobserve(target) {
++    this.#pending.delete(target);
++    super.unobserve(target);
++  }
++
++  disconnect() {
++    super.disconnect();
++    if (this.#frame !== undefined) cancelAnimationFrame(this.#frame);
++    this.#frame = undefined;
++    this.#pending.clear();
++  }
++};
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file

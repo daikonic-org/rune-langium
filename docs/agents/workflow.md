@@ -168,7 +168,7 @@ runner has no mirror list.
 
 ## Form Dependencies
 
-`@zod-to-form/react@0.13.0` exports the shared `SectionRenderer` used by custom Inspector layouts, from [zod-to-form PR #222](https://github.com/pradeepmouli/zod-to-form/pull/222). Use that public export directly. Keep exact core/React package declarations and workspace overrides aligned, and recheck configured Inspector sections when upgrading.
+`@zod-to-form/react@0.13.1` exports the shared `SectionRenderer` used by custom Inspector layouts, from [zod-to-form PR #222](https://github.com/pradeepmouli/zod-to-form/pull/222). Use that public export directly. Keep exact core/React package declarations and workspace overrides aligned, and recheck configured Inspector sections when upgrading.
 
 Keep Studio's explicit `Input: {}` override in its canonical form component map.
 The shadcn preset alone falls back to native HTML for uncontrolled text fields;
@@ -189,7 +189,7 @@ Public control-prop changes also require the [design-sync preview and contract
 checks](../../.design-sync/NOTES.md#build); its hidden preview tree has a separate
 TypeScript project and is outside workspace package type-checks.
 
-Keep `@zod-to-form/vite` exactly pinned to `0.5.0` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 31 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
+Keep `@zod-to-form/vite` exactly pinned to `0.5.1` in Studio and visual-editor for the unified configuration contract. Babel 8 requires Node `^22.18.0 || >=24.11.0`; the current jsdom 31 test toolchain requires the higher range `^22.22.2 || ^24.15.0 || >=26.0.0`. Published package engine declarations retain that combined supported range; the root tooling engine requires Node >=26.13.0. Older Node 22/24 releases and Node 23/25 are unsupported. The previous `0.4.8` plugin compatibility pin applied to the old Node 22.13 floor.
 
 ## Dependency Compatibility and Audit Exceptions
 
@@ -201,15 +201,16 @@ read connection share `sqliteProxyResult`, preserving `undefined` for a missing
 row and arrays for `.all()`/`.values()`. Remove the patch when upstream callback
 types accept the absent-row case; retain native SQLite and isolated D1 regressions.
 
-`@xyflow/react@12.12.1` has a narrow ESM measurement patch in
-`patches/@xyflow__react@12.12.1.patch`. Both browser and Node ESM entries defer
-the internal ResizeObserver update, coalesce changes by node identity and cancel
-pending work on unmount. The UMD entry is not used by Studio and is unmodified.
-On upgrade, recheck native observer errors, node geometry across semantic zoom
-and Graph selection after reference hydration before dropping the patch. The
-`selected-object-polish.spec.ts` browser suite covers zoom geometry, pane resizing
-and long-name header bounds; J04c also checks the selected node is in view and
-reports native ResizeObserver errors. Keep existing time/retry budgets.
+`@xyflow/react@13.0.3` uses changesets and split stores. Keep batched graph
+updates on the upstream changeset API. Its ESM bundle also has a module-local
+ResizeObserver patch in `patches/@xyflow__react@13.0.3.patch` to defer both node
+and viewport measurements. Each observer coalesces by target and clears queued
+measurements when disconnected. Deferring only one of the two observers still
+reproduces native observer errors while resizing the Explore center panes.
+Recheck those errors, semantic zoom geometry and graph selection after reference
+hydration before removing or rebasing the patch.
+`selected-object-polish.spec.ts` covers zoom, pane resize and selection, and
+J04c checks that the selected node remains visible after reference hydration.
 
 `@lspeasy/core@3.0.1` imports `type-fest` in its published declarations without declaring the dependency. The workspace package extension supplies `type-fest@5.10.0` so type checking cannot pick up an incompatible hoisted copy from another tool. [Upstream issue #307](https://github.com/pradeepmouli/lspeasy/issues/307) tracks removal after the package declares its own dependency.
 
@@ -224,26 +225,27 @@ Keep TypeScript `6.0.3` in docs and the `typescript-classic` alias in codegen: T
 The October dependency refresh uses React/React DOM `19.3.1` and Zod `4.6.7` in both manifests and workspace overrides. Mutative 2 retains the producer API but changes patch ordering and patch-value identity; verify forward/inverse replay, edit reconciliation and source synchronization when upgrading it. Camelcase 10 requires Node 22, within the existing supported range.
 
 The October 26 dependency refresh uses react-day-picker 10 through the shared
-Calendar wrapper and vscode-languageserver 11. Keep resolver 5.9.2 while
-`@zod-to-form/react@0.13.0` and `@zod-to-form/vite@0.5.0` declare the resolver 5
-peer range; newer resolver majors need an upstream compatibility release. TypeDoc and the
+Calendar wrapper and vscode-languageserver 11. The workspace uses resolver 7.0.8.
+`@zod-to-form/react@0.13.1` and `@zod-to-form/vite@0.5.1` declare support
+for resolver 5 and 7.0.8 onward in the 7.x series. Recheck generated form validation,
+error display and submission when upgrading the resolver. TypeDoc and the
 codegen compiler-API alias retain TypeScript 6.0.3, while workspace compilation
 uses TypeScript 7.0.2. The root OpenTelemetry API override stays at 1.9.1 because
 react-doctor's Sentry/OpenTelemetry 2.12 SDK peers exclude 1.10; remove the cap
 when that dependency chain declares support. Do not suppress peer checks. Miniflare retains its scoped Undici 7 override at
 7.30.2 for the HTTP parser fixes; do not force its consumers onto Undici 8.
 
-The November 13 refresh retains two visible development-tool advisories.
+The November 24 audit reports one development-tool advisory.
 `minimatch@10.2.6` is affected by
 [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249), but forcing
 v11 breaks TypeDoc 0.28.20's `Minimatch.matchOne` call during entry-point discovery.
-Use an upstream-compatible TypeDoc release before replacing its matcher; do not
-apply a global major override to the legacy production v3/v5 consumers.
-`deepmerge@4.3.1` remains in the shadcn development CLI because npm has not
-published the advisory's fixed `4.3.2` release. Keep
-[GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) visible in
-the full audit. Neither advisory has a new audit exception or a production-tree
-finding.
+Use an upstream-compatible TypeDoc release before replacing its matcher. Preserve
+compatible versions for the legacy production v3/v5 consumers. The prior
+[deepmerge advisory](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) was withdrawn.
+The `@esbuild-kit/core-utils>esbuild` override moves Drizzle Kit's legacy
+development loader to the patched 0.25 line for
+[GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99).
+Run the data worker's `db:check` when changing this override.
 
 After CodeMirror updates, run `pnpm dedupe` and check `pnpm why -r @codemirror/state @codemirror/view`. Studio and its LSP client must resolve the same state/view classes; duplicate copies make editor extensions and workspace overrides incompatible. Force affected TypeScript builds afterward to invalidate cached module resolutions.
 
@@ -602,7 +604,7 @@ its original workflow revision. The finalizer never ignores failed checks.
 
 ## Unified zod-to-form Migration Verification
 
-The migration uses published core **0.12.0**, React **0.13.0**, codegen **0.11.0**, Vite **0.5.0**, and Zod **4.6.5**. The registry lockfile resolves those npm releases.
+The migration uses published core **0.12.0**, React **0.13.1**, codegen **0.11.0**, Vite **0.5.1**, and Zod **4.6.7**. The registry lockfile resolves those npm releases.
 
 Verified on the supported Node **22.22.2** floor:
 

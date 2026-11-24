@@ -10,7 +10,7 @@
  */
 
 import { createContext, useContext } from 'react';
-import { Position, useStore } from '@xyflow/react';
+import { Position, useNodesStore } from '@xyflow/react';
 import type { NavigateToNodeCallback, TypeGraphNode, ValidationError } from '../../types.js';
 import type { LayoutOptions } from '../../types.js';
 import { resolveNodeId } from '../editors/TypeLink.js';
@@ -42,6 +42,10 @@ export const useNavigation = () => useContext(NavigationContext);
 
 const EMPTY_ERRORS: ValidationError[] = [];
 
+function useNodeMeta(id: string) {
+  return useNodesStore((state) => (state.nodeLookup.get(id)?.internals.userNode as TypeGraphNode | undefined)?.meta);
+}
+
 /**
  * Per-node validation errors from the node's `meta` sibling (Phase 3 step 3:
  * `node.data` is the pure domain payload — UI metadata like `errors` lives on
@@ -51,10 +55,7 @@ const EMPTY_ERRORS: ValidationError[] = [];
  * node component is rendered standalone under a bare `<ReactFlowProvider>`.
  */
 export function useNodeMetaErrors(id: string): ValidationError[] {
-  return useStore((s) => {
-    const userNode = s.nodeLookup.get(id)?.internals.userNode as TypeGraphNode | undefined;
-    return userNode?.meta?.errors ?? EMPTY_ERRORS;
-  });
+  return useNodeMeta(id)?.errors ?? EMPTY_ERRORS;
 }
 
 /**
@@ -66,10 +67,7 @@ export function useNodeMetaErrors(id: string): ValidationError[] {
  * `pendingHydrationNamespaces` threaded through `NavigationContext`.
  */
 export function useNodeMetaHydrating(id: string): boolean {
-  const meta = useStore((s) => {
-    const userNode = s.nodeLookup.get(id)?.internals.userNode as TypeGraphNode | undefined;
-    return userNode?.meta;
-  });
+  const meta = useNodeMeta(id);
   const { pendingHydrationNamespaces } = useNavigation();
   if (!meta?.deferred) return false;
   return (pendingHydrationNamespaces ?? []).includes(meta.namespace);
@@ -110,7 +108,5 @@ export function resolveTypeNodeId(
 
 /** Authored import bindings are UI metadata, not React Flow domain payload. */
 export function useNodeMetaImports(id: string): readonly NamespaceImport[] | undefined {
-  return useStore(
-    (state) => (state.nodeLookup.get(id)?.internals.userNode as TypeGraphNode | undefined)?.meta?.imports
-  );
+  return useNodeMeta(id)?.imports;
 }
