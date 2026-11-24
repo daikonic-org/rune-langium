@@ -11,7 +11,7 @@ import { requestPrototype } from '../../services/prototype-navigation.js';
 import { useWorkspaceOptional } from '../providers/workspace-context.js';
 
 export const FormPreviewPanel = withInstrumentation(
-  function FormPreviewPanel(): React.ReactElement {
+  function FormPreviewPanel({ executionDisabled }: { executionDisabled?: boolean }): React.ReactElement {
     const workspace = useWorkspaceOptional();
     const selectedTargetId = usePreviewStore((s) => s.selectedTargetId);
     const selectedTarget = usePreviewStore((s) => s.selectedTarget);
@@ -39,6 +39,7 @@ export const FormPreviewPanel = withInstrumentation(
         target={selectedTarget}
         getFieldSource={(fieldPath) => getFieldSource(selectedTargetId, fieldPath)}
         onExecute={dispatchExecute}
+        executionDisabled={executionDisabled}
         onCreateInstance={(seed) => {
           if (workspace?.workspaceId) requestPrototype(workspace.workspaceId, { kind: 'create', seed });
         }}

@@ -252,6 +252,8 @@ export interface GeneratorOutput {
 export type PreviewFieldKind = 'string' | 'number' | 'boolean' | 'enum' | 'object' | 'array' | 'unknown';
 
 export interface PreviewFieldBase {
+  /** Presentation hint for a field ruled out by a Rune condition. */
+  excludedByCondition?: true;
   /** Stable declaration/layout path when a metadata adapter projects a JSON value path. */
   declaredPath?: string;
   /** Declared metadata distinguishes envelopes from Data records named value/meta. */
@@ -289,6 +291,8 @@ export interface PreviewEnumField extends PreviewFieldBase {
 
 export interface PreviewObjectField extends PreviewFieldBase {
   kind: 'object';
+  /** Exclusions under this deferred body, in preview field paths. */
+  deferredConditionExclusions?: string[];
   /** Deferred body in FormPreviewSchema.definitions; expand one level on demand. */
   definitionId?: string;
   /** Fully-qualified Rune type resolved for this object input. */

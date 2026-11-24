@@ -55,27 +55,28 @@ export const ComposeTestPanel = withInstrumentation(
       setBusy(true);
       try {
         const epoch = useInstanceStore.getState().workspaceEpoch;
-        const previous = usePreviewStore.getState().samples.get(functionId);
+        const previousValues = usePreviewStore.getState().samples.get(functionId)?.values;
         await useInstanceStore.getState().loadInstancesFromOpfs();
         const instances = useInstanceStore.getState();
         const preview = usePreviewStore.getState();
+        const currentSchema = preview.schemas.get(functionId);
         if (
           epoch !== instances.workspaceEpoch ||
           preview.selectedTargetId !== functionId ||
           current.current.functionId !== functionId ||
           current.current.workflow?.id !== workflow.id ||
           current.current.workspaceId !== workspaceId ||
-          preview.schemas.get(functionId) !== schema
+          !currentSchema
         )
           return;
-        if (previous !== preview.samples.get(functionId))
+        if (previousValues !== preview.samples.get(functionId)?.values)
           throw new Error('The test inputs changed while loading. Use workflow inputs again to replace them.');
         const { values, bindings } = resolveWorkflowInputs(workflow, instances.instances);
         const boundValues = Object.fromEntries(
-          bindings.map(([path]) => [path, exampleInputValue(schema, path, values[path])])
+          bindings.map(([path]) => [path, exampleInputValue(currentSchema, path, values[path])])
         );
         preview.resetSample(functionId, {
-          ...buildDefaultValues(schema.fields, resolveArmPaths(schema)),
+          ...buildDefaultValues(currentSchema.fields, resolveArmPaths(currentSchema)),
           ...values,
           ...boundValues
         });
@@ -161,7 +162,7 @@ export const ComposeTestPanel = withInstrumentation(
           )}
         </div>
         <div className="min-h-0 flex-1">
-          <FormPreviewPanel />
+          <FormPreviewPanel executionDisabled={busy} />
         </div>
       </div>
     );

@@ -6,7 +6,7 @@ import { makeNodeId, splitNodeId } from '@rune-langium/visual-editor/identifiers
 import type { InstanceRecord } from '@rune-langium/codegen/instances';
 import { buildDefaultValues, resolveArmPaths } from '../services/preview-validator.js';
 import type { PreviewSessionClient } from '../services/preview-session-client.js';
-import { retainedWorkflowFields } from '../services/workflow-input-compatibility.js';
+import { reconcileFunctionInputs } from '../services/workflow-input-compatibility.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 
 export interface FunctionSessionState {
@@ -95,14 +95,11 @@ export const createFunctionSession = withInstrumentation(
           const { namespace, name } = splitNodeId(schemaTargetId ?? fqn);
           const schema = await client.schema(makeNodeId(namespace, name, 'RosettaFunction'), controller.signal);
           if (disposed || version !== selectionVersion) return;
-          const defaults = buildDefaultValues(schema.fields, resolveArmPaths(schema));
-          const retained = previousSchema
-            ? Object.fromEntries(
-                retainedWorkflowFields(previousSchema, schema).map((field) => [field.path, state.inputs[field.path]])
-              )
-            : {};
+          const inputs = previousSchema
+            ? reconcileFunctionInputs(previousSchema, schema, state.inputs)
+            : buildDefaultValues(schema.fields, resolveArmPaths(schema));
           loadingSchema = false;
-          patch({ schema, schemaStatus: 'ready', inputs: { ...defaults, ...retained }, status: 'idle' });
+          patch({ schema, schemaStatus: 'ready', inputs, status: 'idle' });
         } catch (error) {
           if (disposed || version !== selectionVersion || controller.signal.aborted) return;
           loadingSchema = false;

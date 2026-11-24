@@ -2152,14 +2152,21 @@ describe('FormPreviewPanel', () => {
           { path: 's2', label: 'S2', kind: 'string', required: false }
         ]
       };
-      render(
+      const panel = (executionDisabled: boolean) => (
         <FormPreviewPanel
           schema={schema}
           status={{ state: 'ready', targetId: schema.targetId }}
           onExecute={onExecute}
+          executionDisabled={executionDisabled}
         />
       );
+      const { rerender } = render(panel(true));
+      const run = screen.getByRole('button', { name: 'Run' });
+      expect(run).toBeDisabled();
+      await user.click(run);
+      expect(onExecute).not.toHaveBeenCalled();
 
+      rerender(panel(false));
       await user.type(screen.getByRole('textbox', { name: 'S1' }), 'hello');
       await user.type(screen.getByRole('textbox', { name: 'S2' }), 'hello');
       await user.click(screen.getByRole('button', { name: 'Run' }));

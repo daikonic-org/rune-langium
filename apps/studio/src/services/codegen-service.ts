@@ -468,6 +468,14 @@ function isPreviewField(value: unknown): boolean {
   if (candidate.description !== undefined && typeof candidate.description !== 'string') {
     return false;
   }
+  if (candidate.excludedByCondition !== undefined && candidate.excludedByCondition !== true) return false;
+  if (
+    candidate.deferredConditionExclusions !== undefined &&
+    (!Array.isArray(candidate.deferredConditionExclusions) ||
+      !candidate.deferredConditionExclusions.every((path) => typeof path === 'string'))
+  ) {
+    return false;
+  }
   switch (candidate.kind) {
     case 'enum':
       return Array.isArray(candidate.enumValues) && candidate.enumValues.every(isEnumValue);
