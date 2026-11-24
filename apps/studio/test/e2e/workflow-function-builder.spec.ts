@@ -241,7 +241,8 @@ func Demo:
   await composer.getByRole('button', { name: 'Open Demo workflow', exact: true }).click();
   const details = composer.getByRole('complementary', { name: 'Composition details' });
   const metadata = details.getByText('Function metadata', { exact: true });
-  await expect(metadata).toHaveCSS('text-transform', 'uppercase');
+  await expect(metadata).toHaveCSS('text-transform', 'none');
+  await expect(metadata).toHaveCSS('letter-spacing', 'normal');
   await metadata.click();
   await expect(details.getByText('Annotations', { exact: true })).toHaveCSS('text-transform', 'none');
   await metadata.click();
