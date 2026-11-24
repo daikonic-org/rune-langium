@@ -676,7 +676,7 @@ function FunctionForm({
                         <>
                           <FieldSet className="gap-2">
                             <FieldLegend variant="label" className="mb-0 text-muted-foreground">
-                              <span className="section-heading">Function Body</span>
+                              <span className="section-heading">Function body</span>
                             </FieldLegend>
 
                             {/* Aliases (shortcuts) — always non-editable derived content,
