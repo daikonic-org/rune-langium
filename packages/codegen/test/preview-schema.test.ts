@@ -59,6 +59,75 @@ async function parseModels(sources: readonly string[]) {
 }
 
 describe('FormPreviewSchema generation', () => {
+  it('marks statically excluded inputs and data fields while preserving the complete schema', async () => {
+    const doc = await parseModel(`namespace preview
+type FixedRate:
+ amount number (1..1)
+type FloatingRate:
+ spread number (0..1)
+choice Rate:
+ FixedRate
+ FloatingRate
+type Calendar:
+ centers string (0..*)
+type Adjustments:
+ calendar Calendar (0..1)
+type Payment:
+ lag number (0..1)
+ reserved string (0..1)
+ adjustments Adjustments (0..1)
+ condition NoReserved: reserved is absent
+type Leg:
+ rate Rate (0..1)
+ payment Payment (0..1)
+ comment string (0..1)
+func Coupons:
+ inputs: leg Leg (1..1)
+ output: result Leg (1..1)
+ alias payment: leg -> payment
+ condition Fixed: leg -> rate as FixedRate exists and payment -> lag is absent
+ condition DefaultCenters: payment -> adjustments -> calendar -> centers is absent
+ condition OptionalComment: payment -> lag is absent or leg -> comment is absent
+ set result: leg
+ post-condition OutputOnly: leg -> comment is absent
+`);
+    const schemas = generatePreviewSchemas(doc);
+    const payment = schemas.find(({ targetId }) => targetId === 'preview.Payment')!;
+    expect(payment.fields.find(({ path }) => path === 'reserved')?.excludedByCondition).toBe(true);
+    expect(payment.fields.find(({ path }) => path === 'lag')?.excludedByCondition).toBeUndefined();
+
+    const coupons = schemas.find(({ targetId }) => targetId === 'preview.Coupons')!;
+    const object = (fields: PreviewField[], path: string) => {
+      const field = fields.find((candidate) => candidate.path === path);
+      if (field?.kind !== 'object') throw new Error('Expected preview object ' + path);
+      return field;
+    };
+    const leg = object(coupons.fields, 'leg');
+    expect(leg.children.find(({ path }) => path === 'leg.comment')?.excludedByCondition).toBeUndefined();
+    const rate = object(leg.children, 'leg.rate');
+    expect(rate.children).toMatchObject([
+      { path: 'leg.rate.fixedRate' },
+      { path: 'leg.rate.floatingRate', excludedByCondition: true }
+    ]);
+    expect(rate.choiceArmPaths).toEqual(['leg.rate.fixedRate', 'leg.rate.floatingRate']);
+    const paymentInput = object(leg.children, 'leg.payment');
+    expect(
+      paymentInput.children.filter(({ excludedByCondition }) => excludedByCondition).map(({ path }) => path)
+    ).toEqual(['leg.payment.lag', 'leg.payment.reserved']);
+    const adjustments = object(paymentInput.children, 'leg.payment.adjustments');
+    const calendar = object(adjustments.children, 'leg.payment.adjustments.calendar');
+    expect(calendar.definitionId).toBe('preview.Calendar');
+    const expanded = expandPreviewField(calendar, coupons.definitions);
+    expect(expanded).toMatchObject({
+      children: [{ path: 'leg.payment.adjustments.calendar.centers', excludedByCondition: true }]
+    });
+    const result = object([coupons.result!], 'result');
+    expect(
+      object(result.children, 'result.payment').children.find(({ path }) => path === 'result.payment.lag')
+        ?.excludedByCondition
+    ).toBeUndefined();
+  });
+
   it('retains the numeric alias chain for fields, standalone previews and function results', async () => {
     const docs = await parseModels([
       `namespace finance.units

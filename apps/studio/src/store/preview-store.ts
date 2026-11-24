@@ -8,6 +8,7 @@ import type { FormPreviewSchema, PreviewField, PreviewSourceMapEntry } from '@ru
 import type { ValidationDiagnostic } from '@rune-langium/codegen/instances';
 import { useOutputStore, fmtLine } from './output-store.js';
 import { useActivityStore } from './activity-store.js';
+import { reconcileFunctionInputs } from '../services/workflow-input-compatibility.js';
 import { allocateOpId } from '../services/op-log.js';
 import { createInstanceValidateMessage } from '../services/codegen-service.js';
 import {
@@ -206,11 +207,13 @@ function reconcileFieldsObject(
   definitions: FormPreviewSchema['definitions']
 ): Record<string, unknown> {
   const { armFields, otherFields } = splitChoiceArmFields(fields, armPaths);
-  const entries: Array<[string, unknown]> = otherFields.map((field) => [
-    fieldLeafKey(field.path),
-    reconcileFieldValue(field, current[fieldLeafKey(field.path)], definitions)
-  ]);
-  const selected = armFields.find((arm) => current[fieldLeafKey(arm.path)] !== undefined) ?? armFields[0];
+  const entries: Array<[string, unknown]> = otherFields.map((field) => {
+    const key = fieldLeafKey(field.path);
+    return [key, field.excludedByCondition ? current[key] : reconcileFieldValue(field, current[key], definitions)];
+  });
+  const selected =
+    armFields.find((arm) => current[fieldLeafKey(arm.path)] !== undefined) ??
+    armFields.find((arm) => !arm.excludedByCondition);
   if (selected) {
     const reconciled = reconcileFieldValue(selected, current[fieldLeafKey(selected.path)], definitions);
     entries.push([fieldLeafKey(selected.path), reconciled === undefined ? buildArmValue(selected) : reconciled]);
@@ -397,6 +400,7 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
 
   receivePreviewResult(schema) {
     const schemas = new Map(get().schemas);
+    const previousSchema = schemas.get(schema.targetId);
     schemas.set(schema.targetId, schema);
     const existingSample = get().samples.get(schema.targetId);
     const samples = new Map(get().samples);
@@ -408,9 +412,11 @@ export const usePreviewStore = create<PreviewStore>((set, get) => ({
     // disagrees with what the panel would have seeded (Codex review round
     // 2 on PR #444).
     const armPaths = resolveArmPaths(schema);
-    const sampleValues = existingSample
-      ? reconcileSampleValues(schema.fields, armPaths, existingSample.values, schema.definitions)
-      : buildDefaultValues(schema.fields, armPaths);
+    const sampleValues = !existingSample
+      ? buildDefaultValues(schema.fields, armPaths)
+      : schema.kind === 'function' && previousSchema?.kind === 'function'
+        ? reconcileFunctionInputs(previousSchema, schema, existingSample.values)
+        : reconcileSampleValues(schema.fields, armPaths, existingSample.values, schema.definitions);
     samples.set(schema.targetId, {
       targetId: schema.targetId,
       values: sampleValues,

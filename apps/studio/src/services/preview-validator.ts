@@ -97,8 +97,10 @@ export const buildDefaultFieldsObject = withInstrumentation(
     keyFn: (path: string) => string
   ): Record<string, unknown> {
     const { armFields, otherFields } = splitChoiceArmFields(fields, armPaths);
-    const entries: Array<[string, unknown]> = otherFields.map((field) => [keyFn(field.path), buildDefaultValue(field)]);
-    const [firstArm] = armFields;
+    const entries: Array<[string, unknown]> = otherFields
+      .filter((field) => !field.excludedByCondition)
+      .map((field) => [keyFn(field.path), buildDefaultValue(field)]);
+    const firstArm = armFields.find((field) => !field.excludedByCondition);
     if (firstArm) {
       entries.push([keyFn(firstArm.path), buildArmValue(firstArm)]);
     }

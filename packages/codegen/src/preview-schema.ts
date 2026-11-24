@@ -9,7 +9,9 @@ import {
   acceptsRuneJsonChoice,
   selectRuneJsonChoiceCandidates
 } from '@rune-langium/core/serialization';
-import { previewTypeSymbol, mapPreviewFieldPaths } from './preview-references.js';
+import { previewTypeSymbol, mapPreviewFieldPaths, markPreviewConditionExclusions } from './preview-references.js';
+import { conditionExcludedPaths } from './preview-conditions.js';
+import { typeFeatures } from './expr/navigation.js';
 import { resolveNativeImplementation } from './implementations/index.js';
 import { applyProjectPreviewBindings } from './runtime/project-bindings.js';
 import { temporalWireFormat } from './expr/temporal-conversions.js';
@@ -44,7 +46,7 @@ import type {
   PreviewFieldKind,
   PreviewSourceMapEntry
 } from './types.js';
-import { choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-emitter.js';
+import { activeConditions, choiceOptionFieldName, decodeCardinality } from './emit/base-namespace-emitter.js';
 import { buildTypeReferenceGraph, findCyclicTypes } from './cycle-detector.js';
 import { resolveTypeCallTarget, type TypeResolutionVisitor } from './emit/type-ref-resolver.js';
 import { extractFuncs, functionInputs, functionOutput, functionSignature } from './types/func.js';
@@ -531,6 +533,16 @@ function collectInheritedAttributes(data: Data): InheritedAttributesResult {
   return { attributes: attrs, choiceAncestor, metadata: chain.some(hasTypeMetadata) };
 }
 
+function refineDataFields(data: Data, fields: PreviewField[], parentPath?: string): PreviewField[] {
+  const conditions = activeConditions(data);
+  if (!conditions.length) return fields;
+  const exclusions = conditionExcludedPaths(conditions, typeFeatures(data));
+  return markPreviewConditionExclusions(
+    fields,
+    parentPath ? exclusions.map((path) => parentPath + '.' + path) : exclusions
+  );
+}
+
 function buildDataSchema(
   data: Data,
   sourceUri: string,
@@ -589,7 +601,7 @@ function buildDataSchema(
       )
     : [];
 
-  const fields = [...choiceFields, ...attributeFields];
+  const fields = refineDataFields(data, [...choiceFields, ...attributeFields]);
 
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -754,7 +766,7 @@ function buildTypeAliasSchema(
             )
           : [];
 
-        const fields = [...choiceFields, ...attributeFields];
+        const fields = refineDataFields(resolvedData, [...choiceFields, ...attributeFields]);
         return {
           schemaVersion: SCHEMA_VERSION,
           kind: 'typeAlias',
@@ -1064,7 +1076,7 @@ function buildChoiceOptionField(
           label,
           kind: 'object',
           required: false,
-          children: [...choiceChildren, ...attributeChildren],
+          children: refineDataFields(node, [...choiceChildren, ...attributeChildren], path),
           ...(choiceAncestor ? { choiceArmPaths: choiceChildren.map((field) => field.path) } : {})
         };
       },
@@ -1160,7 +1172,10 @@ function buildFunctionSchema(
         }
       : {}),
     status: hasReportableUnsupportedFeature(unsupportedFeatures) ? 'unsupported' : 'ready',
-    fields: inputFields,
+    fields: markPreviewConditionExclusions(
+      inputFields,
+      conditionExcludedPaths(func.conditions, functionInputs(func), func.shortcuts)
+    ),
     ...(result ? { result } : {}),
     ...(functionOutputDescriptor ? { functionOutput: functionOutputDescriptor } : {}),
     ...(sourceMap.length > 0 ? { sourceMap } : {}),
@@ -1389,7 +1404,7 @@ function objectField(ctx: FieldContext, data: Data, sourceUri: string): PreviewF
     referencedTypeFqn: dataId,
     ...(ctx.assignableTypes?.get(dataId) ? { assignableTypeFqns: [...ctx.assignableTypes.get(dataId)!] } : {}),
     required: true,
-    children: [...choiceFields, ...attributeChildren],
+    children: refineDataFields(data, [...choiceFields, ...attributeChildren], ctx.path),
     // choiceArmPaths (round-10 finding B): mirrors buildDataSchema's/
     // buildTypeAliasSchema's top-level choiceArmPaths — see
     // FormPreviewSchema.choiceArmPaths' doc comment for the full

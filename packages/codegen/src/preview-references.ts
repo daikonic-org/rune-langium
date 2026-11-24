@@ -26,7 +26,25 @@ export function expandPreviewField(field: PreviewField, definitions: FormPreview
   const prefix = (path: string) => `${field.path}.${path}`;
   const relocate = (child: PreviewField) =>
     mapPreviewFieldPaths(child, prefix, field.declaredPath ? (path) => field.declaredPath + '.' + path : undefined);
-  return { ...field, children: body.fields.map(relocate), choiceArmPaths: body.choiceArmPaths?.map(prefix) };
+  return {
+    ...field,
+    children: markPreviewConditionExclusions(body.fields.map(relocate), field.deferredConditionExclusions ?? []),
+    choiceArmPaths: body.choiceArmPaths?.map(prefix)
+  };
+}
+
+/** Preserve the full schema and attach hints for presentation consumers. */
+export function markPreviewConditionExclusions(fields: PreviewField[], paths: string[]): PreviewField[] {
+  if (!paths.length) return fields;
+  return fields.map((field) => {
+    if (paths.includes(field.path) && !field.required) return { ...field, excludedByCondition: true };
+    if (field.kind !== 'object') return field;
+    const nested = paths.filter((path) => path.startsWith(field.path + '.'));
+    if (nested.length === 0) return field;
+    if (field.definitionId)
+      return { ...field, deferredConditionExclusions: [...(field.deferredConditionExclusions ?? []), ...nested] };
+    return { ...field, children: markPreviewConditionExclusions(field.children, nested) };
+  });
 }
 
 /** Relocate a finite preview tree, including Choice-arm paths and array item paths. */
@@ -47,7 +65,8 @@ export function mapPreviewFieldPaths(
       ...base,
       kind: 'object',
       children: field.children.map((child) => mapPreviewFieldPaths(child, map, declared)),
-      choiceArmPaths: field.choiceArmPaths?.map(map)
+      choiceArmPaths: field.choiceArmPaths?.map(map),
+      deferredConditionExclusions: field.deferredConditionExclusions?.map(map)
     };
   return base;
 }

@@ -500,6 +500,44 @@ describe('usePreviewStore', () => {
     expect(usePreviewStore.getState().schemas.has('alpha.Trade')).toBe(false);
   });
 
+  it('preserves complete saved function inputs when the preview schema refreshes', () => {
+    const targetId = 'test.CalculateCoupons#RosettaFunction';
+    const initial: FormPreviewSchema = {
+      ...schema(targetId),
+      kind: 'function',
+      fields: [
+        {
+          path: 'leg',
+          label: 'Leg',
+          kind: 'object',
+          typeSymbol: 'data:test.Leg',
+          required: true,
+          children: [
+            { path: 'leg.quantity', label: 'Quantity', kind: 'number', required: true },
+            { path: 'leg.adjustedDate', label: 'Adjusted date', kind: 'string', format: 'date', required: false }
+          ]
+        }
+      ]
+    };
+    const values = {
+      leg: { '@type': 'test.Leg', quantity: { value: 10000000, unit: { currency: 'SEK' } } }
+    };
+    const store = usePreviewStore.getState();
+    store.receivePreviewResult(initial);
+    store.resetSample(targetId, values);
+
+    store.receivePreviewResult({ ...initial, title: 'Calculate coupons' });
+    const sample = usePreviewStore.getState().samples.get(targetId);
+    expect(sample?.values).toBe(values);
+    expect(JSON.parse(sample!.serialized)).toEqual(values);
+
+    store.receivePreviewResult({
+      ...initial,
+      fields: [{ path: 'leg', label: 'Leg', kind: 'number', required: true }]
+    });
+    expect(usePreviewStore.getState().samples.get(targetId)?.values).toEqual({ leg: '' });
+  });
+
   it('reconciles cached sample values when a schema refresh removes and adds fields', () => {
     usePreviewStore.getState().receivePreviewResult({
       schemaVersion: 1,

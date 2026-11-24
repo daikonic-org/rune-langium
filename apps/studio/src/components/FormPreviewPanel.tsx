@@ -78,6 +78,7 @@ import { ChangeFeedbackText } from './ChangeFeedbackText.js';
 const PreviewFieldsContext = createContext<{
   definitions?: FormPreviewSchema['definitions'];
   readOnly: boolean;
+  hideExcludedFields?: boolean;
   alternateSurface?: boolean;
 }>({ readOnly: false });
 interface PreviewDetailEntry {
@@ -121,6 +122,7 @@ export interface FormPreviewPanelProps {
   target?: FormPreviewTarget;
   getFieldSource?: (fieldPath: string) => PreviewSourceMapEntry | undefined;
   onExecute?: (funcName: string, inputs: Record<string, unknown>) => void;
+  executionDisabled?: boolean;
   values?: Record<string, unknown>;
   onValuesChange?: (values: Record<string, unknown>) => void;
   /** Controlled-mode only — sourced from the real worker-validated
@@ -146,6 +148,7 @@ export const FormPreviewPanel = withInstrumentation(
     target: _target,
     getFieldSource,
     onExecute,
+    executionDisabled,
     values,
     onValuesChange,
     errors: controlledErrors,
@@ -159,6 +162,8 @@ export const FormPreviewPanel = withInstrumentation(
     layoutParentPath
   }: FormPreviewPanelProps): ReactElement {
     const isControlled = values !== undefined;
+    const [showAllFields, setShowAllFields] = useState<string>();
+    const hasExclusions = useMemo(() => schema && hasPreviewConditionExclusions(schema), [schema]);
     const authoredRevision = useFeedbackRevision();
     const acceptedSampleValues = useRef<object | undefined>(undefined);
     const [detailState, setDetailState] = useState<{ targetId: string; stack: PreviewDetailEntry[] }>({
@@ -435,10 +440,10 @@ export const FormPreviewPanel = withInstrumentation(
     );
 
     const handleRun = useCallback(() => {
-      if (!funcName || !activeSample || !onExecute) return;
+      if (executionDisabled || !funcName || !activeSample || !onExecute) return;
       setExecution({ funcName, values: activeSample.values, previousResult: storeExecResult });
       onExecute(funcName, activeSample.values);
-    }, [activeSample, funcName, onExecute, storeExecResult]);
+    }, [activeSample, executionDisabled, funcName, onExecute, storeExecResult]);
 
     const handleReset = useCallback(() => {
       if (!schema) return;
@@ -519,9 +524,32 @@ export const FormPreviewPanel = withInstrumentation(
     );
     const showExecution = schema.kind === 'function' && presentation.showExecutionControls !== false;
     const resultView = presentation.mode === 'result';
+    const showExclusionToggle = !presentation.readOnly && hasExclusions;
+    const showingExcludedFields = showAllFields === schema.targetId;
+    const hideExcludedFields = Boolean(showExclusionToggle && !showingExcludedFields);
+    const inputHeading = showExecution && schema.fields.length > 0 && (
+      <h3 className="section-heading text-xs">Input</h3>
+    );
+    const showAllFieldsToggle = showExclusionToggle && (
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        aria-pressed={showingExcludedFields}
+        title="Include fields ruled out by Rune conditions"
+        onClick={() => setShowAllFields(showingExcludedFields ? undefined : schema.targetId)}
+      >
+        Show all fields
+      </Button>
+    );
     const Fields = presentation.readOnly ? 'div' : 'form';
     const run = showExecution && (
-      <Button type="button" size="xs" disabled={executing || !!schema.executionUnavailable} onClick={handleRun}>
+      <Button
+        type="button"
+        size="xs"
+        disabled={executionDisabled || executing || !!schema.executionUnavailable}
+        onClick={handleRun}
+      >
         {executing ? 'Executing…' : 'Run'}
       </Button>
     );
@@ -534,7 +562,9 @@ export const FormPreviewPanel = withInstrumentation(
         data-testid={resultView ? 'panel-resultPreview' : 'panel-formPreview'}
         className={resultView ? 'min-w-0' : 'studio-scroll flex h-full flex-col overflow-auto'}
       >
-        <PreviewFieldsContext value={{ definitions: schema.definitions, readOnly: presentation.readOnly === true }}>
+        <PreviewFieldsContext
+          value={{ definitions: schema.definitions, readOnly: presentation.readOnly === true, hideExcludedFields }}
+        >
           <FormPresentation
             toolbarStart={layoutToolbarStart}
             defaultColumns={presentation.mode === 'instance' ? 3 : 2}
@@ -550,6 +580,7 @@ export const FormPreviewPanel = withInstrumentation(
                       </h2>
                       {layoutToolbarStart}
                       <div className="flex max-w-full shrink-0 flex-wrap items-center gap-0.5">
+                        {showAllFieldsToggle}
                         {editLayout}
                         <Button
                           type="button"
@@ -634,7 +665,12 @@ export const FormPreviewPanel = withInstrumentation(
                     : 'preview-panel__body studio-scroll overflow-auto px-panel-x py-panel-y'
                 )}
               >
-                {showExecution && schema.fields.length > 0 && <h3 className="section-heading text-xs">Input</h3>}
+                {(inputHeading || (!presentation.showHeader && showAllFieldsToggle)) && (
+                  <div className="flex min-w-0 items-center justify-between gap-1">
+                    {inputHeading}
+                    {!presentation.showHeader && showAllFieldsToggle}
+                  </div>
+                )}
                 {schema.kind === 'choice' ? (
                   <ChoiceFieldGroup
                     fields={schema.fields}
@@ -668,8 +704,8 @@ export const FormPreviewPanel = withInstrumentation(
                       symbol={`${schema.kind ?? 'data'}:${qualifiedNameFromNodeId(schema.targetId)}`}
                       parentPath={layoutParentPath}
                       fields={rootOtherFields}
-                      isFieldVisible={
-                        presentation.readOnly ? (field) => hasPreviewFieldValue(field, activeSample) : undefined
+                      isFieldVisible={(field) =>
+                        previewFieldIsVisible(field, activeSample, presentation.readOnly, hideExcludedFields)
                       }
                       renderField={(field) => (
                         <PreviewFieldControl
@@ -869,10 +905,13 @@ function ChoiceFieldGroup({
   ...controls
 }: ChoiceFieldGroupProps): ReactElement | null {
   const id = useId();
-  const { readOnly } = useContext(PreviewFieldsContext);
+  const { readOnly, hideExcludedFields } = useContext(PreviewFieldsContext);
   const details = useContext(PreviewDetailNavigation);
   const activeField = selectedChoiceField(fields, controls.sample, controls.arrayIndices);
-  if (readOnly && !activeField) return null;
+  const available = fields.filter(
+    (field) => field === activeField || !hideExcludedFields || !field.excludedByCondition
+  );
+  if (readOnly ? !activeField : available.length === 0) return null;
   return (
     <div className="preview-choice">
       {!readOnly && (
@@ -895,7 +934,7 @@ function ChoiceFieldGroup({
               <SelectValue placeholder="Choose an option" />
             </SelectTrigger>
             <SelectContent>
-              {fields.map((field) => (
+              {available.map((field) => (
                 <SelectItem key={field.path} value={field.path}>
                   {field.label}
                 </SelectItem>
@@ -963,7 +1002,7 @@ function ChoiceArmChildren({
   onArmSelect,
   arrayIndices
 }: ChoiceArmChildrenProps): ReactElement | null {
-  const { definitions, readOnly } = useContext(PreviewFieldsContext);
+  const { definitions, readOnly, hideExcludedFields } = useContext(PreviewFieldsContext);
   const field = projectPreviewField(inputField, definitions, sample?.values, arrayIndices);
   if (field.kind !== 'object' && field.kind !== 'array') return null;
   const choiceArmPaths = field.kind === 'object' ? field.choiceArmPaths : undefined;
@@ -975,7 +1014,7 @@ function ChoiceArmChildren({
       symbol={objectPresentationSymbol(field)}
       parentPath={field.declaredPath ?? field.path}
       fields={otherFields}
-      isFieldVisible={readOnly ? (child) => hasPreviewFieldValue(child, sample, arrayIndices) : undefined}
+      isFieldVisible={(child) => previewFieldIsVisible(child, sample, readOnly, hideExcludedFields, arrayIndices)}
       renderField={(child) => (
         <PreviewFieldControl
           key={child.path}
@@ -1129,6 +1168,33 @@ function hasPreviewValue(value: unknown, objectDepth = 0): boolean {
   );
 }
 
+function hasPreviewConditionExclusions(schema: FormPreviewSchema): boolean {
+  const visited = new Set<string>();
+  function visit(fields: PreviewField[]): boolean {
+    return fields.some((field) => {
+      if (field.excludedByCondition) return true;
+      if (field.kind === 'array') return visit(field.children);
+      if (field.kind !== 'object') return false;
+      if (field.deferredConditionExclusions?.length || visit(field.children)) return true;
+      if (!field.definitionId || visited.has(field.definitionId)) return false;
+      visited.add(field.definitionId);
+      return visit(schema.definitions?.[field.definitionId]?.fields ?? []);
+    });
+  }
+  return visit(schema.fields);
+}
+
+function previewFieldIsVisible(
+  field: PreviewField,
+  sample: PreviewSampleState | undefined,
+  readOnly: boolean | undefined,
+  hideExcludedFields: boolean | undefined,
+  arrayIndices?: number[]
+): boolean {
+  if (!readOnly && !(hideExcludedFields && field.excludedByCondition)) return true;
+  return hasPreviewFieldValue(field, sample, arrayIndices);
+}
+
 function isFieldOrDescendant(path: string, fieldPath: string): boolean {
   return path === fieldPath || path.startsWith(`${fieldPath}.`) || path.startsWith(`${fieldPath}[`);
 }
@@ -1235,7 +1301,9 @@ function PreviewArrayField({
     items.some((_, index) => hasPreviewFieldValue(column, controls.sample, [...(controls.arrayIndices ?? []), index]));
   const scalarColumns = readOnly
     ? scalarFields.filter(hasColumnValues)
-    : scalarFields.slice(0, armFields.length ? 2 : 3);
+    : scalarFields
+        .filter((column) => !fieldsContext.hideExcludedFields || !column.excludedByCondition || hasColumnValues(column))
+        .slice(0, armFields.length ? 2 : 3);
   const showTypeColumn = armFields.length > 0 && (!readOnly || armFields.some(hasColumnValues));
   const scalarByPath = new Map(scalarColumns.map((column) => [column.path, column]));
   const columns: PreviewGridColumn[] = [

@@ -492,6 +492,7 @@ Preferences never rewrite Rune, validation, or sample values. A numeric control
 keeps its native number input and raw value across focus transitions. The
 formatted display and accessible value appear when the input is idle.
 Read-only grids keep numeric cells whole and scroll the row actions with the data.
+An overflow cue appears above the grid when it can scroll horizontally.
 Reordering changes DOM order, supports pointer/touch and keyboard handles, and
 stays inside the owning object. Container queries collapse saved multi-column
 layouts in narrow panels. Unknown members are ignored and newly generated fields
@@ -786,6 +787,7 @@ The five hand-authored EditorForms use the shared `editorOptimization` policy wi
 - Derive UI previews and validation from authoritative codegen output. A sample awaiting a worker validation result must remain visibly pending; editing alone never establishes validity.
 - `CodegenProvider` owns the shared browser worker connection. Resetting workspace/model preview data clears pending results without detaching that worker; only its provider lifecycle attaches or detaches preview dispatch.
 - Preview and Prototype share the same schema-driven field renderer and live value handlers. Choice dropdowns retain atomic arm replacement; collection grids derive summaries from schema fields and open the same renderer in a detail dialog. Detail navigation preserves array indices and returns focus to its opening control. Ordinary schema labels stay stable; item ordinals apply only to actual list-item paths ending in `[]`. The shared form layout defaults to up to three columns, with wider timestamp fields and full-width nested objects and collections. Workflow results reuse the renderer in read-only mode, preserving navigation into objects and grid rows. Read-only layouts elide empty fields while layout editing exposes the full schema. Primitive collections use a responsive grid with one collection label and accessible item names. Nested form sections alternate theme surfaces by depth. Presentation components do not own validation or alternate schema semantics.
+- Linked Rune preconditions and Data conditions annotate fields that unconditional presence tests rule out. Defaults skip excluded fields and Choice arms. The shared editable form hides empty excluded fields and offers Show all fields. The complete schema and saved values remain available for validation, execution, and layout editing.
 - Preview scalar formats follow the resolved Rune primitive, including aliases, arrays and Choice arms. Shared Preview/Prototype controls compose the design-system Calendar and themed time segments alongside ISO inputs. The Calendar wraps react-day-picker's date-grid and keyboard semantics with shared theme tokens. An ISO editor preserves nanosecond fractions and explicit zoned offsets/IDs; companion picker edits retain that precision and authored suffix. Workers remain authoritative validators; friendly temporal format guidance changes only presentation, leaving original diagnostics in Output/Activity.
 - Preview preparation coalesces hydration and worker-file acknowledgement independently of individual panel cancellation. A shared 30-second deadline aborts stalled preparation and allows a fresh retry. Projection display requests also have a 30-second deadline and a direct Retry generation action; execution keeps its separate 120-second deadline. Late replies cannot replace a newer retry result.
 - Routed parse results carry every resolved curated bundle's immutable cohort/version, including implicit cross-bundle dependencies. Studio retains those bundles in its workspace model bindings instead of discarding dependencies that the user did not select explicitly.
@@ -1539,8 +1541,9 @@ Details and Test share one native Dockview tab group, including in restored
 Compose layouts. On compact screens the same two views share a dialog tab bar.
 The Test tab embeds the same form preview as Explore and can load a saved
 workflow's literals and bound project examples through Prototype's input
-resolver. Replacing preview inputs clears that function's result and invalidates
-any pending worker reply for those inputs. The Test tab points to Prototype when
+resolver. Run is disabled while saved inputs load. Function preview schema
+refreshes preserve complete values for compatible parameters. Replacing preview
+inputs clears that function's result and invalidates any pending worker reply. The Test tab points to Prototype when
 there is no saved recipe. The Prototype action opens the selected recipe or the
 current function as a draft. Canvas diagnostics appear in a collapsed Details section. The center
 editor keeps its width when the compact dialog opens. Compose restores desktop

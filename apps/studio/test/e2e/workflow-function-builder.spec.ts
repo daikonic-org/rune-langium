@@ -317,6 +317,58 @@ func Demo:
   expect((await projectBackingFiles(page))['workflow.rosetta']).toBe(body);
 });
 
+test('refines Compose inputs with Rune conditions and can show the full form', async ({ page }) => {
+  const composer = await openComposition(
+    page,
+    `namespace workflow
+type FixedRate:
+ amount number (1..1)
+type FloatingRate:
+ spread number (0..1)
+choice Rate:
+ FloatingRate
+ FixedRate
+type Leg:
+ rate Rate (1..1)
+ legacyCode boolean (0..1)
+ note string (0..1)
+ condition NoLegacyCode: legacyCode is absent
+func Coupons:
+ inputs:
+  leg Leg (1..1)
+  extraFees number (0..1)
+ output: result number (1..1)
+ condition Fixed: leg -> rate as FixedRate exists and extraFees is absent
+ set result: 1
+`
+  );
+  await composer.getByRole('button', { name: 'Open Coupons workflow', exact: true }).click();
+  await composer.getByRole('tab', { name: 'Test', exact: true }).click();
+  const panel = composer.getByRole('tabpanel', { name: 'Test', exact: true });
+  const showAll = panel.getByRole('button', { name: 'Show all fields', exact: true });
+  await expect(showAll).toHaveAttribute('aria-pressed', 'false');
+  await expect(panel.getByLabel('Extra Fees', { exact: true })).toHaveCount(0);
+  await expect(panel.getByLabel('Legacy Code', { exact: true })).toHaveCount(0);
+  await expect(panel.getByLabel('Note', { exact: true })).toBeVisible();
+  const choice = panel.getByRole('combobox', { name: 'Choose one option', exact: true });
+  await choice.click();
+  await expect(page.getByRole('option', { name: 'FixedRate', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'FloatingRate', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await showAll.click();
+  await expect(showAll).toHaveAttribute('aria-pressed', 'true');
+  const fees = panel.getByLabel('Extra Fees', { exact: true });
+  await expect(fees).toBeVisible();
+  await expect(panel.getByLabel('Legacy Code', { exact: true })).toBeVisible();
+  await choice.click();
+  await expect(page.getByRole('option', { name: 'FloatingRate', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await fees.fill('5');
+  await showAll.click();
+  await expect(fees).toHaveValue('5');
+  await expect(panel.getByLabel('Legacy Code', { exact: true })).toHaveCount(0);
+});
+
 test('applies the inherited amount mask using each result row’s currency', async ({ page }, info) => {
   const source = `namespace workflow
 typeAlias Amount: number
@@ -387,6 +439,22 @@ func Total:
   await expect(feeText).toBeInViewport({ ratio: 1 });
   expect(await feeText.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath('compose-currency-results.png'), animations: 'disabled' });
+  const grid = result.locator('.preview-object-grid');
+  const scrollHint = 'Scroll horizontally for more columns.';
+  await grid.evaluate((element) => (element.style.maxWidth = '170px'));
+  await expect(result.getByText(scrollHint, { exact: true })).toBeVisible();
+  await expect(grid).toHaveAccessibleDescription(scrollHint);
+  await grid.evaluate((element) => {
+    const borderWidth = element.offsetWidth - element.clientWidth;
+    element.style.width = `${element.scrollWidth + borderWidth + 2}px`;
+    element.style.maxWidth = 'none';
+  });
+  await expect.poll(() => grid.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+  await expect(result.getByText(scrollHint, { exact: true })).toBeHidden();
+  await grid.evaluate((element) => {
+    element.style.removeProperty('width');
+    element.style.removeProperty('max-width');
+  });
   const raw = output.locator('details').filter({ has: page.getByText('Raw result', { exact: true }) });
   await raw.getByText('Raw result', { exact: true }).click();
   await expect(raw.locator('pre')).toContainText('"amount": 1234.56789');
