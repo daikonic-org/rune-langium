@@ -14,7 +14,7 @@ function context(search = query) {
 afterEach(() => vi.unstubAllGlobals());
 it('caches successful public immutable reads and serves hits without GitHub', async () => {
   const put = vi.fn().mockResolvedValue(undefined);
-  const match = vi.fn().mockResolvedValue(undefined);
+  const match = vi.fn<(key: Request) => Promise<Response | undefined>>().mockResolvedValue(undefined);
   vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue({ match, put }) });
   const fetcher = vi.fn().mockResolvedValue(Response.json({ sha: 'a'.repeat(40) }));
   vi.stubGlobal('fetch', fetcher);
@@ -23,11 +23,31 @@ it('caches successful public immutable reads and serves hits without GitHub', as
   expect(result.status).toBe(200);
   expect(result.headers.get('Cache-Control')).toContain('immutable');
   expect(fetcher.mock.calls[0][1].headers.Authorization).toBeUndefined();
+  expect(fetcher.mock.calls[0][1].redirect).toBe('manual');
   await Promise.all(ctx.waitUntil.mock.calls.map(([promise]) => promise));
   expect(put).toHaveBeenCalledOnce();
+  const canonicalUrl = ctx.request.url;
+  expect(put).toHaveBeenCalledWith(expect.objectContaining({ url: canonicalUrl }), expect.any(Response));
   match.mockResolvedValue(Response.json({ sha: 'a'.repeat(40) }));
-  await onRequestGet(context() as never);
+  const reordered = new URLSearchParams(query);
+  reordered.sort();
+  await onRequestGet(context(reordered.toString()) as never);
+  expect(match.mock.calls.map(([key]) => key.url)).toEqual([canonicalUrl, canonicalUrl]);
   expect(fetcher).toHaveBeenCalledOnce();
+});
+it('treats an unsuccessful edge cache response as a miss', async () => {
+  const match = vi.fn().mockResolvedValue(new Response('error code: 502', { status: 502 }));
+  vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue({ match, put: vi.fn().mockResolvedValue(undefined) }) });
+  const upstream = { sha: 'a'.repeat(40) };
+  const fetcher = vi.fn().mockResolvedValue(Response.json(upstream));
+  vi.stubGlobal('fetch', fetcher);
+  const response = await onRequestGet(context() as never);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual(upstream);
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(String(fetcher.mock.calls[0]![0])).toBe(
+    `https://api.github.com/repos/finos/common-domain-model/commits/${upstream.sha}`
+  );
 });
 it('retains quota recovery headers without caching failures or echoing upstream bodies', async () => {
   const put = vi.fn();
@@ -46,6 +66,19 @@ it('retains quota recovery headers without caching failures or echoing upstream 
   expect(result.headers.get('x-ratelimit-remaining')).toBe('0');
   expect(result.headers.get('Cache-Control')).toBe('no-store');
   expect(await result.text()).not.toContain('upstream request metadata');
+  expect(put).not.toHaveBeenCalled();
+});
+it('rejects GitHub redirects without following or caching them', async () => {
+  const put = vi.fn();
+  vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue({ match: vi.fn().mockResolvedValue(undefined), put }) });
+  const fetcher = vi.fn().mockResolvedValue(Response.redirect('https://example.com/metadata', 301));
+  vi.stubGlobal('fetch', fetcher);
+  const result = await onRequestGet(context() as never);
+  expect(result.status).toBe(502);
+  expect(result.headers.get('Location')).toBeNull();
+  expect(result.headers.get('Cache-Control')).toBe('no-store');
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(fetcher).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({ redirect: 'manual' }));
   expect(put).not.toHaveBeenCalled();
 });
 it('rejects arbitrary repositories, moving refs and extra parameters before fetching', async () => {

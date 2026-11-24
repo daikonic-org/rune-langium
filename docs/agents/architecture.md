@@ -1747,7 +1747,9 @@ member and declaration state. Light-theme palette work is tracked in #643.
 
 Public reference commit/tree metadata uses `/api/reference-source`, restricted to
 the curated repository registry, immutable SHA identities and GET. Successful
-responses share an edge cache; failures are never cached. Connected workspaces
+responses use a normalized request URL on the Studio host as the edge cache key.
+Unsuccessful cache responses are treated as misses. The proxy uses the Workers
+runtime's manual redirect mode and rejects upstream redirects. Connected workspaces
 reuse their scoped token directly for admitted GitHub objects, without entering
 the public cache. Payloads use raw immutable URLs and retain the shared reader's
 Git blob hash/size checks. Quota errors expose reset/recovery guidance. This is a
