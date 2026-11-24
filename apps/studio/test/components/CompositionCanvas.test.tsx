@@ -4,7 +4,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { memo, useContext, useState, type ComponentProps } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
-import type { ReactFlowProps } from '@xyflow/react';
+import { NodeChangeset, type ReactFlowProps } from '@xyflow/react';
 import type { FunctionComposition } from '@rune-langium/core';
 import { CompositionCanvas } from '../../src/components/compose/CompositionCanvas.js';
 import {
@@ -139,7 +139,11 @@ it('ignores initial and repeated node measurements but refocuses a resized selec
   props.viewports.set(props.viewKey, { viewport: { x: 100, y: 200, zoom: 0.75 }, width: props.size.width });
   render(<CompositionCanvas {...props} />);
   const measure = (height: number) =>
-    act(() => harness.flow.onNodesChange?.([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }]));
+    act(() =>
+      harness.flow.onNodesChange?.(
+        new NodeChangeset([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }])
+      )
+    );
   measure(240);
   measure(240);
   expect(props.setFocus).not.toHaveBeenCalled();
@@ -160,7 +164,11 @@ it('keeps the camera steady when a dropped Output expands on selection', () => {
   props.viewports.set(props.viewKey, { viewport: { x: -214, y: 30, zoom: 1 }, width: props.size.width });
   const { rerender } = render(<CompositionCanvas {...props} selected="" />);
   const measure = (height: number) =>
-    act(() => harness.flow.onNodesChange?.([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }]));
+    act(() =>
+      harness.flow.onNodesChange?.(
+        new NodeChangeset([{ id: 'return', type: 'dimensions', dimensions: { width: 280, height } }])
+      )
+    );
   measure(82);
   fireEvent.drop(screen.getByLabelText('Test composition canvas'));
   rerender(<CompositionCanvas {...props} />);
@@ -251,9 +259,11 @@ it('keeps pointer updates inside the canvas and preserves a draft position throu
   };
   for (let tick = 0; tick < 30; tick++)
     act(() =>
-      harness.flow.onNodesChange?.([
-        { id: 'draft:new', type: 'position', position: { x: 200 + tick, y: 300 + tick }, dragging: true }
-      ])
+      harness.flow.onNodesChange?.(
+        new NodeChangeset([
+          { id: 'draft:new', type: 'position', position: { x: 200 + tick, y: 300 + tick }, dragging: true }
+        ])
+      )
     );
   expect(harness.flow.nodes?.find((node) => node.id === 'draft:new')?.position).toEqual({ x: 229, y: 329 });
   expect(harness.parent).toHaveBeenCalledTimes(before.parent);
@@ -272,7 +282,9 @@ it('keeps pointer updates inside the canvas and preserves a draft position throu
     })
   );
   act(() =>
-    harness.flow.onNodesChange?.([{ id: 'input:value', type: 'dimensions', dimensions: { width: 280, height: 240 } }])
+    harness.flow.onNodesChange?.(
+      new NodeChangeset([{ id: 'input:value', type: 'dimensions', dimensions: { width: 280, height: 240 } }])
+    )
   );
   expect(harness.layout).toHaveBeenCalledTimes(before.layout);
   act(() =>

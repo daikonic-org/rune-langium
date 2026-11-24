@@ -16,13 +16,12 @@ import {
   ReactFlow,
   Background,
   Controls,
-  applyNodeChanges,
+  NodeChangeset,
   getNodesBounds,
   getViewportForBounds,
   useNodesInitialized,
   useReactFlow,
   type Edge,
-  type NodeChange,
   type XYPosition,
   type Viewport,
   type Connection
@@ -247,7 +246,8 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   }, [focus, nodes, initialized, graphCurrent, active, interacting, flow, size.width, size.height, setFocus]);
   const selectedSize = nodes.find((node) => node.id === selected)?.measured;
   const changeNodes = useCallback(
-    (changes: NodeChange<ComposerNode>[]) => {
+    (changeset: NodeChangeset<ComposerNode>) => {
+      const changes = [...changeset];
       // React Flow also reports keyboard selection through node changes.
       const selection = syncSelection && changes.find((change) => change.type === 'select' && change.selected);
       if (selection && selection.type === 'select' && selection.id !== selected) {
@@ -257,6 +257,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
       }
       const layoutChanges = syncSelection ? changes.filter((change) => change.type !== 'select') : changes;
       if (!layoutChanges.length) return;
+      const layoutChangeset = syncSelection ? new NodeChangeset(layoutChanges) : changeset;
       // Expanding a manually placed node must not pull it away from the pointer.
       const manuallyPlaced =
         positions.get(viewKey)?.has(selected) || (selected === DRAFT_NODE && preview?.position !== undefined);
@@ -275,7 +276,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
       )
         setFocus(selected);
       setNodes((previous) => {
-        const next = applyNodeChanges(layoutChanges, previous);
+        const next = layoutChangeset.applyTo(previous);
         if (interactingNow.current || !layoutChanges.some((change) => change.type === 'dimensions')) return next;
         // The draft's free position is independent of rank layout.
         const draft = next.find((node) => node.id === DRAFT_NODE);
@@ -310,7 +311,7 @@ export const CompositionCanvas = memo(function CompositionCanvas({
   };
   const placeNode = (id: string, position: XYPosition) => {
     rememberNodePosition(id, position);
-    setNodes((previous) => applyNodeChanges([{ type: 'position', id, position }], previous));
+    setNodes((previous) => new NodeChangeset<ComposerNode>([{ type: 'position', id, position }]).applyTo(previous));
   };
   return (
     <NodeBindingContext.Provider value={bindings}>
