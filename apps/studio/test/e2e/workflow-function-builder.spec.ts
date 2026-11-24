@@ -444,8 +444,17 @@ func Total:
   await grid.evaluate((element) => (element.style.maxWidth = '170px'));
   await expect(result.getByText(scrollHint, { exact: true })).toBeVisible();
   await expect(grid).toHaveAccessibleDescription(scrollHint);
-  await grid.evaluate((element) => (element.style.maxWidth = ''));
+  await grid.evaluate((element) => {
+    const borderWidth = element.offsetWidth - element.clientWidth;
+    element.style.width = `${element.scrollWidth + borderWidth + 2}px`;
+    element.style.maxWidth = 'none';
+  });
+  await expect.poll(() => grid.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
   await expect(result.getByText(scrollHint, { exact: true })).toBeHidden();
+  await grid.evaluate((element) => {
+    element.style.removeProperty('width');
+    element.style.removeProperty('max-width');
+  });
   const raw = output.locator('details').filter({ has: page.getByText('Raw result', { exact: true }) });
   await raw.getByText('Raw result', { exact: true }).click();
   await expect(raw.locator('pre')).toContainText('"amount": 1234.56789');
