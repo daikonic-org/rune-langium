@@ -378,10 +378,11 @@ interactive.
 The graph's informational legend also passes pointer events to the canvas.
 
 Inspector title actions are a host-owned slot in the shared `TypeHeader`, so
-workspace creation does not leak into individual declaration forms. Its declaration
-title is a level-two heading beneath the perspective heading, including transient
-read-only states; heading order cannot depend on neighboring Dockview panels. Extend uses
-the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
+workspace creation does not leak into individual declaration forms. Read-only names
+wrap and editable names expose their full value on hover. Header actions and badges
+wrap together when the pane is narrow. Read-only titles use level-two headings
+beneath the perspective heading, independent of neighboring Dockview panels.
+Extend uses the canonical Rune renderer. Reference-only Modify copies exact declaration ranges
 from the verified active curated source into editable override files; split dispatch
 files retain their own imports. The host checks workspace identity and collisions,
 then uses the normal file persistence/parse path. Modify emits `override namespace`
@@ -1747,7 +1748,9 @@ member and declaration state. Light-theme palette work is tracked in #643.
 
 Public reference commit/tree metadata uses `/api/reference-source`, restricted to
 the curated repository registry, immutable SHA identities and GET. Successful
-responses share an edge cache; failures are never cached. Connected workspaces
+responses use a normalized request URL on the Studio host as the edge cache key.
+Unsuccessful cache responses are treated as misses. The proxy uses the Workers
+runtime's manual redirect mode and rejects upstream redirects. Connected workspaces
 reuse their scoped token directly for admitted GitHub objects, without entering
 the public cache. Payloads use raw immutable URLs and retain the shared reader's
 Git blob hash/size checks. Quota errors expose reset/recovery guidance. This is a
