@@ -322,78 +322,62 @@ pnpm --filter @rune-langium/studio test
 pnpm --filter @rune-langium/studio exec vitest run test/components/SourceEditor.test.tsx
 ```
 
-## Local development with Pages Functions
+## Local development with Cloudflare services
 
-The studio's Download (spec 018) and LSP (spec 019) endpoints are hosted as
-Cloudflare Pages Functions under `apps/studio/functions/api/`. Three
-workflows depending on what you're iterating on:
-
-### A. UI-only iteration → `pnpm dev`
-
-Fast HMR, vite only. Visit `http://localhost:5173/rune-studio/studio/`.
-LSP + curated parse endpoints will 404 in the status bar (no Pages
-Functions are running), but every other UI surface works and changes
-reflect instantly. Use this for component / styling / state-machine
-work.
-
-### B. Full backend stack → `pnpm dev:full`
-
-One command, four processes: vite (5173) + lsp-worker (8790) +
-curated-mirror-worker (8789) + wrangler pages dev (8788). Visit
-`http://localhost:8788/rune-studio/studio/`. The CURATED_MIRROR service
-binding shows `[connected]`; `/api/parse` works end-to-end.
-
-LSP now connects directly to apps/lsp-worker's own dev server at `:8790`
-(no Pages Function proxy — see apps/studio/wrangler.toml's comment and
-apps/lsp-worker/.dev.vars.example). Set in your own `.env.local`:
-
-```
-VITE_LSP_WS_URL=ws://localhost:8790/rune-studio/api/lsp
-VITE_LSP_SESSION_URL=http://localhost:8790/rune-studio/api/lsp/session
-```
-
-and copy `apps/lsp-worker/.dev.vars.example` to `apps/lsp-worker/.dev.vars`
-so the Worker's local `ALLOWED_ORIGIN` accepts the studio's dev origins
-(production's `ALLOWED_ORIGIN` in `apps/lsp-worker/wrangler.toml` stays
-locked to `https://www.daikonic.dev` — `.dev.vars` only applies to
-`wrangler dev`, never to `wrangler deploy`).
-
-> **Gotcha:** wrangler's `env.ASSETS.fetch` (used by the SPA catch-all
-> Pages Function) serves the LOCAL `dist/` directory, NOT vite's dev
-> modules. This means HMR doesn't reach the browser at `:8788` —
-> wrangler keeps serving the built bundle. The `predev:full` hook
-> runs `pnpm build` so the bundle is at least FRESH at startup; UI
-> changes made during a `dev:full` session won't appear until you
-> either (a) restart `dev:full` or (b) run `pnpm build` in another
-> terminal. For tight UI iteration use workflow A above; switch to
-> workflow B when you need to test LSP / curated parse integration.
-
-### Curated mirror — local fixture seeding
-
-The curated-mirror-worker starts with an EMPTY in-memory R2 bucket. To
-exercise the curated CDM/FpML/rune-dsl flow locally, seed the bucket
-in a separate terminal after `dev:full` is up:
+From the repository root, run:
 
 ```bash
-pnpm --filter @rune-langium/curated-mirror-worker run seed:local
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-Populate `.resources/cdm`, `.resources/rune-fpml`, and `.resources/rune-dsl`
-with repository-root clones of the corresponding upstream projects. The seed
-preserves repository-relative paths beneath one archive wrapper, so CDM sources
-retain `rosetta-source/src/main/rosetta/` exactly once. The artifact builder
-selects production sources and excludes test fixtures.
+Open `http://127.0.0.1:5173/`. Use `STUDIO_DEV_PORT=5243 pnpm dev` if the
+default Studio port is busy. The command compiles the shared workspace packages
+and applies migrations to local D1. Vite serves Studio with hot module
+replacement and proxies requests to Wrangler on the same origin.
 
-The seed writes source archives and serialized JSON artifacts to local R2.
-Then click the CDM / FpML / rune-dsl chips in the loader to browse their types.
+| Service | Local port | Browser route |
+|---|---:|---|
+| Studio (Vite) | 5173 | `/` |
+| Pages Functions | 8788 | `/api/*` |
+| Curated mirror | 8789 | `/curated/*`, `/releases/*` |
+| LSP | 8790 | `/rune-studio/api/lsp/*` |
+| Telemetry | 8791 | `/rune-studio/api/telemetry/*` |
+| GitHub auth | 8792 | `/rune-studio/api/github-auth/*` |
+| CDM example data | 8793 | Private Pages service binding |
 
-### Workflow choice cheat-sheet
+Pages uses local service bindings for the curated mirror and CDM data Worker,
+including the `DatabaseExecution` entry point. Wrangler reloads Worker and
+Pages Function source after edits. Rebuild a shared package when editing its
+compiled exports. The Studio dev server and Workers bind to loopback. Stop the
+stack with Ctrl-C.
 
-| Iterating on | Use | URL |
-|---|---|---|
-| UI components, styling, state | `pnpm dev` | `http://localhost:5173/rune-studio/studio/` |
-| Pages Functions (`/api/*`) | `pnpm dev:pages` (vite must be running separately) | `http://localhost:8788/` |
-| LSP + curated + Pages Functions all together | `pnpm dev:full` (+ seed:local for curated) | `http://localhost:8788/rune-studio/studio/` |
+For UI-only work, run `pnpm --filter @rune-langium/studio exec vite` after
+building the workspace dependencies. `pnpm --filter @rune-langium/studio
+dev:pages` runs Pages Functions separately. Local development uses the current
+Langium-based `/api/codegen` route.
+
+### Local reference models and data
+
+Local R2 and D1 are separate from Cloudflare production. D1 migrations install
+the dataset catalog. Import observations before running workflows that use
+market data, following the [CDM data Worker instructions](../cdm-example-data-worker/README.md).
+
+For a local Nightly reference cohort, build and upload its artifacts from the
+repository root. The publisher links CDM, FpML, and Rune DSL together:
+
+```bash
+node --max-old-space-size=4096 scripts/build-serialized-artifacts.mjs
+bash scripts/upload-serialized-artifacts.sh --local
+```
+
+The upload uses the same local R2 state as the mirror worker. Set a read-only
+`GITHUB_TOKEN` for the build if anonymous GitHub requests are rate limited.
+The grammar test fixtures can use a different mix of model revisions.
+
+GitHub Device Flow still uses GitHub. To test authorized CDM data preparation,
+configure your developer GitHub ID in the CDM Worker's gitignored `.dev.vars`
+as `EXECUTION_ALLOWED_GITHUB_IDS`.
 
 ### Named project targets
 

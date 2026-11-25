@@ -9,16 +9,21 @@
 #   - dist/curated-artifacts/<modelId>/latest.serialized.json.gz
 #   - dist/curated-artifacts/<modelId>/artifact-meta.json
 #   - dist/curated-artifacts/<modelId>/source.tar.gz
-#   - CLOUDFLARE_API_TOKEN env var (or wrangler login)
+#   - CLOUDFLARE_API_TOKEN env var (or wrangler login) for remote uploads
 #
 # Usage:
-#   bash scripts/upload-serialized-artifacts.sh [--dry-run]
+#   bash scripts/upload-serialized-artifacts.sh [--dry-run | --local]
 
 set -euo pipefail
 DRY_RUN=0
+DESTINATION=--remote
 if (( $# > 0 )); then
-  if (( $# != 1 )) || [[ "$1" != "--dry-run" ]]; then echo "Usage: $0 [--dry-run]" >&2; exit 2; fi
-  DRY_RUN=1
+  if (( $# != 1 )); then echo "Usage: $0 [--dry-run | --local]" >&2; exit 2; fi
+  case "$1" in
+    --dry-run) DRY_RUN=1 ;;
+    --local) DESTINATION=--local ;;
+    *) echo "Usage: $0 [--dry-run | --local]" >&2; exit 2 ;;
+  esac
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,7 +37,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 upload_object() {
   local key="$1" file="$2" content_type="$3"
   # Keep the complete error: tailing Wrangler output hid the cause of failed publications.
-  "${WRANGLER[@]}" r2 object put "$BUCKET/$key" --file "$file" --content-type "$content_type" --remote
+  "${WRANGLER[@]}" r2 object put "$BUCKET/$key" --file "$file" --content-type "$content_type" "$DESTINATION"
   printf '%s\n' "$key" >> "$TMP_DIR/published-keys"
 }
 

@@ -29,7 +29,8 @@ function publication(
     failManifest = false,
     dependencyVersion = 'v2',
     releaseMode = false,
-    dryRun = false
+    dryRun = false,
+    local = false
   } = {}
 ) {
   const root = mkdtempSync(join(tmpdir(), 'curated-upload-'));
@@ -53,6 +54,7 @@ function publication(
     `#!/usr/bin/env bash
 set -eu
 key="$8"
+[[ "\${!#}" == "$EXPECTED_DESTINATION" ]]
 echo "$key" >> "$UPLOAD_LOG"
 if [[ -n "$FAIL_UPLOAD" && "$key" == $FAIL_UPLOAD ]]; then exit 42; fi
 mkdir -p "$OBJECTS/$(dirname "$key")"
@@ -124,13 +126,17 @@ fi
         }))
       )
     );
-  const result = spawnSync('bash', [join(root, 'scripts/upload.sh'), ...(dryRun ? ['--dry-run'] : [])], {
+  const args = [join(root, 'scripts/upload.sh')];
+  if (dryRun) args.push('--dry-run');
+  if (local) args.push('--local');
+  const result = spawnSync('bash', args, {
     cwd: root,
     encoding: 'utf8',
     env: {
       ...process.env,
       PATH: `${join(root, 'bin')}:${process.env.PATH}`,
       UPLOAD_LOG: log,
+      EXPECTED_DESTINATION: local ? '--local' : '--remote',
       OBJECTS: objects,
       FAIL_UPLOAD: failUpload,
       RELEASE_MODE: releaseMode ? '1' : '0',
@@ -151,6 +157,12 @@ fi
 }
 
 const sourceSha = createHash('sha256').update('source').digest('hex');
+test('writes the publication cohort only to local R2 when requested', (t) => {
+  const { result, uploads } = publication(t, { local: true });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(uploads.includes('rune-curated-mirror/curated/a-consumer/manifest.json'));
+});
+
 const versioned = [
   `rune-curated-mirror/curated/a-consumer/artifacts/source-${sourceSha}.tar.gz`,
   'rune-curated-mirror/curated/a-consumer/artifacts/v2.serialized.json.gz',
