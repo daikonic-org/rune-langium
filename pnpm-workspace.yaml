@@ -32,6 +32,10 @@ minimumReleaseAgeExclude:
   - '@zod-to-form/react@0.13.1'
   - '@zod-to-form/vite@0.5.1'
   - '@zod-to-form/codegen@0.11.0'
+  - '@lspeasy/client@3.1.11'
+  - '@lspeasy/core@3.0.2'
+  - '@lspeasy/server@4.2.5'
+  - x-to-zod@0.10.10
   # PR #353: @lspeasy/client 3.1.5 pulls in @lspeasy/core 2.6.0 as a new
   # transitive resolution; both were too freshly-published for the age gate,
   # which blocked `pnpm install` (not a real breaking change in the bump).
@@ -63,7 +67,6 @@ overrides:
   react: 19.3.1
   react-dom: 19.3.1
   langium-zod: 0.12.2
-  x-to-zod: ^0.8.0
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -94,7 +97,7 @@ auditConfig:
 # Published declaration files import type-fest without declaring it.
 # Remove after https://github.com/pradeepmouli/lspeasy/issues/307 is fixed.
 packageExtensions:
-  '@lspeasy/core@3.0.1':
+  '@lspeasy/core@3.0.2':
     dependencies:
       type-fest: 5.10.0
 

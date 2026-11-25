@@ -13,7 +13,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@lspeasy/core": "^3.0.1",
+    "@lspeasy/core": "^3.0.2",
     "@rune-langium/core": "workspace:*",
     "@rune-langium/curated-schema": "workspace:*",
     "@rune-langium/lsp-server": "workspace:*",

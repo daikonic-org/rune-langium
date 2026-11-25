@@ -9,7 +9,7 @@
     "test-client": "node src/test-client.mjs ws://localhost:8792/spike/ws"
   },
   "dependencies": {
-    "@lspeasy/core": "^3.0.1",
+    "@lspeasy/core": "^3.0.2",
     "@rune-langium/lsp-server": "workspace:*",
     "langium": "^4.4.2"
   },
