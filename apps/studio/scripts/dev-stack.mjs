@@ -66,6 +66,7 @@ async function main() {
       ...workers.map(({ name, port, allowOrigin }) => {
         const args = [`--ip ${loopback}`, `--port ${port}`];
         if (allowOrigin) args.push(`--var ALLOWED_ORIGIN:${allowedOrigins}`);
+        if (name === 'curated-mirror') args.push('--var DEV_READ_PUBLISHED_REFERENCES:true');
         const keyName = name === 'lsp' ? 'SESSION_SIGNING_KEY' : name === 'telemetry' ? 'IP_SALT_SECRET' : undefined;
         const env = keyName ? { RUNE_LOCAL_WORKER_KEY: randomBytes(32).toString('hex') } : {};
         if (keyName) args.push(`--var ${keyName}:"$RUNE_LOCAL_WORKER_KEY"`);

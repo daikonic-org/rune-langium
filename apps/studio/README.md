@@ -359,6 +359,11 @@ Langium-based `/api/codegen` route.
 
 ### Local reference models and data
 
+Pinned reference releases work with an empty local R2 bucket. On a local miss,
+the mirror fetches catalogs and immutable artifacts from the published mirror.
+Studio still verifies its workspace lock and artifact checksums. Local Nightly
+data comes from the local R2 bucket.
+
 Local R2 and D1 are separate from Cloudflare production. D1 migrations install
 the dataset catalog. Import observations before running workflows that use
 market data, following the [CDM data Worker instructions](../cdm-example-data-worker/README.md).
