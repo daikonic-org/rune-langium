@@ -68,14 +68,10 @@ export const createCuratedCacheSeeder = withInstrumentation(
         seed = next;
         active = { seed, abort };
         const identity = curatedArtifactIdentity(seed.key)!;
-        const documents = await fetchNamespace(
-          seed.bundleId,
-          seed.version,
-          identity.artifact,
-          (url, init) =>
-            fetch(url, { ...init, signal: AbortSignal.any([abort.signal, ...(init?.signal ? [init.signal] : [])]) }),
-          { retain: false }
-        );
+        const documents = await fetchNamespace(seed.bundleId, seed.version, identity.artifact, undefined, {
+          retain: false,
+          signal: abort.signal
+        });
         if (abort.signal.aborted) return;
         // Drop the decompressed response after its atomic write. Prefetch never
         // populates per-tab documents or retains the corpus in a second JS cache.

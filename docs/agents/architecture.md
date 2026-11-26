@@ -715,6 +715,9 @@ Foreground parse/source operations hold a renewable, expiring pause across tabs
 and abort active speculative fetches. Navigation releases the tab's ownership;
 immutable completed writes remain reusable. Prefetch uses the ordinary artifact
 fetcher and validation but disables its separate in-memory namespace retention.
+Declaration inspection and prefetch pass cancellation to the namespace fetcher
+so it can keep the configured mirror transport. Cancellable reads own their
+requests and do not join or populate the shared in-memory cache.
 Its atomic cache writes never evict foreground entries and stop on capacity or
 storage failure. Mutable workspace files and per-tab parser state never cross
 this worker boundary. This is background cache seeding, not progressive Inspector

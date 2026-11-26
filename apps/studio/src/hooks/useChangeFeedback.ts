@@ -7,11 +7,13 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore, type NodeRepository } from '@rune-langium/visual-editor';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
-import { ChangeFeedbackBoundary, feedbackSources, type FeedbackItem } from '../services/change-feedback.js';
+import {
+  ChangeFeedbackBoundary,
+  feedbackSources,
+  LOAD_ARRIVAL_RETENTION_MS,
+  type FeedbackItem
+} from '../services/change-feedback.js';
 import '../styles/change-feedback.css';
-
-// Keep arrival attributes mounted through the loading fade in change-feedback.css.
-const LOAD_ARRIVAL_RETENTION_MS = 1800;
 
 export const useFeedbackRevision = withInstrumentation(
   function useFeedbackRevision(files?: Parameters<typeof feedbackSources>[0]) {

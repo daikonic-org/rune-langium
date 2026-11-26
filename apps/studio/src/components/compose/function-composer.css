@@ -134,11 +134,17 @@
 
 @container compose-palette (block-size >= 34rem) {
   .function-composer__functions {
-    display: flex;
-    flex-direction: column;
     min-block-size: 0;
     flex: 1;
     overflow: auto;
+  }
+}
+
+/* Keep the compact tree at HD; grow it when the palette has room above Primitives. */
+@container compose-palette (block-size >= 40rem) {
+  .function-composer__functions {
+    display: flex;
+    flex-direction: column;
   }
 
   .function-composer__functions > :not(.function-composer__library) {

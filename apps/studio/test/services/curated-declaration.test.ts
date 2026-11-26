@@ -111,15 +111,13 @@ it.each(['missing', 'corrupt', 'wrong namespace'])(
           ]
     );
     mocks.fetch.mockResolvedValue([selected]);
-    const nodes = await loadCuratedDeclarations(seed, new AbortController().signal);
+    const { signal } = new AbortController();
+    const nodes = await loadCuratedDeclarations(seed, signal);
     expect(nodes[0]?.data).toMatchObject({ name: 'Selected', attributes: [{ name: 'own' }] });
-    expect(mocks.fetch).toHaveBeenCalledWith(
-      'cdm',
-      'pinned',
-      expect.stringContaining('aaaaaaaaaaaa/ns/'),
-      expect.any(Function),
-      { retain: false }
-    );
+    expect(mocks.fetch).toHaveBeenCalledWith('cdm', 'pinned', expect.stringContaining('aaaaaaaaaaaa/ns/'), undefined, {
+      retain: false,
+      signal
+    });
     expect(mocks.seed).toHaveBeenCalledWith(seed.key, [
       expect.objectContaining({ artifactKey: seed.key, content: '', sourceLoaded: false })
     ]);

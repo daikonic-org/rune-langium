@@ -362,9 +362,12 @@ export const fetchCuratedNamespace = withInstrumentation(
     version: string,
     artifactKey: string,
     fetcher?: CuratedFetcher,
-    options: { retain?: boolean } = {}
+    options: { retain?: boolean; signal?: AbortSignal } = {}
   ): Promise<CuratedDocument[]> {
-    const cacheable = options.retain !== false && !artifactKey.includes('latest');
+    const { signal } = options;
+    signal?.throwIfAborted();
+    // A caller-owned cancellation must not cancel work shared by other readers.
+    const cacheable = !signal && options.retain !== false && !artifactKey.includes('latest');
     const cacheKey = `${id}/${artifactKey}`;
     if (cacheable) {
       const hit = namespaceCache.get(cacheKey);
@@ -374,7 +377,7 @@ export const fetchCuratedNamespace = withInstrumentation(
     // Default to globalThis.fetch — same rationale as fetchCuratedBundle.
     const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
 
-    const work = fetchNamespaceArtifact(id, version, artifactKey, fetchFn);
+    const work = fetchNamespaceArtifact(id, version, artifactKey, fetchFn, signal);
     if (cacheable) {
       namespaceCache.set(cacheKey, work);
       work.catch(() => {
@@ -401,7 +404,8 @@ async function fetchNamespaceArtifact(
   id: string,
   version: string,
   artifactKey: string,
-  fetchFn: CuratedFetcher
+  fetchFn: CuratedFetcher,
+  signal?: AbortSignal
 ): Promise<CuratedDocument[]> {
   // The manifest's `namespaces[ns].artifact` is an absolute URL (consistent with
   // archiveUrl + serializedWorkspace.url). Use it as-is; fall back to prefixing the
@@ -429,9 +433,10 @@ async function fetchNamespaceArtifact(
   let fetched: { res: Response; gzBuffer: Uint8Array } | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      fetched = await downloadCuratedNamespace(id, version, url, fetchFn);
+      fetched = await downloadCuratedNamespace(id, version, url, fetchFn, signal);
       break;
     } catch (err) {
+      signal?.throwIfAborted();
       if (err instanceof OperationTimeoutError && attempt === 0) continue;
       if (err instanceof CuratedBundleUnavailableError) throw err;
       console.error('curated-fetch fetch_failed', {
@@ -443,15 +448,25 @@ async function fetchNamespaceArtifact(
       throw new CuratedBundleUnavailableError(id, version, undefined, err);
     }
   }
+  signal?.throwIfAborted();
   if (!fetched) throw new CuratedBundleUnavailableError(id, version);
   return decodeCuratedNamespace(id, version, fetched.res, fetched.gzBuffer);
 }
 
 const downloadCuratedNamespace = withInstrumentation(
-  async function downloadCuratedNamespace(id: string, version: string, url: string, fetchFn: CuratedFetcher) {
-    return withAbortTimeout(async (signal) => {
+  async function downloadCuratedNamespace(
+    id: string,
+    version: string,
+    url: string,
+    fetchFn: CuratedFetcher,
+    signal?: AbortSignal
+  ) {
+    return withAbortTimeout(async (deadline) => {
       // Artifact bodies are gzip files; avoid a second transport encoding.
-      const res = await fetchFn(url, { headers: { 'Accept-Encoding': 'identity' }, signal });
+      const res = await fetchFn(url, {
+        headers: { 'Accept-Encoding': 'identity' },
+        signal: signal ? AbortSignal.any([signal, deadline]) : deadline
+      });
       if (!res.ok) {
         console.error('curated-fetch non_ok_status', {
           bundleId: id,

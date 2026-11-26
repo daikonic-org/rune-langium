@@ -73,14 +73,10 @@ export const loadCuratedDeclarations = withInstrumentation(
       const identity = curatedArtifactIdentity(seed.key)!;
       const documents = curatedHydrationDocuments(
         (
-          await fetchCuratedNamespace(
-            seed.bundleId,
-            seed.version,
-            identity.artifact,
-            (url, init) =>
-              fetch(url, { ...init, signal: AbortSignal.any([signal, ...(init?.signal ? [init.signal] : [])]) }),
-            { retain: false }
-          )
+          await fetchCuratedNamespace(seed.bundleId, seed.version, identity.artifact, undefined, {
+            retain: false,
+            signal
+          })
         ).map((doc) => ({ ...doc, namespace: seed.namespace, artifactKey: seed.key })),
         seed.bundleId
       );
