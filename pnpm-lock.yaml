@@ -11,7 +11,7 @@ overrides:
   '@l1xnan/tree-sitter-sql': 0.4.7
   react: 19.3.1
   react-dom: 19.3.1
-  langium-zod: 0.12.3
+  langium-zod: 0.12.4
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -30,7 +30,7 @@ patchedDependencies:
   '@xyflow/react@13.0.3': 0f37533a999a85b9bf77eeef982ffd5f2f36c6dcd7d84107e4d1a30c84325290
   braces@3.0.3: 34eb31fe97613665c68c7d975f52a39cfe1a8be6064d9d12687b19ab626b4564
   drizzle-orm@0.45.4: 8de823593aa357a8739e3d049ff1d0668e617934630351fa0fa23f5e0715303d
-  langium-zod@0.12.3: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
+  langium-zod@0.12.4: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
 
 importers:
 
@@ -662,8 +662,8 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1
       langium-zod:
-        specifier: 0.12.3
-        version: 0.12.3(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
+        specifier: 0.12.4
+        version: 0.12.4(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -953,8 +953,8 @@ importers:
         specifier: ^31.0.1
         version: 31.0.1
       langium-zod:
-        specifier: 0.12.3
-        version: 0.12.3(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
+        specifier: 0.12.4
+        version: 0.12.4(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -5439,8 +5439,8 @@ packages:
   langium-railroad@4.4.0:
     resolution: {integrity: sha512-5dZINWslRqUkQaVtn+45SdZyOZ2+LwBGrzWKbRkVf76IZPCRTBzbmNYaCFW09Nwl5dMmv+iQvwkUwViljN0hvg==}
 
-  langium-zod@0.12.3:
-    resolution: {integrity: sha512-hpHmQZKFcsbP6JaU2j0OVZKppo3e395RXZt2YoT0sAzWcYZRUvNNNegAxjaIhczwOdGhz6LgTOvJaxxHWmSKNg==}
+  langium-zod@0.12.4:
+    resolution: {integrity: sha512-pGXXWDQmfT6E5VTXe8Aw7Y72OzrtNBsqf6dv0PD2ZIK77g4OVYB2eA55DGvIiSc/KZVNbuFnjApksGzM4BwRBA==}
     hasBin: true
 
   langium@4.4.2:
@@ -7120,8 +7120,8 @@ packages:
     resolution: {integrity: sha512-c16PKLIRxBYpR3jSWsdS7SFp0COm5SOQdiFjY818dYFHJbMGuLBszpF07LBWmOS1uzrHa9VGdynsEgoeKy0oOQ==}
     engines: {node: '>=20'}
 
-  x-to-zod@0.10.10:
-    resolution: {integrity: sha512-RdQ83NwRytP8fE8G/xqp8hpy5Qxf2XJQ3xdozyqGEjztsfydHKvxGsvuHn+3OeHuuAoIHtp+fXWCZZc63WHoZQ==}
+  x-to-zod@0.10.11:
+    resolution: {integrity: sha512-8ZgwXITt6ypmq9Jw4SgxTveFWavwrgMAZ2KcSUKLSxh8q76d4nu6xe51VMhrzjcG9Mybk8vdddQGqR/jPet4zw==}
     engines: {node: '>=22.0.0', pnpm: '>=11.0.0'}
     hasBin: true
 
@@ -11110,11 +11110,11 @@ snapshots:
       langium: 4.4.2
       railroad-diagrams: 1.0.0
 
-  langium-zod@0.12.3(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
+  langium-zod@0.12.4(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
     dependencies:
       humanize-string: 4.0.0
       langium: 4.4.2
-      x-to-zod: 0.10.10
+      x-to-zod: 0.10.11
       zod: 4.6.7
 
   langium@4.4.2:
@@ -13021,7 +13021,7 @@ snapshots:
       is-wsl: 3.1.1
       powershell-utils: 0.2.1
 
-  x-to-zod@0.10.10:
+  x-to-zod@0.10.11:
     dependencies:
       json-schema-typed: 9.0.0
       tinyglobby: 0.2.17
