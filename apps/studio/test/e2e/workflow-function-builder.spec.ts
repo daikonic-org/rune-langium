@@ -241,7 +241,8 @@ func Demo:
   await composer.getByRole('button', { name: 'Open Demo workflow', exact: true }).click();
   const details = composer.getByRole('complementary', { name: 'Composition details' });
   const metadata = details.getByText('Function metadata', { exact: true });
-  await expect(metadata).toHaveCSS('text-transform', 'uppercase');
+  await expect(metadata).toHaveCSS('text-transform', 'none');
+  await expect(metadata).toHaveCSS('letter-spacing', 'normal');
   await metadata.click();
   await expect(details.getByText('Annotations', { exact: true })).toHaveCSS('text-transform', 'none');
   await metadata.click();
@@ -1066,6 +1067,11 @@ test('resizes Compose side panels without editing source or replacing the canvas
   await expect(signature.getByRole('textbox', { name: 'Attribute name: value', exact: true })).toBeVisible();
   await expect(signature.getByRole('textbox', { name: 'Output name: result', exact: true })).toBeVisible();
   await expect(signature.getByRole('tab', { name: 'Implementation', exact: true })).toHaveCount(0);
+  for (const label of ['Inputs (1)', 'Output', 'Function metadata']) {
+    const heading = signature.getByText(label, { exact: true });
+    await expect(heading).toHaveCSS('text-transform', 'none');
+    await expect(heading).toHaveCSS('letter-spacing', 'normal');
+  }
   const location = composer.getByRole('navigation', { name: 'Compose location', exact: true });
   const locationGap = async () => Math.abs((await location.boundingBox())!.x - (await center.boundingBox())!.x);
   await expect.poll(locationGap).toBeLessThanOrEqual(1);

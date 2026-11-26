@@ -350,8 +350,9 @@ must not re-fit the entire graph on every selection. The graph permits zoom down
 to 5% so Fit View can include tall/wide namespaces while retaining viewport
 culling; selecting a type restores a readable detail view.
 Responsive container fits retain the selected node as their target, including
-when a direction change requires asynchronous layout. Explicit Fit View still
-fits the complete visible graph.
+when a direction change requires asynchronous layout. When hydration changes
+a selected node's dimensions, the fit scheduled by remeasurement runs after
+the new positions are installed. Explicit Fit View fits the complete visible graph.
 Semantic zoom hides detail without changing node dimensions: summaries overlay
 the retained body space, and hidden cardinalities keep their layout width.
 Graph member grids bound both name and type columns independently of the shared

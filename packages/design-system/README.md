@@ -55,7 +55,9 @@ case. The shared tabs primitive uses this role by default.
 Use `.navigation-heading` for perspective names and panel titles, and
 `.section-heading` for one tier of section labels inside a panel or dialog. These
 labels use System Regular 400 in uppercase with
-`--section-heading-letter-spacing` (0.04em).
+`--section-heading-letter-spacing` (0.04em). Studio uses this treatment for
+Input and Output in Form Preview. Inspector group labels use the same type
+size and weight in sentence case with normal letter spacing.
 Panel/perspective titles retain Sans Regular 400 by default. Components may
 strengthen this: Studio pane captions use Title/Sans Medium 500, and shared
 Structure card and Inspector declaration names use Medium 500.

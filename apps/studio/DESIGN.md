@@ -23,9 +23,10 @@ available; no system preference silently replaces an explicit choice.
   `--font-code`; components reference these tokens. UI text uses System Book 350
   at the configured size tokens. Action buttons use Medium 500. Primary
   actions and center-pane toggles use SemiBold 600. Tabs and field labels retain System Regular 400.
-  Use the uppercase section style for one tier of labels within each panel or
-  dialog. These labels use System Regular 400 with 0.04em letter spacing. Panel
-  headings use Title/Sans Medium 500. Inspector declaration names and Structure
+  Use the uppercase section style for one tier of labels, including Input and
+  Output in Form Preview. These labels use System Regular 400 with 0.04em letter
+  spacing. Inspector group labels use sentence case with normal letter spacing.
+  Panel headings use Title/Sans Medium 500. Inspector declaration names and Structure
   card names use Medium 500.
   Explanatory copy uses the shared `text-caption` style with System italic and
   the caption foreground. Other titles use Sans Regular 400. Detail-pane titles use Sans Medium 500 at 13px.
