@@ -161,15 +161,17 @@ for (const catalog of [false, true])
       await dialog.getByRole('button', { name: 'Import 1 into library' }).click();
       await expect(dialog.getByText(`${path}: imported.`)).toBeVisible();
       await dialog.getByRole('button', { name: 'Close', exact: true }).first().click();
-      const row = page
+      const matchingRows = page
         .getByTestId('prototype-grid')
         .getByRole('row')
         .filter({ hasText: catalog ? 'reference.example.Double' : 'reference.example.Payment' });
-      await expect(row).toContainText('saved');
+      await expect(matchingRows).toContainText('saved');
       const files = await projectBackingFiles(page);
       const descriptor = Object.entries(files).find(([path]) => path.endsWith('.example.json'));
       expect(descriptor).toBeDefined();
-      expect(JSON.parse(descriptor![1]).provenance.reference).toMatchObject({
+      const imported = JSON.parse(descriptor![1]);
+      const row = matchingRows.filter({ has: page.getByRole('cell', { name: imported.name, exact: true }) });
+      expect(imported.provenance.reference).toMatchObject({
         commit: release.commit,
         release: '1.0',
         path,
