@@ -12,7 +12,6 @@ overrides:
   react: 19.3.1
   react-dom: 19.3.1
   langium-zod: 0.12.2
-  x-to-zod: ^0.8.0
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -25,7 +24,7 @@ overrides:
   miniflare>sharp: 0.35.5
   concurrently>shell-quote: 1.12.0
 
-packageExtensionsChecksum: sha256-tPitCNUFutwUwyNLYfr/kXx7HP/Rj2KZog+7pbgM8ws=
+packageExtensionsChecksum: sha256-pL7YqkUU6/pkIV6OGGmrl/QX9muRGxkZK98BtUgeTxo=
 
 patchedDependencies:
   '@xyflow/react@13.0.3': 0f37533a999a85b9bf77eeef982ffd5f2f36c6dcd7d84107e4d1a30c84325290
@@ -38,11 +37,11 @@ importers:
   .:
     dependencies:
       '@lspeasy/client':
-        specifier: ^3.1.10
-        version: 3.1.10(ws@8.23.0)
+        specifier: ^3.1.11
+        version: 3.1.11(ws@8.23.0)
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       camelcase:
         specifier: ^10.0.0
         version: 10.0.0
@@ -267,8 +266,8 @@ importers:
   apps/lsp-worker:
     dependencies:
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -340,8 +339,8 @@ importers:
         specifier: ^1.2.5
         version: 1.2.5
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@marsidev/react-turnstile':
         specifier: ^1.6.3
         version: 1.6.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -770,11 +769,11 @@ importers:
   packages/lsp-server:
     dependencies:
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@lspeasy/server':
-        specifier: ^4.2.4
-        version: 4.2.4(ws@8.23.0)
+        specifier: ^4.2.5
+        version: 4.2.5(ws@8.23.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
@@ -792,8 +791,8 @@ importers:
         version: 8.23.0
     devDependencies:
       '@lspeasy/client':
-        specifier: ^3.1.10
-        version: 3.1.10(ws@8.23.0)
+        specifier: ^3.1.11
+        version: 3.1.11(ws@8.23.0)
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
@@ -994,8 +993,8 @@ importers:
   scratch/lsp-spike:
     dependencies:
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@rune-langium/lsp-server':
         specifier: workspace:*
         version: link:../../packages/lsp-server
@@ -2337,12 +2336,12 @@ packages:
   '@lezer/python@1.1.19':
     resolution: {integrity: sha512-MhQIURHRytsNzP/YXnqpYKW6la6voAH3kyplTOOiCdjyFY6cWWGFVmYVdHIPrElqSDf4iCDktQCockB9FxuhzQ==}
 
-  '@lspeasy/client@3.1.10':
-    resolution: {integrity: sha512-tX3FzH+N3yuNntykHs/XbjRi7UwmYoE/kwqfZ+En7L67t/C93zOsWAkK3brqehFSoODCILi7gXsXnVLzxC1H9A==}
+  '@lspeasy/client@3.1.11':
+    resolution: {integrity: sha512-wizRDkQpWgLQFprTjrcFV5pVXEfXqTxS1Kekfnh20njB62dw5nwlkFRD2uWRNP8sDWXfa8xBabL2SJ4ONoePGQ==}
     engines: {node: '>=20.0.0'}
 
-  '@lspeasy/core@3.0.1':
-    resolution: {integrity: sha512-7mRRfk+slhh0rZbYordEXAYjr3rvBs08HYJs3Q4pnK9SVRJ2/q7fnpCt3GJ71Y6EShYLRrdRiE3o8JDBgJr8+Q==}
+  '@lspeasy/core@3.0.2':
+    resolution: {integrity: sha512-KCL+n7FpOcxLTEZ6oXtt4+eIwGHjDRdPAwuWy5tR0cdrvE8crM7+2SNdrqcAMreFKVb2+hctWcYA0YlQsIymwg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       ws: '>=8.21.0'
@@ -2350,8 +2349,8 @@ packages:
       ws:
         optional: true
 
-  '@lspeasy/server@4.2.4':
-    resolution: {integrity: sha512-0+mXnUVM4SqZD3Lhx9wMTY93IisFy5pUvRHOgODTJINHRUpFRa9qTacUaR2onITnAiaBq9jIO97UbzUCN/0IAg==}
+  '@lspeasy/server@4.2.5':
+    resolution: {integrity: sha512-mWJlY6btSdZdqgoBcv6pD2GOP2ZSTSruY6sHgOcgO3PsKQnBwum/aj3vC0O0mgicStzMWm+OdvbrytQEj1QyTw==}
     engines: {node: '>=20.0.0'}
 
   '@manypkg/find-root@3.1.0':
@@ -4177,10 +4176,6 @@ packages:
     resolution: {integrity: sha512-p1wew5BGDCONz/5R+xHF6ByqXQM2V+5r4e+FdlFUeROawuMPimdDOFLw5k2QSqp1rm5h2QAglToqJyvnsl3ArQ==}
     engines: {node: '>=22'}
 
-  camelcase@9.0.0:
-    resolution: {integrity: sha512-TO9xmyXTZ9HUHI8M1OnvExxYB0eYVS/1e5s7IDMTAoIcwUd+aNcFODs6Xk83mobk0velyHFQgA1yIrvYc6wclw==}
-    engines: {node: '>=20'}
-
   caniuse-lite@1.0.30001827:
     resolution: {integrity: sha512-YWEDr46gSO81M8w6uPbaIy4++IXsirx2asUqvllNiD4BPf75ibxclUjWEqp8ObCenRv+UM2n5Y8xuRPT8V8FrQ==}
 
@@ -5401,6 +5396,9 @@ packages:
 
   json-schema-typed@8.0.2:
     resolution: {integrity: sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==}
+
+  json-schema-typed@9.0.0:
+    resolution: {integrity: sha512-t+dkn3pLaz7ku3ELaBKBSQNjd0Sir5zR7Y4CpAR5a+UEH60NefBEAhAgJuWqDH5o4HDfH+EQjmXeQMLc+Xnbdg==}
 
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
@@ -7122,8 +7120,9 @@ packages:
     resolution: {integrity: sha512-c16PKLIRxBYpR3jSWsdS7SFp0COm5SOQdiFjY818dYFHJbMGuLBszpF07LBWmOS1uzrHa9VGdynsEgoeKy0oOQ==}
     engines: {node: '>=20'}
 
-  x-to-zod@0.8.0:
-    resolution: {integrity: sha512-BbD5YehkU6Lr/rtZ+c9ByJYpld9Wme0xfjMt7soVozNA98Bdh/4W7jxs3W69k+iRekdjE3RJhlcA17TkdBssug==}
+  x-to-zod@0.10.10:
+    resolution: {integrity: sha512-RdQ83NwRytP8fE8G/xqp8hpy5Qxf2XJQ3xdozyqGEjztsfydHKvxGsvuHn+3OeHuuAoIHtp+fXWCZZc63WHoZQ==}
+    engines: {node: '>=22.0.0', pnpm: '>=11.0.0'}
     hasBin: true
 
   xml-name-validator@5.0.0:
@@ -8372,26 +8371,26 @@ snapshots:
       '@lezer/highlight': 1.2.5
       '@lezer/lr': 1.4.12
 
-  '@lspeasy/client@3.1.10(ws@8.23.0)':
+  '@lspeasy/client@3.1.11(ws@8.23.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.23.0)
-      camelcase: 9.0.0
+      '@lspeasy/core': 3.0.2(ws@8.23.0)
+      camelcase: 10.0.0
     optionalDependencies:
       zod: 4.6.7
     transitivePeerDependencies:
       - ws
 
-  '@lspeasy/core@3.0.1(ws@8.23.0)':
+  '@lspeasy/core@3.0.2(ws@8.23.0)':
     dependencies:
       type-fest: 5.10.0
     optionalDependencies:
       ws: 8.23.0
       zod: 4.6.7
 
-  '@lspeasy/server@4.2.4(ws@8.23.0)':
+  '@lspeasy/server@4.2.5(ws@8.23.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.23.0)
-      camelcase: 9.0.0
+      '@lspeasy/core': 3.0.2(ws@8.23.0)
+      camelcase: 10.0.0
     optionalDependencies:
       zod: 4.6.7
     transitivePeerDependencies:
@@ -9825,8 +9824,6 @@ snapshots:
 
   camelcase@10.0.0: {}
 
-  camelcase@9.0.0: {}
-
   caniuse-lite@1.0.30001827: {}
 
   ccount@2.0.1: {}
@@ -11067,6 +11064,8 @@ snapshots:
 
   json-schema-typed@8.0.2: {}
 
+  json-schema-typed@9.0.0: {}
+
   json-stable-stringify-without-jsonify@1.0.1: {}
 
   json5@2.2.3: {}
@@ -11115,7 +11114,7 @@ snapshots:
     dependencies:
       humanize-string: 3.1.0
       langium: 4.4.2
-      x-to-zod: 0.8.0
+      x-to-zod: 0.10.10
       zod: 4.6.7
 
   langium@4.4.2:
@@ -13022,9 +13021,10 @@ snapshots:
       is-wsl: 3.1.1
       powershell-utils: 0.2.1
 
-  x-to-zod@0.8.0:
+  x-to-zod@0.10.10:
     dependencies:
-      json-schema-typed: 8.0.2
+      json-schema-typed: 9.0.0
+      tinyglobby: 0.2.17
 
   xml-name-validator@5.0.0: {}
 
