@@ -253,6 +253,33 @@ function makeNsArtifact(
 }
 
 describe('fetchCuratedNamespace', () => {
+  it('cancels the default transport without cancelling a shared read of the same artifact', async () => {
+    const controller = new AbortController();
+    const artifact = 'artifacts/2026-05-22/ns/cdm.cancellable.json.gz';
+    const gzBytes = makeNsArtifact([{ path: 'shared.rosetta', modelJson: '{}' }]);
+    const transport = vi.spyOn(globalThis, 'fetch');
+    transport.mockImplementationOnce(async (_url, init) => {
+      const signal = init?.signal;
+      if (!signal) throw new Error('Expected transport signal');
+      return new Promise((_resolve, reject) =>
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      );
+    });
+    transport.mockResolvedValueOnce(new Response(gzBytes));
+    try {
+      const cancellable = fetchCuratedNamespace('cdm', '2026-05-22', artifact, undefined, {
+        signal: controller.signal
+      });
+      const shared = fetchCuratedNamespace('cdm', '2026-05-22', artifact);
+      controller.abort();
+      await expect(cancellable).rejects.toBe(controller.signal.reason);
+      await expect(shared).resolves.toMatchObject([{ uri: 'cdm/shared.rosetta' }]);
+      expect(transport).toHaveBeenCalledTimes(2);
+    } finally {
+      transport.mockRestore();
+    }
+  });
+
   it('emits payload-free remote/decode stages only for cache misses', async () => {
     const records: TelemetryRecord[] = [];
     configureInstrumentation((record) => records.push(record), undefined, {

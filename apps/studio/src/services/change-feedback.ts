@@ -9,6 +9,8 @@ import { runeBigIntReplacer } from '@rune-langium/core';
 /** Presentation-only effects. Canonical values, never DOM mutations, identify changes. */
 export type ChangeEffect = 'add' | 'change' | 'remove';
 export const CHANGE_HIGHLIGHT_MS = 900;
+// Keep arrival attributes mounted through the loading fade in change-feedback.css.
+export const LOAD_ARRIVAL_RETENTION_MS = 1800;
 const CHANGE_ARRIVAL_MS = 280;
 const CHANGE_DEPARTURE_MS = 180;
 const CHANGE_REMOVAL_HOLD_MS = 160;

@@ -140,6 +140,36 @@
   }
 }
 
+/* Keep the compact tree at HD; grow it when the palette has room above Primitives. */
+@container compose-palette (block-size >= 40rem) {
+  .function-composer__functions {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .function-composer__functions > :not(.function-composer__library) {
+    flex-shrink: 0;
+  }
+
+  .function-composer__library {
+    display: flex;
+    min-block-size: 8rem;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .function-composer__library .function-composer__catalog {
+    display: flex;
+    max-block-size: none;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .function-composer__catalog > div {
+    flex: 1;
+  }
+}
+
 .function-composer__functions h2 {
   display: flex;
   align-items: center;
