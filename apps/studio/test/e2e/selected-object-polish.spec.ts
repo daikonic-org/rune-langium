@@ -234,6 +234,12 @@ test('graph measurement and semantic zoom settle while center panes resize', asy
   for (const width of [1440, 1000, 1280]) {
     await page.setViewportSize({ width, height: 720 });
     await stack.locator('[data-pane="inspector"]').scrollIntoViewIfNeeded();
+    if (width === 1280) {
+      const selected = stack.locator(
+        `.react-flow__node[data-id="${declarationNodeId('cdm.base.datetime.BusinessCenters')}"]`
+      );
+      await expect(selected).toBeInViewport({ ratio: 1 });
+    }
     await page.screenshot({ path: info.outputPath(`graph-resize-${width}.png`) });
   }
   await expectNoResizeObserverErrors(page);

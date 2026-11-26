@@ -56,6 +56,6 @@ export async function expectReadyReferenceGraph(page: Page, nodeId: string, name
   await page.getByRole('button', { name: 'Inspector', exact: true }).click();
   await expectPopulatedAttributes(page.getByTestId('center-stack'));
   const node = page.locator(`.react-flow__node[data-id="${declarationNodeId(nodeId)}"]`);
-  await expect(node).toBeInViewport();
+  await expect(node).toBeInViewport({ ratio: 1 });
   await expect.poll(async () => (await node.boundingBox())?.width ?? 0).toBeGreaterThan(100);
 }
