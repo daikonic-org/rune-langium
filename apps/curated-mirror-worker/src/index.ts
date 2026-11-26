@@ -23,6 +23,8 @@ export interface Env {
   rune_curated_mirror: R2Bucket;
   CURATED_SOURCES: string;
   ALLOWED_ORIGIN: string;
+  /** Enabled by the local Studio launcher to read published reference objects on a local R2 miss. */
+  DEV_READ_PUBLISHED_REFERENCES?: string;
   /** Flat env var set via `[vars]` in wrangler.toml. Preferred form. */
   RETENTION_ARCHIVES_PER_MODEL?: string;
   /** Nested fallback form (read by `readRetention` for ops convenience). */

@@ -50,10 +50,28 @@ export const CURATED_FETCH_TIMEOUT_MS = 12_000;
  * Service-binding fetcher signature — `env.CURATED_MIRROR.fetch(...)` is
  * the exact `fetch`-compatible function CF provides for service bindings.
  * Production passes `env.CURATED_MIRROR.fetch.bind(env.CURATED_MIRROR)`;
- * tests / local dev can pass `globalThis.fetch` and the call hits the
- * curated-mirror via normal HTTP.
+ * Browser callers use HTTP and preserve the published artifact URLs for
+ * identity and validation.
  */
 export type CuratedFetcher = (url: string, init?: RequestInit) => Promise<Response>;
+
+const releaseBase = new URL('/releases', CURATED_MIRROR_BASE).href;
+declare const __STUDIO_LOCAL_CLOUDFLARE__: boolean;
+
+export const fetchCuratedAsset: CuratedFetcher = withInstrumentation(
+  function fetchCuratedAsset(url: string, init?: RequestInit) {
+    if (
+      typeof __STUDIO_LOCAL_CLOUDFLARE__ !== 'undefined' &&
+      __STUDIO_LOCAL_CLOUDFLARE__ &&
+      (url.startsWith(`${CURATED_MIRROR_BASE}/`) || url.startsWith(`${releaseBase}/`))
+    ) {
+      const { pathname, search } = new URL(url);
+      return globalThis.fetch(pathname + search, init);
+    }
+    return globalThis.fetch(url, init);
+  },
+  { op: 'fetchCuratedAsset', capture: 0 }
+);
 
 export interface CuratedDocument {
   uri: string;
@@ -98,13 +116,12 @@ export const fetchCuratedBundle = withInstrumentation(
       if (hit) return hit;
     }
 
-    // Default to globalThis.fetch for backwards compatibility with tests and
-    // local dev. Production callers should pass env.CURATED_MIRROR.fetch to
+    // Pages callers should pass env.CURATED_MIRROR.fetch to
     // bypass CF same-zone routing — a global fetch from a Pages Function to
     // its own zone (www.daikonic.dev/curated/...) gets a cf-worker header
     // that triggers loop prevention and returns 404 instead of reaching the
     // curated-mirror Worker.
-    const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
+    const fetchFn = fetcher ?? fetchCuratedAsset;
 
     const work = fetchSerializedArtifact(id, version, fetchFn);
     if (cacheable) {
@@ -304,9 +321,7 @@ const fetchManifestRemote = withInstrumentation(
     fetcher: CuratedFetcher | undefined,
     pinned: boolean
   ): Promise<CuratedManifest> {
-    // Default to globalThis.fetch — same rationale as fetchCuratedBundle (CF
-    // same-zone loop prevention; production callers pass env.CURATED_MIRROR.fetch).
-    const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
+    const fetchFn = fetcher ?? fetchCuratedAsset;
     const url = `${CURATED_MIRROR_BASE}/${id}/${pinned ? `artifacts/${version}/` : ''}manifest.json`;
 
     let res: Response;
@@ -374,8 +389,7 @@ export const fetchCuratedNamespace = withInstrumentation(
       if (hit) return hit;
     }
 
-    // Default to globalThis.fetch — same rationale as fetchCuratedBundle.
-    const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
+    const fetchFn = fetcher ?? fetchCuratedAsset;
 
     const work = fetchNamespaceArtifact(id, version, artifactKey, fetchFn, signal);
     if (cacheable) {
