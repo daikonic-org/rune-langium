@@ -5,7 +5,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { selectNodeRepository, type TypeGraphNode } from '@rune-langium/visual-editor';
 import { useNamespaceArrivals } from '../../src/hooks/useChangeFeedback.js';
-import { CHANGE_HIGHLIGHT_MS } from '../../src/services/change-feedback.js';
+import { LOAD_ARRIVAL_RETENTION_MS } from '../../src/services/change-feedback.js';
 
 const workspace = vi.hoisted(() => ({ workspaceId: 'project', workspaceEpoch: 1 }));
 vi.mock('../../src/shell/providers/workspace-context.js', () => ({
@@ -40,7 +40,9 @@ it('cues both newly listed and hydrated namespaces and expires the cue', () => {
 
   rerender(inventory(ready, added));
   expect(result.current).toEqual(new Set(['example.deferred', 'example.added']));
-  act(() => vi.advanceTimersByTime(CHANGE_HIGHLIGHT_MS));
+  act(() => vi.advanceTimersByTime(LOAD_ARRIVAL_RETENTION_MS - 1));
+  expect(result.current).toEqual(new Set(['example.deferred', 'example.added']));
+  act(() => vi.advanceTimersByTime(1));
   expect(result.current).toBeUndefined();
 
   rerender(inventory(ready));

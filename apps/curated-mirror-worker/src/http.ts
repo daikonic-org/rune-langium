@@ -18,11 +18,44 @@ import { corsJsonResponse as json } from '@rune-langium/worker-core/http';
 
 import { isOriginAllowed } from '@rune-langium/worker-core';
 import type { Env } from './index.js';
-import { CURATED_MODEL_IDS, validateReferenceCatalog } from '@rune-langium/curated-schema';
+import { CURATED_MIRROR_BASE, CURATED_MODEL_IDS, validateReferenceCatalog } from '@rune-langium/curated-schema';
 import { logger, logRead } from './log.js';
 
 const ALLOWED_MODEL_IDS = new Set<string>(CURATED_MODEL_IDS);
 const PATH_RE = /^\/curated\/([^/]+)\/(.+)$/;
+const PUBLISHED_ARTIFACT_RE =
+  /^artifacts\/(?:cohort-[0-9a-f]{64}\/manifest\.json|source-[0-9a-f]{64}\.tar\.gz|[\w.-]+(?:\.serialized\.json\.gz|\/ns\/[\w.-]+\.json\.gz))$/;
+
+async function readPublishedReference(
+  req: Request,
+  path: string,
+  allowedOrigin: string
+): Promise<Response | undefined> {
+  try {
+    const headers = new Headers({ 'Accept-Encoding': 'identity' });
+    const ifNoneMatch = req.headers.get('If-None-Match');
+    if (ifNoneMatch) headers.set('If-None-Match', ifNoneMatch);
+    const response = await fetch(new URL(path, CURATED_MIRROR_BASE), {
+      method: req.method,
+      headers,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (response.ok || response.status === 304) {
+      const replyHeaders = new Headers({ 'Access-Control-Allow-Origin': allowedOrigin, Vary: 'Origin' });
+      for (const name of ['Content-Type', 'Cache-Control', 'ETag']) {
+        const value = response.headers.get(name);
+        if (value) replyHeaders.set(name, value);
+      }
+      return new Response(response.body, { status: response.status, headers: replyHeaders });
+    }
+    await response.body?.cancel();
+    if (response.status === 404) return;
+  } catch (err) {
+    logger.warn({ path, err: errMessage(err) }, 'curated-mirror.read.published_reference_failed');
+  }
+  return json(502, { error: 'published_reference_unavailable' }, allowedOrigin);
+}
 
 function resolveOrigin(req: Request, env: Env): string {
   const reqOrigin = req.headers.get('Origin') ?? '';
@@ -82,6 +115,10 @@ export async function handleCuratedRead(req: Request, env: Env): Promise<Respons
     return done(json(503, { error: 'mirror_unavailable' }, allowedOrigin));
   }
   if (!obj) {
+    if (env.DEV_READ_PUBLISHED_REFERENCES === 'true' && (isReleaseCatalog || PUBLISHED_ARTIFACT_RE.test(rest))) {
+      const published = await readPublishedReference(req, path, allowedOrigin);
+      if (published) return done(published);
+    }
     return done(
       json(
         404,

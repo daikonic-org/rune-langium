@@ -27,6 +27,7 @@ import { pathToUri } from '../../src/utils/uri.js';
 import { createProjectFileAdapter } from '../../src/workspace/project-file-adapter.js';
 import { loadWorkspaceFiles, saveWorkspaceFiles, setWorkspaceFilesDeps } from '../../src/workspace/workspace-files.js';
 import { createOpfsRoot, writeBytes } from '../setup/opfs-mock.js';
+import { createParserWorkerHarness } from '../workers/parser-worker-harness.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -66,9 +67,15 @@ it('reuses an already materialized canonical view without rescanning serialized 
   expect(getLastStartedOpId('referenceMaterialize')).toBe(lastMaterialization);
 });
 
-it('projects exact locked ASTs into Explorer and parser hydration without a latest-model request', async () => {
+it('preserves locked reference exports when Compose rebuilds the parser snapshot', async () => {
   const fixture = await createReferenceArtifacts(undefined, undefined, {
-    cdm: 'namespace pinned\ntype Payment:\n amount number (1..1)',
+    cdm: [
+      {
+        path: 'model.rosetta',
+        content: 'namespace pinned\nimport pinned.details.*\ntype Payment:\n details Details (1..1)'
+      },
+      { path: 'details.rosetta', content: 'namespace pinned.details\ntype Details:\n amount number (1..1)' }
+    ],
     'rune-dsl': 'namespace pinned.base\ntype Support:\n name string (0..1)'
   });
   const cache = createMemoryReferenceCache();
@@ -83,7 +90,13 @@ it('projects exact locked ASTs into Explorer and parser hydration without a late
   const file = {
     path: 'main.rosetta',
     name: 'main.rosetta',
-    content: 'namespace local\ntype Draft:\n value number (0..1)',
+    content: `namespace local
+import pinned.Payment
+func ReadPayment:
+ inputs: payment Payment (1..1)
+ output: result number (1..1)
+ set result: payment -> details -> amount
+`,
     dirty: false
   };
   const parsed = await parse(file.content, 'file:///workspace/main.rosetta');
@@ -107,7 +120,7 @@ it('projects exact locked ASTs into Explorer and parser hydration without a late
   const input = await captureProjectRuntimeInput(snapshot, [file], loaded.documents);
   const install = vi.fn().mockResolvedValue(undefined);
   const view = await prepareProjectReferenceView(input, state, install, new AbortController().signal);
-  expect(view.files.find((file) => file.bundleId === 'cdm')).toMatchObject({
+  expect(view.files.find((file) => file.path === '[cdm]/model.rosetta')).toMatchObject({
     path: '[cdm]/model.rosetta',
     readOnly: true,
     refOnly: true,
@@ -123,6 +136,25 @@ it('projects exact locked ASTs into Explorer and parser hydration without a late
   expect(install.mock.calls[0]![0]).toEqual(
     expect.arrayContaining([expect.objectContaining({ uri: 'file:///[cdm]/model.rosetta' })])
   );
+  const worker = createParserWorkerHarness();
+  const composition = await worker.send({
+    type: 'expressionScope',
+    id: 'locked-compose',
+    uri: pathToUri(file.path),
+    name: 'ReadPayment',
+    kind: 'RosettaFunction',
+    composition: true,
+    files: view.files.map(({ path, content, serializedModelJson, exports }) => ({
+      name: pathToUri(path),
+      content,
+      serializedModelJson,
+      exports
+    }))
+  });
+  expect(composition).toMatchObject({
+    type: 'expressionScopeResult',
+    composition: { supported: true, reasons: [] }
+  });
 });
 
 it('preserves excluded Rune files through a bound-folder edit and autosave while excluding them from semantic hydration', async () => {

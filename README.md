@@ -44,12 +44,25 @@ pnpm run build:cloudflare
 
 Cloudflare Pages project settings (`daikonic-dev`):
 
-- Build command: `pnpm install --frozen-lockfile && pnpm run build && pnpm --filter @rune-langium/docs run build:combined`
+- Build command: `pnpm install --frozen-lockfile && pnpm --filter "@rune-langium/studio^..." --filter "@rune-langium/docs^..." run build && pnpm --filter @rune-langium/docs run build:combined`
 - Build output directory: `apps/docs/.vitepress/dist`
 - Production branch: `master`
+- Automatic preview builds: disabled
+- Pages build cache: enabled
 - Environment: `CF_PAGES=1` is set automatically by Cloudflare Pages; it switches VitePress and Vite to their subpath-baked bases.
 
 GitHub Actions in this repo verify that the combined build succeeds on push and pull request. Production deployment is driven by Cloudflare Pages' git integration, not the workflow.
+
+Open new development PRs against `develop`. When the changes are ready for
+production, open a promotion PR from `develop` to `master`. The repository
+default stays on `master` for scheduled production workflows.
+
+For a shared snapshot, use the [Pages deployment API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/subresources/deployments/methods/create/)
+to deploy `branch=develop` on `daikonic-dev`. The branch alias is
+`https://develop.daikonic-dev.pages.dev/rune-studio/studio/` and uses Cloudflare
+Access sign-in. Each refresh builds the current branch head. Use
+[the local stack](apps/studio/README.md#local-development-with-cloudflare-services)
+for hot reload between preview builds.
 
 **Gotcha — env var changes need a manual redeploy.** Cloudflare Pages deployments triggered by a GitHub push (`deployment_trigger.type = "github:push"`) do NOT pick up changes to `deployment_configs.{production,preview}.env_vars` made via the Pages API/dashboard after the last such deployment — the new value silently doesn't reach the build, even though `GET`ting the project immediately shows it "set." Only an `ad_hoc` (manually triggered, e.g. `POST /accounts/{id}/pages/projects/{name}/deployments`) deployment actually bakes in a fresh env var value. Confirmed empirically 2026-07-31 by diffing `env_vars` on individual `GET .../deployments/{id}` responses across trigger types — not documented behavior found in Cloudflare's own docs, just observed. **After changing any Pages project env var, always trigger one `ad_hoc` deployment immediately afterward** (don't assume the next `git push` will pick it up) — this is how `VITE_ENABLE_TELEMETRY` silently reverted twice in the same session despite being confirmed "set" each time.
 
@@ -192,7 +205,7 @@ git clone https://github.com/pradeepmouli/rune-langium.git
 cd rune-langium
 pnpm install
 
-pnpm dev        # run Studio + watch packages
+pnpm dev        # run Studio with HMR and local Cloudflare services
 pnpm test       # vitest across the workspace
 pnpm lint
 pnpm format

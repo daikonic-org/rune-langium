@@ -76,8 +76,9 @@ canonical rendered item snapshots after accepted authored input/model revisions;
 source positions and background reference hydration do not create edit events.
 Explore, Compose and Export cue namespace arrivals separately as the catalog adds
 declarations or deferred entries become usable. The cue follows the closest
-visible namespace header without moving virtualized rows. Filtering, expansion
-and switching workspaces do not themselves trigger a cue.
+visible namespace header without moving virtualized rows. Form Preview and Export
+use the same opacity-only fade when an observed load succeeds. Filtering,
+expansion and switching workspaces do not themselves trigger a cue.
 Inspector rows expose stable presentation keys through the shared row helper.
 Structure instances share their canonical navigation key, so an edit cues every
 visible expansion of the same type. Graph cues compare authored node data, excluding
@@ -714,6 +715,9 @@ Foreground parse/source operations hold a renewable, expiring pause across tabs
 and abort active speculative fetches. Navigation releases the tab's ownership;
 immutable completed writes remain reusable. Prefetch uses the ordinary artifact
 fetcher and validation but disables its separate in-memory namespace retention.
+Declaration inspection and prefetch pass cancellation to the namespace fetcher
+so it can keep the configured mirror transport. Cancellable reads own their
+requests and do not join or populate the shared in-memory cache.
 Its atomic cache writes never evict foreground entries and stop on capacity or
 storage failure. Mutable workspace files and per-tab parser state never cross
 this worker boundary. This is background cache seeding, not progressive Inspector
@@ -883,6 +887,9 @@ Before requesting builder scope, Studio normalizes the owning workspace path to
 its URI and sends the current source/dependency snapshot through the parser
 worker's existing parse/link pipeline. This also seeds that worker after a router
 request falls back to main-thread parsing; it does not create a second resolver.
+Managed reference files carry the same declaration index used for the installed
+project, so the snapshot can still link their deferred ASTs after a rebuild.
+Compose waits for the project reference view before checking canvas support.
 The worker serializes complete requests over its mutable document/index services,
 including scope's parse/link/read sequence. Failed snapshot builds and syntax
 errors in the owning document fail the scope request. Unrelated files' syntax

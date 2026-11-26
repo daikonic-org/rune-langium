@@ -71,9 +71,20 @@ it('renders text from the captured export artifact and downloads it on demand', 
   render(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={onDownload} />);
 
   expect(await screen.findByLabelText('Generated export code')).toHaveTextContent('export interface Party {}');
+  expect(screen.getByTestId('export-artifact-preview')).not.toHaveAttribute('data-load-arrival');
   screen.getByRole('button', { name: 'Download export' }).click();
   expect(onDownload).toHaveBeenCalledOnce();
   expect(artifact.readText).toHaveBeenCalledWith('test.ts');
+});
+
+it('cues the result after generation succeeds', async () => {
+  const onDownload = vi.fn();
+  const { rerender } = render(
+    <ExportPreviewPanel run={{ status: 'generating', requestId: 'generate-1' }} onDownload={onDownload} />
+  );
+  rerender(<ExportPreviewPanel run={{ status: 'ready', inputKey: 'input', artifact }} onDownload={onDownload} />);
+  expect(await screen.findByLabelText('Generated export code')).toBeVisible();
+  expect(screen.getByTestId('export-artifact-preview')).toHaveAttribute('data-load-arrival', '');
 });
 
 it('copies the loaded active text file', async () => {

@@ -1,5 +1,6 @@
-# Copy to .dev.vars (gitignored) for local `pnpm dev:full` / `wrangler dev`
-# runs. `wrangler dev` merges this on top of wrangler.toml's [vars] for
+# Copy to .dev.vars (gitignored) when running this Worker independently.
+# The Studio dev stack supplies a local signing key and origins automatically.
+# `wrangler dev` merges this on top of wrangler.toml's [vars] for
 # local runs only — never uploaded by `wrangler deploy`, so this is safe to
 # widen without affecting production's ALLOWED_ORIGIN or the real
 # production SESSION_SIGNING_KEY (set via `wrangler secret put`, never in

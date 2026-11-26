@@ -50,10 +50,28 @@ export const CURATED_FETCH_TIMEOUT_MS = 12_000;
  * Service-binding fetcher signature — `env.CURATED_MIRROR.fetch(...)` is
  * the exact `fetch`-compatible function CF provides for service bindings.
  * Production passes `env.CURATED_MIRROR.fetch.bind(env.CURATED_MIRROR)`;
- * tests / local dev can pass `globalThis.fetch` and the call hits the
- * curated-mirror via normal HTTP.
+ * Browser callers use HTTP and preserve the published artifact URLs for
+ * identity and validation.
  */
 export type CuratedFetcher = (url: string, init?: RequestInit) => Promise<Response>;
+
+const releaseBase = new URL('/releases', CURATED_MIRROR_BASE).href;
+declare const __STUDIO_LOCAL_CLOUDFLARE__: boolean;
+
+export const fetchCuratedAsset: CuratedFetcher = withInstrumentation(
+  function fetchCuratedAsset(url: string, init?: RequestInit) {
+    if (
+      typeof __STUDIO_LOCAL_CLOUDFLARE__ !== 'undefined' &&
+      __STUDIO_LOCAL_CLOUDFLARE__ &&
+      (url.startsWith(`${CURATED_MIRROR_BASE}/`) || url.startsWith(`${releaseBase}/`))
+    ) {
+      const { pathname, search } = new URL(url);
+      return globalThis.fetch(pathname + search, init);
+    }
+    return globalThis.fetch(url, init);
+  },
+  { op: 'fetchCuratedAsset', capture: 0 }
+);
 
 export interface CuratedDocument {
   uri: string;
@@ -98,13 +116,12 @@ export const fetchCuratedBundle = withInstrumentation(
       if (hit) return hit;
     }
 
-    // Default to globalThis.fetch for backwards compatibility with tests and
-    // local dev. Production callers should pass env.CURATED_MIRROR.fetch to
+    // Pages callers should pass env.CURATED_MIRROR.fetch to
     // bypass CF same-zone routing — a global fetch from a Pages Function to
     // its own zone (www.daikonic.dev/curated/...) gets a cf-worker header
     // that triggers loop prevention and returns 404 instead of reaching the
     // curated-mirror Worker.
-    const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
+    const fetchFn = fetcher ?? fetchCuratedAsset;
 
     const work = fetchSerializedArtifact(id, version, fetchFn);
     if (cacheable) {
@@ -304,9 +321,7 @@ const fetchManifestRemote = withInstrumentation(
     fetcher: CuratedFetcher | undefined,
     pinned: boolean
   ): Promise<CuratedManifest> {
-    // Default to globalThis.fetch — same rationale as fetchCuratedBundle (CF
-    // same-zone loop prevention; production callers pass env.CURATED_MIRROR.fetch).
-    const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
+    const fetchFn = fetcher ?? fetchCuratedAsset;
     const url = `${CURATED_MIRROR_BASE}/${id}/${pinned ? `artifacts/${version}/` : ''}manifest.json`;
 
     let res: Response;
@@ -362,19 +377,21 @@ export const fetchCuratedNamespace = withInstrumentation(
     version: string,
     artifactKey: string,
     fetcher?: CuratedFetcher,
-    options: { retain?: boolean } = {}
+    options: { retain?: boolean; signal?: AbortSignal } = {}
   ): Promise<CuratedDocument[]> {
-    const cacheable = options.retain !== false && !artifactKey.includes('latest');
+    const { signal } = options;
+    signal?.throwIfAborted();
+    // A caller-owned cancellation must not cancel work shared by other readers.
+    const cacheable = !signal && options.retain !== false && !artifactKey.includes('latest');
     const cacheKey = `${id}/${artifactKey}`;
     if (cacheable) {
       const hit = namespaceCache.get(cacheKey);
       if (hit) return hit;
     }
 
-    // Default to globalThis.fetch — same rationale as fetchCuratedBundle.
-    const fetchFn: CuratedFetcher = fetcher ?? ((url, init) => globalThis.fetch(url, init));
+    const fetchFn = fetcher ?? fetchCuratedAsset;
 
-    const work = fetchNamespaceArtifact(id, version, artifactKey, fetchFn);
+    const work = fetchNamespaceArtifact(id, version, artifactKey, fetchFn, signal);
     if (cacheable) {
       namespaceCache.set(cacheKey, work);
       work.catch(() => {
@@ -401,7 +418,8 @@ async function fetchNamespaceArtifact(
   id: string,
   version: string,
   artifactKey: string,
-  fetchFn: CuratedFetcher
+  fetchFn: CuratedFetcher,
+  signal?: AbortSignal
 ): Promise<CuratedDocument[]> {
   // The manifest's `namespaces[ns].artifact` is an absolute URL (consistent with
   // archiveUrl + serializedWorkspace.url). Use it as-is; fall back to prefixing the
@@ -429,9 +447,10 @@ async function fetchNamespaceArtifact(
   let fetched: { res: Response; gzBuffer: Uint8Array } | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      fetched = await downloadCuratedNamespace(id, version, url, fetchFn);
+      fetched = await downloadCuratedNamespace(id, version, url, fetchFn, signal);
       break;
     } catch (err) {
+      signal?.throwIfAborted();
       if (err instanceof OperationTimeoutError && attempt === 0) continue;
       if (err instanceof CuratedBundleUnavailableError) throw err;
       console.error('curated-fetch fetch_failed', {
@@ -443,15 +462,25 @@ async function fetchNamespaceArtifact(
       throw new CuratedBundleUnavailableError(id, version, undefined, err);
     }
   }
+  signal?.throwIfAborted();
   if (!fetched) throw new CuratedBundleUnavailableError(id, version);
   return decodeCuratedNamespace(id, version, fetched.res, fetched.gzBuffer);
 }
 
 const downloadCuratedNamespace = withInstrumentation(
-  async function downloadCuratedNamespace(id: string, version: string, url: string, fetchFn: CuratedFetcher) {
-    return withAbortTimeout(async (signal) => {
+  async function downloadCuratedNamespace(
+    id: string,
+    version: string,
+    url: string,
+    fetchFn: CuratedFetcher,
+    signal?: AbortSignal
+  ) {
+    return withAbortTimeout(async (deadline) => {
       // Artifact bodies are gzip files; avoid a second transport encoding.
-      const res = await fetchFn(url, { headers: { 'Accept-Encoding': 'identity' }, signal });
+      const res = await fetchFn(url, {
+        headers: { 'Accept-Encoding': 'identity' },
+        signal: signal ? AbortSignal.any([signal, deadline]) : deadline
+      });
       if (!res.ok) {
         console.error('curated-fetch non_ok_status', {
           bundleId: id,

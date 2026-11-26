@@ -9,7 +9,7 @@
 
 import { readFileSync } from 'node:fs';
 import { URL as NodeURL } from 'node:url';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { handleCuratedRead } from '../src/http.js';
 import { createMockR2Bucket, type MockR2Bucket } from './setup/r2-mock.js';
 import type { Env } from '../src/index.js';
@@ -26,6 +26,7 @@ beforeEach(async () => {
     RETENTION: { ARCHIVES_PER_MODEL: '14' }
   };
 });
+afterEach(() => vi.restoreAllMocks());
 
 async function get(path: string, headers?: HeadersInit): Promise<Response> {
   const req = new Request(`https://www.daikonic.dev${path}`, {
@@ -265,6 +266,54 @@ describe('reference release catalogs', () => {
     const response = await get('/releases/cdm');
     expect(response.status).toBe(404);
     expect(await response.json()).toMatchObject({ error: 'release_catalog_unavailable' });
+  });
+});
+
+describe('published reference fallback in local development', () => {
+  it.each([
+    '/releases/cdm',
+    `/curated/cdm/artifacts/cohort-${'a'.repeat(64)}/manifest.json`,
+    '/curated/cdm/artifacts/2026-11-25-aabb/ns/cdm.base.math.json.gz'
+  ])('forwards only the public read for %s', async (path) => {
+    env.DEV_READ_PUBLISHED_REFERENCES = 'true';
+    const fetchPublished = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response('original bytes\n', { headers: { ETag: '"release"', 'Set-Cookie': 'ignore=1' } })
+      );
+    const response = await get(path, {
+      Authorization: 'Bearer example',
+      Cookie: 'example=1',
+      Origin: 'https://other.test'
+    });
+    const [url, options] = fetchPublished.mock.calls[0]!;
+    expect(String(url)).toBe('https://www.daikonic.dev' + path);
+    expect(options).toMatchObject({ method: 'GET', redirect: 'manual' });
+    expect([...new Headers(options?.headers).keys()]).toEqual(['accept-encoding']);
+    expect(await response.text()).toBe('original bytes\n');
+    expect(response.headers.get('ETag')).toBe('"release"');
+    expect(response.headers.has('Set-Cookie')).toBe(false);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe(env.ALLOWED_ORIGIN);
+  });
+
+  it('keeps local catalogs and excludes Nightly aliases and other paths', async () => {
+    env.DEV_READ_PUBLISHED_REFERENCES = 'true';
+    await bucket.put('releases/cdm.json', '{"schemaVersion":1,"releases":[]}');
+    const fetchPublished = vi.spyOn(globalThis, 'fetch');
+    expect((await get('/releases/cdm')).status).toBe(200);
+    expect((await get('/curated/cdm/manifest.json')).status).toBe(404);
+    expect((await get('/curated/cdm/latest.tar.gz')).status).toBe(404);
+    expect((await get('/curated/cdm/artifacts/arbitrary')).status).toBe(404);
+    expect((await get('/releases/unknown')).status).toBe(404);
+    expect(fetchPublished).not.toHaveBeenCalled();
+  });
+
+  it('rejects upstream redirects without exposing the target', async () => {
+    env.DEV_READ_PUBLISHED_REFERENCES = 'true';
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(Response.redirect('https://other.test'));
+    const response = await get('/releases/cdm');
+    expect(response.status).toBe(502);
+    expect(response.headers.has('Location')).toBe(false);
   });
 });
 

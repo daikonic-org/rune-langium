@@ -28,7 +28,7 @@ import { prepareCuratedImplementationSources } from '@rune-langium/project-runti
 import type { ProjectRuntimeInput } from './project-runtime-input.js';
 import type { ProjectController } from '../workspace/project-controller.js';
 import { curatedArtifactCache } from './curated-artifact-cache.js';
-import { CURATED_FETCH_TIMEOUT_MS, type CuratedFetcher } from './curated-fetch.js';
+import { CURATED_FETCH_TIMEOUT_MS, fetchCuratedAsset, type CuratedFetcher } from './curated-fetch.js';
 import { withAbortTimeout } from './with-abort-timeout.js';
 import { withInstrumentation } from './instrumentation/core.js';
 
@@ -36,7 +36,7 @@ const decodeArtifact = createReferenceArtifactDecoder(decodeProjectReferenceArti
 
 export const createProjectReferenceTransport = withInstrumentation(
   function createProjectReferenceTransport(
-    fetcher: CuratedFetcher = fetch,
+    fetcher: CuratedFetcher = fetchCuratedAsset,
     baseUrl = CURATED_MIRROR_BASE
   ): ReferenceTransport {
     return {

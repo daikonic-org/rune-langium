@@ -57,6 +57,8 @@ instrumentation lowering pass to accommodate generated model decorators.
 - The Cloudflare combined build rebuilds `@rune-langium/instrumentation-core`, `@rune-langium/core` and `@rune-langium/worker-core` before bundling Studio and Pages Functions; both consumers resolve those packages through their compiled exports.
 - The combined build excludes `.map` files from all public asset copies while retaining original build maps locally. Its static-output preflight rejects source maps and files above Cloudflare Pages' 25 MiB limit, and logs the largest asset. Run `pnpm --filter @rune-langium/docs test` for packaging regressions and `pnpm run build:cloudflare` for the complete artifact check.
 - For temporary Pages diagnostics, set the non-secret `INSTRUMENTATION_*` values in the build environment. The combined build writes only those values to the generated root `wrangler.toml`; rebuild and redeploy to enable or remove them. Keep secrets in Cloudflare.
+- Base development PRs on `develop` and promote through a `develop` to `master` PR. Pages and production Workers deploy from `master`. Refresh the hosted `develop` preview on demand with the [Pages deployment API](https://developers.cloudflare.com/api/resources/pages/subresources/projects/subresources/deployments/methods/create/).
+- Use root `pnpm dev` for Studio hot reload with local Workers and Pages Functions. Keep the proxy paths and worker ports together in `apps/studio/scripts/dev-services.mjs`. See the [Studio local development instructions](../../apps/studio/README.md#local-development-with-cloudflare-services) for seeding local storage.
 
 ## React lifecycle checks
 

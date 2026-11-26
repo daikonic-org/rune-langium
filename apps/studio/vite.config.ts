@@ -7,6 +7,7 @@ import tailwindcss from '@tailwindcss/vite';
 import z2fVite from '@zod-to-form/vite';
 import studioFormConfig from './z2f.config.js';
 import { fileURLToPath } from 'url';
+import { localOrigin, pagesPort, workers } from './scripts/dev-services.mjs';
 
 /**
  * Force the build process to terminate once the bundle is written.
@@ -48,7 +49,16 @@ function forceExitAfterBuild(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
+  const localCloudflare = command === 'serve' && process.env.STUDIO_LOCAL_CLOUDFLARE === '1';
+  const workerProxies = localCloudflare
+    ? Object.fromEntries(
+        workers.flatMap(({ port, paths, webSocket }) =>
+          // Send the Worker its own Host while forwarding the browser's Origin.
+          paths.map((path) => [path, { target: localOrigin(port), changeOrigin: true, ws: webSocket }])
+        )
+      )
+    : {};
   // `@rune-langium/visual-editor` resolves to its `src/` for BOTH `vite dev`
   // and `vite build` via the package's `exports` map (which points at source,
   // mirroring `@rune-langium/design-system`). So source edits HMR directly and
@@ -83,6 +93,7 @@ export default defineConfig(() => {
     // top-level guards short-circuit. This affects neither prod bundling nor
     // any code that actually wants Node's process at runtime.
     define: {
+      __STUDIO_LOCAL_CLOUDFLARE__: JSON.stringify(localCloudflare),
       'process.argv': '[]',
       'process.platform': '"browser"',
       'process.env': '{}',
@@ -101,11 +112,12 @@ export default defineConfig(() => {
       port: Number(process.env.STUDIO_DEV_PORT) || 5173,
       host: '0.0.0.0',
       allowedHosts: true,
-      // Replit dev: vite serves on :5000 directly; forward /api to the
-      // wrangler pages dev server (:8788) which hosts the Pages Functions.
+      // Vite serves client modules and HMR. Wrangler handles API requests
+      // with the same paths that Cloudflare routes in production.
       proxy: {
+        ...workerProxies,
         '/api': {
-          target: 'http://localhost:8788',
+          target: localOrigin(pagesPort),
           changeOrigin: false,
           ws: true
         }
