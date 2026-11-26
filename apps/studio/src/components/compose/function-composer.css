@@ -134,9 +134,33 @@
 
 @container compose-palette (block-size >= 34rem) {
   .function-composer__functions {
+    display: flex;
+    flex-direction: column;
     min-block-size: 0;
     flex: 1;
     overflow: auto;
+  }
+
+  .function-composer__functions > :not(.function-composer__library) {
+    flex-shrink: 0;
+  }
+
+  .function-composer__library {
+    display: flex;
+    min-block-size: 8rem;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .function-composer__library .function-composer__catalog {
+    display: flex;
+    max-block-size: none;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .function-composer__catalog > div {
+    flex: 1;
   }
 }
 

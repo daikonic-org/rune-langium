@@ -111,6 +111,7 @@ export interface FunctionComposerProps {
   active: boolean;
   onNavigate(nodeId: string): void;
   canGoBack?: boolean;
+  referencesLoading?: boolean;
   onNavigateBack?(): void;
   onLoadReference?(nodeId: string): void;
   renderReferenceInspector?(nodeId: string, inspect: (nodeId: string) => void): ReactNode;
@@ -165,6 +166,7 @@ function Composer({
   editor,
   inspector,
   active,
+  referencesLoading,
   onNavigate,
   canGoBack,
   onNavigateBack,
@@ -288,7 +290,7 @@ function Composer({
     setError(undefined);
   }, [identity]);
   useEffect(() => {
-    if (!active || !editor?.file || !editor.parseCurrent || creating) return;
+    if (!active || !editor?.file || !editor.parseCurrent || creating || referencesLoading) return;
     const captured = editor;
     const version = ++request.current;
     let cancelled = false;
@@ -318,12 +320,23 @@ function Composer({
     return () => {
       cancelled = true;
     };
-  }, [active, identity, file?.content, editor?.parseCurrent, editor?.dependencySnapshot, creating, retry, discover]);
+  }, [
+    active,
+    identity,
+    file?.content,
+    editor?.parseCurrent,
+    editor?.dependencySnapshot,
+    creating,
+    retry,
+    discover,
+    referencesLoading
+  ]);
   const composition =
     facts?.nodeId === identity &&
     facts.source === file?.content &&
     facts.dependencies === editor?.dependencySnapshot &&
-    editor?.parseCurrent
+    editor?.parseCurrent &&
+    !referencesLoading
       ? facts.value
       : undefined;
   // Keep the last graph mounted during a reparse. Only current facts permit editing.
@@ -1707,11 +1720,13 @@ function Composer({
                           ) : !presented ? (
                             <div className="function-composer__empty" role="status">
                               <p>
-                                {loading
-                                  ? 'Resolving composition…'
-                                  : editor.readOnly
-                                    ? 'Reference source is read-only. Open Source to inspect it, or use Modify in Inspector.'
-                                    : 'Waiting for the current source to parse. Open Source to inspect or correct it.'}
+                                {referencesLoading
+                                  ? 'Loading project references…'
+                                  : loading
+                                    ? 'Resolving composition…'
+                                    : editor.readOnly
+                                      ? 'Reference source is read-only. Open Source to inspect it, or use Modify in Inspector.'
+                                      : 'Waiting for the current source to parse. Open Source to inspect or correct it.'}
                               </p>
                               <Button variant="ghost" onClick={() => setSource(true)}>
                                 Open Source

@@ -12,6 +12,7 @@ import { NativeSelect } from '@rune-langium/design-system/ui/select';
 import type { GeneratorDiagnostic } from '@rune-langium/codegen/export';
 import type { ExportRunState } from '../../store/export-workbench-store.js';
 import { withInstrumentation } from '../../services/instrumentation/core.js';
+import { useLoadArrival } from '../../hooks/useChangeFeedback.js';
 import { CircleAlert } from 'lucide-react';
 import type { ExportArtifact } from '../../services/export-artifact.js';
 import { copyTextToClipboard } from '../../services/clipboard.js';
@@ -109,6 +110,7 @@ export const ExportPreviewPanel = withInstrumentation(
     onActiveFileChange,
     onDownload
   }: ExportPreviewPanelProps): ReactElement {
+    const arrival = useLoadArrival('export', run.status === 'generating', run.status === 'ready');
     const [read, setRead] = useState<ArtifactRead>();
     const [readAttempt, setReadAttempt] = useState(0);
     const [uncontrolledPath, setUncontrolledPath] = useState<string | undefined>();
@@ -228,7 +230,7 @@ export const ExportPreviewPanel = withInstrumentation(
     }
     if (!textFile) {
       return (
-        <div data-testid="export-artifact-binary" className="space-y-3 p-3">
+        <div data-testid="export-artifact-binary" data-load-arrival={arrival} className="relative space-y-3 p-3">
           {statusNotice}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-caption">This export contains binary files only.</p>
@@ -241,7 +243,11 @@ export const ExportPreviewPanel = withInstrumentation(
       );
     }
     return (
-      <section data-testid="export-artifact-preview" className="flex h-full min-h-0 flex-col">
+      <section
+        data-testid="export-artifact-preview"
+        data-load-arrival={arrival}
+        className="relative flex h-full min-h-0 flex-col"
+      >
         {statusNotice}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1.5">
           <span className="min-w-0 flex-1 truncate text-sm font-medium" title={textFile.path}>

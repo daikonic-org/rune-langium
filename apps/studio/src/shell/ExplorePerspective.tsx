@@ -3220,6 +3220,7 @@ export const ExplorePerspective = withInstrumentation(
           workspaceKey={inspectorScope}
           models={models}
           active={composeActive}
+          referencesLoading={referencesLoading}
           onNavigate={navigateToNode}
           canGoBack={canGoBack}
           onNavigateBack={navigateBack}

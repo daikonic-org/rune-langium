@@ -100,22 +100,28 @@
   }
 }
 
-[data-namespace-arrival]::before {
-  --change-ink: var(--color-status-success);
+@keyframes rune-load-arrival {
+  0%, 100% {
+    opacity: 0;
+  }
 
+  22%, 32% {
+    opacity: 1;
+  }
+}
+
+[data-namespace-arrival]::before, [data-load-arrival]::before {
   position: absolute;
   z-index: 1;
   inset: 1px var(--space-1);
   border-radius: var(--radius-sm);
+  background-color: color-mix(in oklch, var(--color-status-success) 14%, transparent);
   pointer-events: none;
   content: '';
-  animation:
-    rune-change-highlight calc(2 * var(--motion-duration-slow)) ease-out both,
-    rune-change-arrive var(--motion-duration-base) var(--motion-easing-emphasis) both;
+  animation: rune-load-arrival calc(5 * var(--motion-duration-slow)) var(--motion-easing-standard) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-namespace-arrival]::before,
   [data-change-feedback='add'],
   [data-change-feedback='remove'] {
     animation-name: rune-change-highlight;

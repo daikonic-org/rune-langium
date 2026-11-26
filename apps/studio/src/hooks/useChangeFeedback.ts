@@ -7,13 +7,11 @@ import { withInstrumentation } from '../services/instrumentation/core.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore, type NodeRepository } from '@rune-langium/visual-editor';
 import { useWorkspaceOptional } from '../shell/providers/workspace-context.js';
-import {
-  CHANGE_HIGHLIGHT_MS,
-  ChangeFeedbackBoundary,
-  feedbackSources,
-  type FeedbackItem
-} from '../services/change-feedback.js';
+import { ChangeFeedbackBoundary, feedbackSources, type FeedbackItem } from '../services/change-feedback.js';
 import '../styles/change-feedback.css';
+
+// Keep arrival attributes mounted through the loading fade in change-feedback.css.
+const LOAD_ARRIVAL_RETENTION_MS = 1800;
 
 export const useFeedbackRevision = withInstrumentation(
   function useFeedbackRevision(files?: Parameters<typeof feedbackSources>[0]) {
@@ -109,11 +107,29 @@ export const useNamespaceArrivals = withInstrumentation(
 
     useEffect(() => {
       if (!arrival || arrival.scope !== scope) return;
-      const timeout = setTimeout(() => setArrival(undefined), CHANGE_HIGHLIGHT_MS);
+      const timeout = setTimeout(() => setArrival(undefined), LOAD_ARRIVAL_RETENTION_MS);
       return () => clearTimeout(timeout);
     }, [arrival, scope]);
 
     return arrival?.scope === scope ? arrival.namespaces : undefined;
   },
   { op: 'useNamespaceArrivals', capture: 0 }
+);
+
+/** Cue an observed load that completed for the same selection. */
+export const useLoadArrival = withInstrumentation(
+  function useLoadArrival(scope: string | undefined, waiting: boolean, ready: boolean) {
+    const pendingScope = useRef<string | undefined>(undefined);
+    const [arrival, setArrival] = useState<string>();
+    useEffect(() => {
+      const loaded = scope !== undefined && ready && pendingScope.current === scope;
+      pendingScope.current = waiting ? scope : undefined;
+      setArrival(loaded ? scope : undefined);
+      if (!loaded) return;
+      const timeout = setTimeout(() => setArrival(undefined), LOAD_ARRIVAL_RETENTION_MS);
+      return () => clearTimeout(timeout);
+    }, [scope, waiting, ready]);
+    return ready && scope !== undefined && arrival === scope ? '' : undefined;
+  },
+  { op: 'useLoadArrival', capture: 0 }
 );

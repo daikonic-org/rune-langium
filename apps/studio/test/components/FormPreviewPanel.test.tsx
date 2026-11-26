@@ -79,6 +79,19 @@ const tradeSchema: FormPreviewSchema = {
   ]
 };
 
+it('cues the preview when its pending schema arrives', () => {
+  const { rerender } = render(<FormPreviewPanel status={{ state: 'waiting', targetId: tradeSchema.targetId }} />);
+  expect(screen.getByText('Generating preview for the selected type…')).toBeVisible();
+  rerender(
+    <FormPreviewPanel
+      status={{ state: 'ready', targetId: tradeSchema.targetId }}
+      schema={tradeSchema}
+      values={{ id: 'trade-1' }}
+    />
+  );
+  expect(screen.getByTestId('panel-formPreview')).toHaveAttribute('data-load-arrival', '');
+});
+
 it('does not announce clipboard completion for a sample that has changed', async () => {
   let finish!: () => void;
   const writeText = vi.fn().mockImplementation(
