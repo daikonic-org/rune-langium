@@ -11,8 +11,7 @@ overrides:
   '@l1xnan/tree-sitter-sql': 0.4.7
   react: 19.3.1
   react-dom: 19.3.1
-  langium-zod: 0.12.2
-  x-to-zod: ^0.8.0
+  langium-zod: 0.12.4
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -25,24 +24,24 @@ overrides:
   miniflare>sharp: 0.35.5
   concurrently>shell-quote: 1.12.0
 
-packageExtensionsChecksum: sha256-tPitCNUFutwUwyNLYfr/kXx7HP/Rj2KZog+7pbgM8ws=
+packageExtensionsChecksum: sha256-pL7YqkUU6/pkIV6OGGmrl/QX9muRGxkZK98BtUgeTxo=
 
 patchedDependencies:
   '@xyflow/react@13.0.3': 0f37533a999a85b9bf77eeef982ffd5f2f36c6dcd7d84107e4d1a30c84325290
   braces@3.0.3: 34eb31fe97613665c68c7d975f52a39cfe1a8be6064d9d12687b19ab626b4564
   drizzle-orm@0.45.4: 8de823593aa357a8739e3d049ff1d0668e617934630351fa0fa23f5e0715303d
-  langium-zod@0.12.2: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
+  langium-zod@0.12.4: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
 
 importers:
 
   .:
     dependencies:
       '@lspeasy/client':
-        specifier: ^3.1.10
-        version: 3.1.10(ws@8.23.0)
+        specifier: ^3.1.11
+        version: 3.1.11(ws@8.23.0)
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       camelcase:
         specifier: ^10.0.0
         version: 10.0.0
@@ -267,8 +266,8 @@ importers:
   apps/lsp-worker:
     dependencies:
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -340,8 +339,8 @@ importers:
         specifier: ^1.2.5
         version: 1.2.5
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@marsidev/react-turnstile':
         specifier: ^1.6.3
         version: 1.6.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -663,8 +662,8 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1
       langium-zod:
-        specifier: 0.12.2
-        version: 0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
+        specifier: 0.12.4
+        version: 0.12.4(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -770,11 +769,11 @@ importers:
   packages/lsp-server:
     dependencies:
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@lspeasy/server':
-        specifier: ^4.2.4
-        version: 4.2.4(ws@8.23.0)
+        specifier: ^4.2.5
+        version: 4.2.5(ws@8.23.0)
       '@rune-langium/core':
         specifier: workspace:*
         version: link:../core
@@ -792,8 +791,8 @@ importers:
         version: 8.23.0
     devDependencies:
       '@lspeasy/client':
-        specifier: ^3.1.10
-        version: 3.1.10(ws@8.23.0)
+        specifier: ^3.1.11
+        version: 3.1.11(ws@8.23.0)
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
@@ -954,8 +953,8 @@ importers:
         specifier: ^31.0.1
         version: 31.0.1
       langium-zod:
-        specifier: 0.12.2
-        version: 0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
+        specifier: 0.12.4
+        version: 0.12.4(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -994,8 +993,8 @@ importers:
   scratch/lsp-spike:
     dependencies:
       '@lspeasy/core':
-        specifier: ^3.0.1
-        version: 3.0.1(ws@8.23.0)
+        specifier: ^3.0.2
+        version: 3.0.2(ws@8.23.0)
       '@rune-langium/lsp-server':
         specifier: workspace:*
         version: link:../../packages/lsp-server
@@ -2337,12 +2336,12 @@ packages:
   '@lezer/python@1.1.19':
     resolution: {integrity: sha512-MhQIURHRytsNzP/YXnqpYKW6la6voAH3kyplTOOiCdjyFY6cWWGFVmYVdHIPrElqSDf4iCDktQCockB9FxuhzQ==}
 
-  '@lspeasy/client@3.1.10':
-    resolution: {integrity: sha512-tX3FzH+N3yuNntykHs/XbjRi7UwmYoE/kwqfZ+En7L67t/C93zOsWAkK3brqehFSoODCILi7gXsXnVLzxC1H9A==}
+  '@lspeasy/client@3.1.11':
+    resolution: {integrity: sha512-wizRDkQpWgLQFprTjrcFV5pVXEfXqTxS1Kekfnh20njB62dw5nwlkFRD2uWRNP8sDWXfa8xBabL2SJ4ONoePGQ==}
     engines: {node: '>=20.0.0'}
 
-  '@lspeasy/core@3.0.1':
-    resolution: {integrity: sha512-7mRRfk+slhh0rZbYordEXAYjr3rvBs08HYJs3Q4pnK9SVRJ2/q7fnpCt3GJ71Y6EShYLRrdRiE3o8JDBgJr8+Q==}
+  '@lspeasy/core@3.0.2':
+    resolution: {integrity: sha512-KCL+n7FpOcxLTEZ6oXtt4+eIwGHjDRdPAwuWy5tR0cdrvE8crM7+2SNdrqcAMreFKVb2+hctWcYA0YlQsIymwg==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       ws: '>=8.21.0'
@@ -2350,8 +2349,8 @@ packages:
       ws:
         optional: true
 
-  '@lspeasy/server@4.2.4':
-    resolution: {integrity: sha512-0+mXnUVM4SqZD3Lhx9wMTY93IisFy5pUvRHOgODTJINHRUpFRa9qTacUaR2onITnAiaBq9jIO97UbzUCN/0IAg==}
+  '@lspeasy/server@4.2.5':
+    resolution: {integrity: sha512-mWJlY6btSdZdqgoBcv6pD2GOP2ZSTSruY6sHgOcgO3PsKQnBwum/aj3vC0O0mgicStzMWm+OdvbrytQEj1QyTw==}
     engines: {node: '>=20.0.0'}
 
   '@manypkg/find-root@3.1.0':
@@ -4177,10 +4176,6 @@ packages:
     resolution: {integrity: sha512-p1wew5BGDCONz/5R+xHF6ByqXQM2V+5r4e+FdlFUeROawuMPimdDOFLw5k2QSqp1rm5h2QAglToqJyvnsl3ArQ==}
     engines: {node: '>=22'}
 
-  camelcase@9.0.0:
-    resolution: {integrity: sha512-TO9xmyXTZ9HUHI8M1OnvExxYB0eYVS/1e5s7IDMTAoIcwUd+aNcFODs6Xk83mobk0velyHFQgA1yIrvYc6wclw==}
-    engines: {node: '>=20'}
-
   caniuse-lite@1.0.30001827:
     resolution: {integrity: sha512-YWEDr46gSO81M8w6uPbaIy4++IXsirx2asUqvllNiD4BPf75ibxclUjWEqp8ObCenRv+UM2n5Y8xuRPT8V8FrQ==}
 
@@ -4445,9 +4440,9 @@ packages:
       supports-color:
         optional: true
 
-  decamelize@6.0.1:
-    resolution: {integrity: sha512-G7Cqgaelq68XHJNGlZ7lrNQyhZGsFqpwtGFexqUv4IQdjKoSYF7ipZ9UuTJZUSQXFj/XaoBLuEVIVqr8EJngEQ==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+  decamelize@7.0.0:
+    resolution: {integrity: sha512-uT/0KzZIx9u4b5vW3HLWtSYwjLTuY2QFVY3xNmfXXUmTqnfgzfT8DEA2gY93go5sXEjnbqP66KcURdVxm0rDXA==}
+    engines: {node: '>=22'}
 
   decimal.js@10.6.0:
     resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
@@ -5102,9 +5097,9 @@ packages:
   humanize-ms@1.2.1:
     resolution: {integrity: sha512-Fl70vYtsAFb/C06PTS9dZBo7ihau+Tu/DNCk/OyHhea07S+aeMWpFFkUaXRa8fI+ScZbEI8dfSxwY7gxZ9SAVQ==}
 
-  humanize-string@3.1.0:
-    resolution: {integrity: sha512-wEtOOR3sT8nZ7W0WZwEXo68z2EA0kpcpjaN/ZXxpps9PDzZdX8+TAj+XOGKx2WkagP9mnhWtFpfMNSd2WAhiIQ==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+  humanize-string@4.0.0:
+    resolution: {integrity: sha512-oKTbe92h1hinDADnGU7310aeeoaSFIL3UJ13GuM+E2D/wKMFewot4wbbHWeiAW53ymmK6cF89mRrlCkom0umgg==}
+    engines: {node: '>=22'}
 
   idb@8.0.4:
     resolution: {integrity: sha512-jd0ITCrN+Zah4J7R/Z2jnR3W7A4BXDAjmo62MwWuSjxCiueUAf7X5rbodEdidWzeknwXHmLpdZkoiiCppNi30Q==}
@@ -5402,6 +5397,9 @@ packages:
   json-schema-typed@8.0.2:
     resolution: {integrity: sha512-fQhoXdcvc3V28x7C7BMs4P5+kNlgUURe2jmUT1T//oBRMDrqy1QPelJimwZGo7Hg9VPV3EQV5Bnq4hbFy2vetA==}
 
+  json-schema-typed@9.0.0:
+    resolution: {integrity: sha512-t+dkn3pLaz7ku3ELaBKBSQNjd0Sir5zR7Y4CpAR5a+UEH60NefBEAhAgJuWqDH5o4HDfH+EQjmXeQMLc+Xnbdg==}
+
   json-stable-stringify-without-jsonify@1.0.1:
     resolution: {integrity: sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw==}
 
@@ -5441,8 +5439,8 @@ packages:
   langium-railroad@4.4.0:
     resolution: {integrity: sha512-5dZINWslRqUkQaVtn+45SdZyOZ2+LwBGrzWKbRkVf76IZPCRTBzbmNYaCFW09Nwl5dMmv+iQvwkUwViljN0hvg==}
 
-  langium-zod@0.12.2:
-    resolution: {integrity: sha512-Y9Hk7oiFmSHNrep5txg5IGdFYdVdNFwSiRk+eTic31JsvtH6ESPTxLqMY+nFW7c8Nl+vfWhmmWD2jNfHPXp6bQ==}
+  langium-zod@0.12.4:
+    resolution: {integrity: sha512-pGXXWDQmfT6E5VTXe8Aw7Y72OzrtNBsqf6dv0PD2ZIK77g4OVYB2eA55DGvIiSc/KZVNbuFnjApksGzM4BwRBA==}
     hasBin: true
 
   langium@4.4.2:
@@ -7122,8 +7120,9 @@ packages:
     resolution: {integrity: sha512-c16PKLIRxBYpR3jSWsdS7SFp0COm5SOQdiFjY818dYFHJbMGuLBszpF07LBWmOS1uzrHa9VGdynsEgoeKy0oOQ==}
     engines: {node: '>=20'}
 
-  x-to-zod@0.8.0:
-    resolution: {integrity: sha512-BbD5YehkU6Lr/rtZ+c9ByJYpld9Wme0xfjMt7soVozNA98Bdh/4W7jxs3W69k+iRekdjE3RJhlcA17TkdBssug==}
+  x-to-zod@0.10.11:
+    resolution: {integrity: sha512-8ZgwXITt6ypmq9Jw4SgxTveFWavwrgMAZ2KcSUKLSxh8q76d4nu6xe51VMhrzjcG9Mybk8vdddQGqR/jPet4zw==}
+    engines: {node: '>=22.0.0', pnpm: '>=11.0.0'}
     hasBin: true
 
   xml-name-validator@5.0.0:
@@ -8372,26 +8371,26 @@ snapshots:
       '@lezer/highlight': 1.2.5
       '@lezer/lr': 1.4.12
 
-  '@lspeasy/client@3.1.10(ws@8.23.0)':
+  '@lspeasy/client@3.1.11(ws@8.23.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.23.0)
-      camelcase: 9.0.0
+      '@lspeasy/core': 3.0.2(ws@8.23.0)
+      camelcase: 10.0.0
     optionalDependencies:
       zod: 4.6.7
     transitivePeerDependencies:
       - ws
 
-  '@lspeasy/core@3.0.1(ws@8.23.0)':
+  '@lspeasy/core@3.0.2(ws@8.23.0)':
     dependencies:
       type-fest: 5.10.0
     optionalDependencies:
       ws: 8.23.0
       zod: 4.6.7
 
-  '@lspeasy/server@4.2.4(ws@8.23.0)':
+  '@lspeasy/server@4.2.5(ws@8.23.0)':
     dependencies:
-      '@lspeasy/core': 3.0.1(ws@8.23.0)
-      camelcase: 9.0.0
+      '@lspeasy/core': 3.0.2(ws@8.23.0)
+      camelcase: 10.0.0
     optionalDependencies:
       zod: 4.6.7
     transitivePeerDependencies:
@@ -9825,8 +9824,6 @@ snapshots:
 
   camelcase@10.0.0: {}
 
-  camelcase@9.0.0: {}
-
   caniuse-lite@1.0.30001827: {}
 
   ccount@2.0.1: {}
@@ -10093,7 +10090,7 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  decamelize@6.0.1: {}
+  decamelize@7.0.0: {}
 
   decimal.js@10.6.0: {}
 
@@ -10797,9 +10794,9 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  humanize-string@3.1.0:
+  humanize-string@4.0.0:
     dependencies:
-      decamelize: 6.0.1
+      decamelize: 7.0.0
 
   idb@8.0.4: {}
 
@@ -11067,6 +11064,8 @@ snapshots:
 
   json-schema-typed@8.0.2: {}
 
+  json-schema-typed@9.0.0: {}
+
   json-stable-stringify-without-jsonify@1.0.1: {}
 
   json5@2.2.3: {}
@@ -11111,11 +11110,11 @@ snapshots:
       langium: 4.4.2
       railroad-diagrams: 1.0.0
 
-  langium-zod@0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
+  langium-zod@0.12.4(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
     dependencies:
-      humanize-string: 3.1.0
+      humanize-string: 4.0.0
       langium: 4.4.2
-      x-to-zod: 0.8.0
+      x-to-zod: 0.10.11
       zod: 4.6.7
 
   langium@4.4.2:
@@ -13022,9 +13021,10 @@ snapshots:
       is-wsl: 3.1.1
       powershell-utils: 0.2.1
 
-  x-to-zod@0.8.0:
+  x-to-zod@0.10.11:
     dependencies:
-      json-schema-typed: 8.0.2
+      json-schema-typed: 9.0.0
+      tinyglobby: 0.2.17
 
   xml-name-validator@5.0.0: {}
 

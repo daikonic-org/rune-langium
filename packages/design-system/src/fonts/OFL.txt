@@ -1,4 +1,7 @@
+Copyright 1994 Justin Howes. An Unpublished work from Justin Howes.
+Copyright 2012 Greg Fleming, with Reserved Font Name Railway.
 Copyright 2026 The Metropolitan Line Project Authors (https://github.com/cyrealtype/metropolitan-line.git)
+Daikonic Transit modifications copyright 2026 The Daikonic Transit Project Authors.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

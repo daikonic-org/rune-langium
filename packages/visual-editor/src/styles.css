@@ -760,7 +760,7 @@ button[data-navigable]:focus-visible {
   background: color-mix(in oklch, var(--muted) 50%, transparent);
 }
 
-[data-slot="function-metadata"] .section-heading {
+[data-slot="inspector-frame"] .section-heading {
   letter-spacing: normal;
   text-transform: none;
 }

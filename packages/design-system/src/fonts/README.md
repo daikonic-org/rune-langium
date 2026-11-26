@@ -1,13 +1,13 @@
 # Daikonic Transit webfonts
 
 Upright and italic WOFF2 faces sourced from the
-[Daikonic Transit 2026.11.20 release](https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20).
+[Daikonic Transit 1.1.1 release](https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1).
 
 | Family | Version | Use |
 | --- | --- | --- |
-| Sans | 0.111 | Headings, wordmark and display text |
-| System | 0.120 | UI and body with automatic optical sizing |
-| Code | 1.042 | CodeMirror and inline expressions, Book 350 at 94% width |
+| Sans | 1.1.1 | Headings, wordmark and display text |
+| System | 1.1.1 | UI and body with automatic optical sizing |
+| Code | 1.1.1 | CodeMirror and inline expressions, Book 350 at 94% width |
 
 The Code faces come from the release's WOFF2 archive with `wdth` pinned to
 94 using FontTools 4.68.0. They retain variable weights from 350 to 500 and

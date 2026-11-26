@@ -596,8 +596,10 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
       return;
     }
     measuredLayoutKeyRef.current = measuredLayoutKey;
-    if (selectedNodeId)
-      return runViewportAction({
+    if (selectedNodeId) {
+      // Installing the new positions re-runs this effect with the same measurement
+      // key. Let the scheduled fit finish after React Flow receives those positions.
+      runViewportAction({
         relayout: true,
         layoutOptions: activeLayout,
         relayoutNodes: graphNodes,
@@ -605,6 +607,8 @@ const RuneTypeGraphInner = forwardRef<RuneTypeGraphRef, RuneTypeGraphProps>(func
         focusNodeId: selectedNodeId,
         mode: 'fit-node'
       });
+      return;
+    }
     if ((activeLayout.engine ?? 'dagre') === 'elk') {
       computeLayoutAsync(graphNodes, edges, activeLayout).then((relayoutedNodes) => {
         if (!relayoutedNodes) return;

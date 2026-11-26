@@ -41,7 +41,7 @@
     "@js-temporal/polyfill": "^0.5.1",
     "@l1xnan/tree-sitter-sql": "0.4.7",
     "@lezer/highlight": "^1.2.5",
-    "@lspeasy/core": "^3.0.1",
+    "@lspeasy/core": "^3.0.2",
     "@marsidev/react-turnstile": "^1.6.3",
     "@rune-langium/codegen": "workspace:*",
     "@rune-langium/codegen-legacy": "workspace:*",
