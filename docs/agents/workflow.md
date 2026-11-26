@@ -216,7 +216,7 @@ J04c checks that the selected node remains visible after reference hydration.
 
 `@lspeasy/core@3.0.2` imports `type-fest` in its published declarations without declaring the dependency. The workspace package extension supplies `type-fest@5.10.0` so type checking cannot pick up an incompatible hoisted copy from another tool. [Upstream issue #307](https://github.com/pradeepmouli/lspeasy/issues/307) tracks removal after the package declares its own dependency.
 
-`langium-zod@0.12.2` declares its own `x-to-zod` 0.10 range. Keep that upstream range and verify generated Zod schemas and the domain surface when the resolved converter changes.
+`langium-zod@0.12.3` declares its own `x-to-zod` 0.10 range. Keep that upstream range and verify generated Zod schemas and the domain surface when the resolved converter changes.
 
 `patchedDependencies` applies a nesting/AST traversal guard to every transitive `braces@3.0.3` copy used by development tooling. The patch backports only the structural guards from [upstream PR #82 at commit `1f11eb5`](https://github.com/micromatch/braces/pull/82/commits/1f11eb558be9ea0cda87861408bb766e2e714086); it does not include that PR's separate range or parent-queue changes. Parsing permits at most 128 nested brace/parenthesis containers. Recursive walkers reject child depth over 128, child cycles and more than 65,536 visits with `SyntaxError` / `ERR_BRACES_COMPLEXITY`. Shared acyclic children remain valid. Terminal nodes add an edge, so 127 parsed containers leave room for a literal leaf in subsequent traversal. These bounds do not limit Cartesian expansion cardinality or arbitrary AST property getters.
 
@@ -423,7 +423,7 @@ its outbound `/export` entry; the root barrel is intentionally empty. This does
 not imply generated coverage of `/import` or `/rosetta`.
 Domain generation applies the same safe lint fixes as the commit hook before
 formatting, so its type-only imports reproduce in CI.
-The pinned `langium-zod@0.12.2` patch retains setters for contained-node unions, including recursive `RosettaAttributeReference.receiver`. Union setters use the canonical dehydrated field type; mixed primitive/node unions remain excluded. Core's generator and public-domain tests cover this surface. Remove the patch after an upstream release supports these operations and regeneration preserves the exported API.
+The pinned `langium-zod@0.12.3` patch retains setters for contained-node unions, including recursive `RosettaAttributeReference.receiver`. Union setters use the canonical dehydrated field type; mixed primitive/node unions remain excluded. Core's generator and public-domain tests cover this surface. Remove the patch after an upstream release supports these operations and regeneration preserves the exported API.
 Langium CLI 4.4.0 grammar generation is verified on the Node 26.13.0 tooling
 baseline. The former `Invalid URL` limitation on Node 24/26 no longer applies to
 this toolchain. When the CLI asks

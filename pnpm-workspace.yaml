@@ -27,7 +27,7 @@ allowBuilds:
   workerd: false
 
 minimumReleaseAgeExclude:
-  - langium-zod@0.12.2
+  - langium-zod@0.12.3
   - '@zod-to-form/core@0.12.0'
   - '@zod-to-form/react@0.13.1'
   - '@zod-to-form/vite@0.5.1'
@@ -66,7 +66,7 @@ overrides:
   # to one version regardless of the peer ranges.
   react: 19.3.1
   react-dom: 19.3.1
-  langium-zod: 0.12.2
+  langium-zod: 0.12.3
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -109,4 +109,4 @@ patchedDependencies:
   # Match SQLite proxy callback types to the runtime's absent .get() result.
   drizzle-orm@0.45.4: patches/drizzle-orm@0.45.4.patch
   # Preserve contained-node union setters until langium-zod publishes support.
-  langium-zod@0.12.2: patches/langium-zod@0.12.2.patch
+  langium-zod@0.12.3: patches/langium-zod@0.12.3.patch

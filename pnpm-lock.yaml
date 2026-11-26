@@ -11,7 +11,7 @@ overrides:
   '@l1xnan/tree-sitter-sql': 0.4.7
   react: 19.3.1
   react-dom: 19.3.1
-  langium-zod: 0.12.2
+  langium-zod: 0.12.3
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -30,7 +30,7 @@ patchedDependencies:
   '@xyflow/react@13.0.3': 0f37533a999a85b9bf77eeef982ffd5f2f36c6dcd7d84107e4d1a30c84325290
   braces@3.0.3: 34eb31fe97613665c68c7d975f52a39cfe1a8be6064d9d12687b19ab626b4564
   drizzle-orm@0.45.4: 8de823593aa357a8739e3d049ff1d0668e617934630351fa0fa23f5e0715303d
-  langium-zod@0.12.2: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
+  langium-zod@0.12.3: 1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244
 
 importers:
 
@@ -662,8 +662,8 @@ importers:
         specifier: ^4.4.1
         version: 4.4.1
       langium-zod:
-        specifier: 0.12.2
-        version: 0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
+        specifier: 0.12.3
+        version: 0.12.3(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -953,8 +953,8 @@ importers:
         specifier: ^31.0.1
         version: 31.0.1
       langium-zod:
-        specifier: 0.12.2
-        version: 0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
+        specifier: 0.12.3
+        version: 0.12.3(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244)
       react:
         specifier: 19.3.1
         version: 19.3.1
@@ -4440,9 +4440,9 @@ packages:
       supports-color:
         optional: true
 
-  decamelize@6.0.1:
-    resolution: {integrity: sha512-G7Cqgaelq68XHJNGlZ7lrNQyhZGsFqpwtGFexqUv4IQdjKoSYF7ipZ9UuTJZUSQXFj/XaoBLuEVIVqr8EJngEQ==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+  decamelize@7.0.0:
+    resolution: {integrity: sha512-uT/0KzZIx9u4b5vW3HLWtSYwjLTuY2QFVY3xNmfXXUmTqnfgzfT8DEA2gY93go5sXEjnbqP66KcURdVxm0rDXA==}
+    engines: {node: '>=22'}
 
   decimal.js@10.6.0:
     resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
@@ -5097,9 +5097,9 @@ packages:
   humanize-ms@1.2.1:
     resolution: {integrity: sha512-Fl70vYtsAFb/C06PTS9dZBo7ihau+Tu/DNCk/OyHhea07S+aeMWpFFkUaXRa8fI+ScZbEI8dfSxwY7gxZ9SAVQ==}
 
-  humanize-string@3.1.0:
-    resolution: {integrity: sha512-wEtOOR3sT8nZ7W0WZwEXo68z2EA0kpcpjaN/ZXxpps9PDzZdX8+TAj+XOGKx2WkagP9mnhWtFpfMNSd2WAhiIQ==}
-    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+  humanize-string@4.0.0:
+    resolution: {integrity: sha512-oKTbe92h1hinDADnGU7310aeeoaSFIL3UJ13GuM+E2D/wKMFewot4wbbHWeiAW53ymmK6cF89mRrlCkom0umgg==}
+    engines: {node: '>=22'}
 
   idb@8.0.4:
     resolution: {integrity: sha512-jd0ITCrN+Zah4J7R/Z2jnR3W7A4BXDAjmo62MwWuSjxCiueUAf7X5rbodEdidWzeknwXHmLpdZkoiiCppNi30Q==}
@@ -5439,8 +5439,8 @@ packages:
   langium-railroad@4.4.0:
     resolution: {integrity: sha512-5dZINWslRqUkQaVtn+45SdZyOZ2+LwBGrzWKbRkVf76IZPCRTBzbmNYaCFW09Nwl5dMmv+iQvwkUwViljN0hvg==}
 
-  langium-zod@0.12.2:
-    resolution: {integrity: sha512-Y9Hk7oiFmSHNrep5txg5IGdFYdVdNFwSiRk+eTic31JsvtH6ESPTxLqMY+nFW7c8Nl+vfWhmmWD2jNfHPXp6bQ==}
+  langium-zod@0.12.3:
+    resolution: {integrity: sha512-hpHmQZKFcsbP6JaU2j0OVZKppo3e395RXZt2YoT0sAzWcYZRUvNNNegAxjaIhczwOdGhz6LgTOvJaxxHWmSKNg==}
     hasBin: true
 
   langium@4.4.2:
@@ -10090,7 +10090,7 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  decamelize@6.0.1: {}
+  decamelize@7.0.0: {}
 
   decimal.js@10.6.0: {}
 
@@ -10794,9 +10794,9 @@ snapshots:
     dependencies:
       ms: 2.1.3
 
-  humanize-string@3.1.0:
+  humanize-string@4.0.0:
     dependencies:
-      decamelize: 6.0.1
+      decamelize: 7.0.0
 
   idb@8.0.4: {}
 
@@ -11110,9 +11110,9 @@ snapshots:
       langium: 4.4.2
       railroad-diagrams: 1.0.0
 
-  langium-zod@0.12.2(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
+  langium-zod@0.12.3(patch_hash=1836dda03754774975999b4241da0a2455e31cbc131c3fabe155f72fefc35244):
     dependencies:
-      humanize-string: 3.1.0
+      humanize-string: 4.0.0
       langium: 4.4.2
       x-to-zod: 0.10.10
       zod: 4.6.7
