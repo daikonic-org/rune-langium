@@ -178,7 +178,7 @@ export const FunctionPalette = withInstrumentation(
             ))}
           </div>
         )}
-        <section aria-label="Function library">
+        <section className="function-composer__library" aria-label="Function library">
           <h2 className="section-heading">
             Functions <NumberChiclet>{standardFunctions.all().length}</NumberChiclet>
           </h2>

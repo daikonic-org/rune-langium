@@ -69,7 +69,7 @@ import {
 } from '../services/preview-validator.js';
 import { withInstrumentation } from '../services/instrumentation/core.js';
 import { copyTextToClipboard } from '../services/clipboard.js';
-import { useChangeFeedback, useFeedbackRevision } from '../hooks/useChangeFeedback.js';
+import { useChangeFeedback, useFeedbackRevision, useLoadArrival } from '../hooks/useChangeFeedback.js';
 import { previewFeedbackItems } from '../services/feedback-items.js';
 import { formatPreviewNumber } from '../store/form-presentation-store.js';
 import { workflowFieldSchema } from '../services/workflow-fields.js';
@@ -201,6 +201,11 @@ export const FormPreviewPanel = withInstrumentation(
       schema ? s.hydrationRetriesRemaining[schema.targetId] : undefined
     );
     const isResolvingReferences = hydrationRetriesRemaining !== undefined && hydrationRetriesRemaining > 0;
+    const arrival = useLoadArrival(
+      status.targetId,
+      status.state === 'waiting' && !schema,
+      status.state === 'ready' && Boolean(schema)
+    );
     const formFeedback = useChangeFeedback(
       schema?.targetId ?? '',
       useMemo(() => previewFeedbackItems(schema?.fields ?? []), [schema?.fields]),
@@ -559,8 +564,9 @@ export const FormPreviewPanel = withInstrumentation(
         ref={formFeedback}
         role="region"
         aria-label={ariaLabel}
+        data-load-arrival={arrival}
         data-testid={resultView ? 'panel-resultPreview' : 'panel-formPreview'}
-        className={resultView ? 'min-w-0' : 'studio-scroll flex h-full flex-col overflow-auto'}
+        className={resultView ? 'relative min-w-0' : 'studio-scroll relative flex h-full flex-col overflow-auto'}
       >
         <PreviewFieldsContext
           value={{ definitions: schema.definitions, readOnly: presentation.readOnly === true, hideExcludedFields }}

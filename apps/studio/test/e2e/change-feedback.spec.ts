@@ -156,9 +156,12 @@ for (const reducedMotion of ['no-preference', 'reduce'] as const) {
       .locator('.cm-content')
       .fill(source.replace('namespace demo.feedback', 'namespace demo.arrival'));
     await expect(arrived).toHaveAttribute('data-namespace-arrival', '');
-    expect(await arrived.evaluate((element) => getComputedStyle(element, '::before').animationName)).toBe(
-      reducedMotion === 'reduce' ? 'rune-change-highlight' : 'rune-change-highlight, rune-change-arrive'
-    );
+    expect(
+      await arrived.evaluate((element) => {
+        const style = getComputedStyle(element, '::before');
+        return [style.animationName, style.animationDuration, style.pointerEvents];
+      })
+    ).toEqual(['rune-load-arrival', reducedMotion === 'reduce' ? '1e-05s' : '1.6s', 'none']);
     await expect(arrived).not.toHaveAttribute('data-namespace-arrival');
     await expect(filter).toHaveValue('Quote');
     await filter.fill('No matching declaration');

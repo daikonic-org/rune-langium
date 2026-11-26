@@ -121,9 +121,15 @@ export const prepareProjectReferenceView = withInstrumentation(
     signal.throwIfAborted();
     const namespace = (uri: string) =>
       referenceInfo.get(uri)?.lsp?.metadata.namespace ?? namespaceFromModelName(roots.get(uri)?.model.name ?? '') ?? '';
+    // Scope requests rebuild from workspace files, including the index for deferred references.
+    const exportsByUri = new Map(documents.map(({ uri, exports }) => [uri, exports]));
     const view: WorkspaceState = {
       ...state,
-      files: files.map((file) => (file.refOnly ? { ...file, namespace: namespace(pathToUri(file.path)) } : file)),
+      files: files.map((file) => {
+        if (!file.refOnly) return file;
+        const uri = pathToUri(file.path);
+        return { ...file, namespace: namespace(uri), exports: exportsByUri.get(uri) };
+      }),
       models: hydrated.map((entry) => entry.model),
       parsedModels: fallback.map((entry) => ({
         filePath: entry.file.path,

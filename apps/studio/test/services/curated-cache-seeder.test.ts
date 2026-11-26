@@ -35,8 +35,9 @@ it('deduplicates two tabs and uses the canonical transport without retaining a s
   seeder.seed(2, [seed()]);
   await vi.runAllTimersAsync();
   expect(fetchNamespace).toHaveBeenCalledTimes(1);
-  expect(fetchNamespace).toHaveBeenCalledWith('cdm', seed().version, JSON.parse(seed().key)[1], expect.any(Function), {
-    retain: false
+  expect(fetchNamespace).toHaveBeenCalledWith('cdm', seed().version, JSON.parse(seed().key)[1], undefined, {
+    retain: false,
+    signal: expect.any(AbortSignal)
   });
   expect(cache.seedDocuments).toHaveBeenCalledWith(seed().key, [
     {
@@ -92,19 +93,13 @@ it('waits for foreground work across tabs and automatically expires abandoned ho
 it('aborts an active download for foreground work and retries it after release', async () => {
   const { seeder, cache, fetchNamespace } = setup();
   let signal: AbortSignal | undefined;
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(
-      (_url, init) =>
-        new Promise((_resolve, reject) => {
-          signal = init.signal;
-          signal!.addEventListener('abort', () => reject(signal!.reason));
-        })
-    )
-  );
-  fetchNamespace.mockImplementationOnce(async (_id, _version, _artifact, fetcher) => {
-    await fetcher!('https://www.daikonic.dev/curated/cdm/test');
-    return [];
+  fetchNamespace.mockImplementationOnce(async (_id, _version, _artifact, _fetcher, options) => {
+    const current = options?.signal;
+    if (!current) throw new Error('Expected caller cancellation');
+    signal = current;
+    return new Promise((_resolve, reject) =>
+      current.addEventListener('abort', () => reject(current.reason), { once: true })
+    );
   });
   seeder.seed(1, [seed()]);
   await vi.advanceTimersByTimeAsync(1);
@@ -151,8 +146,9 @@ it('preserves publisher-provided namespace mappings, including sanitized artifac
   seeder.seed(1, batch);
   await vi.runAllTimersAsync();
   expect(fetchNamespace).toHaveBeenCalledTimes(2);
-  expect(fetchNamespace).toHaveBeenLastCalledWith('fpml', fpml.version, JSON.parse(fpml.key)[1], expect.any(Function), {
-    retain: false
+  expect(fetchNamespace).toHaveBeenLastCalledWith('fpml', fpml.version, JSON.parse(fpml.key)[1], undefined, {
+    retain: false,
+    signal: expect.any(AbortSignal)
   });
   expect(cache.seedDocuments).toHaveBeenLastCalledWith(fpml.key, [
     expect.objectContaining({ bundleId: 'fpml', namespace: fpml.namespace, artifactKey: fpml.key })
