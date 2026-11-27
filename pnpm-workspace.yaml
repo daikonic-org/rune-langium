@@ -27,7 +27,7 @@ allowBuilds:
   workerd: false
 
 minimumReleaseAgeExclude:
-  - langium-zod@0.12.2
+  - langium-zod@0.12.4
   - '@zod-to-form/core@0.12.0'
   - '@zod-to-form/react@0.13.1'
   - '@zod-to-form/vite@0.5.1'
@@ -35,7 +35,7 @@ minimumReleaseAgeExclude:
   - '@lspeasy/client@3.1.11'
   - '@lspeasy/core@3.0.2'
   - '@lspeasy/server@4.2.5'
-  - x-to-zod@0.10.10
+  - x-to-zod@0.10.11
   # PR #353: @lspeasy/client 3.1.5 pulls in @lspeasy/core 2.6.0 as a new
   # transitive resolution; both were too freshly-published for the age gate,
   # which blocked `pnpm install` (not a real breaking change in the bump).
@@ -66,7 +66,7 @@ overrides:
   # to one version regardless of the peer ranges.
   react: 19.3.1
   react-dom: 19.3.1
-  langium-zod: 0.12.2
+  langium-zod: 0.12.4
   '@zod-to-form/core': 0.12.0
   '@zod-to-form/react': 0.13.1
   codemirror: 6.0.2
@@ -109,4 +109,4 @@ patchedDependencies:
   # Match SQLite proxy callback types to the runtime's absent .get() result.
   drizzle-orm@0.45.4: patches/drizzle-orm@0.45.4.patch
   # Preserve contained-node union setters until langium-zod publishes support.
-  langium-zod@0.12.2: patches/langium-zod@0.12.2.patch
+  langium-zod@0.12.4: patches/langium-zod@0.12.4.patch

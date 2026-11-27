@@ -3,10 +3,10 @@
     {
       "family": "Daikonic Transit Sans",
       "style": "normal",
-      "version": "0.111",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "version": "1.1.1",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1",
       "file": "DaikonicTransitSans-VF.woff2",
-      "sha256": "c436d159686b8c9462107b2c48bd6ce54306b22fcc8a0a324f614c804d185cb0",
+      "sha256": "9c1dca7060af259fc0550defb3dc9767d5abf933ae7eb923aa59ad0c1e40d2a7",
       "axes": {
         "wght": {
           "min": 300.0,
@@ -18,10 +18,10 @@
     {
       "family": "Daikonic Transit Sans",
       "style": "italic",
-      "version": "0.111",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "version": "1.1.1",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1",
       "file": "DaikonicTransitSans-Italic-VF.woff2",
-      "sha256": "ae89b475cf4c8f8d6c0d28f392c074787f0a88a8458876d3c5312e3a0885a2d6",
+      "sha256": "563b46f18245e3b45fd2b8926aecdefcf98d7b874b37a250fb9a1cd82f37a68d",
       "axes": {
         "wght": {
           "min": 300.0,
@@ -33,10 +33,10 @@
     {
       "family": "Daikonic Transit System",
       "style": "normal",
-      "version": "0.120",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "version": "1.1.1",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1",
       "file": "DaikonicTransitSystem-VF.woff2",
-      "sha256": "3f8f0ed03e94fcf4a4bfaf0108a6cc3919b480c837febe5c72a1facf15ac4a7c",
+      "sha256": "14ba8cba8c90f9d3824dda447e850589a5949103314b5d457cb1cf3915149876",
       "axes": {
         "wght": {
           "min": 300.0,
@@ -47,16 +47,21 @@
           "min": 10.909088134765625,
           "default": 15.272720336914062,
           "max": 39.27272033691406
+        },
+        "wdth": {
+          "min": 94.0,
+          "default": 100.0,
+          "max": 108.0
         }
       }
     },
     {
       "family": "Daikonic Transit System",
       "style": "italic",
-      "version": "0.120",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "version": "1.1.1",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1",
       "file": "DaikonicTransitSystem-Italic-VF.woff2",
-      "sha256": "0cd93ebc625d959c294999f93da80322948b08f91c132b231e0742deba888332",
+      "sha256": "cbb2134530066e184756e2dc689a826dddd12080be73d836b9fb7b23ab1b152f",
       "axes": {
         "wght": {
           "min": 300.0,
@@ -67,16 +72,21 @@
           "min": 10.909088134765625,
           "default": 15.272720336914062,
           "max": 39.27272033691406
+        },
+        "wdth": {
+          "min": 94.0,
+          "default": 100.0,
+          "max": 108.0
         }
       }
     },
     {
       "family": "Daikonic Transit Code",
       "style": "normal",
-      "version": "1.042",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "version": "1.1.1",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1",
       "file": "DaikonicTransitCodeNarrow-VF.woff2",
-      "sha256": "88c8a0fda170e3c136ad305c535b621b4e6a91c917138c158873fa7b882fc094",
+      "sha256": "1894a89c0683d2e5ce7661e17a3a59a73d6625d50143c62fc211a83aff502de0",
       "axes": {
         "wght": {
           "min": 350.0,
@@ -85,8 +95,8 @@
         }
       },
       "derivation": {
-        "archive": "WOFF2-daikonic-transit-2026.11.20.zip",
-        "archiveSha256": "64e5bc339bd781c6404a7eef09d3b5278b970e1961e43d4138ca7afc2e9544c5",
+        "archive": "WOFF2-daikonic-transit-1.1.1.zip",
+        "archiveSha256": "44f37c55e082b6a669cfb12de5de6da35a326b52ea7211365f3cda393c3729a6",
         "fontToolsVersion": "4.68.0",
         "pinnedAxes": {
           "wdth": 94
@@ -96,10 +106,10 @@
     {
       "family": "Daikonic Transit Code",
       "style": "italic",
-      "version": "1.042",
-      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-2026.11.20",
+      "version": "1.1.1",
+      "release": "https://github.com/daikonic-org/transit-typeface/releases/tag/Transit-1.1.1",
       "file": "DaikonicTransitCodeNarrow-Italic-VF.woff2",
-      "sha256": "f41501332f83fb73afc1e130cc2984adaf039322063c87eb2fc7858d98cf211d",
+      "sha256": "4c727665f90d3a2a8742dbfc1e39d321b4ec29a47b52b8c2268d30b471cb6621",
       "axes": {
         "wght": {
           "min": 350.0,
@@ -108,8 +118,8 @@
         }
       },
       "derivation": {
-        "archive": "WOFF2-daikonic-transit-2026.11.20.zip",
-        "archiveSha256": "64e5bc339bd781c6404a7eef09d3b5278b970e1961e43d4138ca7afc2e9544c5",
+        "archive": "WOFF2-daikonic-transit-1.1.1.zip",
+        "archiveSha256": "44f37c55e082b6a669cfb12de5de6da35a326b52ea7211365f3cda393c3729a6",
         "fontToolsVersion": "4.68.0",
         "pinnedAxes": {
           "wdth": 94
